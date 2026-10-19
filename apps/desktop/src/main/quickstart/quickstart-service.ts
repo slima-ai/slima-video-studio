@@ -10,6 +10,7 @@ import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
   DEFAULT_SOUND_SETTINGS,
+  billableChars,
   isAppError,
   resolveStoryboardGuide,
   type QuickStartCheck,
@@ -34,6 +35,7 @@ import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
 import type { ShotService } from '../shots/shot-service'
+import type { SoundService } from '../sound/sound-service'
 import { createStudioServices } from '../studio-services'
 import { ProgressTracker } from './progress-tracker'
 
@@ -50,6 +52,8 @@ export interface QuickStartDeps {
   projectsDir: string
   /** 找 FFmpeg（接片用）。預設到系統找。 */
   tools?: () => MediaTools | undefined
+  /** 聲音服務（完成後自動加旁白與配樂用）；沒給就不加。聲音服務在快速開始之後才建，所以用函式取。 */
+  sound?: () => Pick<SoundService, 'addAll'> | undefined
   now?: () => Date
 }
 
@@ -76,6 +80,22 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
   const { projects, runtime, settings, settingsService, models, shots, broadcast, log } = deps
   const now = deps.now ?? (() => new Date())
   const tools = deps.tools ?? findTools
+
+  /** 對話框勾了旁白、配樂時，預估要多花的錢：配樂一首；旁白每鏡約 40 個字（鏡頭還沒拆出來，只能估）。 */
+  const soundEstimate = (request: QuickStartRequest): number => {
+    const want = request.sound
+    if (!want) return 0
+    let usd = 0
+    const music = settingsService.resolveModel('music')
+    if (want.music && music) usd += models.estimate(music, { tracks: 1 })
+    const tts = settingsService.resolveModel('tts')
+    const card = tts === undefined ? undefined : models.get(tts)
+    if (want.narration && tts !== undefined && card) {
+      usd +=
+        request.shotCount * models.estimate(tts, { chars: billableChars(card, '字'.repeat(40)) })
+    }
+    return usd
+  }
 
   const registry: NodeRegistry = createRegistry()
   registerQuickStartNodes(registry)
@@ -145,8 +165,8 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
         priceLookup: (id, usage) => models.estimate(id, usage),
         itemCounts: quickStartItemCounts(request),
       })
-      estimatedUsd = estimate.totalUsd
-      lowerBound = estimate.uncertainNodeIds.length > 0
+      estimatedUsd = estimate.totalUsd + soundEstimate(request)
+      lowerBound = estimate.uncertainNodeIds.length > 0 || request.sound?.narration === true
       const handle = projects.current()
       const exceeded = checkBudget({
         budget,
@@ -205,6 +225,8 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
         ...(request.mode ? { mode: request.mode } : {}),
         ...(request.sourceKey ? { sourceKey: request.sourceKey } : {}),
       })
+      // 對話框的「影片原聲」勾選存進專案的聲音設定（之後單鏡重新生成也沿用）
+      if (request.sound) handle.repos.sound.updateSettings({ nativeAudio: request.sound.native })
       const anchors = lockedAnchors(handle)
       const editModel = referenceEditModel(anchors, settingsService, models)
       const flow = buildQuickStart({
@@ -253,6 +275,19 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
           if (snapshot && myTracker === tracker) broadcast('quickstart.progress', snapshot)
           throw error
         })
+        .then(async (result) => {
+          // 完成後自動加旁白與配樂（對話框勾了才加）；聲音失敗不影響已經生成好的影片，
+          // 成品面板的「加上旁白與配樂」還可以再試
+          if (result.run.status !== 'succeeded') return
+          const want = request.sound
+          const sound = deps.sound?.()
+          if (!sound || !want || !(want.narration || want.music)) return
+          try {
+            await sound.addAll({ narration: want.narration, music: want.music })
+          } catch (error) {
+            log.warn(`快速開始完成後加聲音失敗：${String(error)}`)
+          }
+        })
         .finally(() => {
           if (active === controller) active = undefined
           endShots()
@@ -281,7 +316,8 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
 
     export() {
       const handle = projects.current()
-      const hash = tracker.snapshot()?.finalVideoHash ?? shots.finalVideoHash()
+      // 最新一版成品（有聲音時是混好的）；沒有才用這次生成接好的影片
+      const hash = shots.finalVideoHash() ?? tracker.snapshot()?.finalVideoHash
       if (!handle || !hash) throw invalid('還沒有可以匯出的影片，請先完成一次生成。')
       const source = handle.assets.find(hash)
       if (!source) throw invalid('找不到成品影片檔，可能已被刪除。')

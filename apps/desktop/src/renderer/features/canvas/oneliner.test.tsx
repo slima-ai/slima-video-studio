@@ -45,6 +45,29 @@ describe('OnelinerBody', () => {
     expect(updateOneliner).toHaveBeenCalledWith('node:one', { story: '一隻貓在雨夜找到家' })
   })
 
+  it('聲音三個勾選預設全開；勾掉一個就存起來；生成時帶著目前的勾選', () => {
+    const updateOneliner = vi.fn()
+    const growStory = vi.fn()
+    renderBody(
+      { updateOneliner, growStory },
+      data({ oneliner: { ...ONELINER_DEFAULTS, story: '一隻貓' } }),
+    )
+    for (const key of ['native', 'narration', 'music']) {
+      expect(screen.getByTestId<HTMLInputElement>(`oneliner-sound-${key}`).checked).toBe(true)
+    }
+    fireEvent.click(screen.getByTestId('oneliner-sound-music'))
+    expect(updateOneliner).toHaveBeenCalledWith('node:one', {
+      sound: { native: true, narration: true, music: false },
+    })
+    expect(screen.getByTestId<HTMLInputElement>('oneliner-sound-music').checked).toBe(false)
+    fireEvent.click(screen.getByTestId('oneliner-generate'))
+    expect(growStory).toHaveBeenCalledWith(
+      'node:one',
+      expect.objectContaining({ sound: { native: true, narration: true, music: false } }),
+      expect.anything(),
+    )
+  })
+
   it('沒有故事不能生成；有故事時按「生成影片」帶著目前的設定和按鈕位置', () => {
     const growStory = vi.fn()
     renderBody({ growStory, updateOneliner: vi.fn() })
@@ -60,7 +83,12 @@ describe('OnelinerBody', () => {
       { right: number },
     ]
     expect(id).toBe('node:one')
-    expect(params).toEqual({ ...ONELINER_DEFAULTS, story: '貓找到家' })
+    // 聲音勾選預設全開，生成時一併帶著
+    expect(params).toEqual({
+      ...ONELINER_DEFAULTS,
+      story: '貓找到家',
+      sound: { native: true, narration: true, music: true },
+    })
     expect(typeof anchor.right).toBe('number')
   })
 

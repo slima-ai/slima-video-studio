@@ -69,6 +69,14 @@ export interface SoundService {
   adoptClip: (clipId: string) => SoundClip
   removeClip: (clipId: string) => void
   updateSettings: (patch: SoundSettingsPatch) => SoundSettings
+  /**
+   * 一次加上旁白與配樂並混音（快速開始完成後用）：念每個「有台詞、還沒有旁白」的鏡頭，再生一首配樂，最後混進成品。
+   * 任何一步失敗就停在那裡（已生成的保留），錯誤往外丟。
+   */
+  addAll: (input: {
+    narration: boolean
+    music: boolean
+  }) => Promise<{ narrations: number; music: boolean }>
   /** 目前聲音的指紋（採用中的片段與設定）；沒有聲音要處理是 undefined。成品記著它，不一樣就是過期。 */
   soundKey: (handle: ProjectHandle) => string | undefined
   /** 把聲音混進接好的影片（接片時用）；沒有聲音要處理回傳 undefined。 */
@@ -465,7 +473,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     throw error
   }
 
-  return {
+  const service: SoundService = {
     state: () => stateOf(need()),
     plan,
 
@@ -582,6 +590,27 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     soundKey: soundKeyOf,
     mixInto,
 
+    async addAll(input) {
+      const handle = need()
+      const items = plan({
+        ...(input.narration ? { narration: {} } : {}),
+        ...(input.music ? { music: {} } : {}),
+      })
+      if (!items.ok) throw invalid(items.issue ?? '現在不能加聲音。')
+      let narrations = 0
+      for (const item of items.items) {
+        if (item.kind !== 'narration' || item.shotId === undefined) continue
+        await service.generateNarration({ shotId: item.shotId })
+        narrations++
+      }
+      const wantMusic = items.items.some((i) => i.kind === 'music')
+      if (wantMusic) await service.generateMusic({})
+      if (narrations > 0 || wantMusic) {
+        if (handle.repos.finalCuts.latest()) await service.mix()
+      }
+      return { narrations, music: wantMusic }
+    },
+
     async analyze() {
       const handle = need()
       const latest = handle.repos.finalCuts.latest()
@@ -692,6 +721,8 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       return { videoHash: finalHash, version: record.version }
     },
   }
+
+  return service
 
   /** 配樂的預設描述：永遠是純音樂；風格取專案的風格，情緒取各鏡頭填的情緒。 */
   function defaultMusicPrompt(handle: ProjectHandle): string {
