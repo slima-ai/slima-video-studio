@@ -1,5 +1,5 @@
 import type { SoundPlan } from '@svs/schema'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { Button } from '../../components/button'
 import { call, errorText } from '../../lib/svs'
@@ -83,8 +83,10 @@ export function ShotSound({ shotId }: { shotId: string }) {
   const [flow, setFlow] = useState<Step>({ step: 'idle' })
   const [error, setError] = useState<string>()
   const [dialogueDirty, setDialogueDirty] = useState(false)
-  // 勾選的當下就換狀態，不等主程序回應；回應慢時才不會先彈回原樣再跳過來
-  const [pendingUse, setPendingUse] = useState<boolean>()
+  // 勾選的當下就換狀態，不等主程序回應；回應慢時才不會先彈回原樣再跳過來。
+  // 記下點擊當下主程序那邊的 nativeMuted（base）：它一變（含別處改的）就以主程序為準。
+  // 不用 useEffect 去清：載入那次 commit 留下的 effect 可能在點擊之後才跑，會把剛點的蓋回去
+  const [pending, setPending] = useState<{ use: boolean; base: boolean | undefined }>()
   const {
     mixing,
     error: mixError,
@@ -95,10 +97,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
   })
   const view = state?.shots.find((s) => s.shotId === shotId)
   const nativeMuted = view?.nativeMuted
-  useEffect(() => {
-    // 主程序那邊的狀態更新了（含別處改的）：以它為準
-    setPendingUse(undefined)
-  }, [nativeMuted])
+  const pendingUse = pending?.base === nativeMuted ? pending?.use : undefined
   if (!state || !view) return null
 
   const fail = (e: unknown): void => {
@@ -110,13 +109,13 @@ export function ShotSound({ shotId }: { shotId: string }) {
     const muted = new Set(state.settings.muteNativeShotIds)
     if (use) muted.delete(shotId)
     else muted.add(shotId)
-    setPendingUse(use)
+    setPending({ use, base: nativeMuted })
     call('sound.updateSettings', { muteNativeShotIds: [...muted] })
       .then(() => {
         schedule()
       })
       .catch((e: unknown) => {
-        setPendingUse(undefined)
+        setPending(undefined)
         fail(e)
       })
   }

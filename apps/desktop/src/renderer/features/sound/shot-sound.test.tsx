@@ -152,7 +152,7 @@ describe('ShotSound：一個鏡頭的聲音', () => {
   it('資料剛載入、畫面剛出現就點「用影片原聲」：不會被載入那一刻留下的重設蓋回去', async () => {
     // 不包 act：載入那次 commit 的 passive effect 要等下一個排程才跑，
     // 這裡偏偏在 commit 一出現的同一個 microtask 就點，把 CI 機器忙時才會碰到的順序固定下來
-    const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean | undefined }
     const before = env.IS_REACT_ACT_ENVIRONMENT
     env.IS_REACT_ACT_ENVIRONMENT = false
     try {
@@ -163,9 +163,7 @@ describe('ShotSound：一個鏡頭的聲音', () => {
       const { container } = render(<ShotSound shotId="s1" />)
       const checkedAfterClick = await new Promise<boolean>((resolve) => {
         const observer = new MutationObserver(() => {
-          const box = container.querySelector<HTMLInputElement>(
-            '[data-testid="shot-sound-native"]',
-          )
+          const box = container.querySelector<HTMLInputElement>('[data-testid="shot-sound-native"]')
           if (!box) return
           observer.disconnect()
           box.click()
