@@ -3,6 +3,7 @@ import { ModelSpecSchema, expandModelSpec, type ModelCard, type ModelSpec } from
 import claudeOpus5_5 from '../../models/claude-opus-5.5.json'
 import claudeSonnet5_5 from '../../models/claude-sonnet-5.5.json'
 import gemini3ProImage from '../../models/gemini-3-pro-image.json'
+import gpt5_5 from '../../models/gpt-5.5.json'
 import kling3_0Pro from '../../models/kling-3.0-pro.json'
 import kling3_0Standard from '../../models/kling-3.0-standard.json'
 import mockImage from '../../models/mock-image.json'
@@ -19,6 +20,7 @@ const RAW_SPECS: readonly unknown[] = [
   claudeOpus5_5,
   claudeSonnet5_5,
   gemini3ProImage,
+  gpt5_5,
   kling3_0Pro,
   kling3_0Standard,
   mockImage,
@@ -35,6 +37,7 @@ export const BUILTIN_MODEL_FILES: readonly string[] = [
   'claude-opus-5.5.json',
   'claude-sonnet-5.5.json',
   'gemini-3-pro-image.json',
+  'gpt-5.5.json',
   'kling-3.0-pro.json',
   'kling-3.0-standard.json',
   'mock-image.json',

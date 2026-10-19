@@ -52,6 +52,7 @@ describe('內建 ModelCard', () => {
     for (const id of [
       'openrouter/claude-sonnet-5.5',
       'openrouter/claude-opus-5.5',
+      'openrouter/gpt-5.5',
       'fal/nano-banana-2',
       'fal/seedream-5.0',
       'fal/kling-3.0-pro',
@@ -181,10 +182,12 @@ describe('ModelRegistry', () => {
     const video = registry.available({ ...BOTH, capability: 'i2v' })
     expect(video.every((c) => c.capabilities.includes('i2v'))).toBe(true)
     expect(video.map((c) => c.id)).toContain('fal/kling-3.0-standard')
-    expect(registry.available({ ...BOTH, capability: 'llm' }).map((c) => c.provider)).toEqual([
-      'openrouter',
-      'openrouter',
-    ])
+    expect(
+      registry
+        .available({ ...BOTH, capability: 'llm' })
+        .map((c) => c.id)
+        .sort(),
+    ).toEqual(['openrouter/claude-opus-5.5', 'openrouter/claude-sonnet-5.5', 'openrouter/gpt-5.5'])
   })
 
   it('已下架或過了下架日的模型不會出現在選單', () => {
