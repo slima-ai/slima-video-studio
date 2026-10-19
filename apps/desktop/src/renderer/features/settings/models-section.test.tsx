@@ -132,7 +132,13 @@ describe('ModelsSection', () => {
     installFakeSvs()
     render(
       <ModelsSection
-        models={[{ ...MODELS[0], notes: '適合畫角色三視圖。' } as (typeof MODELS)[number]]}
+        models={[
+          {
+            ...MODELS[0],
+            notes: '2026-10-19 實測的工程備註',
+            userNote: '適合畫角色三視圖。',
+          } as (typeof MODELS)[number],
+        ]}
         selected={{ t2i: 'fal/nano-banana-2' }}
         onChanged={vi.fn()}
         onGoToKeys={vi.fn()}

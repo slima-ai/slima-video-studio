@@ -1,6 +1,7 @@
 {
   "key": "mock-image",
   "displayName": "示範圖片",
+  "userNote": "示範用，不連網、不花錢",
   "tasks": ["t2i", "edit"],
   "tier": "balanced",
   "recommended": true,

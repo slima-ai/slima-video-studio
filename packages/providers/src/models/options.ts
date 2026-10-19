@@ -88,5 +88,6 @@ export function toModelOption(
       .filter((c) => c.provider !== card.provider)
       .map((c) => providerName(c.provider)),
     ...(card.notes ? { notes: card.notes } : {}),
+    ...(card.userNote ? { userNote: card.userNote } : {}),
   }
 }

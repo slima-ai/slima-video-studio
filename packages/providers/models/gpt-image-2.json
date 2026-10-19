@@ -1,6 +1,7 @@
 {
   "key": "gpt-image-2",
   "displayName": "GPT Image 2",
+  "userNote": "圖片又快又省，適合試構圖與角色",
   "tasks": ["t2i", "edit"],
   "tier": "budget",
   "recommended": false,

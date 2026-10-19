@@ -1,6 +1,7 @@
 {
   "key": "gemini-3-pro-image",
   "displayName": "Gemini 3 Pro Image",
+  "userNote": "畫質好的圖片模型，能參考多張圖",
   "tasks": ["t2i", "edit"],
   "tier": "premium",
   "recommended": false,

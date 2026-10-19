@@ -1,6 +1,7 @@
 {
   "key": "minimax-speech-2.8-hd",
   "displayName": "MiniMax Speech 2.8 HD",
+  "userNote": "把台詞念出來，以中文為主",
   "tasks": ["tts"],
   "tier": "balanced",
   "recommended": true,

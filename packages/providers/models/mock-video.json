@@ -1,6 +1,7 @@
 {
   "key": "mock-video",
   "displayName": "示範影片",
+  "userNote": "示範用，不連網、不花錢",
   "tasks": ["t2v", "i2v"],
   "tier": "balanced",
   "recommended": true,

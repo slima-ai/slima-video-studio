@@ -1,6 +1,7 @@
 {
   "key": "kling-3.0-pro",
   "displayName": "Kling 3.0 Pro",
+  "userNote": "寫實、畫質最好的影片，有聲音",
   "tasks": ["t2v", "i2v", "r2v"],
   "tier": "premium",
   "recommended": true,

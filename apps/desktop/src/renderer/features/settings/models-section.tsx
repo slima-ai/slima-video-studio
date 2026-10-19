@@ -233,12 +233,12 @@ export function ModelsSection({
                         </div>
                       </div>
                     ) : null}
-                    {detail?.notes ? (
+                    {detail?.userNote ? (
                       <p
                         className="mt-1 text-xs text-fg-muted"
                         data-testid={`model-${capability}-detail`}
                       >
-                        {detail.notes}
+                        {detail.userNote}
                       </p>
                     ) : null}
                     {unlock ? (

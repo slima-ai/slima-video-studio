@@ -1,6 +1,7 @@
 {
   "key": "nano-banana-2",
   "displayName": "Nano Banana 2",
+  "userNote": "畫角色與分鏡的預設圖片模型",
   "tasks": ["t2i", "edit"],
   "tier": "balanced",
   "recommended": true,
