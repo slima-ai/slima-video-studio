@@ -304,6 +304,15 @@ describe('ModelRegistry', () => {
     )
     expect(registry.estimate('openrouter/veo-3.1-lite', { seconds: 6 })).toBeCloseTo(0.3)
     expect(registry.estimate('openrouter/kling-3.0-standard', { seconds: 5 })).toBeCloseTo(0.42)
+    // 最低計費 5 秒（2026-10-19 實測：3 秒有聲收 0.63、3 秒無聲收 0.42）：短於 5 秒的預估也按 5 秒算
+    expect(registry.estimate('openrouter/kling-3.0-standard', { seconds: 3 })).toBeCloseTo(0.42)
+    expect(
+      registry.estimate('openrouter/kling-3.0-standard', { seconds: 3, audio: true }),
+    ).toBeCloseTo(0.63)
+    // 超過 5 秒照實際秒數
+    expect(registry.estimate('openrouter/kling-3.0-standard', { seconds: 8 })).toBeCloseTo(0.672)
+    // 沒有量過最低計費的管道（fal）照實際秒數，不亂套
+    expect(registry.estimate('fal/kling-3.0-standard', { seconds: 3 })).toBeCloseTo(0.252)
   })
 
   it('OpenRouter 的 Veo 3.1 Lite 只收 4、6、8 秒（實測）；fal 通道沒實測，不宣稱離散秒數', () => {

@@ -128,6 +128,8 @@ export const ModelCardSchema = z
     verification: ModelVerificationSchema,
     /** 影片的最長秒數／最短秒數。 */
     durationSec: DurationRangeSchema.optional(),
+    /** 依秒計價的模型有最低計費秒數時才填（例如 OpenRouter 的 Kling 3.0 Std 3 秒也收 5 秒）；預估花費按它算。 */
+    minBillableSec: z.number().positive().optional(),
     resolutions: z.array(z.string().min(1)).default([]),
     nativeAudio: z.boolean().default(false),
     /** 脈絡長度（LLM，單位 token）。 */
@@ -217,6 +219,7 @@ export const ModelChannelSchema = z.object({
   status: ModelStatusSchema.optional(),
   sunsetDate: z.iso.date().optional(),
   durationSec: DurationRangeSchema.optional(),
+  minBillableSec: z.number().positive().optional(),
   resolutions: z.array(z.string().min(1)).optional(),
   referenceLimits: ReferenceLimitsSchema.optional(),
   characterMechanism: CharacterMechanismSchema.optional(),
@@ -311,6 +314,7 @@ export function expandModelSpec(spec: ModelSpec): ModelCard[] {
       pricing: channel.pricing,
       verification: channel.verification,
       ...(durationSec === undefined ? {} : { durationSec }),
+      ...(channel.minBillableSec === undefined ? {} : { minBillableSec: channel.minBillableSec }),
       resolutions: channel.resolutions ?? [],
       nativeAudio: spec.features.nativeAudio,
       ...(spec.features.contextTokens === undefined
@@ -363,7 +367,7 @@ export function estimateCostUsd(card: ModelCard, usage: UsageEstimate): number {
     case 'second': {
       if (usage.seconds === undefined) throw MISSING('秒數', card)
       const rate = usage.audio === true ? (p.usdWithAudio ?? p.usd) : p.usd
-      return usage.seconds * rate
+      return Math.max(usage.seconds, card.minBillableSec ?? 0) * rate
     }
     case 'image': {
       if (usage.images === undefined) throw MISSING('張數', card)
