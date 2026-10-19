@@ -1,9 +1,11 @@
 import type { SoundPlan, SoundSettingsPatch } from '@svs/schema'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 import { Button } from '../../components/button'
 import { call, errorText } from '../../lib/svs'
 import { LEVEL_LABELS, MUSIC_DB, NARRATION_DB, NATIVE_DB, levelOf, type Level } from './levels'
+import { SoundTimeline } from './sound-timeline'
+import { useAutoMix } from './use-auto-mix'
 import { useSound } from './use-sound'
 
 type Choice = Level | 'off'
@@ -72,15 +74,14 @@ export function SoundPanel() {
   const { state, error, reload } = useSound()
   const [add, setAdd] = useState<AddState>({ step: 'idle' })
   const [actionError, setActionError] = useState<string>()
-  const [mixing, setMixing] = useState(false)
-  const mixTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-
-  useEffect(
-    () => () => {
-      if (mixTimer.current) clearTimeout(mixTimer.current)
-    },
-    [],
-  )
+  const {
+    mixing,
+    error: mixError,
+    schedule: scheduleMix,
+  } = useAutoMix({
+    enabled: state?.final !== undefined,
+    onDone: reload,
+  })
 
   if (!state) {
     return error ? (
@@ -92,20 +93,6 @@ export function SoundPanel() {
 
   const fail = (e: unknown): void => {
     setActionError(errorText(e))
-  }
-
-  /** 設定改完等一下就自動重混（連按幾次只混一次）。 */
-  const scheduleMix = (): void => {
-    if (mixTimer.current) clearTimeout(mixTimer.current)
-    mixTimer.current = setTimeout(() => {
-      setMixing(true)
-      call('sound.mix', {})
-        .catch(fail)
-        .finally(() => {
-          setMixing(false)
-          reload()
-        })
-    }, 500)
   }
 
   const change = (patch: SoundSettingsPatch): void => {
@@ -263,6 +250,7 @@ export function SoundPanel() {
             if (choice !== 'off') change({ musicGainDb: MUSIC_DB[choice] })
           }}
         />
+        <SoundTimeline state={state} />
         <p className="text-xs text-fg-muted" data-testid="sound-summary">
           {narrationCount > 0 ? `${String(narrationCount)} 個鏡頭有旁白` : '沒有旁白'}
           {state.music ? '、有配樂' : '、沒有配樂'}。調整音量不花錢，會自動重混。
@@ -299,6 +287,11 @@ export function SoundPanel() {
     >
       <h3 className="text-sm font-semibold">聲音</h3>
       {body}
+      {mixError ? (
+        <p role="alert" className="text-sm text-danger" data-testid="sound-mix-error">
+          {mixError}
+        </p>
+      ) : null}
       {actionError ? (
         <p role="alert" className="text-sm text-danger" data-testid="sound-error">
           {actionError}
