@@ -13,6 +13,14 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// 打包版一定用作業系統的鑰匙圈。macOS 的鑰匙圈會跳密碼視窗、授權又綁執行檔，反覆跑會一直打擾使用者，
+// 所以 macOS 上預設不准跑（這支是給 Linux CI 用的）；真的要在 Mac 上驗，要明確同意。
+if (process.platform === 'darwin' && process.env.SVS_ALLOW_REAL_KEYCHAIN !== '1') {
+  throw new Error(
+    '打包版冒煙會用到真的 macOS 鑰匙圈（會跳密碼視窗）。要在 Mac 上跑請明確設 SVS_ALLOW_REAL_KEYCHAIN=1。',
+  )
+}
+
 const here = dirname(fileURLToPath(import.meta.url))
 const executablePath = process.argv[2] ?? join(here, '../release/linux-unpacked/slima-video-studio')
 const shotsDir = process.argv[3]

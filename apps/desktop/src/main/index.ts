@@ -128,6 +128,11 @@ void app.whenReady().then(() => {
 
   const registry = createIpcRegistry(log)
   const userData = app.getPath('userData')
+  if (!app.isPackaged && process.env.SVS_REAL_VAULT !== '1') {
+    log.info(
+      '開發模式：服務金鑰只放在記憶體（重開就沒了，也不碰系統鑰匙圈）。要用真的鑰匙圈請設 SVS_REAL_VAULT=1',
+    )
+  }
   const keys = createKeyVault({
     isPackaged: app.isPackaged,
     env: process.env,
