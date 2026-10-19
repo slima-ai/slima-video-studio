@@ -1,0 +1,39 @@
+{
+  "key": "gpt-image-2-high",
+  "displayName": "GPT Image 2（高畫質）",
+  "tasks": ["t2i", "edit"],
+  "tier": "premium",
+  "recommended": false,
+  "features": {
+    "characterMechanism": "reference"
+  },
+  "badges": ["多圖參考", "文字清楚", "高畫質"],
+  "prompt": {
+    "language": "en",
+    "hint": "有參考圖時在 prompt 中說明每張圖的用途（角色、服裝、場景）。"
+  },
+  "channels": [
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "t2i": "openai/gpt-image-2",
+        "edit": "openai/gpt-image-2"
+      },
+      "imageApi": { "quality": "high" },
+      "pricing": {
+        "unit": "image",
+        "usd": 0.145
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": false,
+        "source": "實測：用真的 OpenRouter 金鑰呼叫 POST /api/v1/images，16:9 高品質三張 usage.cost 約 US$0.141～0.150（見 docs/models.md 實測紀錄）；依 token 計費會浮動",
+        "checkedAt": "2026-10-19"
+      },
+      "referenceLimits": {
+        "images": 5
+      },
+      "notes": "和「GPT Image 2」是同一個模型，只是品質檔位開到 high，每張貴約 3.5 倍、出圖約 80～95 秒。適合定稿的首幀。"
+    }
+  ]
+}

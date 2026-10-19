@@ -80,6 +80,15 @@ const ReferenceLimitsSchema = z.object({
   videos: z.number().int().nonnegative().default(0),
   audios: z.number().int().nonnegative().default(0),
 })
+/**
+ * 圖片走 OpenRouter 的 `POST /images`（而不是 chat/completions）時的設定。
+ * 像 `openai/gpt-image-2` 這類只能走 /images 的模型，管道要填這一項；`quality` 決定品質檔位（也決定價格），
+ * 所以同一個模型的標準檔與高畫質檔要各開一個模型檔，價格各自寫。
+ */
+export const ImageApiSchema = z.object({
+  quality: z.enum(['low', 'medium', 'high', 'auto']),
+})
+export type ImageApi = z.infer<typeof ImageApiSchema>
 const CharacterMechanismSchema = z.enum(['elements', 'reference', 'lora', 'none'])
 const StyleFitSchema = z.enum(['realistic', 'animation', 'both'])
 const PromptHintSchema = z.object({
@@ -127,6 +136,8 @@ export const ModelCardSchema = z
     referenceLimits: ReferenceLimitsSchema.optional(),
     /** 角色一致性的機制：elements（Kling）、reference（多圖參考）、lora、none。 */
     characterMechanism: CharacterMechanismSchema.default('none'),
+    /** 有填就表示這個管道的圖片走 OpenRouter 的 /images（只有 openrouter 的 t2i／edit 用得到）。 */
+    imageApi: ImageApiSchema.optional(),
     styleFit: StyleFitSchema.default('both'),
     /** 給 Prompt 生成節點參考：這個模型偏好的寫法與語言。 */
     prompt: PromptHintSchema.optional(),
@@ -153,6 +164,22 @@ export const ModelCardSchema = z
           code: 'custom',
           path: ['endpoints', key],
           message: `endpoint ${key} 不在 capabilities 裡`,
+        })
+      }
+    }
+    if (card.imageApi) {
+      if (card.provider !== 'openrouter') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['imageApi'],
+          message: 'imageApi 只有 OpenRouter 的管道用得到',
+        })
+      }
+      if (!card.capabilities.includes('t2i') && !card.capabilities.includes('edit')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['imageApi'],
+          message: 'imageApi 只能用在有 t2i 或 edit 能力的模型',
         })
       }
     }
@@ -193,6 +220,7 @@ export const ModelChannelSchema = z.object({
   resolutions: z.array(z.string().min(1)).optional(),
   referenceLimits: ReferenceLimitsSchema.optional(),
   characterMechanism: CharacterMechanismSchema.optional(),
+  imageApi: ImageApiSchema.optional(),
   prompt: PromptHintSchema.optional(),
   cameraParams: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
   notes: z.string().optional(),
@@ -290,6 +318,7 @@ export function expandModelSpec(spec: ModelSpec): ModelCard[] {
         : { contextTokens: spec.features.contextTokens }),
       ...(referenceLimits === undefined ? {} : { referenceLimits }),
       characterMechanism: channel.characterMechanism ?? spec.features.characterMechanism,
+      ...(channel.imageApi === undefined ? {} : { imageApi: channel.imageApi }),
       styleFit: spec.styleFit,
       ...(prompt === undefined ? {} : { prompt }),
       ...(channel.cameraParams === undefined ? {} : { cameraParams: channel.cameraParams }),

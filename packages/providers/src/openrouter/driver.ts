@@ -62,7 +62,7 @@ function parseRequest(job: Job): SupportedRequest {
 
 /**
  * OpenRouter 的任務驅動：
- * 文字與圖片一次呼叫就完成（chat/completions，圖片加 `modalities`）；
+ * 文字與圖片一次呼叫就完成（chat/completions，圖片加 `modalities`；gpt-image 這類模型卡有 `imageApi` 的走 `POST /images`）；
  * 影片走非同步工作（`POST /videos` → 輪詢 → 帶 Key 下載 → 存進素材庫）。
  */
 export function createOpenRouterDriver(

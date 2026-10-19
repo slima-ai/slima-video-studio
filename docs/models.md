@@ -78,6 +78,21 @@
 
 ---
 
+## 5.5 OpenRouter — 圖片（`POST /api/v1/images`）
+
+`openai/gpt-image-2` 不能走 chat/completions（回 404，不收費），一律走 `POST /api/v1/images`。App 裡同一個模型開兩張卡，品質檔位寫在卡的 `imageApi.quality`，價格各自寫：
+
+| provider   | 模型卡                        | model id             | quality | 單價（實測，16:9）                                 | 出圖時間     | 驗證                                                   |
+| ---------- | ----------------------------- | -------------------- | ------- | -------------------------------------------------- | ------------ | ------------------------------------------------------ |
+| OpenRouter | `openrouter/gpt-image-2`      | `openai/gpt-image-2` | medium  | 約 US$0.042／張（一個資料點）                      | 約 26 秒     | endpoint 實測過；價格標「估算」（依 token 計費會浮動） |
+| OpenRouter | `openrouter/gpt-image-2-high` | `openai/gpt-image-2` | high    | 約 US$0.141～0.150／張（三個資料點，卡上寫 0.145） | 約 80～95 秒 | endpoint 實測過；價格標「估算」                        |
+
+App 送出的請求：`{ model, prompt, aspect_ratio, quality, output_format: "png", n: 1, input_references?: [{ type: "image_url", image_url: { url: <data URI> } }] }`；回應取 `data[0].b64_json`（也容忍 `url`）與 `usage.cost`。實測來源是 2026-10-19 用真的 OpenRouter 金鑰直接呼叫（不是透過 App）；本次 PR 的程式只用假伺服器測過。
+
+**沒驗到／查無：** `quality: low` 與 `auto` 的價格；參考圖張數上限（卡上 5 張是保守值）；`n > 1` 的計價（App 一律 `n: 1`、要幾張各送一次）；是否支援 `seed`（App 不送）；`21:9`、`4:3` 這類比例是否被接受（App 照原值送，被拒時顯示「OpenRouter 拒絕了這個請求」）；內容被擋時的實際錯誤長相（目前把 400 當作 provider_rejected、空的 `data` 當作被過濾）。
+
+---
+
 ## 6. OpenRouter 影片 API 呼叫方式
 
 來源：https://openrouter.ai/docs/guides/overview/multimodal/video-generation （2026-10-12）
@@ -118,16 +133,16 @@
 
 開發環境連不到 openrouter.ai，下面是用網路搜尋結果與官方文件摘要核對的，**沒有實際呼叫過**。
 
-| 項目                                                                                                                                                                                          | 狀態                                                                                                                                               |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 圖片：`POST /chat/completions` 加 `modalities: ["image","text"]`、`image_config.aspect_ratio`，結果在 `choices[0].message.images[].image_url.url`（data URL）                                 | 搜尋結果與官方文件摘要一致；參考圖以 `image_url` 內容片段放進 user 訊息（Gemini 文件的寫法）                                                       |
-| 圖片模型：`google/gemini-3-pro-image`                                                                                                                                                         | slug 與實測價格 US$0.134／張來自 OpenRouter 官方部落格（2026-09-11 實際生成）；Gemini 依 token 計費，每張會浮動，所以價格標「未核對」              |
-| 圖片：OpenRouter 另有的「Image API」端點、`openai/gpt-image-2`（實測 US$0.006–0.0135／張）                                                                                                    | 沒有查到可用的請求格式，**沒做**。若要更便宜的圖片模型，等能實測後再加                                                                             |
-| 影片：`POST /videos`、`GET /videos/{id}`、`GET /videos/{id}/content?index=0`（帶 Authorization）、欄位 `model/prompt/duration/aspect_ratio/generate_audio/seed/frame_images/input_references` | 第 6 節的官方文件                                                                                                                                  |
-| `frame_images` 每項 `{type:"image_url", image_url:{url}, frame_type:"first_frame"｜"last_frame"}`、`input_references` 每項 `{type:"image_url", image_url:{url}}`                              | **未確認**（文件摘要只說明欄位名稱）；用 data URI 當 url 是否被接受也未確認                                                                        |
-| `cancelled`／`expired` 狀態字串、失敗時 `error` 的格式、圖片回應位置                                                                                                                          | 未確認；程式做了寬鬆解析（不認得的狀態字串當成還在進行，含 fail／cancel／expire／error 或帶 error 欄位算失敗，圖片網址容忍多種位置），等真金鑰驗證 |
-| Seedance 2.0 價格                                                                                                                                                                             | token 計費，0.1512／秒是 720p 約略值，標「未核對」                                                                                                 |
-| 沒有做                                                                                                                                                                                        | OpenRouter 上的 TTS、配樂、Kling Elements、1080p／4K 解析度選擇、取消遠端影片工作（文件沒有取消端點）                                              |
+| 項目                                                                                                                                                                                          | 狀態                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 圖片：`POST /chat/completions` 加 `modalities: ["image","text"]`、`image_config.aspect_ratio`，結果在 `choices[0].message.images[].image_url.url`（data URL）                                 | 搜尋結果與官方文件摘要一致；參考圖以 `image_url` 內容片段放進 user 訊息（Gemini 文件的寫法）                                                                |
+| 圖片模型：`google/gemini-3-pro-image`                                                                                                                                                         | slug 與實測價格 US$0.134／張來自 OpenRouter 官方部落格（2026-09-11 實際生成）；Gemini 依 token 計費，每張會浮動，所以價格標「未核對」                       |
+| 圖片：OpenRouter 另有的「Image API」端點、`openai/gpt-image-2`（實測 US$0.006–0.0135／張）                                                                                                    | 當時沒有查到可用的請求格式，沒做。**已在 2026-10-19 實測後補上，見第 5.5 節。**（上面 US$0.006–0.0135 是當時網路搜尋的數字，實測是 0.042 以上，以實測為準） |
+| 影片：`POST /videos`、`GET /videos/{id}`、`GET /videos/{id}/content?index=0`（帶 Authorization）、欄位 `model/prompt/duration/aspect_ratio/generate_audio/seed/frame_images/input_references` | 第 6 節的官方文件                                                                                                                                           |
+| `frame_images` 每項 `{type:"image_url", image_url:{url}, frame_type:"first_frame"｜"last_frame"}`、`input_references` 每項 `{type:"image_url", image_url:{url}}`                              | **未確認**（文件摘要只說明欄位名稱）；用 data URI 當 url 是否被接受也未確認                                                                                 |
+| `cancelled`／`expired` 狀態字串、失敗時 `error` 的格式、圖片回應位置                                                                                                                          | 未確認；程式做了寬鬆解析（不認得的狀態字串當成還在進行，含 fail／cancel／expire／error 或帶 error 欄位算失敗，圖片網址容忍多種位置），等真金鑰驗證          |
+| Seedance 2.0 價格                                                                                                                                                                             | token 計費，0.1512／秒是 720p 約略值，標「未核對」                                                                                                          |
+| 沒有做                                                                                                                                                                                        | OpenRouter 上的 TTS、配樂、Kling Elements、1080p／4K 解析度選擇、取消遠端影片工作（文件沒有取消端點）                                                       |
 
 ---
 
