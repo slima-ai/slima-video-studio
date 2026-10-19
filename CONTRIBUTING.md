@@ -29,7 +29,8 @@ pnpm test:e2e    # Electron end-to-end tests (demo mode)
 - Run tests with at most 8 parallel workers (the repo's Vitest config already caps it).
 - Never commit API keys, tokens, personal data or local paths, and do not put them in screenshots or recordings.
 - The packages under `packages/` may only depend on `@svs/schema`; the app in `apps/desktop` wires them together. The rules live in `tools/eslint/boundaries.mjs`.
-- The test-only environment variables (`SVS_PROVIDER_MODE`, `SVS_TEST_VAULT`, `SVS_USER_DATA`, ...) only work in an unpackaged app.
+- The test-only environment variables (`SVS_PROVIDER_MODE`, `SVS_USER_DATA`, ...) only work in an unpackaged app.
+- An unpackaged app (`pnpm dev`, the E2E tests, scripts) keeps service keys **in memory only** and never touches the operating system's keychain (on macOS it would pop up password prompts). Set `SVS_REAL_VAULT=1` if you really need to exercise the real keychain.
 
 ## Licensing
 

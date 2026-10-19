@@ -41,7 +41,6 @@ export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedAp
     env: {
       ...(process.env as Record<string, string>),
       SVS_PROVIDER_MODE: 'mock',
-      SVS_TEST_VAULT: 'memory',
       SVS_USER_DATA: userDataDir,
       SVS_DISABLE_ONBOARDING: '1',
       // 自動建立的專案放在測試專用的資料夾，不碰使用者的「文件」
@@ -53,6 +52,9 @@ export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedAp
       // 要驗安靜模式本身的測試（window-mode）自己用 test.use({ appEnv }) 開。
       SVS_QUIET_WINDOWS: process.env.SVS_E2E_VISIBLE === '1' || isHeadless() ? '' : '1',
       ...options.env,
+      // E2E 絕不碰作業系統的鑰匙圈：放在最後，測試的 appEnv 想改也改不掉
+      SVS_REAL_VAULT: '',
+      SVS_TEST_VAULT: 'memory',
     },
   })
   return { app, userDataDir }

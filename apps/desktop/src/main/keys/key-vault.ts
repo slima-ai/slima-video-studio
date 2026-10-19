@@ -40,7 +40,8 @@ export function statusOf(provider: string, key: string | undefined): KeyStatus {
 }
 
 /**
- * 測試用的記憶體金庫。**只有未打包版且設了 `SVS_TEST_VAULT=memory` 才會啟用**（見 createKeyVault）。
+ * 開發與測試用的記憶體金庫。**未打包版預設就用它**（除非明確設 `SVS_REAL_VAULT=1`），所以開發與測試
+ * 永遠不會碰作業系統的鑰匙圈；打包版一定不會用它（見 createKeyVault）。
  * E2E 要驗證「重開 App 後還在」時可以指定 persistPath，會以**明文**寫入該檔，所以只限測試。
  */
 export class MemoryVault implements KeyVault {
@@ -227,11 +228,12 @@ export interface CreateKeyVaultOptions {
 export const KEY_FILE_NAME = 'keys.enc.json'
 
 /**
- * 決定使用哪個金庫。MemoryVault 只有「未打包」且「SVS_TEST_VAULT=memory」才會啟用；
- * 打包版不論環境變數怎麼設，都一定是 safeStorage。
+ * 決定使用哪個金庫。**未打包版（pnpm dev、E2E、各種測試與腳本）預設用 MemoryVault，不碰作業系統的鑰匙圈**
+ * （macOS 的鑰匙圈會跳密碼提示、而且授權綁執行檔，反覆測試會一直打擾使用者）；
+ * 要在開發版用真的鑰匙圈，必須明確設 `SVS_REAL_VAULT=1`。打包版不論環境變數怎麼設，都一定是 safeStorage。
  */
 export function createKeyVault(options: CreateKeyVaultOptions): KeyVault {
-  if (!options.isPackaged && options.env.SVS_TEST_VAULT === 'memory') {
+  if (!options.isPackaged && options.env.SVS_REAL_VAULT !== '1') {
     return new MemoryVault(options.testVaultFile)
   }
   return new SafeStorageVault(

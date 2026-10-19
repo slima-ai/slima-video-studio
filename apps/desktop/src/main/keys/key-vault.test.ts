@@ -189,27 +189,36 @@ describe('SafeStorageVault', () => {
 describe('createKeyVault：MemoryVault 只有未打包且明確要求才會啟用', () => {
   const base = { safeStorage: fakeSafeStorage(), userDataDir: tmp() }
 
-  it('未打包 + SVS_TEST_VAULT=memory → MemoryVault', () => {
-    const vault = createKeyVault({ ...base, isPackaged: false, env: { SVS_TEST_VAULT: 'memory' } })
-    expect(vault).toBeInstanceOf(MemoryVault)
+  it('未打包：不管有沒有設環境變數，預設都是 MemoryVault（開發與測試永遠不碰真鑰匙圈）', () => {
+    for (const env of [
+      {},
+      { SVS_TEST_VAULT: 'memory' },
+      { SVS_TEST_VAULT: 'yes' },
+      { SVS_REAL_VAULT: '0' },
+      { SVS_REAL_VAULT: 'true' },
+    ]) {
+      expect(
+        createKeyVault({ ...base, isPackaged: false, env }),
+        JSON.stringify(env),
+      ).toBeInstanceOf(MemoryVault)
+    }
+  })
+
+  it('未打包要用真的鑰匙圈，必須明確設 SVS_REAL_VAULT=1', () => {
+    expect(
+      createKeyVault({ ...base, isPackaged: false, env: { SVS_REAL_VAULT: '1' } }),
+    ).toBeInstanceOf(SafeStorageVault)
   })
 
   it('打包版不論環境變數怎麼設，都用 safeStorage', () => {
     const vault = createKeyVault({
       ...base,
       isPackaged: true,
-      env: { SVS_TEST_VAULT: 'memory' },
+      env: { SVS_TEST_VAULT: 'memory', SVS_REAL_VAULT: '0' },
       testVaultFile: join(base.userDataDir, 'plain.json'),
     })
     expect(vault).toBeInstanceOf(SafeStorageVault)
     vault.set('fal', SECRET)
     expect(() => readFileSync(join(base.userDataDir, 'plain.json'))).toThrow()
-  })
-
-  it('未打包但沒設環境變數 → safeStorage', () => {
-    expect(createKeyVault({ ...base, isPackaged: false, env: {} })).toBeInstanceOf(SafeStorageVault)
-    expect(
-      createKeyVault({ ...base, isPackaged: false, env: { SVS_TEST_VAULT: 'yes' } }),
-    ).toBeInstanceOf(SafeStorageVault)
   })
 })

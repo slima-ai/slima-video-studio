@@ -26,6 +26,17 @@ test.describe('App 啟動', () => {
     expect(readMainLog()).not.toContain('[CSP-VIOLATION]')
   })
 
+  test('E2E 的 App 一定用記憶體金庫：絕不碰作業系統的鑰匙圈（macOS 會跳密碼視窗打擾使用者）', async ({
+    page,
+  }) => {
+    await expect(page.getByTestId('app-layout')).toBeVisible()
+    const listed = await page.evaluate(() => window.svs.invoke('keys.list', {}))
+    expect(listed).toMatchObject({
+      ok: true,
+      data: { storage: { available: true, kind: 'memory' } },
+    })
+  })
+
   test('renderer 拿不到 Node / ipcRenderer', async ({ page }) => {
     const exposed = await page.evaluate(() => ({
       require: typeof (window as unknown as { require?: unknown }).require,
