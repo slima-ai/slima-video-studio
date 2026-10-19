@@ -336,6 +336,8 @@ describe('工具', () => {
     const client = await connect(env)
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
+      'adjust_sound_clip',
+      'adopt_sound_clip',
       'adopt_version',
       'assemble_film',
       'cancel_generation',
@@ -349,12 +351,15 @@ describe('工具', () => {
       'export_film',
       'generate_character_images',
       'generate_first_frames',
+      'generate_music',
+      'generate_narration',
       'generate_videos',
       'get_capabilities',
       'get_current_project',
       'get_generation_status',
       'get_outline',
       'get_shot',
+      'get_sound',
       'list_characters',
       'list_models',
       'list_projects',
@@ -363,11 +368,14 @@ describe('工具', () => {
       'lock_character',
       'open_project',
       'pick_character_image',
+      'plan_sound',
       'redo',
       'regenerate_shot',
+      'remove_sound_clip',
       'reorder_shots',
       'set_character_anchor',
       'set_models',
+      'set_sound_settings',
       'split_scene_into_shots',
       'split_story_into_scenes',
       'suggest_character_anchor',
@@ -405,7 +413,7 @@ describe('工具', () => {
       spending: { allowanceUsd: 0, committedUsd: 0, remainingUsd: 0 },
     })
     expect(data.tools).toContain('create_project')
-    expect(data.guides).toEqual(['getting-started', 'storyboard', 'spending'])
+    expect(data.guides).toEqual(['getting-started', 'storyboard', 'spending', 'sound'])
   })
 
   it('load_guide：storyboard 用的是使用者設定的準則（改過就是改過的）', async () => {

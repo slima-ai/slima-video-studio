@@ -79,6 +79,7 @@ export async function startRealMcp(options: HarnessOptions = {}) {
     storyboard: h.storyboard,
     history: h.history,
     library: h.library,
+    sound: h.sound,
     mcp: controller,
   })
   const port = await freePort()
