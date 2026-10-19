@@ -66,6 +66,11 @@ export function toModelOption(
   card: ModelCard,
   channels: readonly ModelCard[] = [card],
 ): ModelOption {
+  // 依字元計價、而且漢字算多個單位的模型（MiniMax 是 2）：顯示中文旁白實際的價格，不要低估
+  const pricing: Pricing =
+    card.pricing.unit === 'million_chars' && card.cjkCharWeight !== undefined
+      ? { ...card.pricing, usd: card.pricing.usd * card.cjkCharWeight }
+      : card.pricing
   return {
     id: card.id,
     displayName: card.displayName,
@@ -74,8 +79,8 @@ export function toModelOption(
     capabilities: card.capabilities,
     tier: card.tier,
     recommended: card.recommended,
-    priceLabel: card.provider === 'mock' ? '免費（示範，不會真的收費）' : priceLabel(card.pricing),
-    priceShort: card.provider === 'mock' ? '免費（示範）' : priceShort(card.pricing),
+    priceLabel: card.provider === 'mock' ? '免費（示範，不會真的收費）' : priceLabel(pricing),
+    priceShort: card.provider === 'mock' ? '免費（示範）' : priceShort(pricing),
     priceVerified: card.verification.pricing || card.provider === 'mock',
     badges: card.badges,
     voices: card.voices,

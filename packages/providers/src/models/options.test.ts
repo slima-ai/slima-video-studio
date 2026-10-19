@@ -72,3 +72,15 @@ describe('providerName / toModelOption', () => {
     expect(verified && toModelOption(verified).priceVerified).toBe(true)
   })
 })
+
+describe('toModelOption：漢字算多個計費單位的旁白模型', () => {
+  it('MiniMax 的價格標中文實際的（每萬字 US$2.00，不是牌價的 1.00）；沒有權重的卡照牌價', () => {
+    const cards = loadBuiltinModelCards()
+    const minimax = cards.find((c) => c.id === 'openrouter/minimax-speech-2.8-hd')
+    const eleven = cards.find((c) => c.id === 'openrouter/eleven-v3')
+    if (!minimax || !eleven) throw new Error('找不到旁白卡')
+    expect(toModelOption(minimax).priceShort).toBe('每萬字約 US$2.00')
+    expect(toModelOption(minimax).priceLabel).toBe('約 US$200／百萬字元')
+    expect(toModelOption(eleven).priceShort).toBe('每萬字約 US$0.40')
+  })
+})
