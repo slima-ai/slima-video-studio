@@ -72,7 +72,7 @@ export const TtsRequestSchema = z.object({
 })
 export type TtsRequest = z.infer<typeof TtsRequestSchema>
 
-/** 配樂：文字描述 → 一首音樂。長度只是提示（Lyria 用文字控制長度，實測要 60 秒給 62.7 秒）。 */
+/** 配樂：文字描述 → 一首音樂。長度只是提示（Lyria 只能靠文字提示，實測不可靠：要 20 秒拿到約 62 秒），以回來的檔案為準。 */
 export const MusicRequestSchema = z.object({
   ...common,
   capability: z.literal('music'),

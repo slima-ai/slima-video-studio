@@ -510,7 +510,8 @@ export class OpenRouterClient {
   /**
    * 配樂（Lyria）：`chat/completions` 加 `modalities: ["text","audio"]`，**一定要串流**（`stream: true`）；
    * 音訊是 SSE 事件裡 `choices[0].delta.audio.data` 的 base64（實測整首只有一個片段）；`usage.cost` 是實收。
-   * 長度用文字控制（實測要求 60 秒得 62.7 秒），所以有 durationSec 時在 prompt 後面補一句。
+   * 長度只能靠文字「提示」，而且不可靠：實測要求 30 秒得 32.8 秒、60 秒得 62.7 秒，但同一個模型要求 20 秒卻得約 62 秒。
+   * 有 durationSec 時在 prompt 後面補一句；實際長度以回來的檔案為準，混音時比影片長就截掉（淡出）、比影片短就循環。
    */
   async generateMusic(
     input: { modelId: string; prompt: string; durationSec?: number },
