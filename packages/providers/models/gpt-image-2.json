@@ -1,0 +1,39 @@
+{
+  "key": "gpt-image-2",
+  "displayName": "GPT Image 2",
+  "tasks": ["t2i", "edit"],
+  "tier": "budget",
+  "recommended": false,
+  "features": {
+    "characterMechanism": "reference"
+  },
+  "badges": ["多圖參考", "文字清楚"],
+  "prompt": {
+    "language": "en",
+    "hint": "有參考圖時在 prompt 中說明每張圖的用途（角色、服裝、場景）。"
+  },
+  "channels": [
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "t2i": "openai/gpt-image-2",
+        "edit": "openai/gpt-image-2"
+      },
+      "imageApi": { "quality": "medium" },
+      "pricing": {
+        "unit": "image",
+        "usd": 0.042
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": false,
+        "source": "實測：用真的 OpenRouter 金鑰呼叫 POST /api/v1/images，16:9 中等品質一張 usage.cost 約 US$0.042（見 docs/models.md 實測紀錄）；只量到一個資料點，依 token 計費會浮動",
+        "checkedAt": "2026-10-19"
+      },
+      "referenceLimits": {
+        "images": 5
+      },
+      "notes": "走 OpenRouter 的 /images（不是 chat/completions）。中等品質，出圖約 26 秒；角色概念圖、探索構圖用這張比較省。要定稿的首幀用「GPT Image 2（高畫質）」。參考圖上限未查到，5 張是保守值。"
+    }
+  ]
+}

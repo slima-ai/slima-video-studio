@@ -105,6 +105,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDeps): ProjectRuntime {
       openrouter: createOpenRouterDriver({
         getKey: () => keys.get('openrouter'),
         endpointFor: (modelId, capability) => endpointFor(modelId, capability),
+        imageApiFor: (modelId) => models.get(modelId)?.imageApi,
         services,
         ...(deps.openrouterBaseUrl === undefined ? {} : { baseUrl: deps.openrouterBaseUrl }),
       }),

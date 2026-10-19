@@ -130,8 +130,19 @@ function chatResponse(body: Record<string, unknown>): unknown {
   return { choices: [{ finish_reason: 'stop', message: { content } }], usage }
 }
 
+/** `POST /images`：照請求的 `n` 回幾張 base64 PNG，`usage.cost` 依 quality 給不同價。 */
+function imagesResponse(body: Record<string, unknown>): unknown {
+  const png = makePng({ width: 64, height: 36, color: [160, 90, 70] }).toString('base64')
+  const count = typeof body.n === 'number' && body.n > 0 ? body.n : 1
+  const cost = body.quality === 'high' ? 0.145 : 0.042
+  return {
+    data: Array.from({ length: count }, () => ({ b64_json: png })),
+    usage: { cost: cost * count },
+  }
+}
+
 /**
- * 假的 OpenRouter（只聽本機）：實作 App 用到的那幾條路，讓整條「填 Key → 文字拆鏡 → 圖片 → 影片 → 接片」
+ * 假的 OpenRouter（只聽本機）：實作 App 用到的那幾條路（含 gpt-image 走的 `POST /images`），讓整條「填 Key → 文字拆鏡 → 圖片 → 影片 → 接片」
  * 真的走網路請求與真的 driver 程式碼，不用真的 Key、不花錢。
  *
  * 只能證明接線與流程對；回應長相是依 OpenRouter 文件與 client 的 Zod schema 寫的，真實 API 是不是這樣，
@@ -169,6 +180,8 @@ export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
           return
         }
         sendJson(res, 200, chatResponse(isRecord(body) ? body : {}))
+      } else if (method === 'POST' && path === '/images') {
+        sendJson(res, 200, imagesResponse(isRecord(body) ? body : {}))
       } else if (method === 'POST' && path === '/videos') {
         const id = `fake-video-${String(nextJob++)}`
         sendJson(res, 200, { id, status: 'pending' })

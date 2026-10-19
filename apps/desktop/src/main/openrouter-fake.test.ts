@@ -64,6 +64,35 @@ describe('假 OpenRouter + 真的 OpenRouterClient', () => {
     expect([...image.bytes.slice(1, 4)]).toEqual([0x50, 0x4e, 0x47])
   })
 
+  it('圖片（gpt-image）：走 POST /images，quality 與參考圖照送，回得來一張合法的 PNG 與花費', async () => {
+    const imageClient = new OpenRouterClient({
+      getKey: () => FAKE_OPENROUTER_KEY,
+      endpointFor: () => 'openai/gpt-image-2',
+      imageApiFor: () => ({ quality: 'high' }),
+      baseUrl: fake.url,
+    })
+    const image = await imageClient.generateImage(
+      {
+        modelId: 'openrouter/gpt-image-2-high',
+        capability: 'edit',
+        prompt: '雨夜的貓',
+        aspectRatio: '16:9',
+        referenceDataUris: ['data:image/png;base64,AAAA'],
+      },
+      signal,
+    )
+    expect(image.mime).toBe('image/png')
+    expect([...image.bytes.slice(1, 4)]).toEqual([0x50, 0x4e, 0x47])
+    expect(image.costUsd).toBeCloseTo(0.145)
+    expect(fake.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /images'])
+    expect(fake.requests[0]?.body).toMatchObject({
+      model: 'openai/gpt-image-2',
+      quality: 'high',
+      n: 1,
+      input_references: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,AAAA' } }],
+    })
+  })
+
   it('影片：送出 → 輪詢（第一次還在進行、第二次完成）→ 下載到 MP4', async () => {
     const c = client()
     const id = await c.submitVideo({ model: 'fake/video', prompt: '貓走過雨夜' }, signal)

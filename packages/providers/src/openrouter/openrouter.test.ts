@@ -446,6 +446,183 @@ describe('createOpenRouterDriver：圖片', () => {
   })
 })
 
+const imagesResponse = (bytes: Uint8Array, cost = 0.042) =>
+  json({ data: [{ b64_json: Buffer.from(bytes).toString('base64') }], usage: { cost } })
+
+/** gpt-image 這類走 POST /images 的模型：模型卡的 imageApi 決定品質檔位。 */
+function makeImagesApi(...responses: (Response | Error | ((call: Call) => Response))[]) {
+  const { impl, calls } = fakeFetch(...responses)
+  const services = memoryServices()
+  const driver = createOpenRouterDriver({
+    getKey: () => KEY,
+    endpointFor: () => 'openai/gpt-image-2',
+    imageApiFor: (modelId) =>
+      modelId === 'openrouter/gpt-image-2-high' ? { quality: 'high' } : { quality: 'medium' },
+    fetch: impl,
+    services,
+  })
+  return { driver, calls, services }
+}
+
+describe('createOpenRouterDriver：圖片走 POST /images（gpt-image）', () => {
+  it('文生圖：送到 /images，欄位照實測的格式；不走 chat/completions、不送 modalities 與 seed', async () => {
+    const { driver, calls, services } = makeImagesApi(imagesResponse(PNG))
+    const result = await driver.submit(
+      mediaJob({
+        capability: 't2i',
+        modelId: 'openrouter/gpt-image-2',
+        prompt: '夜晚的街角',
+        aspectRatio: '16:9',
+        seed: 5,
+      }),
+      { signal },
+    )
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.url).toBe('https://openrouter.ai/api/v1/images')
+    expect(calls[0]?.body).toEqual({
+      model: 'openai/gpt-image-2',
+      prompt: '夜晚的街角',
+      aspect_ratio: '16:9',
+      quality: 'medium',
+      output_format: 'png',
+      n: 1,
+    })
+    expect(result).toMatchObject({ status: 'done', costUsd: 0.042 })
+    const assets = (result as { output: { assets: { hash: string; mime: string }[] } }).output
+      .assets
+    expect(assets).toHaveLength(1)
+    expect(assets[0]?.mime).toBe('image/png')
+    expect(services.files.get(assets[0]?.hash ?? '')).toEqual(PNG)
+  })
+
+  it('高畫質那張卡送 quality: high', async () => {
+    const { driver, calls } = makeImagesApi(imagesResponse(PNG, 0.145))
+    const result = await driver.submit(
+      mediaJob({
+        capability: 't2i',
+        modelId: 'openrouter/gpt-image-2-high',
+        prompt: 'p',
+        aspectRatio: '1:1',
+      }),
+      { signal },
+    )
+    expect(calls[0]?.body).toMatchObject({ quality: 'high', aspect_ratio: '1:1' })
+    expect(result).toMatchObject({ costUsd: 0.145 })
+  })
+
+  it('改圖：參考圖放 input_references（data URI）；多張各送一次、n 都是 1，花費加總', async () => {
+    const { driver, calls, services } = makeImagesApi(
+      imagesResponse(PNG, 0.1),
+      imagesResponse(Uint8Array.from([0x89, 0x50, 9, 9]), 0.2),
+    )
+    const ref = await services.assets.put(PNG, 'image/png')
+    const result = await driver.submit(
+      mediaJob({
+        capability: 'edit',
+        modelId: 'openrouter/gpt-image-2',
+        prompt: '換成雨天',
+        referenceAssets: [ref.hash],
+        count: 2,
+      }),
+      { signal },
+    )
+    expect(calls).toHaveLength(2)
+    for (const call of calls) {
+      expect(call.url).toBe('https://openrouter.ai/api/v1/images')
+      expect(call.body).toMatchObject({
+        n: 1,
+        input_references: [{ type: 'image_url', image_url: { url: dataUrl(PNG) } }],
+      })
+    }
+    expect((result as { costUsd: number }).costUsd).toBeCloseTo(0.3)
+    expect((result as { output: { assets: unknown[] } }).output.assets).toHaveLength(2)
+  })
+
+  it('模型卡沒有 imageApi（例如 Gemini）仍走 chat/completions', async () => {
+    const { impl, calls } = fakeFetch(imageCompletion(dataUrl(PNG)))
+    const driver = createOpenRouterDriver({
+      getKey: () => KEY,
+      endpointFor: () => 'google/gemini-3-pro-image',
+      imageApiFor: () => undefined,
+      fetch: impl,
+      services: memoryServices(),
+    })
+    await driver.submit(
+      mediaJob({ capability: 't2i', modelId: 'm', prompt: 'p', aspectRatio: '16:9' }),
+      { signal },
+    )
+    expect(calls[0]?.url).toBe('https://openrouter.ai/api/v1/chat/completions')
+  })
+
+  it('回應沒有圖（被過濾）、格式不對、HTTP 200 夾帶錯誤、HTTP 錯誤：都整理成白話的型別化錯誤', async () => {
+    const input = mediaJob({
+      capability: 't2i',
+      modelId: 'openrouter/gpt-image-2',
+      prompt: 'p',
+      aspectRatio: '16:9',
+    })
+    const attempt = (response: Response) =>
+      failure(makeImagesApi(response).driver.submit(input, { signal }))
+
+    expect(await attempt(json({ data: [] }))).toMatchObject({
+      code: 'provider_rejected',
+      retryable: false,
+    })
+    expect(await attempt(json({ data: [{}] }))).toMatchObject({ code: 'provider_rejected' })
+    expect(await attempt(json({ images: 'x' }))).toMatchObject({
+      code: 'invalid_response',
+      retryable: true,
+    })
+    expect(await attempt(json({ error: { code: 402, message: 'no credits' } }))).toMatchObject({
+      code: 'provider_insufficient_funds',
+    })
+    expect(await attempt(json({ error: { message: 'boom' } }, { status: 500 }))).toMatchObject({
+      code: 'provider_unavailable',
+      retryable: true,
+    })
+    // 模型被內容規則擋下常是 400：給白話提示，供應商原文只留在 cause
+    const rejected = await attempt(
+      json({ error: { message: 'moderation_blocked' } }, { status: 400 }),
+    )
+    expect(rejected).toMatchObject({ code: 'provider_rejected' })
+    expect(rejected.userMessage).not.toContain('moderation_blocked')
+  })
+
+  it('供應商只給網址時也能下載；Key 沒填在送出前就回報', async () => {
+    const { driver, calls } = makeImagesApi(
+      json({ data: [{ url: 'https://cdn.example/a.png' }], usage: { cost: 0.042 } }),
+      () => new Response(PNG, { headers: { 'content-type': 'image/png' } }),
+    )
+    const result = await driver.submit(
+      mediaJob({
+        capability: 't2i',
+        modelId: 'openrouter/gpt-image-2',
+        prompt: 'p',
+        aspectRatio: '16:9',
+      }),
+      { signal },
+    )
+    expect(calls[1]?.url).toBe('https://cdn.example/a.png')
+    expect(result).toMatchObject({ status: 'done' })
+
+    const noKey = createOpenRouterDriver({
+      getKey: () => undefined,
+      endpointFor: () => 'openai/gpt-image-2',
+      imageApiFor: () => ({ quality: 'medium' }),
+      fetch: vi.fn(),
+      services: memoryServices(),
+    })
+    expect(
+      await failure(
+        noKey.submit(
+          mediaJob({ capability: 't2i', modelId: 'm', prompt: 'p', aspectRatio: '16:9' }),
+          { signal },
+        ),
+      ),
+    ).toMatchObject({ code: 'provider_auth_failed' })
+  })
+})
+
 const t2vInput = {
   capability: 't2v',
   modelId: 'm',

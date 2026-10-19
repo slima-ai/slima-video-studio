@@ -1,4 +1,4 @@
-import { AppError, type Capability, type LlmRequest } from '@svs/schema'
+import { AppError, type Capability, type ImageApi, type LlmRequest } from '@svs/schema'
 import { z } from 'zod'
 
 import { httpError, type ProviderLabel } from '../http/errors'
@@ -12,6 +12,8 @@ export interface OpenRouterOptions {
   getKey: () => string | undefined
   /** ModelCard id + 能力 → OpenRouter 的模型 slug；找不到回傳 undefined。 */
   endpointFor: (modelId: string, capability: Capability) => string | undefined
+  /** 這個 ModelCard 的圖片是否走 `POST /images`（例如 gpt-image-2）；沒有回傳就走 chat/completions。 */
+  imageApiFor?: (modelId: string) => ImageApi | undefined
   fetch?: FetchLike
   baseUrl?: string
   timeoutMs?: number
@@ -77,6 +79,12 @@ function findImageUrl(message: Record<string, unknown>): string | undefined {
   const text = message.content
   return typeof text === 'string' ? DATA_URL.exec(text)?.[0] : undefined
 }
+
+/** `POST /images` 的回應：每張圖在 `data[]`，內容是 base64（也容忍給網址）；`usage.cost` 是這次實收。 */
+const ImagesApiResponseSchema = z.object({
+  data: z.array(z.object({ b64_json: z.string().optional(), url: z.string().optional() })),
+  usage: z.object({ cost: z.number().optional() }).optional(),
+})
 
 const VideoSubmitSchema = z.object({ id: z.string().min(1) })
 
@@ -301,6 +309,8 @@ export class OpenRouterClient {
     },
     signal: AbortSignal,
   ): Promise<{ bytes: Uint8Array; mime: string; costUsd?: number }> {
+    const imageApi = this.options.imageApiFor?.(input.modelId)
+    if (imageApi) return this.generateImageViaImagesApi(input, imageApi, signal)
     const content =
       input.referenceDataUris.length === 0
         ? input.prompt
@@ -331,6 +341,76 @@ export class OpenRouterClient {
     }
     const file = await this.fileFromUrl(url, signal, MAX_IMAGE_BYTES)
     const cost = parsed.success ? parsed.data.usage?.cost : undefined
+    return { ...file, ...(cost === undefined ? {} : { costUsd: cost }) }
+  }
+
+  /**
+   * 生圖（`POST /images`）：gpt-image 這類只能走這條路。一次只要一張（`n: 1`，多張由呼叫端各送一次）；
+   * 參考圖放 `input_references`。不送 seed——這個模型不保證支援，送了可能整個請求被拒。
+   * 出圖比 chat/completions 慢（高畫質實測 80～95 秒），逾時放寬為兩倍。
+   */
+  private async generateImageViaImagesApi(
+    input: {
+      modelId: string
+      capability: 't2i' | 'edit'
+      prompt: string
+      aspectRatio: string
+      referenceDataUris: readonly string[]
+    },
+    imageApi: ImageApi,
+    signal: AbortSignal,
+  ): Promise<{ bytes: Uint8Array; mime: string; costUsd?: number }> {
+    const body = JSON.stringify({
+      model: this.modelSlug(input.modelId, input.capability),
+      prompt: input.prompt,
+      aspect_ratio: input.aspectRatio,
+      quality: imageApi.quality,
+      output_format: 'png',
+      n: 1,
+      ...(input.referenceDataUris.length === 0
+        ? {}
+        : {
+            input_references: input.referenceDataUris.map((url) => ({
+              type: 'image_url',
+              image_url: { url },
+            })),
+          }),
+    })
+    const response = await request(
+      `${this.baseUrl}/images`,
+      { method: 'POST', headers: this.headers(), body },
+      { fetch: this.fetch, provider: PROVIDER, signal, timeoutMs: this.timeoutMs * 2 },
+    )
+    const json = await readJson(response, PROVIDER)
+    const inline = InlineErrorSchema.safeParse(json)
+    if (inline.success) {
+      const code = Number(inline.data.error.code)
+      throw httpError(PROVIDER, Number.isFinite(code) && code >= 400 ? code : 502, {
+        ...(inline.data.error.message ? { detail: inline.data.error.message } : {}),
+      })
+    }
+    const parsed = ImagesApiResponseSchema.safeParse(json)
+    if (!parsed.success) {
+      throw new AppError({
+        code: 'invalid_response',
+        retryable: true,
+        userMessage: 'OpenRouter 回傳的內容格式不對，稍後會自動重試。',
+        cause: parsed.error,
+      })
+    }
+    const item = parsed.data.data[0]
+    const source =
+      item?.b64_json !== undefined && item.b64_json !== ''
+        ? `data:image/png;base64,${item.b64_json}`
+        : item?.url
+    if (source === undefined || source === '') {
+      throw new AppError({
+        code: 'provider_rejected',
+        userMessage: 'OpenRouter 沒有回傳圖片，可能是內容被過濾了。請調整描述後再試。',
+      })
+    }
+    const file = await this.fileFromUrl(source, signal, MAX_IMAGE_BYTES)
+    const cost = parsed.data.usage?.cost
     return { ...file, ...(cost === undefined ? {} : { costUsd: cost }) }
   }
 

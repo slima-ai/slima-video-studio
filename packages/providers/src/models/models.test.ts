@@ -85,6 +85,59 @@ describe('內建 ModelCard', () => {
     ).toThrow(/id 重複：fal\/demo/)
   })
 
+  it('GPT Image 2：同一個 OpenRouter 模型開兩張卡（標準＝medium、高畫質＝high），都走 /images，價格各自寫', () => {
+    const standard = registry.get('openrouter/gpt-image-2')
+    const high = registry.get('openrouter/gpt-image-2-high')
+    expect(standard?.imageApi).toEqual({ quality: 'medium' })
+    expect(high?.imageApi).toEqual({ quality: 'high' })
+    expect(standard?.endpoints).toEqual({ t2i: 'openai/gpt-image-2', edit: 'openai/gpt-image-2' })
+    expect(high?.endpoints).toEqual(standard?.endpoints)
+    expect(standard?.pricing).toEqual({ unit: 'image', usd: 0.042 })
+    expect(high?.pricing).toEqual({ unit: 'image', usd: 0.145 })
+    // 價格只量到少數幾次、依 token 計費會浮動，所以標「估算」
+    expect(standard?.verification.pricing).toBe(false)
+    expect(registry.estimate('openrouter/gpt-image-2-high', { images: 4 })).toBeCloseTo(0.58)
+    // 其他圖片模型（Gemini 走 chat/completions）沒有 imageApi
+    expect(registry.get('openrouter/gemini-3-pro-image')?.imageApi).toBeUndefined()
+  })
+
+  it('新增 GPT Image 2 不改變既有的預設圖片模型，使用者要自己切換', () => {
+    const only = { configuredProviders: new Set(['openrouter']) }
+    for (const capability of ['t2i', 'edit'] as const) {
+      expect(registry.defaultFor({ ...only, capability })?.id).toBe('openrouter/gemini-3-pro-image')
+    }
+    const ids = registry.available({ ...only, capability: 't2i' }).map((c) => c.id)
+    expect(ids).toEqual(
+      expect.arrayContaining(['openrouter/gpt-image-2', 'openrouter/gpt-image-2-high']),
+    )
+  })
+
+  it('imageApi 只能用在 OpenRouter 的圖片管道', () => {
+    const imageApi = { quality: 'medium' }
+    const onFal = ModelSpecSchema.safeParse({
+      ...SPEC,
+      channels: [{ ...CHANNEL, imageApi }],
+    })
+    // 管道層級只是資料；展開成執行用的卡時才檢查供應商
+    expect(onFal.success).toBe(true)
+    expect(() =>
+      expandModelSpecs(parseModelSpecs([{ ...SPEC, channels: [{ ...CHANNEL, imageApi }] }])),
+    ).toThrow(/imageApi 只有 OpenRouter/)
+    const llmOnly = {
+      ...SPEC,
+      tasks: ['llm'],
+      channels: [
+        {
+          ...CHANNEL,
+          provider: 'openrouter',
+          endpoints: { llm: 'x/y' },
+          imageApi,
+        },
+      ],
+    }
+    expect(() => expandModelSpecs(parseModelSpecs([llmOnly]))).toThrow(/imageApi 只能用在/)
+  })
+
   it('同一個模型的管道共用名稱與分組；管道各自的端點、價格、角色一致性的機制', () => {
     const fal = registry.get('fal/kling-3.0-pro')
     const viaOpenRouter = registry.get('openrouter/kling-3.0-pro')
