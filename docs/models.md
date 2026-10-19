@@ -70,10 +70,11 @@
 
 ## 5. OpenRouter — LLM
 
-| provider   | model             | endpoint/model id                                                           | price (unit)                                                        | capabilities                               | source URL                                        | verified date |
-| ---------- | ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------- | ------------- |
-| OpenRouter | Claude Opus 5.5   | `anthropic/claude-opus-5.5`                                                 | 輸入 $4 ／ 輸出 $20（每百萬 token）；快取讀取 $0.20；批次價：未確認 | 1M context；2026-09-22 上線                | https://openrouter.ai/anthropic/claude-opus-5.5   | 2026-10-12    |
-| OpenRouter | Claude Sonnet 5.5 | `anthropic/claude-sonnet-5.5`（批次版 `anthropic/claude-sonnet-5.5:batch`） | 輸入 $2 ／ 輸出 $10（每百萬 token）；快取讀取 $0.10；批次 $1 ／ $5  | 1M context、最大輸出 128K；2026-09-28 上線 | https://openrouter.ai/anthropic/claude-sonnet-5.5 | 2026-10-12    |
+| provider   | model             | endpoint/model id                                                           | price (unit)                                                                                | capabilities                                                                                                              | source URL                                        | verified date |
+| ---------- | ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ------------- |
+| OpenRouter | Claude Opus 5.5   | `anthropic/claude-opus-5.5`                                                 | 輸入 $4 ／ 輸出 $20（每百萬 token）；快取讀取 $0.20；批次價：未確認                         | 1M context；2026-09-22 上線                                                                                               | https://openrouter.ai/anthropic/claude-opus-5.5   | 2026-10-12    |
+| OpenRouter | GPT-5.5           | `openai/gpt-5.5`                                                            | 輸入 $5 ／ 輸出 $30（每百萬 token）；快取讀取 $0.50；超過 272K token 的長輸入另有較高的價格 | 1.05M context；推理模型，輸出 token 含推理；**實測**（2026-10-19）：輸入 1,518、輸出 3,304 token → US$0.10671，與牌價一致 | https://openrouter.ai/openai/gpt-5.5              | 2026-10-19    |
+| OpenRouter | Claude Sonnet 5.5 | `anthropic/claude-sonnet-5.5`（批次版 `anthropic/claude-sonnet-5.5:batch`） | 輸入 $2 ／ 輸出 $10（每百萬 token）；快取讀取 $0.10；批次 $1 ／ $5                          | 1M context、最大輸出 128K；2026-09-28 上線                                                                                | https://openrouter.ai/anthropic/claude-sonnet-5.5 | 2026-10-12    |
 
 ---
 

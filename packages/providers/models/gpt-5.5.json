@@ -1,0 +1,35 @@
+{
+  "key": "gpt-5.5",
+  "displayName": "GPT-5.5",
+  "tasks": ["llm"],
+  "tier": "premium",
+  "recommended": false,
+  "features": {
+    "contextTokens": 1050000
+  },
+  "badges": [],
+  "prompt": {
+    "language": "any",
+    "hint": "拆鏡與分鏡設計、改寫、台詞。推理模型：輸出 token 含它的推理，實際費用常是看得到的文字的好幾倍。"
+  },
+  "channels": [
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "llm": "openai/gpt-5.5"
+      },
+      "pricing": {
+        "unit": "million_tokens",
+        "inputUsd": 5,
+        "outputUsd": 30
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "OpenRouter /api/v1/models 的牌價，並用一次真實呼叫的 usage.cost 對過（輸入 1,518、輸出 3,304 token → US$0.10671，與牌價算出的一致）；2026-10-19 核對",
+        "checkedAt": "2026-10-19"
+      },
+      "notes": "分鏡由 GPT 主導時選它。牌價：輸入 $5／輸出 $30（每百萬 token），快取讀取 $0.50；超過 272K token 的長輸入另有較高的價格。"
+    }
+  ]
+}
