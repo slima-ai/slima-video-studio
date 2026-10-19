@@ -14,6 +14,8 @@ export interface OpenRouterOptions {
   endpointFor: (modelId: string, capability: Capability) => string | undefined
   /** 這個 ModelCard 的圖片是否走 `POST /images`（例如 gpt-image-2）；沒有回傳就走 chat/completions。 */
   imageApiFor?: (modelId: string) => ImageApi | undefined
+  /** 查實收花費（`GET /generation`）時，第一次查之前先等多久；測試傳 0。 */
+  costLookupDelayMs?: number
   fetch?: FetchLike
   baseUrl?: string
   timeoutMs?: number
@@ -86,6 +88,9 @@ const ImagesApiResponseSchema = z.object({
   usage: z.object({ cost: z.number().optional() }).optional(),
 })
 
+/** `GET /generation` 只取實收花費。 */
+const GenerationSchema = z.object({ data: z.object({ total_cost: z.number().optional() }) })
+
 const VideoSubmitSchema = z.object({ id: z.string().min(1) })
 
 /** 狀態字串只認得「完成」與「失敗類」，其他一律當成還在進行（文件列的 pending／in_progress 也在其中）。 */
@@ -102,6 +107,8 @@ export type VideoStatus =
 
 /** 單一檔案上限。 */
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024
+/** 單一旁白檔上限（5,000 字的旁白也只有幾 MB）。 */
+const MAX_AUDIO_BYTES = 50 * 1024 * 1024
 
 const tooLarge = (): AppError =>
   new AppError({ code: 'provider_rejected', userMessage: 'OpenRouter 回傳的檔案太大，已略過。' })
@@ -412,6 +419,79 @@ export class OpenRouterClient {
     const file = await this.fileFromUrl(source, signal, MAX_IMAGE_BYTES)
     const cost = parsed.data.usage?.cost
     return { ...file, ...(cost === undefined ? {} : { costUsd: cost }) }
+  }
+
+  /**
+   * 旁白（`POST /audio/speech`）：回應是原始的 mp3 位元組（不是 JSON），而且不帶花費。
+   * `voice` 必填（沒給 OpenRouter 會回 400）。回傳 `generationId`，花費要另外用 generationCost 查。
+   */
+  async speech(
+    input: { modelId: string; text: string; voice: string },
+    signal: AbortSignal,
+  ): Promise<{ bytes: Uint8Array; mime: string; generationId?: string }> {
+    let response: Response
+    try {
+      response = await request(
+        `${this.baseUrl}/audio/speech`,
+        {
+          method: 'POST',
+          headers: this.headers(),
+          body: JSON.stringify({
+            model: this.modelSlug(input.modelId, 'tts'),
+            input: input.text,
+            voice: input.voice,
+            response_format: 'mp3',
+          }),
+        },
+        { fetch: this.fetch, provider: PROVIDER, signal, timeoutMs: this.timeoutMs },
+      )
+    } catch (error) {
+      // 400：多半是聲音名稱不被這個模型接受（例如 ElevenLabs 的 Unknown voice）或文字太長；原文留在 cause
+      if (error instanceof AppError && error.code === 'provider_rejected') {
+        throw new AppError({
+          code: 'provider_rejected',
+          userMessage:
+            'OpenRouter 不接受這段旁白（聲音名稱或文字長度可能不被這個模型支援）。請換一個聲音，或把文字縮短後再試。',
+          cause: error,
+        })
+      }
+      throw error
+    }
+    const file = await readBody(response, MAX_AUDIO_BYTES, 'audio/mpeg')
+    // HTTP 200 卻回 JSON：是夾帶的錯誤（或不是音訊），不要把它當成音檔存起來
+    if (file.mime.includes('json')) {
+      const inline = InlineErrorSchema.safeParse(JSON.parse(new TextDecoder().decode(file.bytes)))
+      const code = inline.success ? Number(inline.data.error.code) : 502
+      throw httpError(PROVIDER, Number.isFinite(code) && code >= 400 ? code : 502, {
+        ...(inline.success && inline.data.error.message
+          ? { detail: inline.data.error.message }
+          : {}),
+      })
+    }
+    const generationId = response.headers.get('x-generation-id')
+    return { ...file, ...(generationId === null ? {} : { generationId }) }
+  }
+
+  /**
+   * 查某次呼叫的實收花費（美元）。旁白的回應沒有 usage，只能事後查，而且**不可靠**：2026-10-19 實測，
+   * 第一次探測查得到 US$0.0049，之後同一個模型 12 秒內查了 6 次都是 404。所以只等一次（約 1 秒）就放棄，
+   * 回傳 undefined，呼叫端改用牌價估算並標「估算」。這個查詢失敗不影響旁白本身，所以不丟錯。
+   */
+  async generationCost(generationId: string, signal: AbortSignal): Promise<number | undefined> {
+    const delay = this.options.costLookupDelayMs ?? 1000
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
+    if (signal.aborted) return undefined
+    try {
+      const response = await request(
+        `${this.baseUrl}/generation?id=${encodeURIComponent(generationId)}`,
+        { method: 'GET', headers: this.headers() },
+        { fetch: this.fetch, provider: PROVIDER, signal, timeoutMs: 15_000 },
+      )
+      const parsed = GenerationSchema.safeParse(await readJson(response, PROVIDER))
+      return parsed.success ? parsed.data.data.total_cost : undefined
+    } catch {
+      return undefined // 還沒入帳（404）或暫時查不到
+    }
   }
 
   /** `data:` 網址直接解碼；一般網址就下載（公開網址，不帶 Key）。 */

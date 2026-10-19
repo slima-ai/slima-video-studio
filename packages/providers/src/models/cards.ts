@@ -2,12 +2,14 @@ import { ModelSpecSchema, expandModelSpec, type ModelCard, type ModelSpec } from
 
 import claudeOpus5_5 from '../../models/claude-opus-5.5.json'
 import claudeSonnet5_5 from '../../models/claude-sonnet-5.5.json'
+import eleven3 from '../../models/eleven-v3.json'
 import gemini3ProImage from '../../models/gemini-3-pro-image.json'
 import gpt5_5 from '../../models/gpt-5.5.json'
 import gptImage2 from '../../models/gpt-image-2.json'
 import gptImage2High from '../../models/gpt-image-2-high.json'
 import kling3_0Pro from '../../models/kling-3.0-pro.json'
 import kling3_0Standard from '../../models/kling-3.0-standard.json'
+import minimaxSpeech2_8Hd from '../../models/minimax-speech-2.8-hd.json'
 import mockImage from '../../models/mock-image.json'
 import mockLlm from '../../models/mock-llm.json'
 import mockTts from '../../models/mock-tts.json'
@@ -21,12 +23,14 @@ import veo3_1Lite from '../../models/veo-3.1-lite.json'
 const RAW_SPECS: readonly unknown[] = [
   claudeOpus5_5,
   claudeSonnet5_5,
+  eleven3,
   gemini3ProImage,
   gpt5_5,
   gptImage2,
   gptImage2High,
   kling3_0Pro,
   kling3_0Standard,
+  minimaxSpeech2_8Hd,
   mockImage,
   mockLlm,
   mockTts,
@@ -40,12 +44,14 @@ const RAW_SPECS: readonly unknown[] = [
 export const BUILTIN_MODEL_FILES: readonly string[] = [
   'claude-opus-5.5.json',
   'claude-sonnet-5.5.json',
+  'eleven-v3.json',
   'gemini-3-pro-image.json',
   'gpt-5.5.json',
   'gpt-image-2.json',
   'gpt-image-2-high.json',
   'kling-3.0-pro.json',
   'kling-3.0-standard.json',
+  'minimax-speech-2.8-hd.json',
   'mock-image.json',
   'mock-llm.json',
   'mock-tts.json',

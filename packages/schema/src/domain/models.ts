@@ -89,6 +89,16 @@ export const ImageApiSchema = z.object({
   quality: z.enum(['low', 'medium', 'high', 'auto']),
 })
 export type ImageApi = z.infer<typeof ImageApiSchema>
+/**
+ * 旁白模型可選的聲音。OpenRouter 不提供聲音清單，所以每個 voice 都要實測過才寫進模型卡。
+ * `language` 是這個聲音適合的語言（any＝不限）。
+ */
+export const VoiceSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  language: z.enum(['zh', 'en', 'any']).default('any'),
+})
+export type Voice = z.infer<typeof VoiceSchema>
 const CharacterMechanismSchema = z.enum(['elements', 'reference', 'lora', 'none'])
 const StyleFitSchema = z.enum(['realistic', 'animation', 'both'])
 const PromptHintSchema = z.object({
@@ -140,6 +150,10 @@ export const ModelCardSchema = z
     characterMechanism: CharacterMechanismSchema.default('none'),
     /** 有填就表示這個管道的圖片走 OpenRouter 的 /images（只有 openrouter 的 t2i／edit 用得到）。 */
     imageApi: ImageApiSchema.optional(),
+    /** 旁白（tts）可選的聲音；第一個是預設。 */
+    voices: z.array(VoiceSchema).default([]),
+    /** 依字元計價時，每個漢字／全形字算幾個字元（MiniMax 是 2）；沒填就是 1。 */
+    cjkCharWeight: z.number().positive().optional(),
     styleFit: StyleFitSchema.default('both'),
     /** 給 Prompt 生成節點參考：這個模型偏好的寫法與語言。 */
     prompt: PromptHintSchema.optional(),
@@ -185,6 +199,16 @@ export const ModelCardSchema = z
         })
       }
     }
+    if (card.voices.length > 0 && !card.capabilities.includes('tts')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['voices'],
+        message: 'voices 只能用在有 tts 能力的模型',
+      })
+    }
+    if (new Set(card.voices.map((v) => v.id)).size !== card.voices.length) {
+      ctx.addIssue({ code: 'custom', path: ['voices'], message: '同一張卡的 voice id 不能重複' })
+    }
     if (card.durationSec && card.durationSec.min > card.durationSec.max) {
       ctx.addIssue({ code: 'custom', path: ['durationSec'], message: '最短秒數不能大於最長秒數' })
     }
@@ -224,6 +248,8 @@ export const ModelChannelSchema = z.object({
   referenceLimits: ReferenceLimitsSchema.optional(),
   characterMechanism: CharacterMechanismSchema.optional(),
   imageApi: ImageApiSchema.optional(),
+  voices: z.array(VoiceSchema).optional(),
+  cjkCharWeight: z.number().positive().optional(),
   prompt: PromptHintSchema.optional(),
   cameraParams: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
   notes: z.string().optional(),
@@ -323,6 +349,8 @@ export function expandModelSpec(spec: ModelSpec): ModelCard[] {
       ...(referenceLimits === undefined ? {} : { referenceLimits }),
       characterMechanism: channel.characterMechanism ?? spec.features.characterMechanism,
       ...(channel.imageApi === undefined ? {} : { imageApi: channel.imageApi }),
+      ...(channel.voices === undefined ? {} : { voices: channel.voices }),
+      ...(channel.cjkCharWeight === undefined ? {} : { cjkCharWeight: channel.cjkCharWeight }),
       styleFit: spec.styleFit,
       ...(prompt === undefined ? {} : { prompt }),
       ...(channel.cameraParams === undefined ? {} : { cameraParams: channel.cameraParams }),
@@ -359,6 +387,21 @@ const MISSING = (field: string, card: ModelCard): AppError =>
     code: 'invalid_request',
     userMessage: `無法估算「${card.displayName}」的花費：缺少 ${field}。`,
   })
+
+/** 全形字（漢字、假名、韓文、全形標點）；有些旁白模型把它們算成兩個字元。 */
+const WIDE_CHAR = /[\u1100-\u11ff\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/u
+
+/**
+ * 旁白文字的計費字元數：每個字算 1，卡上有 `cjkCharWeight` 時全形字（含全形標點）改算那個數字。
+ * （MiniMax 實測：23 個漢字加 3 個標點收 49 個單位＝23×2＋3，標點「，」「。」算 1 還是 2 尚未分開量，
+ * 這裡把全形標點也算進權重，會略多估一點，寧可多估。）
+ */
+export function billableChars(card: Pick<ModelCard, 'cjkCharWeight'>, text: string): number {
+  const weight = card.cjkCharWeight ?? 1
+  let total = 0
+  for (const char of text) total += WIDE_CHAR.test(char) ? weight : 1
+  return total
+}
 
 /** 依 ModelCard 的價格與用量估算花費（美金）。缺少需要的用量欄位時丟錯，不會悄悄少算。 */
 export function estimateCostUsd(card: ModelCard, usage: UsageEstimate): number {

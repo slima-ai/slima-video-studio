@@ -22,9 +22,12 @@ const MAX_VIDEO_BYTES = 500 * 1024 * 1024
 export interface OpenRouterDriverOptions extends OpenRouterOptions {
   /** 讀取參考圖、存放結果的素材庫。 */
   services: ProviderServices
+  /** 旁白請求沒指定聲音時，這張模型卡的預設聲音（OpenRouter 的 TTS 一定要帶 voice）。 */
+  defaultVoiceFor?: (modelId: string) => string | undefined
 }
 
-type SupportedRequest = Exclude<GenerationRequest, { capability: 'tts' }>
+type SupportedRequest = GenerationRequest
+type TtsRequest = Extract<GenerationRequest, { capability: 'tts' }>
 type ImageRequest = Extract<GenerationRequest, { capability: 't2i' | 'edit' }>
 type VideoRequest = Extract<GenerationRequest, { capability: 't2v' | 'i2v' | 'r2v' }>
 
@@ -51,10 +54,11 @@ const imagePart = (url: string): { type: 'image_url'; image_url: { url: string }
 
 function parseRequest(job: Job): SupportedRequest {
   const parsed = GenerationRequestSchema.safeParse(job.input)
-  if (!parsed.success || parsed.data.capability === 'tts') {
+  if (!parsed.success) {
     throw new AppError({
       code: 'provider_rejected',
-      userMessage: 'OpenRouter 這裡只處理文字、圖片與影片的請求。',
+      userMessage: 'OpenRouter 收到的請求格式不對。',
+      cause: parsed.error,
     })
   }
   return parsed.data
@@ -104,6 +108,28 @@ export function createOpenRouterDriver(
     return {
       status: 'done',
       output: { kind: 'assets', assets },
+      ...(costUsd === undefined ? {} : { costUsd }),
+    }
+  }
+
+  /** 旁白：一次呼叫回一個 mp3；實收花費事後查，查不到就不回報（由呼叫端依牌價估算）。 */
+  async function synthesize(req: TtsRequest, ctx: DriverContext): Promise<SubmitResult> {
+    const voice = req.voiceId ?? options.defaultVoiceFor?.(req.modelId)
+    if (voice === undefined) {
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: '這個旁白模型需要指定一個聲音，請到設定頁選擇。',
+      })
+    }
+    const result = await client.speech({ modelId: req.modelId, text: req.text, voice }, ctx.signal)
+    const asset = await services.assets.put(result.bytes, result.mime)
+    const costUsd =
+      result.generationId === undefined
+        ? undefined
+        : await client.generationCost(result.generationId, ctx.signal)
+    return {
+      status: 'done',
+      output: { kind: 'assets', assets: [asset] },
       ...(costUsd === undefined ? {} : { costUsd }),
     }
   }
@@ -171,6 +197,7 @@ export function createOpenRouterDriver(
           ...(result.costUsd === undefined ? {} : { costUsd: result.costUsd }),
         }
       }
+      if (req.capability === 'tts') return synthesize(req, ctx)
       if (isVideo(req)) {
         const providerJobId = await client.submitVideo(await videoBody(req), ctx.signal)
         return { status: 'submitted', providerJobId }

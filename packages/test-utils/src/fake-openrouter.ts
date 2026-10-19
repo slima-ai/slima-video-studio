@@ -180,6 +180,16 @@ export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
           return
         }
         sendJson(res, 200, chatResponse(isRecord(body) ? body : {}))
+      } else if (method === 'POST' && path === '/audio/speech') {
+        // 不是真的音訊（只有 mp3 的開頭標記），只證明旁白這條路接通；沒給 voice 照真的 API 回 400
+        if (!isRecord(body) || typeof body.voice !== 'string' || body.voice === '') {
+          sendJson(res, 400, { error: { code: 400, message: 'An explicit voice is required.' } })
+          return
+        }
+        res.writeHead(200, { 'content-type': 'audio/mpeg', 'x-generation-id': 'fake-gen-tts-1' })
+        res.end(Buffer.concat([Buffer.from('ID3'), Buffer.alloc(64)]))
+      } else if (method === 'GET' && path === '/generation') {
+        sendJson(res, 200, { data: { total_cost: 0.0049 } })
       } else if (method === 'POST' && path === '/images') {
         sendJson(res, 200, imagesResponse(isRecord(body) ? body : {}))
       } else if (method === 'POST' && path === '/videos') {

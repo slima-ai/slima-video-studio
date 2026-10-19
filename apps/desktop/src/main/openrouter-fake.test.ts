@@ -93,6 +93,30 @@ describe('假 OpenRouter + 真的 OpenRouterClient', () => {
     })
   })
 
+  it('旁白：走 POST /audio/speech，沒給 voice 會被拒，給了就回得來音檔與查得到實收花費', async () => {
+    const speechClient = new OpenRouterClient({
+      getKey: () => FAKE_OPENROUTER_KEY,
+      endpointFor: () => 'minimax/speech-2.8-hd',
+      costLookupDelayMs: 0,
+      baseUrl: fake.url,
+    })
+    await expect(
+      speechClient.speech({ modelId: 'openrouter/minimax', text: '你好', voice: '' }, signal),
+    ).rejects.toMatchObject({ code: 'provider_rejected' })
+    const speech = await speechClient.speech(
+      { modelId: 'openrouter/minimax', text: '你好', voice: 'male-qn-qingse' },
+      signal,
+    )
+    expect(speech.mime).toBe('audio/mpeg')
+    expect(Buffer.from(speech.bytes.slice(0, 3)).toString('ascii')).toBe('ID3')
+    expect(await speechClient.generationCost(speech.generationId ?? '', signal)).toBeCloseTo(0.0049)
+    expect(fake.requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'POST /audio/speech',
+      'POST /audio/speech',
+      'GET /generation',
+    ])
+  })
+
   it('影片：送出 → 輪詢（第一次還在進行、第二次完成）→ 下載到 MP4', async () => {
     const c = client()
     const id = await c.submitVideo({ model: 'fake/video', prompt: '貓走過雨夜' }, signal)
