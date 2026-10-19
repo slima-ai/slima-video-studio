@@ -66,7 +66,10 @@ export async function forward(line: string, env: BridgeEnv): Promise<void> {
     if (wantsReply) env.write(rpcError(first?.id, text))
   }
   const connection = readConnection(env.userDataDir)
-  if (!connection) return fail(NOT_RUNNING)
+  if (!connection) {
+    fail(NOT_RUNNING)
+    return
+  }
   let response: Response
   try {
     response = await env.fetch(connection.url, {
@@ -79,14 +82,19 @@ export async function forward(line: string, env: BridgeEnv): Promise<void> {
       body: line,
     })
   } catch {
-    return fail(NOT_RUNNING)
+    fail(NOT_RUNNING)
+    return
   }
   if (response.status === 401) {
-    return fail('連線 token 不對。請在 App 的「設定 → AI 工具連線」確認連線是開著的。')
+    fail('連線 token 不對。請在 App 的「設定 → AI 工具連線」確認連線是開著的。')
+    return
   }
   if (response.status === 202 || response.status === 204) return
   const text = await response.text()
-  if (!response.ok) return fail(`App 回了錯誤（HTTP ${String(response.status)}）。`)
+  if (!response.ok) {
+    fail(`App 回了錯誤（HTTP ${String(response.status)}）。`)
+    return
+  }
   if (text.trim() === '') return
   // 伺服器是無狀態＋直接回 JSON；一行一則地寫出去（批次回應是陣列就拆開）
   try {

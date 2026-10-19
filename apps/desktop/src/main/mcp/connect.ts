@@ -186,7 +186,7 @@ export function runInLoginShell(commandLine: string): Promise<void> {
   const args = process.platform === 'win32' ? ['/d', '/s', '/c', commandLine] : ['-lc', commandLine]
   return new Promise((resolve, reject) => {
     execFile(shell, args, { timeout: 30_000, windowsHide: true }, (error) => {
-      if (error) reject(error)
+      if (error) reject(new Error(error.message))
       else resolve()
     })
   })
