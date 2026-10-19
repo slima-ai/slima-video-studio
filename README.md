@@ -71,7 +71,7 @@ In **Claude Code**, type `/mcp` to check that `slima-video-studio` is connected 
 **Connect from the command line (macOS, app installed in `/Applications`)** — the same thing the button does, using the app's own runtime as a small bridge; nothing is installed and no token is copied:
 
 ```bash
-claude mcp add --scope user -e ELECTRON_RUN_AS_NODE=1 slima-video-studio -- \
+claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
   "/Applications/Slima Video Studio.app/Contents/MacOS/Slima Video Studio" \
   "/Applications/Slima Video Studio.app/Contents/Resources/app.asar/out/main/mcp-stdio-bridge.js" \
   --user-data "$HOME/Library/Application Support/@svs/desktop"

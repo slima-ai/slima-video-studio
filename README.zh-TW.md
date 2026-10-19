@@ -71,7 +71,7 @@ _App 真實的設定頁（token 預設遮蔽，按「顯示 token」才會看到
 **用指令連接（macOS，App 裝在 `/Applications`）**：做的事跟按鈕一樣，用 App 自己的執行環境當小轉接，不用安裝任何東西，也不用複製 token：
 
 ```bash
-claude mcp add --scope user -e ELECTRON_RUN_AS_NODE=1 slima-video-studio -- \
+claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
   "/Applications/Slima Video Studio.app/Contents/MacOS/Slima Video Studio" \
   "/Applications/Slima Video Studio.app/Contents/Resources/app.asar/out/main/mcp-stdio-bridge.js" \
   --user-data "$HOME/Library/Application Support/@svs/desktop"
