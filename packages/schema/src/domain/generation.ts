@@ -72,6 +72,15 @@ export const TtsRequestSchema = z.object({
 })
 export type TtsRequest = z.infer<typeof TtsRequestSchema>
 
+/** 配樂：文字描述 → 一首音樂。長度只是提示（Lyria 只能靠文字提示，實測不可靠：要 20 秒拿到約 62 秒），以回來的檔案為準。 */
+export const MusicRequestSchema = z.object({
+  ...common,
+  capability: z.literal('music'),
+  prompt: z.string().min(1),
+  durationSec: z.number().positive().optional(),
+})
+export type MusicRequest = z.infer<typeof MusicRequestSchema>
+
 export const GenerationRequestSchema = z.discriminatedUnion('capability', [
   LlmRequestSchema,
   ImageRequestSchema.extend({ capability: z.literal('t2i') }),
@@ -80,6 +89,7 @@ export const GenerationRequestSchema = z.discriminatedUnion('capability', [
   VideoRequestSchema.extend({ capability: z.literal('i2v') }),
   VideoRequestSchema.extend({ capability: z.literal('r2v') }),
   TtsRequestSchema,
+  MusicRequestSchema,
 ])
 export type GenerationRequest = z.infer<typeof GenerationRequestSchema>
 

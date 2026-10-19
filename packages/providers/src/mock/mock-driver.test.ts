@@ -299,6 +299,23 @@ describe('Mock driver：長任務（影片、配音）', () => {
     expect(wav.subarray(0, 4).toString()).toBe('RIFF')
     expect(wav.subarray(8, 12).toString()).toBe('WAVE')
   })
+
+  it('配樂產生 WAV 音訊，長度依 durationSec（沒給就 30 秒，最多 60 秒）', async () => {
+    const { driver } = setup({ pollsBeforeDone: 0 })
+    const durationOf = async (extra: Record<string, unknown>, id: string): Promise<number> => {
+      const req = { capability: 'music', modelId: 'm', prompt: 'calm', ...extra }
+      await driver.submit(job(req, id), ctx)
+      const done = await driver.poll({ ...job(req, id), providerJobId: `mock-${id}` }, ctx)
+      if (done.status !== 'done') throw new Error('應完成')
+      const out = GenerationOutputSchema.parse(done.output)
+      if (out.kind !== 'assets') throw new Error('應為素材')
+      expect(out.assets[0]).toMatchObject({ kind: 'audio', mime: 'audio/wav' })
+      return out.assets[0]?.durationSec ?? 0
+    }
+    expect(await durationOf({ durationSec: 12 }, 'm1')).toBe(12)
+    expect(await durationOf({}, 'm2')).toBe(30)
+    expect(await durationOf({ durationSec: 600 }, 'm3')).toBe(60)
+  })
 })
 
 describe('Mock driver：注入失敗', () => {

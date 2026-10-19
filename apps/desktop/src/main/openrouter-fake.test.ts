@@ -117,6 +117,30 @@ describe('假 OpenRouter + 真的 OpenRouterClient', () => {
     ])
   })
 
+  it('配樂：串流 chat/completions（audio 模態）；沒開串流會被拒，開了就收得到音檔與實收花費', async () => {
+    const musicClient = new OpenRouterClient({
+      getKey: () => FAKE_OPENROUTER_KEY,
+      endpointFor: (modelId) =>
+        modelId.includes('clip') ? 'google/lyria-3-clip-preview' : 'google/lyria-3-pro-preview',
+      baseUrl: fake.url,
+    })
+    const pro = await musicClient.generateMusic(
+      { modelId: 'openrouter/lyria-3-pro', prompt: 'Instrumental only.', durationSec: 45 },
+      signal,
+    )
+    expect(pro.mime).toBe('audio/mpeg')
+    expect(Buffer.from(pro.bytes.slice(0, 3)).toString('ascii')).toBe('ID3')
+    expect(pro.costUsd).toBeCloseTo(0.08)
+    const clip = await musicClient.generateMusic(
+      { modelId: 'openrouter/lyria-3-clip', prompt: 'Instrumental only.' },
+      signal,
+    )
+    expect(clip.costUsd).toBeCloseTo(0.04)
+    const sent = fake.requests.at(0)?.body as { modalities: string[]; stream: boolean }
+    expect(sent.modalities).toEqual(['text', 'audio'])
+    expect(sent.stream).toBe(true)
+  })
+
   it('影片：送出 → 輪詢（第一次還在進行、第二次完成）→ 下載到 MP4', async () => {
     const c = client()
     const id = await c.submitVideo({ model: 'fake/video', prompt: '貓走過雨夜' }, signal)

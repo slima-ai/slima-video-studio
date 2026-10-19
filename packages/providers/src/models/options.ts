@@ -12,6 +12,8 @@ export function priceLabel(pricing: Pricing): string {
         : `約 ${usd(pricing.usd)}／秒（有聲 ${usd(pricing.usdWithAudio)}／秒）`
     case 'image':
       return pricing.usd === 0 ? '免費（示範）' : `約 ${usd(pricing.usd)}／張`
+    case 'track':
+      return pricing.usd === 0 ? '免費（示範）' : `約 ${usd(pricing.usd)}／首`
     case 'minute':
       return pricing.usd === 0 ? '免費（示範）' : `約 ${usd(pricing.usd)}／分鐘`
     case 'million_chars':
@@ -40,6 +42,8 @@ export function priceShort(pricing: Pricing): string {
       return pricing.usd === 0 ? '免費（示範）' : `每 5 秒約 ${usdShort(pricing.usd * 5)}`
     case 'image':
       return pricing.usd === 0 ? '免費（示範）' : `每張約 ${usdShort(pricing.usd)}`
+    case 'track':
+      return pricing.usd === 0 ? '免費（示範）' : `每首約 ${usdShort(pricing.usd)}`
     case 'minute':
       return pricing.usd === 0 ? '免費（示範）' : `每分鐘約 ${usdShort(pricing.usd)}`
     case 'million_chars':

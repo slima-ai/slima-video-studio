@@ -10,6 +10,8 @@ import gptImage2High from '../../models/gpt-image-2-high.json'
 import kling3_0Pro from '../../models/kling-3.0-pro.json'
 import kling3_0Standard from '../../models/kling-3.0-standard.json'
 import minimaxSpeech2_8Hd from '../../models/minimax-speech-2.8-hd.json'
+import lyria3Clip from '../../models/lyria-3-clip.json'
+import lyria3Pro from '../../models/lyria-3-pro.json'
 import mockImage from '../../models/mock-image.json'
 import mockLlm from '../../models/mock-llm.json'
 import mockTts from '../../models/mock-tts.json'
@@ -31,6 +33,8 @@ const RAW_SPECS: readonly unknown[] = [
   kling3_0Pro,
   kling3_0Standard,
   minimaxSpeech2_8Hd,
+  lyria3Clip,
+  lyria3Pro,
   mockImage,
   mockLlm,
   mockTts,
@@ -52,6 +56,8 @@ export const BUILTIN_MODEL_FILES: readonly string[] = [
   'kling-3.0-pro.json',
   'kling-3.0-standard.json',
   'minimax-speech-2.8-hd.json',
+  'lyria-3-clip.json',
+  'lyria-3-pro.json',
   'mock-image.json',
   'mock-llm.json',
   'mock-tts.json',

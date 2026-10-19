@@ -29,6 +29,7 @@ export interface OpenRouterDriverOptions extends OpenRouterOptions {
 type SupportedRequest = GenerationRequest
 type TtsRequest = Extract<GenerationRequest, { capability: 'tts' }>
 type ImageRequest = Extract<GenerationRequest, { capability: 't2i' | 'edit' }>
+type MusicRequest = Extract<GenerationRequest, { capability: 'music' }>
 type VideoRequest = Extract<GenerationRequest, { capability: 't2v' | 'i2v' | 'r2v' }>
 
 const isVideo = (req: SupportedRequest): req is VideoRequest =>
@@ -134,6 +135,24 @@ export function createOpenRouterDriver(
     }
   }
 
+  /** 配樂：一次（串流）呼叫回一首 mp3，花費是供應商回報的實收。 */
+  async function compose(req: MusicRequest, ctx: DriverContext): Promise<SubmitResult> {
+    const result = await client.generateMusic(
+      {
+        modelId: req.modelId,
+        prompt: req.prompt,
+        ...(req.durationSec === undefined ? {} : { durationSec: req.durationSec }),
+      },
+      ctx.signal,
+    )
+    const asset = await services.assets.put(result.bytes, result.mime)
+    return {
+      status: 'done',
+      output: { kind: 'assets', assets: [asset] },
+      ...(result.costUsd === undefined ? {} : { costUsd: result.costUsd }),
+    }
+  }
+
   async function videoBody(req: VideoRequest): Promise<Record<string, unknown>> {
     const base = {
       model: client.videoModel(req.modelId, req.capability),
@@ -198,6 +217,7 @@ export function createOpenRouterDriver(
         }
       }
       if (req.capability === 'tts') return synthesize(req, ctx)
+      if (req.capability === 'music') return compose(req, ctx)
       if (isVideo(req)) {
         const providerJobId = await client.submitVideo(await videoBody(req), ctx.signal)
         return { status: 'submitted', providerJobId }

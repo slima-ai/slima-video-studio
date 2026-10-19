@@ -34,6 +34,8 @@ export const PricingSchema = z.discriminatedUnion('unit', [
     usdWithAudio: UsdSchema.optional(),
   }),
   z.object({ unit: z.literal('image'), usd: UsdSchema }),
+  /** 配樂依首計價（不管長短）。 */
+  z.object({ unit: z.literal('track'), usd: UsdSchema }),
   z.object({ unit: z.literal('minute'), usd: UsdSchema }),
   z.object({ unit: z.literal('million_chars'), usd: UsdSchema }),
   z.object({
@@ -374,6 +376,7 @@ export function comparablePrice(a: Pricing, b: Pricing): [number, number] | unde
 export interface UsageEstimate {
   seconds?: number
   images?: number
+  tracks?: number
   minutes?: number
   chars?: number
   inputTokens?: number
@@ -415,6 +418,10 @@ export function estimateCostUsd(card: ModelCard, usage: UsageEstimate): number {
     case 'image': {
       if (usage.images === undefined) throw MISSING('張數', card)
       return usage.images * p.usd
+    }
+    case 'track': {
+      if (usage.tracks === undefined) throw MISSING('首數', card)
+      return usage.tracks * p.usd
     }
     case 'minute': {
       if (usage.minutes === undefined) throw MISSING('分鐘數', card)

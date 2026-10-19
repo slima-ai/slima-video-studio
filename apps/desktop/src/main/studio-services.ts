@@ -28,6 +28,7 @@ const JOB_KIND: Record<GenerationRequest['capability'], JobKind> = {
   i2v: 'video',
   r2v: 'video',
   tts: 'tts',
+  music: 'music',
 }
 
 /** ModelCard id 的第一段就是供應商（fal/…、openrouter/…、mock/…）。 */

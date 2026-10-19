@@ -51,6 +51,8 @@ function promptOf(request: GenerationRequest): string | undefined {
       return request.messages.filter((m) => m.role === 'user').at(-1)?.content
     case 'tts':
       return request.text
+    case 'music':
+      return request.prompt
     case 'edit':
     case 't2i':
       return cleanPrompt(request.prompt)
@@ -63,6 +65,10 @@ function promptOf(request: GenerationRequest): string | undefined {
 
 function paramsOf(request: GenerationRequest): string[] {
   const out: string[] = []
+  if (request.capability === 'music') {
+    if (request.durationSec !== undefined) out.push(`${String(request.durationSec)} 秒`)
+    return out
+  }
   if (request.capability === 'llm' || request.capability === 'tts') return out
   out.push(request.aspectRatio)
   if ('durationSec' in request) out.push(`${String(request.durationSec)} 秒`)

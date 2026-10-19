@@ -1,0 +1,34 @@
+{
+  "key": "lyria-3-pro",
+  "displayName": "Google Lyria 3 Pro",
+  "tasks": ["music"],
+  "tier": "balanced",
+  "recommended": true,
+  "features": {
+    "nativeAudio": false
+  },
+  "badges": ["配樂"],
+  "prompt": {
+    "language": "en",
+    "hint": "要純音樂就明寫 instrumental only, no vocals；長度可以寫在 prompt 裡當提示（例如 about 45 seconds），但不保證。"
+  },
+  "channels": [
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "music": "google/lyria-3-pro-preview"
+      },
+      "pricing": {
+        "unit": "track",
+        "usd": 0.08
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "實測：用真的 OpenRouter 金鑰呼叫 chat/completions（串流、modalities text+audio），三次 usage.cost 都是 US$0.08（見 docs/models.md 實測紀錄）",
+        "checkedAt": "2026-10-19"
+      },
+      "notes": "配樂的預設。預覽版。長度只能靠 prompt 提示，不可靠：要求「30 seconds」得 32.8 秒、「about 60 seconds」得 62.7 秒，但要求 20 秒卻得約 62 秒；價格都一樣（0.08）。實際長度以回來的檔案為準，混音時比影片長就截掉並淡出、比影片短就循環。輸出 44.1 kHz 立體聲 mp3。Lyria 專屬的商用條款查無（Google 的 Gemini API 條款寫不主張輸出所有權，但沒提 Lyria），輸出帶 SynthID 水印。"
+    }
+  ]
+}

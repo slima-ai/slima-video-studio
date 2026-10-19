@@ -1,0 +1,34 @@
+{
+  "key": "lyria-3-clip",
+  "displayName": "Google Lyria 3 Clip",
+  "tasks": ["music"],
+  "tier": "budget",
+  "recommended": false,
+  "features": {
+    "nativeAudio": false
+  },
+  "badges": ["配樂", "30 秒短版"],
+  "prompt": {
+    "language": "en",
+    "hint": "要純音樂就明寫 instrumental only, no vocals。"
+  },
+  "channels": [
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "music": "google/lyria-3-clip-preview"
+      },
+      "pricing": {
+        "unit": "track",
+        "usd": 0.04
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "實測：用真的 OpenRouter 金鑰呼叫 chat/completions（串流、modalities text+audio），一次 usage.cost 為 US$0.04（見 docs/models.md 實測紀錄）",
+        "checkedAt": "2026-10-19"
+      },
+      "notes": "固定約 30 秒的短版（實測 30.8 秒）。比影片短時，混音會把它接著循環。預覽版；商用條款同 Lyria 3 Pro（查無）。"
+    }
+  ]
+}
