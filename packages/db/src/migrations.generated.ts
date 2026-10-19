@@ -114,5 +114,15 @@ export const MIGRATIONS: readonly Migration[] = [
     "statements": [
       "ALTER TABLE `projects` ADD `models` text DEFAULT '{}' NOT NULL;"
     ]
+  },
+  {
+    "tag": "0011_sound_clips",
+    "statements": [
+      "CREATE TABLE `sound_clips` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`project_id` text NOT NULL,\n\t`kind` text NOT NULL,\n\t`shot_id` text,\n\t`asset_hash` text NOT NULL,\n\t`duration_sec` real,\n\t`offset_sec` real DEFAULT 0 NOT NULL,\n\t`gain_db` real,\n\t`fade_in_sec` real,\n\t`fade_out_sec` real,\n\t`text` text DEFAULT '' NOT NULL,\n\t`voice_id` text,\n\t`model_id` text NOT NULL,\n\t`cost_usd` real,\n\t`cost_estimated` integer DEFAULT false NOT NULL,\n\t`version` integer NOT NULL,\n\t`adopted` integer DEFAULT false NOT NULL,\n\t`created_at` text NOT NULL,\n\tFOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,\n\tFOREIGN KEY (`shot_id`) REFERENCES `shots`(`id`) ON UPDATE no action ON DELETE cascade\n);",
+      "CREATE UNIQUE INDEX `sound_clips_group_version_uq` ON `sound_clips` (`project_id`,`kind`,`shot_id`,`version`);",
+      "CREATE TABLE `sound_settings` (\n\t`project_id` text PRIMARY KEY NOT NULL,\n\t`settings` text NOT NULL,\n\tFOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade\n);",
+      "ALTER TABLE `final_cuts` ADD `base_asset_hash` text;",
+      "ALTER TABLE `final_cuts` ADD `sound_key` text;"
+    ]
   }
 ]

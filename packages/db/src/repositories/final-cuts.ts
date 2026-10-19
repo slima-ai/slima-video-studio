@@ -11,6 +11,10 @@ export interface FinalCut {
   durationSec?: number
   /** 依順序用了哪些影片版本。 */
   takeIds: string[]
+  /** 接片的結果（還沒混音）；有聲音時 assetHash 是混音後的成品，重混從這支開始。沒有聲音就沒有。 */
+  baseAssetHash?: string
+  /** 混音用了哪一組聲音的指紋；沒有聲音就沒有。 */
+  soundKey?: string
   createdAt: string
 }
 
@@ -18,6 +22,8 @@ export interface NewFinalCut {
   assetHash: string
   durationSec?: number | undefined
   takeIds: readonly string[]
+  baseAssetHash?: string | undefined
+  soundKey?: string | undefined
 }
 
 /** 接好的成品：每接一次一個版本。 */
@@ -42,6 +48,8 @@ export class FinalCutRepository {
       assetHash: input.assetHash,
       ...(input.durationSec === undefined ? {} : { durationSec: input.durationSec }),
       takeIds: [...input.takeIds],
+      ...(input.baseAssetHash === undefined ? {} : { baseAssetHash: input.baseAssetHash }),
+      ...(input.soundKey === undefined ? {} : { soundKey: input.soundKey }),
       createdAt: this.now().toISOString(),
     }
     this.db
@@ -53,6 +61,8 @@ export class FinalCutRepository {
         assetHash: cut.assetHash,
         durationSec: cut.durationSec ?? null,
         takeIds: cut.takeIds,
+        baseAssetHash: cut.baseAssetHash ?? null,
+        soundKey: cut.soundKey ?? null,
         createdAt: cut.createdAt,
       })
       .run()
@@ -75,6 +85,8 @@ export class FinalCutRepository {
       assetHash: row.assetHash,
       ...(row.durationSec === null ? {} : { durationSec: row.durationSec }),
       takeIds: row.takeIds,
+      ...(row.baseAssetHash === null ? {} : { baseAssetHash: row.baseAssetHash }),
+      ...(row.soundKey === null ? {} : { soundKey: row.soundKey }),
       createdAt: row.createdAt,
     }
   }
