@@ -258,6 +258,43 @@ export function registerSoundTools(ctx: ToolContext): void {
   })
 
   defineTool(ctx, {
+    name: 'mix_sound',
+    title: 'Mix the sound into the film',
+    description:
+      "Mix the adopted narration, music and (unless muted) the video's own sound into the latest assembled film and save it as a new version of the film. Free (local FFmpeg, a few seconds). assemble_film already mixes the sound that exists at that moment; call this when you changed the sound AFTER assembling (new or adjusted narration/music, settings), then export_film. You need an assembled film first (assemble_film).",
+    input: {},
+    hints: { readOnly: false },
+    run: async () => {
+      const { version } = await ctx.caller.call('sound.mix', {})
+      return { mixed: true, filmVersion: version }
+    },
+  })
+
+  defineTool(ctx, {
+    name: 'analyze_sound',
+    title: 'Measure the sound of the film',
+    description:
+      "Measure the latest assembled film's sound (you cannot hear it, this is how you check it): overall loudness (target about −16 LUFS), true peak (should stay below −1 dBTP), the average level of every shot (null = silent), quiet stretches, and plain-language warnings (too quiet, clipping, a shot with no sound, quiet where narration should be). Free. Measure after mix_sound / assemble_film; if it says something is wrong, fix with adjust_sound_clip / set_sound_settings, mix_sound and measure again.",
+    input: {},
+    hints: { readOnly: true },
+    run: async () => {
+      const a = await ctx.caller.call('sound.analyze', {})
+      return {
+        filmVersion: a.version,
+        durationSec: a.durationSec,
+        loudness: {
+          integratedLufs: a.loudness.integratedLufs ?? null,
+          truePeakDb: a.loudness.truePeakDb ?? null,
+          loudnessRange: a.loudness.loudnessRange ?? null,
+        },
+        shots: a.shots,
+        quietStretches: a.silences,
+        warnings: a.warnings,
+      }
+    },
+  })
+
+  defineTool(ctx, {
     name: 'set_sound_settings',
     title: 'Change the sound settings',
     description:

@@ -71,6 +71,17 @@ async function start(options: Parameters<typeof startRealMcp>[0] = {}): Promise<
 }
 
 /** 建專案、拆出 2 鏡，第 1 鏡寫台詞；回傳兩鏡的 id。 */
+async function waitDone(r: Running): Promise<void> {
+  for (let i = 0; i < 6; i++) {
+    const waited = dataOf(
+      z.looseObject({ finished: z.boolean() }),
+      await r.call('wait_for_generation', { maxSeconds: 30 }),
+    )
+    if (waited.finished) return
+  }
+  throw new Error('生成一直沒結束')
+}
+
 async function withShots(r: Running): Promise<string[]> {
   await r.call('create_project', { name: 'x' })
   await r.call('split_story_into_scenes', { story: '故事' })
@@ -143,6 +154,56 @@ describe('聲音工具（示範模式）', () => {
     // 刪除
     await r.call('remove_sound_clip', { clipId: music.clip.id })
     expect(dataOf(Sound, await r.call('get_sound')).music).toBeNull()
+  })
+
+  it('混音：還沒接片就混 → 白話錯誤；接片（自動混入現有聲音）→ 改了聲音 → mix_sound 多一個成品版本 → 匯出', async () => {
+    const r = await start()
+    const [first] = await withShots(r)
+    const early = await r.call('mix_sound')
+    expect(early.isError).toBe(true)
+    expect(textOf(early)).not.toMatch(/undefined|\.ts:|at .*\(/)
+
+    await r.call('generate_first_frames')
+    await waitDone(r)
+    await r.call('generate_videos')
+    await waitDone(r)
+    await r.call('generate_narration', { shotId: first })
+    await r.call('assemble_film')
+    const music = dataOf(Made, await r.call('generate_music', { durationSec: 6 }))
+    await r.call('adjust_sound_clip', { clipId: music.clip.id, gainDb: -24 })
+    const mixed = dataOf(
+      z.looseObject({ mixed: z.boolean(), filmVersion: z.number() }),
+      await r.call('mix_sound'),
+    )
+    expect(mixed.mixed).toBe(true)
+    expect(mixed.filmVersion).toBeGreaterThanOrEqual(2)
+    const again = dataOf(z.looseObject({ filmVersion: z.number() }), await r.call('mix_sound'))
+    expect(again.filmVersion).toBeGreaterThan(mixed.filmVersion)
+    // 量測：整體響度、每鏡音量、警示（示範影片的聲音是真的 FFmpeg 量出來的數字）
+    const analysis = dataOf(
+      z.looseObject({
+        filmVersion: z.number(),
+        durationSec: z.number(),
+        loudness: z.looseObject({ integratedLufs: z.number().nullable() }),
+        shots: z.array(z.looseObject({ number: z.number(), rmsDb: z.number().nullable() })),
+        warnings: z.array(z.string()),
+      }),
+      await r.call('analyze_sound'),
+    )
+    expect(analysis.filmVersion).toBeGreaterThanOrEqual(mixed.filmVersion)
+    expect(analysis.durationSec).toBeGreaterThan(0)
+    expect(analysis.shots.length).toBeGreaterThan(0)
+    expect(Array.isArray(analysis.warnings)).toBe(true)
+    const exported = JSON.parse(textOf(await r.call('export_film'))) as { fileName: string }
+    expect(exported.fileName).toMatch(/\.mp4$/)
+  })
+
+  it('量測：還沒接片 → 白話錯誤，不是例外', async () => {
+    const r = await start()
+    await withShots(r)
+    const out = await r.call('analyze_sound')
+    expect(out.isError).toBe(true)
+    expect(textOf(out)).not.toMatch(/undefined|\.ts:|at .*\(/)
   })
 
   it('白話錯誤：找不到的鏡頭、沒有台詞的鏡頭、不存在的片段；不是例外', async () => {
