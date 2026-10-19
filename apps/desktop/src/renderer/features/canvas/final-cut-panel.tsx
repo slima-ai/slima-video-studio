@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Button } from '../../components/button'
 import { assetUrl } from '../../lib/asset'
 import { call, errorText } from '../../lib/svs'
+import { SoundPanel } from '../sound/sound-panel'
 
 /** 成品：預覽接好的完整影片、匯出 MP4、換了版本之後重新接片。 */
 export function FinalCutPanel({
@@ -103,6 +104,7 @@ export function FinalCutPanel({
           {error}
         </p>
       ) : null}
+      <SoundPanel />
     </section>
   )
 }

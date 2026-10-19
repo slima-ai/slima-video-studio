@@ -182,6 +182,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
   }
 
   const stateOf = (handle: ProjectHandle): SoundState => {
+    const latestFinal = handle.repos.finalCuts.latest()
     const views = timeline(handle)
     const totalSec = views.reduce((sum, v) => sum + v.durationSec, 0)
     const music = handle.repos.sound
@@ -195,6 +196,15 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       shots: views,
       totalSec,
       ...(music ? { music } : {}),
+      ...(latestFinal
+        ? {
+            final: {
+              version: latestFinal.version,
+              hasSound: latestFinal.soundKey !== undefined,
+              soundStale: soundKeyOf(handle) !== latestFinal.soundKey,
+            },
+          }
+        : {}),
       warnings: warningsOf(views, music, totalSec),
       models: {
         ...(tts ? { tts } : {}),
@@ -227,7 +237,13 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     const starts = timeline(handle).map((v) => [v.shotId, Number(v.startSec.toFixed(3))])
     return JSON.stringify({
       c: clips.map((c) => [c.id, c.offsetSec, c.gainDb, c.fadeInSec, c.fadeOutSec]),
-      s: [s.nativeGainDb, [...s.muteNativeShotIds].sort(), s.duck, s.musicGainDb],
+      s: [
+        s.nativeGainDb,
+        [...s.muteNativeShotIds].sort(),
+        s.duck,
+        s.narrationGainDb,
+        s.musicGainDb,
+      ],
       t: starts,
     })
   }
@@ -263,7 +279,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       narration.push({
         file: pathOf(clip.assetHash),
         startSec,
-        ...(clip.gainDb === undefined ? {} : { gainDb: clip.gainDb }),
+        gainDb: clip.gainDb ?? settings.narrationGainDb,
         ...(clip.fadeInSec === undefined ? {} : { fadeInSec: clip.fadeInSec }),
         ...(clip.fadeOutSec === undefined ? {} : { fadeOutSec: clip.fadeOutSec }),
       })
