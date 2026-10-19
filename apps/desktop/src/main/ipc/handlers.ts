@@ -163,7 +163,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     const ids = [...new Set([...KEY_PROVIDERS.map((p) => p.id), ...keys.providers()])]
     return { keys: ids.map((id) => keys.status(id)), storage: keys.storage() }
   })
-  registry.registerHandler('keys.set', ({ provider, key }) => keys.set(provider, key))
+  registry.registerHandler('keys.set', ({ provider, key }) => keys.save(provider, key))
   registry.registerHandler('keys.delete', ({ provider }) => keys.delete(provider))
   registry.registerHandler('keys.test', ({ provider }) =>
     keyTester(provider, AbortSignal.timeout(45_000)),
@@ -285,6 +285,8 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('settings.get', () => settings.get())
   registry.registerHandler('settings.update', async (patch) => {
     const next = settingsService.update(patch)
+    // 切到真實模式：開始（非同步）把金鑰從鑰匙圈讀進來，提示出現時畫面不會卡住
+    if (!next.demoMode) keys.load().catch(() => undefined)
     // 改了「AI 工具連線」的開關或埠，伺服器要跟著啟動／停止／換埠
     await mcp?.sync()
     return next

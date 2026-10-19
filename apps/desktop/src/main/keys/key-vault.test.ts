@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { directKeyCrypto, type KeyCrypto } from './key-crypto'
 import {
   KEY_FILE_NAME,
   MemoryVault,
@@ -101,70 +102,74 @@ describe('SafeStorageVault', () => {
   const make = (safe = fakeSafeStorage()) => {
     const dir = tmp()
     const file = join(dir, KEY_FILE_NAME)
-    return { vault: new SafeStorageVault(safe, file), file, dir }
+    return { vault: new SafeStorageVault(directKeyCrypto(safe), file), file, dir }
   }
+  const reopen = (file: string, safe = fakeSafeStorage()) =>
+    new SafeStorageVault(directKeyCrypto(safe), file)
 
-  it('加密後才寫檔：檔案裡沒有明文；重新建立後能解回來', () => {
+  it('加密後才寫檔：檔案裡沒有明文；重新建立後讀進來就能取', async () => {
     const { vault, file } = make()
-    expect(vault.set('fal', SECRET)).toMatchObject({ configured: true, last4: 'abcd' })
+    expect(await vault.save('fal', SECRET)).toMatchObject({ configured: true, last4: 'abcd' })
     const raw = readFileSync(file, 'utf8')
     expect(raw).not.toContain(SECRET)
     expect(raw).not.toContain('ABCDEFGH')
-    expect(new SafeStorageVault(fakeSafeStorage(), file).get('fal')).toBe(SECRET)
-    expect(new SafeStorageVault(fakeSafeStorage(), file).status('fal').last4).toBe('abcd')
+    const again = reopen(file)
+    expect(again.status('fal').last4).toBe('abcd')
+    await again.load()
+    expect(again.get('fal')).toBe(SECRET)
+    expect(again.knownSecrets()).toEqual([SECRET])
   })
 
-  it('檔案權限只有擁有者可讀寫', () => {
+  it('檔案權限只有擁有者可讀寫', async () => {
     if (process.platform === 'win32') return
     const { vault, file } = make()
-    vault.set('fal', SECRET)
+    await vault.save('fal', SECRET)
     expect(statSync(file).mode & 0o777).toBe(0o600)
   })
 
-  it('金鑰圈不可用時拒絕儲存並說明原因；不會寫出任何檔案', () => {
+  it('金鑰圈不可用時拒絕儲存並說明原因；不會寫出任何檔案', async () => {
     const { vault, file } = make(fakeSafeStorage({ isEncryptionAvailable: () => false }))
     expect(vault.storage()).toMatchObject({ available: false, kind: 'os' })
-    expect(() => vault.set('fal', SECRET)).toThrow(/金鑰圈/)
-    try {
-      vault.set('fal', SECRET)
-      expect.unreachable()
-    } catch (error) {
-      expect((error as AppError).code).toBe('key_storage_unavailable')
-    }
+    const error = await vault.save('fal', SECRET).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(AppError)
+    expect((error as AppError).code).toBe('key_storage_unavailable')
+    expect((error as AppError).userMessage).toMatch(/金鑰圈/)
     expect(() => readFileSync(file)).toThrow()
   })
 
-  it('Linux 只有 basic_text（沒有金鑰圈）也視為不可用', () => {
+  it('Linux 只有 basic_text（沒有金鑰圈）也視為不可用', async () => {
     const { vault } = make(fakeSafeStorage({ getSelectedStorageBackend: () => 'basic_text' }))
     expect(vault.storage().available).toBe(false)
-    expect(() => vault.set('fal', SECRET)).toThrow(/GNOME Keyring|KWallet/)
+    await expect(vault.save('fal', SECRET)).rejects.toThrow(/GNOME Keyring|KWallet/)
     const ok = make(fakeSafeStorage({ getSelectedStorageBackend: () => 'gnome_libsecret' }))
     expect(ok.vault.storage().available).toBe(true)
   })
 
-  it('刪除、列出；刪除不存在的供應商沒有副作用', () => {
+  it('刪除、列出；刪除不存在的供應商沒有副作用；刪掉之後記憶體裡也沒有', async () => {
     const { vault } = make()
-    vault.set('fal', SECRET)
-    vault.set('openrouter', `${SECRET}-2`)
+    await vault.save('fal', SECRET)
+    await vault.save('openrouter', `${SECRET}-2`)
     expect(vault.providers().sort()).toEqual(['fal', 'openrouter'])
     expect(vault.delete('fal')).toEqual({ provider: 'fal', configured: false })
     expect(vault.delete('ghost')).toEqual({ provider: 'ghost', configured: false })
     expect(vault.providers()).toEqual(['openrouter'])
     expect(vault.get('fal')).toBeUndefined()
+    expect(vault.knownSecrets()).toEqual([`${SECRET}-2`])
   })
 
-  it('解不開（換了電腦或帳號）時回報可行動的錯誤，狀態仍顯示已設定', () => {
+  it('解不開（換了電腦或帳號）時回報可行動的錯誤，狀態仍顯示已設定；錯誤不含內部細節', async () => {
     const { vault, file } = make()
-    vault.set('fal', SECRET)
-    const other = new SafeStorageVault(
+    await vault.save('fal', SECRET)
+    const other = reopen(
+      file,
       fakeSafeStorage({
         decryptString: () => {
           throw new Error('decrypt failed: secret-internal-detail')
         },
       }),
-      file,
     )
     expect(other.status('fal').configured).toBe(true)
+    await other.load()
     expect(() => other.get('fal')).toThrow(/重新輸入/)
     try {
       other.get('fal')
@@ -173,16 +178,128 @@ describe('SafeStorageVault', () => {
     }
   })
 
-  it('檔案壞掉：移到備份、從空的開始，並通知', () => {
+  it('檔案壞掉：移到備份、從空的開始，並通知', async () => {
     const dir = tmp()
     const file = join(dir, KEY_FILE_NAME)
     writeFileSync(file, '{not json')
     const warnings: string[] = []
-    const vault = new SafeStorageVault(fakeSafeStorage(), file, (m) => warnings.push(m))
+    const vault = new SafeStorageVault(directKeyCrypto(fakeSafeStorage()), file, (m) =>
+      warnings.push(m),
+    )
     expect(vault.providers()).toEqual([])
     expect(warnings[0]).toMatch(/corrupt/)
-    vault.set('fal', SECRET)
-    expect(new SafeStorageVault(fakeSafeStorage(), file).get('fal')).toBe(SECRET)
+    await vault.save('fal', SECRET)
+    const again = reopen(file)
+    await again.load()
+    expect(again.get('fal')).toBe(SECRET)
+  })
+})
+
+/** 手動放行的假金鑰圈：模擬 macOS 提示停著不按、按拒絕。 */
+function controllableCrypto() {
+  const calls = { decrypt: 0, encrypt: 0 }
+  const pending: { resolve: (plains: (string | null)[]) => void; reject: (e: unknown) => void }[] =
+    []
+  const crypto: KeyCrypto = {
+    storageInfo: () => ({ available: true, kind: 'os' }),
+    encrypt: (plain) => {
+      calls.encrypt++
+      return Promise.resolve(`enc:${plain}`)
+    },
+    decryptMany: (ciphers) => {
+      calls.decrypt++
+      return new Promise((resolve, reject) => {
+        pending.push({
+          resolve: (plains) => {
+            resolve(plains.length === 0 ? ciphers.map((c) => c.replace(/^enc:/, '')) : plains)
+          },
+          reject,
+        })
+      })
+    },
+  }
+  return { crypto, calls, pending }
+}
+
+describe('鑰匙圈很慢或被拒絕：畫面與 MCP 用到的方法都照常回應', () => {
+  const seeded = async () => {
+    const dir = tmp()
+    const file = join(dir, KEY_FILE_NAME)
+    const writer = new SafeStorageVault(directKeyCrypto(fakeSafeStorage()), file)
+    await writer.save('fal', SECRET)
+    return file
+  }
+  const denied = () =>
+    new AppError({ code: 'key_storage_unavailable', userMessage: '你按了拒絕，沒辦法讀取。' })
+
+  it('提示停著沒按：load 一直等，但 status／providers／storage／knownSecrets／get 立刻回，也不會重複啟動讀取', async () => {
+    const file = await seeded()
+    const { crypto, calls, pending } = controllableCrypto()
+    const vault = new SafeStorageVault(crypto, file)
+    const loading = vault.load()
+    let settled = false
+    void loading.then(() => (settled = true))
+    // 這些全部是同步呼叫：能立刻回來，就代表沒有被金鑰圈卡住
+    expect(vault.status('fal')).toMatchObject({ configured: true })
+    expect(vault.providers()).toEqual(['fal'])
+    expect(vault.storage().available).toBe(true)
+    expect(vault.knownSecrets()).toEqual([])
+    const error = (() => {
+      try {
+        vault.get('fal')
+        return undefined
+      } catch (e) {
+        return e as AppError
+      }
+    })()
+    expect(error?.retryable).toBe(true)
+    expect(error?.userMessage).toContain('請按「允許」')
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    expect(calls.decrypt).toBe(1) // 還在讀的時候不會再開第二次
+    // 使用者按了允許
+    pending[0]?.resolve([SECRET])
+    await loading
+    expect(vault.get('fal')).toBe(SECRET)
+    expect(vault.knownSecrets()).toEqual([SECRET])
+  })
+
+  it('被拒絕：load 丟白話錯誤；馬上再要金鑰會直接得到原因（不會一直重跳提示）；過了一陣子才再試', async () => {
+    const file = await seeded()
+    const { crypto, calls, pending } = controllableCrypto()
+    let now = 1_000
+    const warnings: string[] = []
+    const vault = new SafeStorageVault(
+      crypto,
+      file,
+      (m) => warnings.push(m),
+      () => now,
+    )
+    const first = vault.load()
+    pending[0]?.reject(denied())
+    await expect(first).rejects.toThrow('你按了拒絕')
+    expect(warnings[0]).toContain('你按了拒絕')
+    // 15 秒內：直接丟同一個原因，不再去問金鑰圈
+    now += 5_000
+    expect(() => vault.get('fal')).toThrow('你按了拒絕')
+    expect(calls.decrypt).toBe(1)
+    // 之後：背景重試一次（這次請稍後再試），使用者這回按了允許就成功
+    now += 20_000
+    expect(() => vault.get('fal')).toThrow(/稍等/)
+    expect(calls.decrypt).toBe(2)
+    pending[1]?.resolve([SECRET])
+    await vault.load()
+    expect(vault.get('fal')).toBe(SECRET)
+  })
+
+  it('沒有存任何金鑰時，load 完全不碰金鑰圈（示範模式與沒填 Key 的人永遠不會被問）', async () => {
+    const dir = tmp()
+    const { crypto, calls } = controllableCrypto()
+    const vault = new SafeStorageVault(crypto, join(dir, KEY_FILE_NAME))
+    await vault.load()
+    expect(vault.get('fal')).toBeUndefined()
+    expect(vault.get('openrouter')).toBeUndefined()
+    expect(calls).toEqual({ decrypt: 0, encrypt: 0 })
   })
 })
 
@@ -210,7 +327,7 @@ describe('createKeyVault：MemoryVault 只有未打包且明確要求才會啟�
     ).toBeInstanceOf(SafeStorageVault)
   })
 
-  it('打包版不論環境變數怎麼設，都用 safeStorage', () => {
+  it('打包版不論環境變數怎麼設，都用 safeStorage', async () => {
     const vault = createKeyVault({
       ...base,
       isPackaged: true,
@@ -218,7 +335,7 @@ describe('createKeyVault：MemoryVault 只有未打包且明確要求才會啟�
       testVaultFile: join(base.userDataDir, 'plain.json'),
     })
     expect(vault).toBeInstanceOf(SafeStorageVault)
-    vault.set('fal', SECRET)
+    await vault.save('fal', SECRET)
     expect(() => readFileSync(join(base.userDataDir, 'plain.json'))).toThrow()
   })
 })

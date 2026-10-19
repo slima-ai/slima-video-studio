@@ -132,15 +132,19 @@ export function createSlimaService(deps: SlimaServiceDeps): SlimaService {
     status: () => connection.status(),
 
     start() {
-      connection.start().catch((error: unknown) => {
-        log.warn(`啟動 Slima 連線失敗：${error instanceof Error ? error.message : ''}`)
-      })
+      // Slima 的 token 在金鑰圈裡：先非同步讀進來（鑰匙圈提示出現時不會卡住畫面），再連線
+      keys
+        .load()
+        .then(() => connection.start())
+        .catch((error: unknown) => {
+          log.warn(`啟動 Slima 連線失敗：${error instanceof Error ? error.message : ''}`)
+        })
     },
 
     stop: () => connection.stop(),
 
     async connect(token) {
-      keys.set(SLIMA_KEY_ID, normalizeKey(token))
+      await keys.save(SLIMA_KEY_ID, normalizeKey(token))
       await connection.restart()
       return connection.status()
     },

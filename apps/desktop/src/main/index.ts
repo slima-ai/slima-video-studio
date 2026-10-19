@@ -5,6 +5,9 @@ import { CSP_VIOLATION_PREFIX } from '../shared/csp'
 import { installAssetProtocol, registerAssetScheme } from './asset-protocol'
 import { installCrashGuards, runShutdown } from './crash-guard'
 import { createKeyTester } from './keys/key-tester'
+import { directKeyCrypto, helperKeyCrypto } from './keys/key-crypto'
+import { createHelperRunner } from './keys/key-helper-runner'
+import { isKeyHelperRun, prepareKeyHelper, runKeyHelper } from './keys/key-helper'
 import { createKeyVault } from './keys/key-vault'
 import { ProjectManager } from './project-manager'
 import { registerAllHandlers } from './ipc/handlers'
@@ -32,8 +35,12 @@ import { isInternalUrl, isSafeExternalUrl } from './navigation'
 import { QUIET_COMMAND_LINE_SWITCHES, quietWindowsEnabled } from './quiet-windows'
 import { APP_TITLE, createWindowOptions } from './window'
 
+// 金鑰小幫手：macOS 的鑰匙圈提示會卡住呼叫它的行程，所以讀寫鑰匙圈交給這個另開的行程（見 keys/key-crypto.ts）
+const KEY_HELPER = isKeyHelperRun(process.argv)
+if (KEY_HELPER) prepareKeyHelper()
+
 // 只有非打包版才允許用環境變數指定 userData（E2E 用）
-if (!app.isPackaged && process.env.SVS_USER_DATA) {
+if (!KEY_HELPER && !app.isPackaged && process.env.SVS_USER_DATA) {
   app.setPath('userData', process.env.SVS_USER_DATA)
 }
 
@@ -117,6 +124,10 @@ if (quietWindowsEnabled(process.env, app.isPackaged)) {
 }
 
 void app.whenReady().then(() => {
+  if (KEY_HELPER) {
+    void runKeyHelper()
+    return
+  }
   const menu = appMenuTemplate(process.platform)
   Menu.setApplicationMenu(menu ? Menu.buildFromTemplate(menu) : null)
   const log = createLogger(join(app.getPath('userData'), 'logs'))
@@ -136,7 +147,12 @@ void app.whenReady().then(() => {
   const keys = createKeyVault({
     isPackaged: app.isPackaged,
     env: process.env,
-    safeStorage,
+    crypto:
+      process.platform === 'darwin'
+        ? helperKeyCrypto(
+            createHelperRunner({ execPath: process.execPath, appPath: app.getAppPath() }),
+          )
+        : directKeyCrypto(safeStorage),
     userDataDir: userData,
     ...(process.env.SVS_TEST_VAULT_FILE ? { testVaultFile: process.env.SVS_TEST_VAULT_FILE } : {}),
     warn: (message) => {
@@ -160,6 +176,13 @@ void app.whenReady().then(() => {
       log.warn(message)
     },
   })
+  // 真實模式：啟動時就開始（非同步）把存好的金鑰從鑰匙圈讀進來——鑰匙圈的提示會在這時候出現，
+  // 而不是卡在第一次生成的途中；示範模式與沒存金鑰的人完全不會碰鑰匙圈
+  if (!settings.get().demoMode) {
+    keys.load().catch((error: unknown) => {
+      log.warn(`讀取服務金鑰失敗：${error instanceof Error ? error.message : ''}`)
+    })
+  }
   // installIpc 在 handler 註冊之後才建立，事件先透過這個轉接
   let broadcast: Broadcast = () => undefined
   const relay: Broadcast = (event, payload) => {
