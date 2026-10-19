@@ -151,7 +151,7 @@ describe('ShotSound：一個鏡頭的聲音', () => {
     expect(screen.queryByTestId('shot-sound-dialogue-save')).toBeNull()
     // 改到一半還沒存：不能用舊台詞去念
     fireEvent.change(screen.getByTestId('shot-sound-dialogue'), { target: { value: '改一下' } })
-    expect((screen.getByTestId('shot-sound-narrate') as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByTestId<HTMLButtonElement>('shot-sound-narrate').disabled).toBe(true)
   })
 
   it('預估說不能做（超過預算）時顯示原因，不跳確認', async () => {
