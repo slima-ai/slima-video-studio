@@ -1,9 +1,10 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { buildMixGraph, detectSilences, measureLoudness, measureRmsDb, mixAudio } from './mix'
+import { imageToVideo } from './ops'
 import { probe } from './probe'
 import { resolveTools, runTool } from './run'
 
@@ -287,6 +288,60 @@ describe('mixAudio：響度', () => {
     await mixAudio(tools, silentVideo, out)
     expect((await probe(tools, out)).hasAudio).toBe(true)
     expect(await measureRmsDb(tools, out)).toBe(Number.NEGATIVE_INFINITY)
+  })
+})
+
+/** 8 kHz 單聲道 16 位元的 WAV（440 Hz 正弦波，振幅 8000／32768）：示範模式的假旁白就是這種規格。 */
+function demoNarrationWav(seconds: number): Buffer {
+  const rate = 8000
+  const samples = rate * seconds
+  const pcm = Buffer.alloc(samples * 2)
+  for (let i = 0; i < samples; i++) {
+    pcm.writeInt16LE(Math.round(8000 * Math.sin((2 * Math.PI * 440 * i) / rate)), i * 2)
+  }
+  const header = Buffer.alloc(44)
+  header.write('RIFF', 0)
+  header.writeUInt32LE(36 + pcm.length, 4)
+  header.write('WAVEfmt ', 8)
+  header.writeUInt32LE(16, 16)
+  header.writeUInt16LE(1, 20) // PCM
+  header.writeUInt16LE(1, 22) // 單聲道
+  header.writeUInt32LE(rate, 24)
+  header.writeUInt32LE(rate * 2, 28)
+  header.writeUInt16LE(2, 32)
+  header.writeUInt16LE(16, 34)
+  header.write('data', 36)
+  header.writeUInt32LE(pcm.length, 40)
+  return Buffer.concat([header, pcm])
+}
+
+describe('mixAudio：App 自己做出來的影片（有靜音音軌）加示範模式規格的旁白', () => {
+  it('imageToVideo 做的影片加 8 kHz 單聲道的旁白，預設響度正規化也能混（FFmpeg 6.x 的第二趟曾因聲道配置失敗）', async () => {
+    await runTool(tools.ffmpegPath, [
+      ...BASE,
+      '-f',
+      'lavfi',
+      '-i',
+      'color=c=blue:s=320x180',
+      '-frames:v',
+      '1',
+      path('still.png'),
+    ])
+    await imageToVideo(tools, path('still.png'), path('still.mp4'), {
+      durationSec: 3,
+      silentAudio: true,
+    })
+    writeFileSync(path('demo-narration.wav'), demoNarrationWav(2))
+    const out = path('demo-mixed.mp4')
+    await mixAudio(tools, path('still.mp4'), out, {
+      narration: [{ file: path('demo-narration.wav'), startSec: 0.4 }],
+    })
+    const info = await probe(tools, out)
+    expect(info.hasAudio).toBe(true)
+    expect(info.durationSec).toBeCloseTo(3, 0)
+    expect(
+      await measureRmsDb(tools, out, { startSec: 0.8, durationSec: 1.2, filter: band(440) }),
+    ).toBeGreaterThan(-45)
   })
 })
 
