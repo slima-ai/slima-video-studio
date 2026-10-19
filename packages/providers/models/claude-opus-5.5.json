@@ -1,7 +1,7 @@
 {
   "key": "claude-opus-5.5",
   "displayName": "Claude Opus 5.5",
-  "userNote": "最聰明的文字模型，價格較高",
+  "userNote": "文字模型，價格較高的一檔",
   "tasks": ["llm"],
   "tier": "premium",
   "recommended": true,

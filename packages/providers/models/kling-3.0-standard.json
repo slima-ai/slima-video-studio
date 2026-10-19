@@ -1,7 +1,7 @@
 {
   "key": "kling-3.0-standard",
   "displayName": "Kling 3.0 Standard",
-  "userNote": "有聲音的影片，畫質與價格都適中",
+  "userNote": "有聲音的影片，價格適中",
   "tasks": ["t2v", "i2v", "r2v"],
   "tier": "balanced",
   "recommended": true,
