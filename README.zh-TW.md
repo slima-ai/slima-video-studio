@@ -81,8 +81,11 @@ pnpm dev                                                    # 執行 App
 SVS_PROVIDER_MODE=mock SVS_DISABLE_ONBOARDING=1 pnpm dev    # 示範模式，不用金鑰、不花錢
 pnpm lint && pnpm typecheck && pnpm test                    # 檢查
 pnpm test:e2e                                               # Electron 端對端測試（示範模式）
+tools/ffmpeg/build-macos.sh                                 # 只有 macOS：編出要放進安裝檔的 FFmpeg（打包前先跑）
 pnpm --filter @svs/desktop dist                             # 打包安裝檔（未簽章）
 ```
+
+在 macOS 上，打包時會檢查安裝檔裡有沒有 `tools/ffmpeg/build-macos.sh` 編出的 FFmpeg（輸出在 `apps/desktop/build/ffmpeg/`），沒有就會報錯停下來。`pnpm dev`、測試與示範模式都不需要它。
 
 需要 Node 22 與 pnpm 10。這是一個 pnpm workspace：`apps/desktop`（Electron App、React 介面）把 `packages/` 裡的套件（`schema`、`db`、`engine`、`providers`、`media`、`workflows`、`slima`）組起來，這些套件只依賴 `@svs/schema`。macOS 的 FFmpeg 由 [`tools/ffmpeg/build-macos.sh`](tools/ffmpeg/README.md) 從原始碼編譯。參與貢獻請看 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
