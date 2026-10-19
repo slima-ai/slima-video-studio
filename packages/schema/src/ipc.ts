@@ -96,6 +96,7 @@ import {
   SoundClipPatchSchema,
   SoundClipSchema,
   SoundPlanRequestSchema,
+  SoundAnalysisSchema,
   SoundPlanSchema,
   SoundSettingsPatchSchema,
   SoundSettingsSchema,
@@ -675,6 +676,11 @@ export const ipcContract = {
   'sound.removeClip': {
     request: z.object({ clipId: IdSchema }),
     response: z.object({}),
+  },
+  /** 量最新成品的聲音：響度、峰值、每鏡音量、安靜的段落與白話警示（不花錢）。 */
+  'sound.analyze': {
+    request: z.object({}),
+    response: SoundAnalysisSchema,
   },
   /** 把聲音混進最新的成品（不花錢、不用重新接片），存成新的成品版本。 */
   'sound.mix': {

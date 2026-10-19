@@ -501,3 +501,52 @@ export async function mixAudio(
     options,
   )
 }
+
+export interface SilenceSpan {
+  startSec: number
+  endSec: number
+}
+
+/**
+ * 找出安靜的段落（低於 noiseDb 持續至少 minSec 秒）。成品檢查用：旁白該出現的地方不該整段安靜、
+ * 整支片子也不該前後都沒有聲音。
+ */
+export async function detectSilences(
+  tools: MediaTools,
+  file: string,
+  options: RunOptions & { noiseDb?: number; minSec?: number } = {},
+): Promise<SilenceSpan[]> {
+  const { stderr } = await runToolRaw(
+    tools.ffmpegPath,
+    [
+      '-hide_banner',
+      '-nostats',
+      '-i',
+      file,
+      '-vn',
+      '-af',
+      `silencedetect=noise=${String(options.noiseDb ?? -50)}dB:d=${String(options.minSec ?? 0.5)}`,
+      '-f',
+      'null',
+      '-',
+    ],
+    options,
+  )
+  const spans: SilenceSpan[] = []
+  let open: number | undefined
+  for (const line of stderr.split('\n')) {
+    const start = /silence_start:\s*(-?[\d.]+)/.exec(line)?.[1]
+    const end = /silence_end:\s*(-?[\d.]+)/.exec(line)?.[1]
+    if (start !== undefined) open = Math.max(0, Number(start))
+    if (end !== undefined && open !== undefined) {
+      spans.push({ startSec: open, endSec: Number(end) })
+      open = undefined
+    }
+  }
+  // 一直安靜到檔案結尾：只有 start 沒有 end
+  if (open !== undefined) {
+    const info = await probe(tools, file, options)
+    spans.push({ startSec: open, endSec: info.durationSec })
+  }
+  return spans
+}

@@ -3,7 +3,15 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { budgetExceededError, checkBudget } from '@svs/engine'
-import { mixAudio, probe, type MediaTools, type MixClip } from '@svs/media'
+import {
+  detectSilences,
+  measureLoudness,
+  measureRmsDb,
+  mixAudio,
+  probe,
+  type MediaTools,
+  type MixClip,
+} from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
@@ -12,6 +20,7 @@ import {
   billableChars,
   isAppError,
   type AssetRef,
+  type SoundAnalysis,
   type SoundClip,
   type SoundClipPatchInput,
   type SoundPlan,
@@ -68,6 +77,8 @@ export interface SoundService {
     base: AssetRef,
     signal: AbortSignal,
   ) => Promise<{ asset: AssetRef; soundKey: string } | undefined>
+  /** 量最新成品的聲音（響度、峰值、每鏡音量、安靜的段落、白話警示）；不花錢。 */
+  analyze: () => Promise<SoundAnalysis>
   /** 用最新成品的接片結果重新混音（不花錢、不用重新接片），存成新的成品版本。 */
   mix: () => Promise<{ videoHash: string; version: number }>
 }
@@ -554,6 +565,84 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
 
     soundKey: soundKeyOf,
     mixInto,
+
+    async analyze() {
+      const handle = need()
+      const latest = handle.repos.finalCuts.latest()
+      if (!latest) throw invalid('還沒有接好的成品，先把鏡頭接成一支影片。')
+      const tool = tools()
+      const found = handle.assets.find(latest.assetHash)
+      if (!tool || !found) {
+        throw new AppError({
+          code: 'internal_error',
+          userMessage: '找不到影片處理工具（FFmpeg）或成品檔案，沒辦法量測。',
+        })
+      }
+      const info = await probe(tool, found.path)
+      const [loudness, silences] = await Promise.all([
+        measureLoudness(tool, found.path),
+        detectSilences(tool, found.path),
+      ])
+      const views = timeline(handle)
+      const shots: SoundAnalysis['shots'] = []
+      for (const view of views) {
+        const db = await measureRmsDb(tool, found.path, {
+          startSec: view.startSec,
+          durationSec: Math.max(0.1, view.durationSec),
+        })
+        shots.push({
+          shotId: view.shotId,
+          number: view.number,
+          startSec: view.startSec,
+          rmsDb: Number.isFinite(db) ? db : null,
+        })
+      }
+      const warnings: string[] = []
+      if (!info.hasAudio) warnings.push('成品沒有聲音軌。')
+      if (loudness.integratedLufs === undefined) {
+        warnings.push('整支成品都是安靜的，沒有任何聲音。')
+      } else {
+        if (loudness.integratedLufs < -23) {
+          warnings.push(
+            `整體響度只有 ${loudness.integratedLufs.toFixed(1)} LUFS，聽起來會很小聲（目標約 −16）。`,
+          )
+        }
+        if (loudness.truePeakDb !== undefined && loudness.truePeakDb > -1) {
+          warnings.push(`峰值 ${loudness.truePeakDb.toFixed(1)} dBTP，可能爆音（要低於 −1）。`)
+        }
+      }
+      for (const entry of shots) {
+        if (entry.rmsDb === null && loudness.integratedLufs !== undefined) {
+          warnings.push(`第 ${String(entry.number)} 鏡完全沒有聲音。`)
+        }
+      }
+      for (const view of views) {
+        const clip = view.narration
+        if (!clip) continue
+        const entry = shots.find((s) => s.shotId === view.shotId)
+        if (entry?.rmsDb === null) {
+          warnings.push(
+            `第 ${String(view.number)} 鏡有旁白，但這一段量到的是完全安靜，旁白可能沒有混進去，請重新混音。`,
+          )
+        }
+      }
+      return {
+        version: latest.version,
+        durationSec: info.durationSec,
+        loudness: {
+          ...(loudness.integratedLufs === undefined
+            ? {}
+            : { integratedLufs: loudness.integratedLufs }),
+          ...(loudness.truePeakDb === undefined ? {} : { truePeakDb: loudness.truePeakDb }),
+          ...(loudness.loudnessRange === undefined
+            ? {}
+            : { loudnessRange: loudness.loudnessRange }),
+        },
+        shots,
+        silences,
+        warnings,
+      }
+    },
 
     async mix() {
       const handle = need()

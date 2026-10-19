@@ -150,3 +150,34 @@ export const SoundClipPatchSchema = z.object({
   fadeOutSec: z.number().min(0).nullable().optional(),
 })
 export type SoundClipPatchInput = z.infer<typeof SoundClipPatchSchema>
+
+/**
+ * 成品的聲音量測（給 AI 工具檢查用——Claude 聽不到，只能看數字）。
+ * 響度與峰值整支片子都是靜音時沒有；某一鏡完全靜音時 rmsDb 是 null。
+ */
+export const SoundAnalysisSchema = z.object({
+  /** 量的是哪一版成品。 */
+  version: z.number().int().positive(),
+  durationSec: z.number().min(0),
+  loudness: z.object({
+    /** 整體響度（LUFS）；目標是 −16。 */
+    integratedLufs: z.number().optional(),
+    /** 真峰值（dBTP）；不該超過 −1。 */
+    truePeakDb: z.number().optional(),
+    loudnessRange: z.number().optional(),
+  }),
+  /** 每一鏡的平均音量（dB，越接近 0 越大聲；null＝完全靜音）。 */
+  shots: z.array(
+    z.object({
+      shotId: IdSchema,
+      number: z.number().int().positive(),
+      startSec: z.number().min(0),
+      rmsDb: z.number().nullable(),
+    }),
+  ),
+  /** 安靜的段落（低於 −50 dB 持續 0.5 秒以上）。 */
+  silences: z.array(z.object({ startSec: z.number().min(0), endSec: z.number().min(0) })),
+  /** 白話的檢查結果：整支太小聲、爆音、某一鏡完全沒聲音、旁白那段是安靜的…… */
+  warnings: z.array(z.string()),
+})
+export type SoundAnalysis = z.infer<typeof SoundAnalysisSchema>
