@@ -366,6 +366,7 @@ describe('工具', () => {
       'list_shots',
       'load_guide',
       'lock_character',
+      'mix_sound',
       'open_project',
       'pick_character_image',
       'plan_sound',

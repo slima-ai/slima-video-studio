@@ -258,6 +258,19 @@ export function registerSoundTools(ctx: ToolContext): void {
   })
 
   defineTool(ctx, {
+    name: 'mix_sound',
+    title: 'Mix the sound into the film',
+    description:
+      "Mix the adopted narration, music and (unless muted) the video's own sound into the latest assembled film and save it as a new version of the film. Free (local FFmpeg, a few seconds). assemble_film already mixes the sound that exists at that moment; call this when you changed the sound AFTER assembling (new or adjusted narration/music, settings), then export_film. You need an assembled film first (assemble_film).",
+    input: {},
+    hints: { readOnly: false },
+    run: async () => {
+      const { version } = await ctx.caller.call('sound.mix', {})
+      return { mixed: true, filmVersion: version }
+    },
+  })
+
+  defineTool(ctx, {
     name: 'set_sound_settings',
     title: 'Change the sound settings',
     description:

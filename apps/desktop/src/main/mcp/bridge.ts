@@ -64,6 +64,7 @@ export const MCP_CHANNELS = [
   'sound.adoptClip',
   'sound.removeClip',
   'sound.updateSettings',
+  'sound.mix',
   'history.state',
   'history.undo',
   'history.redo',
