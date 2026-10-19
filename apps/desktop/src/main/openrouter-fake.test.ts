@@ -115,6 +115,8 @@ describe('假 OpenRouter + 真的 OpenRouterClient', () => {
       'POST /audio/speech',
       'GET /generation',
     ])
+  })
+
   it('配樂：串流 chat/completions（audio 模態）；沒開串流會被拒，開了就收得到音檔與實收花費', async () => {
     const musicClient = new OpenRouterClient({
       getKey: () => FAKE_OPENROUTER_KEY,
