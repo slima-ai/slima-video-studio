@@ -1,5 +1,5 @@
 import type { LlmRequest } from '@svs/schema'
-import { FAKE_OPENROUTER_KEY, startFakeOpenRouter } from '@svs/test-utils'
+import { FAKE_OPENROUTER_KEY, makePng, startFakeOpenRouter } from '@svs/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
@@ -93,7 +93,14 @@ const detail = async (r: Running, shotId: string) =>
 
 describe('影片線：首幀圖 → 看 → 影片 → 接片 → 匯出（示範模式）', () => {
   it('先只做首幀圖（沒有影片），看圖，再做影片，重做會多一個版本、可換回舊版，最後接片匯出', async () => {
-    const r = await start()
+    // 假的字卡畫家：記下被叫了幾次（真的畫字卡要 Electron 視窗，單元測試沒有）
+    let cardsRendered = 0
+    const r = await start({
+      renderCreditsCard: ({ width, height }) => {
+        cardsRendered += 1
+        return Promise.resolve(makePng({ width, height, color: [20, 20, 20] }))
+      },
+    })
     const ids = await withShots(r)
     expect(ids).toHaveLength(3)
 
@@ -184,6 +191,22 @@ describe('影片線：首幀圖 → 看 → 影片 → 接片 → 匯出（示�
     expect(exported.fileName).toMatch(/\.mp4$/)
     expect(exported.fileName).not.toContain('/')
     expect(textOf(await r.call('export_film'))).not.toContain(r.h.root)
+    // 片尾字卡：不帶參數＝加；credits:true＝加；credits:false＝不加（而且根本不去畫字卡）。
+    // 用假字卡畫家，回報的 creditsAdded 才真的反映 credits 有沒有傳到匯出那一層。
+    interface Exported {
+      fileName: string
+      creditsAdded: boolean
+    }
+    const rendered = cardsRendered
+    const byDefault = JSON.parse(textOf(await r.call('export_film'))) as Exported
+    expect(byDefault.creditsAdded).toBe(true)
+    const withCard = JSON.parse(textOf(await r.call('export_film', { credits: true }))) as Exported
+    expect(withCard.creditsAdded).toBe(true)
+    expect(cardsRendered).toBe(rendered + 2)
+    const noCard = JSON.parse(textOf(await r.call('export_film', { credits: false }))) as Exported
+    expect(noCard.creditsAdded).toBe(false)
+    expect(cardsRendered).toBe(rendered + 2)
+    expect(noCard.fileName).toMatch(/\.mp4$/)
   })
 
   it('沒有鏡頭、沒有影片、找不到鏡頭：白話錯誤，不是例外', async () => {
