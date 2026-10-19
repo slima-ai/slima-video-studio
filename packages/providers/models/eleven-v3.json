@@ -1,0 +1,31 @@
+{
+  "key": "eleven-v3",
+  "displayName": "ElevenLabs Eleven v3",
+  "tasks": ["tts"],
+  "tier": "premium",
+  "recommended": false,
+  "features": {
+    "nativeAudio": false
+  },
+  "badges": ["多語言旁白"],
+  "channels": [
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "tts": "elevenlabs/eleven-v3"
+      },
+      "pricing": {
+        "unit": "million_chars",
+        "usd": 40
+      },
+      "voices": [{ "id": "Adam", "label": "Adam（男聲）", "language": "any" }],
+      "verification": {
+        "endpoint": true,
+        "pricing": false,
+        "source": "實測：用真的 OpenRouter 金鑰呼叫 POST /api/v1/audio/speech，voice「Adam」成功（中文句子 6.3 秒）；實收金額查不到（回應沒帶、/generation 查無）。牌價 US$0.00004／字元取自 OpenRouter 模型清單（該清單同時標了 discount 0.5，意義未確認）",
+        "checkedAt": "2026-10-19"
+      },
+      "notes": "多語言備案。voice 要用 ElevenLabs 的聲音名稱：實測 Adam 可用、Rachel 被拒（Unknown voice）；OpenRouter 沒有聲音清單，其他聲音要實測才能加進來。單次文字上限 5,000 字元（助理研究，未實測）。"
+    }
+  ]
+}

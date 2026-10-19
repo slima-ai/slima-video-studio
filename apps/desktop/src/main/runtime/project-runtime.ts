@@ -106,6 +106,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDeps): ProjectRuntime {
         getKey: () => keys.get('openrouter'),
         endpointFor: (modelId, capability) => endpointFor(modelId, capability),
         imageApiFor: (modelId) => models.get(modelId)?.imageApi,
+        defaultVoiceFor: (modelId) => models.get(modelId)?.voices[0]?.id,
         services,
         ...(deps.openrouterBaseUrl === undefined ? {} : { baseUrl: deps.openrouterBaseUrl }),
       }),

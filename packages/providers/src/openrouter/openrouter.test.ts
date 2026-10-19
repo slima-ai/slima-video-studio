@@ -316,7 +316,7 @@ describe('createOpenRouterDriver：文字', () => {
     })
   })
 
-  it('語音請求會被拒絕；文字任務不需要輪詢', async () => {
+  it('旁白沒有指定聲音、模型卡也沒有預設聲音：送出前就回報；文字任務不需要輪詢', async () => {
     const fetchSpy = vi.fn()
     const driver = createOpenRouterDriver({
       getKey: () => KEY,
@@ -326,7 +326,7 @@ describe('createOpenRouterDriver：文字', () => {
     })
     expect(
       await failure(driver.submit(job({ capability: 'tts', modelId: 'x', text: 'p' }), { signal })),
-    ).toMatchObject({ code: 'provider_rejected' })
+    ).toMatchObject({ code: 'invalid_request' })
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(await failure(driver.poll(job(req), { signal }))).toMatchObject({
       code: 'internal_error',
@@ -620,6 +620,105 @@ describe('createOpenRouterDriver：圖片走 POST /images（gpt-image）', () =>
         ),
       ),
     ).toMatchObject({ code: 'provider_auth_failed' })
+  })
+})
+
+const MP3 = Uint8Array.from([0x49, 0x44, 0x33, 3, 0, 0, 0, 0, 0, 0])
+const audio = (headers: Record<string, string> = { 'x-generation-id': 'gen-1' }) =>
+  new Response(MP3, { status: 200, headers: { 'content-type': 'audio/mpeg', ...headers } })
+const generation = (cost: number) => json({ data: { total_cost: cost } })
+
+function makeTts(...responses: (Response | Error | ((call: Call) => Response))[]) {
+  const { impl, calls } = fakeFetch(...responses)
+  const services = memoryServices()
+  const driver = createOpenRouterDriver({
+    getKey: () => KEY,
+    endpointFor: () => 'minimax/speech-2.8-hd',
+    defaultVoiceFor: (modelId) => (modelId === 'openrouter/minimax' ? 'male-qn-qingse' : undefined),
+    costLookupDelayMs: 0,
+    fetch: impl,
+    services,
+  })
+  return { driver, calls, services }
+}
+
+const ttsJob = (input: Record<string, unknown>): Job => ({
+  ...job({ capability: 'tts', modelId: 'openrouter/minimax', text: '你好', ...input }),
+  modelId: 'openrouter/minimax',
+  kind: 'tts',
+})
+
+describe('createOpenRouterDriver：旁白（POST /audio/speech）', () => {
+  it('送出 model、input、voice、mp3；存成音訊素材；花費用 X-Generation-Id 查到實收', async () => {
+    const { driver, calls, services } = makeTts(audio(), generation(0.0049))
+    const result = await driver.submit(ttsJob({ text: '黑藤爬滿了斷橋', voiceId: 'v1' }), {
+      signal,
+    })
+    expect(calls[0]?.url).toBe('https://openrouter.ai/api/v1/audio/speech')
+    expect(calls[0]?.body).toEqual({
+      model: 'minimax/speech-2.8-hd',
+      input: '黑藤爬滿了斷橋',
+      voice: 'v1',
+      response_format: 'mp3',
+    })
+    expect(calls[1]?.url).toBe('https://openrouter.ai/api/v1/generation?id=gen-1')
+    expect(result).toMatchObject({ status: 'done', costUsd: 0.0049 })
+    const assets = (
+      result as { output: { assets: { hash: string; kind: string; mime: string }[] } }
+    ).output.assets
+    expect(assets[0]).toMatchObject({ kind: 'audio', mime: 'audio/mpeg' })
+    expect(services.files.get(assets[0]?.hash ?? '')).toEqual(MP3)
+  })
+
+  it('沒指定聲音就用模型卡的預設聲音', async () => {
+    const { driver, calls } = makeTts(audio(), generation(0.001))
+    await driver.submit(ttsJob({}), { signal })
+    expect(calls[0]?.body).toMatchObject({ voice: 'male-qn-qingse' })
+  })
+
+  it('查不到實收花費（兩次都 404，或回應沒有 generation id）：旁白照樣成功，只是不回報花費', async () => {
+    const notFound = () => json({ error: { code: 404, message: 'not found' } }, { status: 404 })
+    const missing = makeTts(audio(), notFound(), notFound())
+    const result = await missing.driver.submit(ttsJob({}), { signal })
+    expect(result).toMatchObject({ status: 'done' })
+    expect(result).not.toHaveProperty('costUsd')
+    expect(missing.calls).toHaveLength(3)
+
+    const noId = makeTts(audio({}))
+    expect(await noId.driver.submit(ttsJob({}), { signal })).not.toHaveProperty('costUsd')
+    expect(noId.calls).toHaveLength(1)
+  })
+
+  it('400（例如 Unknown voice）：白話提示，原文只在 cause；不可重試', async () => {
+    const { driver } = makeTts(
+      json({ error: { code: 400, message: 'Unknown voice "Rachel".' } }, { status: 400 }),
+    )
+    const error = await failure(driver.submit(ttsJob({ voiceId: 'Rachel' }), { signal }))
+    expect(error).toMatchObject({ code: 'provider_rejected', retryable: false })
+    expect(error.userMessage).not.toContain('Rachel')
+    // cause 是原本的 provider_rejected，它的 cause 才是帶著供應商原文的 Error
+    const original = (error.cause as AppError).cause as Error
+    expect(original.message).toContain('Rachel')
+  })
+
+  it('401、402、5xx：照既有規則分類；HTTP 200 卻回 JSON 錯誤不會被存成音檔', async () => {
+    const attempt = (response: Response) =>
+      failure(makeTts(response).driver.submit(ttsJob({}), { signal }))
+    expect(await attempt(json({ error: { message: 'x' } }, { status: 401 }))).toMatchObject({
+      code: 'provider_auth_failed',
+    })
+    expect(await attempt(json({ error: { message: 'x' } }, { status: 402 }))).toMatchObject({
+      code: 'provider_insufficient_funds',
+    })
+    expect(await attempt(json({ error: { message: 'x' } }, { status: 503 }))).toMatchObject({
+      code: 'provider_unavailable',
+      retryable: true,
+    })
+    const inline = makeTts(json({ error: { code: 402, message: 'no credits' } }))
+    expect(await failure(inline.driver.submit(ttsJob({}), { signal }))).toMatchObject({
+      code: 'provider_insufficient_funds',
+    })
+    expect(inline.services.files.size).toBe(0)
   })
 })
 

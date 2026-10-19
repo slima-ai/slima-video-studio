@@ -2,7 +2,7 @@ import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { ModelSpecSchema, type ModelCard } from '@svs/schema'
+import { ModelSpecSchema, billableChars, type ModelCard } from '@svs/schema'
 
 import {
   BUILTIN_MODEL_FILES,
@@ -99,6 +99,49 @@ describe('內建 ModelCard', () => {
     expect(registry.estimate('openrouter/gpt-image-2-high', { images: 4 })).toBeCloseTo(0.58)
     // 其他圖片模型（Gemini 走 chat/completions）沒有 imageApi
     expect(registry.get('openrouter/gemini-3-pro-image')?.imageApi).toBeUndefined()
+  })
+
+  it('旁白模型卡：MiniMax（中文預設，漢字算兩個計費單位）與 ElevenLabs Eleven v3，聲音只列實測過的', () => {
+    const minimax = registry.get('openrouter/minimax-speech-2.8-hd')
+    if (minimax === undefined) throw new Error('找不到 MiniMax 旁白卡')
+    const eleven = registry.get('openrouter/eleven-v3')
+    expect(minimax.capabilities).toEqual(['tts'])
+    expect(minimax.endpoints.tts).toBe('minimax/speech-2.8-hd')
+    expect(minimax.voices.map((v) => v.id)).toEqual(['male-qn-qingse'])
+    expect(eleven?.endpoints.tts).toBe('elevenlabs/eleven-v3')
+    expect(eleven?.voices.map((v) => v.id)).toEqual(['Adam'])
+    expect(eleven?.verification.pricing).toBe(false)
+    const only = { configuredProviders: new Set(['openrouter']) }
+    expect(registry.defaultFor({ ...only, capability: 'tts' })?.id).toBe(
+      'openrouter/minimax-speech-2.8-hd',
+    )
+    // 實測：26 字（23 個漢字、3 個標點）收 US$0.0049；估算多算標點，會略高一點（不低估）
+    const text = '黑藤爬滿了斷橋，小饅頭抱緊那顆紅色的種子，縱身一躍。'
+    const chars = billableChars(minimax, text)
+    expect(chars).toBe(52)
+    const estimate = registry.estimate('openrouter/minimax-speech-2.8-hd', { chars })
+    expect(estimate).toBeGreaterThanOrEqual(0.0049)
+    expect(estimate).toBeLessThan(0.0049 * 1.1)
+    // 沒有權重的卡，每個字算 1
+    expect(billableChars({}, '你好 abc')).toBe(6)
+  })
+
+  it('voices 只能用在有 tts 的模型，且 id 不能重複', () => {
+    const voice = { id: 'a', label: 'A' }
+    const llm = {
+      ...SPEC,
+      tasks: ['llm'],
+      channels: [
+        { ...CHANNEL, provider: 'openrouter', endpoints: { llm: 'x/y' }, voices: [voice] },
+      ],
+    }
+    expect(() => expandModelSpecs(parseModelSpecs([llm]))).toThrow(/voices 只能用在/)
+    const dup = {
+      ...SPEC,
+      tasks: ['tts'],
+      channels: [{ ...CHANNEL, endpoints: { tts: 'x/y' }, voices: [voice, voice] }],
+    }
+    expect(() => expandModelSpecs(parseModelSpecs([dup]))).toThrow(/voice id 不能重複/)
   })
 
   it('新增 GPT Image 2 不改變既有的預設圖片模型，使用者要自己切換', () => {
@@ -294,8 +337,10 @@ describe('ModelRegistry', () => {
       i2v: 'openrouter/kling-3.0-standard',
       t2v: 'openrouter/kling-3.0-standard',
     })
-    // 聲音還沒有 OpenRouter 的模型，仍要 fal 或之後的供應商
-    expect(registry.defaultFor({ ...only, capability: 'tts' })).toBeUndefined()
+    // 旁白也有了（MiniMax 當預設，中文優先）
+    expect(registry.defaultFor({ ...only, capability: 'tts' })?.id).toBe(
+      'openrouter/minimax-speech-2.8-hd',
+    )
   })
 
   it('估算：OpenRouter 的 Veo 3.1 Lite 6 秒＝6 × 0.05（無聲是 2026-10-18 實測，有聲取規格表）；Kling Standard 無聲 5 秒＝5 × 0.084', () => {
