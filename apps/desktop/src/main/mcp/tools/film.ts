@@ -307,14 +307,20 @@ export function registerFilmTools(ctx: ToolContext): void {
     name: 'export_film',
     title: 'Save the film as an MP4',
     description:
-      'Copy the assembled film into the project\'s "exports" folder as an MP4 and return its file name (the user finds it in the app / in that folder; you do not get the folder path). Call assemble_film first. Free.',
-    input: {},
+      "Copy the latest assembled film (with its sound) into the project's \"exports\" folder as an MP4 and return its file name (the user finds it in the app / in that folder; you do not get the folder path). Call assemble_film first (and mix_sound if you changed the sound after assembling). By default a 3-second card is added at the END of the exported file listing the AI services used (credits=true, the app's default; the project's film itself is not changed); pass credits=false for a file without it. If the card cannot be made the file is exported without it and creditsAdded says so. Free.",
+    input: {
+      credits: z
+        .boolean()
+        .default(true)
+        .describe('Add the closing card that lists the AI services used (default true)'),
+    },
     hints: { readOnly: false },
-    run: async () => {
-      const { path } = await ctx.caller.call('quickstart.export', {})
+    run: async ({ credits }) => {
+      const result = await ctx.caller.call('quickstart.export', { credits })
       return {
         exported: true,
-        fileName: basename(path),
+        fileName: basename(result.path),
+        creditsAdded: result.credits,
         folder: 'exports (inside the project folder; the app shows it)',
       }
     },

@@ -184,6 +184,18 @@ describe('影片線：首幀圖 → 看 → 影片 → 接片 → 匯出（示�
     expect(exported.fileName).toMatch(/\.mp4$/)
     expect(exported.fileName).not.toContain('/')
     expect(textOf(await r.call('export_film'))).not.toContain(r.h.root)
+    // 片尾字卡：預設加（回報有沒有加成功）；credits=false 就不加
+    const withCard = JSON.parse(textOf(await r.call('export_film', { credits: true }))) as {
+      fileName: string
+      creditsAdded: boolean
+    }
+    expect(typeof withCard.creditsAdded).toBe('boolean')
+    const noCard = JSON.parse(textOf(await r.call('export_film', { credits: false }))) as {
+      fileName: string
+      creditsAdded: boolean
+    }
+    expect(noCard).toMatchObject({ creditsAdded: false })
+    expect(noCard.fileName).toMatch(/\.mp4$/)
   })
 
   it('沒有鏡頭、沒有影片、找不到鏡頭：白話錯誤，不是例外', async () => {
