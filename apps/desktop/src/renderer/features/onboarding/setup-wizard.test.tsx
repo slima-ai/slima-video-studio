@@ -13,6 +13,7 @@ const data = (keys = KEYS): AppData => ({
   settings: { ...SETTINGS, onboardingDone: false },
   models: MODELS,
   selected: {},
+  voices: {},
   locked: [],
   project: null,
 })

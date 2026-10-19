@@ -18,6 +18,8 @@ export interface ModelsSectionProps {
   models: ModelOption[]
   /** 每種用途現在實際會用的模型。 */
   selected: Partial<Record<PickableCapability, string>>
+  /** 每個旁白模型現在用的聲音。 */
+  voices?: Record<string, string>
   /** 還沒填金鑰、不能用的模型：選單上灰色，寫要填哪家的金鑰。 */
   locked?: ModelOption[]
   onChanged: () => void
@@ -29,6 +31,8 @@ export const LABELS: Record<PickableCapability, { title: string; hint: string }>
   llm: { title: '文字', hint: '把故事分成幾個畫面、寫畫面描述' },
   t2i: { title: '圖片', hint: '每個鏡頭的第一張畫面' },
   i2v: { title: '影片', hint: '讓畫面動起來' },
+  tts: { title: '旁白', hint: '把每個鏡頭的台詞念出來' },
+  music: { title: '配樂', hint: '整支片子的背景音樂' },
 }
 
 /** 由貴到便宜排；同一等級照原本的順序。 */
@@ -123,11 +127,21 @@ export function unlockText(locked: readonly ModelOption[]): string | undefined {
 export function ModelsSection({
   models,
   selected,
+  voices = {},
   locked = [],
   onChanged,
   onGoToKeys,
 }: ModelsSectionProps) {
   const [error, setError] = useState<string | undefined>()
+
+  const chooseVoice = (modelId: string, voiceId: string): void => {
+    setError(undefined)
+    call('settings.update', { audio: { voices: { [modelId]: voiceId } } })
+      .then(onChanged)
+      .catch((e: unknown) => {
+        setError(errorText(e))
+      })
+  }
 
   const choose = (capability: PickableCapability, id: string): void => {
     setError(undefined)
@@ -196,6 +210,28 @@ export function ModelsSection({
                       >
                         {channelText(detail)}
                       </p>
+                    ) : null}
+                    {capability === 'tts' && detail && detail.voices.length > 0 ? (
+                      <div className="mt-2 flex items-center gap-3">
+                        <label className="text-sm" htmlFor="voice-tts">
+                          聲音
+                        </label>
+                        <div className="min-w-0 flex-1">
+                          <ListSelect
+                            id="voice-tts"
+                            testId="voice-tts"
+                            value={voices[detail.id] ?? detail.voices[0]?.id}
+                            options={detail.voices.map((voice): ListOption => ({
+                              value: voice.id,
+                              label: voice.label,
+                              content: <span>{voice.label}</span>,
+                            }))}
+                            onChange={(voiceId) => {
+                              chooseVoice(detail.id, voiceId)
+                            }}
+                          />
+                        </div>
+                      </div>
                     ) : null}
                     {detail?.notes ? (
                       <p

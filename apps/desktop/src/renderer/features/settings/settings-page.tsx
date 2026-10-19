@@ -56,6 +56,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
             <ModelsSection
               models={state.data.models}
               selected={state.data.selected}
+              voices={state.data.voices}
               locked={state.data.locked}
               onChanged={reload}
               onGoToKeys={goToKeys}

@@ -20,6 +20,8 @@ export interface AppData {
   /** 還沒填金鑰、不能用的模型（選單上灰色）。 */
   locked: ModelOption[]
   selected: Partial<Record<PickableCapability, string>>
+  /** 每個旁白模型現在用的聲音。 */
+  voices: Record<string, string>
   /** 開著的專案自己指定的模型；沒開專案是 null。 */
   project: Models['project']
 }
@@ -47,6 +49,7 @@ export function useAppData(): { state: AppDataState; reload: () => void } {
           settings,
           models: models.models,
           selected: models.selected,
+          voices: models.voices,
           locked: models.locked,
           project: models.project,
         },

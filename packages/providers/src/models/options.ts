@@ -78,6 +78,7 @@ export function toModelOption(
     priceShort: card.provider === 'mock' ? '免費（示範）' : priceShort(card.pricing),
     priceVerified: card.verification.pricing || card.provider === 'mock',
     badges: card.badges,
+    voices: card.voices,
     otherChannels: channels
       .filter((c) => c.provider !== card.provider)
       .map((c) => providerName(c.provider)),

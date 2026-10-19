@@ -1,11 +1,11 @@
 import { z } from 'zod'
 
 import { UsdSchema } from './common'
-import { CapabilitySchema, ModelTierSchema } from './models'
+import { CapabilitySchema, ModelTierSchema, VoiceSchema } from './models'
 import { STORYBOARD_GUIDE_MAX_CHARS } from './storyboard-guide'
 
-/** 設定頁可以挑模型的三種用途（用白話分成：文字、圖片、影片）。 */
-export const PICKABLE_CAPABILITIES = ['llm', 't2i', 'i2v'] as const
+/** 設定頁可以挑模型的用途（用白話分成：文字、圖片、影片、旁白、配樂）。 */
+export const PICKABLE_CAPABILITIES = ['llm', 't2i', 'i2v', 'tts', 'music'] as const
 export const PickableCapabilitySchema = z.enum(PICKABLE_CAPABILITIES)
 export type PickableCapability = z.infer<typeof PickableCapabilitySchema>
 
@@ -30,6 +30,15 @@ export const McpSettingsSchema = z.object({
   allowanceUsd: UsdSchema.default(0),
 })
 export type McpSettings = z.infer<typeof McpSettingsSchema>
+
+/**
+ * 聲音設定（App 層級）。`voices` 是每個旁白模型（ModelCard id）選的聲音（模型卡 voices 裡的 id）；
+ * 沒選的模型用卡上的第一個聲音。聲音的模型本身跟其他用途一樣，放在 `models`（tts、music）。
+ */
+export const AudioSettingsSchema = z.object({
+  voices: z.record(z.string(), z.string().min(1)).default({}),
+})
+export type AudioSettings = z.infer<typeof AudioSettingsSchema>
 
 const BudgetSettingsSchema = z.object({
   perRunLimitUsd: UsdSchema.default(DEFAULT_PER_RUN_LIMIT_USD),
@@ -57,6 +66,7 @@ export const AppSettingsSchema = z.object({
   /** 自訂的分鏡準則；空字串表示用內建預設（DEFAULT_STORYBOARD_GUIDE）。 */
   storyboardGuide: z.string().max(STORYBOARD_GUIDE_MAX_CHARS).default(''),
   mcp: McpSettingsSchema.default({ enabled: false, port: DEFAULT_MCP_PORT, allowanceUsd: 0 }),
+  audio: AudioSettingsSchema.default({ voices: {} }),
 })
 export type AppSettings = z.infer<typeof AppSettingsSchema>
 
@@ -71,6 +81,10 @@ export const AppSettingsPatchSchema = z.object({
   budget: BudgetSettingsSchema.optional(),
   /** 自訂的分鏡準則；傳空字串表示恢復預設。 */
   storyboardGuide: z.string().max(STORYBOARD_GUIDE_MAX_CHARS).optional(),
+  /** 旁白的聲音：逐模型合併，值為 null 表示改回該模型的預設聲音。 */
+  audio: z
+    .object({ voices: z.record(z.string(), z.string().min(1).nullable()).optional() })
+    .optional(),
   /** AI 工具連線：逐項合併（只給要改的欄位）。不能直接用 McpSettingsSchema.partial()——欄位帶預設值，會把沒提到的欄位蓋回預設。 */
   mcp: z
     .object({
@@ -100,6 +114,8 @@ export const ModelOptionSchema = z.object({
   priceVerified: z.boolean(),
   /** 選單上的小標籤，例如「有聲」「角色一致」。 */
   badges: z.array(z.string()).default([]),
+  /** 旁白模型可選的聲音（第一個是預設）。 */
+  voices: z.array(VoiceSchema).default([]),
   /** 這個模型也能走的其他供應商（顯示名稱）；目前走的是 providerName（比較便宜的那家）。 */
   otherChannels: z.array(z.string()).default([]),
   /** 還沒解鎖：要填哪家的金鑰才能用（例如「fal.ai」「OpenRouter 或 fal.ai」）。能用的模型沒有這個欄位。 */

@@ -16,6 +16,8 @@ import type { SettingsStore } from './settings-store'
 export interface ModelListing {
   models: ModelOption[]
   selected: Partial<Record<PickableCapability, string>>
+  /** 每個旁白模型目前用的聲音（有選的、或卡上的第一個）。 */
+  voices: Record<string, string>
   /** 還沒填金鑰、不能用的模型（選單上灰色）；示範模式沒有。 */
   locked: ModelOption[]
   /** 開著的專案自己指定、而且現在能用的模型；沒開專案是 null。 */
@@ -46,11 +48,19 @@ export interface SettingsService {
    * 指定 quality 時用那一組（高品質／平衡／經濟）推薦的，那一組沒有能用的才照平常。
    */
   resolveModel: (capability: PickableCapability, quality?: ModelTier) => string | undefined
+  /** 這個旁白模型用哪個聲音：設定裡選的（還在卡的 voices 裡才算），否則卡上的第一個；沒有聲音清單回傳 undefined。 */
+  resolveVoice: (modelId: string) => string | undefined
   /** 取走還沒說過的模型通知（取完就清掉，只說一次）。 */
   takeNotices: () => string[]
 }
 
-const USE_LABEL: Record<PickableCapability, string> = { llm: '文字', t2i: '圖片', i2v: '影片' }
+const USE_LABEL: Record<PickableCapability, string> = {
+  llm: '文字',
+  t2i: '圖片',
+  i2v: '影片',
+  tts: '旁白',
+  music: '配樂',
+}
 
 /**
  * 設定 + 模型註冊表 + Key 的組合：決定「現在選單裡有哪些模型」與「每種用途用哪一個」。
@@ -167,8 +177,28 @@ export function createSettingsService(deps: {
     return projectModel(capability) ?? appModel(capability)
   }
 
+  const resolveVoice = (modelId: string): string | undefined => {
+    const voices = registry.get(modelId)?.voices ?? []
+    const chosen = store.get().audio.voices[modelId]
+    return voices.find((v) => v.id === chosen)?.id ?? voices[0]?.id
+  }
+
+  /** 選的聲音要在該模型卡的 voices 清單裡（OpenRouter 沒有聲音清單，只有實測過的才列）。 */
+  const checkVoices = (voices: Record<string, string | null> | undefined): void => {
+    for (const [modelId, voice] of Object.entries(voices ?? {})) {
+      if (voice === null) continue
+      if (!registry.get(modelId)?.voices.some((v) => v.id === voice)) {
+        throw new AppError({
+          code: 'invalid_request',
+          userMessage: '這個聲音沒辦法用在這個旁白模型，請重新選擇。',
+        })
+      }
+    }
+  }
+
   return {
     resolveModel,
+    resolveVoice,
     takeNotices: () => {
       const notices = store.get().modelNotices
       if (notices.length > 0) store.setNotices([])
@@ -191,15 +221,22 @@ export function createSettingsService(deps: {
             ...toModelOption(card, registry.channelsOf(card)),
             needsKey: providers.map(providerName).join(' 或 '),
           }))
+      const voices: Record<string, string> = {}
+      for (const card of models) {
+        const voice = resolveVoice(card.id)
+        if (voice) voices[card.id] = voice
+      }
       return {
         models: models.map((card) => toModelOption(card, registry.channelsOf(card))),
         selected,
+        voices,
         locked,
         project: current ? { name: current.name, models: projectChoice } : null,
       }
     },
     update: (patch) => {
       checkChoice(patch.models ?? {})
+      checkVoices(patch.audio?.voices)
       if (patch.budget && patch.budget.perRunLimitUsd <= 0) {
         throw new AppError({
           code: 'invalid_request',

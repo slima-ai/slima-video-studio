@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { MODELS, appError, installFakeSvs } from '../../test/fake-svs'
+import { MODELS, SETTINGS, appError, installFakeSvs } from '../../test/fake-svs'
 import { ModelsSection } from './models-section'
 
 afterEach(cleanup)
@@ -147,7 +147,10 @@ describe('ModelsSection', () => {
     expect(screen.queryByTestId('model-llm')).toBeNull()
     expect(screen.getByText(/目前沒有可用的文字模型/)).toBeTruthy()
     expect(screen.getByText(/目前沒有可用的影片模型/)).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: '去填金鑰' })).toHaveLength(2)
+    expect(screen.getByText(/目前沒有可用的旁白模型/)).toBeTruthy()
+    expect(screen.getByText(/目前沒有可用的配樂模型/)).toBeTruthy()
+    // 文字、影片、旁白、配樂四種用途各一顆
+    expect(screen.getAllByRole('button', { name: '去填金鑰' })).toHaveLength(4)
   })
 
   it('還沒填金鑰的模型排在最後、灰色不能選，寫要填哪家；選單下面說填了還能用哪些、一鍵去填', () => {
@@ -241,5 +244,56 @@ describe('ModelsSection', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert').textContent).toContain('沒辦法用在這個用途')
     })
+  })
+
+  it('旁白與配樂各有一列；旁白底下可以選聲音，選了會存到設定', async () => {
+    const calls: unknown[] = []
+    const tts0 = MODELS[0]
+    if (!tts0) throw new Error('fake-svs 應該有模型')
+    installFakeSvs({
+      'settings.update': (payload) => {
+        calls.push(payload)
+        return SETTINGS
+      },
+    })
+    const tts = {
+      ...tts0,
+      id: 'openrouter/minimax-speech-2.8-hd',
+      displayName: 'MiniMax Speech 2.8 HD',
+      capabilities: ['tts' as const],
+      voices: [
+        { id: 'male-qn-qingse', label: '青澀青年男聲', language: 'zh' as const },
+        { id: 'female-x', label: '另一個聲音', language: 'zh' as const },
+      ],
+    }
+    const music = {
+      ...tts,
+      id: 'openrouter/lyria-3-pro',
+      displayName: 'Lyria 3 Pro',
+      capabilities: ['music' as const],
+      voices: [],
+    }
+    const onChanged = vi.fn()
+    render(
+      <ModelsSection
+        models={[tts, music]}
+        selected={{ tts: tts.id, music: music.id }}
+        voices={{ [tts.id]: 'male-qn-qingse' }}
+        onChanged={onChanged}
+        onGoToKeys={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('model-tts').textContent).toContain('MiniMax Speech 2.8 HD')
+    expect(screen.getByTestId('model-music').textContent).toContain('Lyria 3 Pro')
+    // 配樂沒有聲音可選
+    expect(screen.queryByTestId('voice-music')).toBeNull()
+    const voice = screen.getByTestId('voice-tts')
+    expect(voice.textContent).toContain('青澀青年男聲')
+    fireEvent.click(voice)
+    fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: /另一個聲音/ }))
+    await waitFor(() => {
+      expect(onChanged).toHaveBeenCalled()
+    })
+    expect(calls).toEqual([{ audio: { voices: { [tts.id]: 'female-x' } } }])
   })
 })
