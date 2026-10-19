@@ -1,8 +1,11 @@
 import type { LlmRequest } from '@svs/schema'
 import { FAKE_OPENROUTER_KEY, startFakeOpenRouter } from '@svs/test-utils'
+import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
+import { locateTools } from '../bundled-tools'
 import { dataOf, startRealMcp, textOf } from './test-support'
 
 type Running = Awaited<ReturnType<typeof startRealMcp>>
@@ -204,6 +207,37 @@ describe('聲音工具（示範模式）', () => {
     const out = await r.call('analyze_sound')
     expect(out.isError).toBe(true)
     expect(textOf(out)).not.toMatch(/undefined|\.ts:|at .*\(/)
+  })
+
+  it('示範的旁白與配樂是跟真的一樣的 mp3（旁白單聲道、配樂立體聲）、長度不是剛好整數秒——這樣示範流程才抓得到真格式才會出的混音問題', async () => {
+    const r = await start()
+    const [first] = await withShots(r)
+    const narration = dataOf(Made, await r.call('generate_narration', { shotId: first }))
+    const music = dataOf(Made, await r.call('generate_music', { durationSec: 6 }))
+    const state = r.h.sound.state()
+    const files = [
+      { clip: state.shots[0]?.narration, channels: 1 },
+      { clip: state.music, channels: 2 },
+    ]
+    expect(files.map((f) => f.clip?.id)).toEqual([narration.clip.id, music.clip.id])
+    for (const { clip, channels } of files) {
+      const found = r.h.projects.current()?.assets.find(clip?.assetHash ?? '')
+      if (!found) throw new Error('找不到素材')
+      const bytes = readFileSync(found.path)
+      // mp3：ID3 標頭或直接是影格同步字（0xFFEx）
+      const isMp3 =
+        bytes.subarray(0, 3).toString('latin1') === 'ID3' ||
+        (bytes[0] === 0xff && ((bytes[1] ?? 0) & 0xe0) === 0xe0)
+      expect(isMp3, clip?.kind).toBe(true)
+      // 用內建的 FFmpeg 看聲道數
+      const probe = spawnSync(locateTools().ffmpegPath, ['-hide_banner', '-i', found.path], {
+        encoding: 'utf8',
+      })
+      expect(`${probe.stderr}${probe.stdout}`, clip?.kind).toMatch(
+        channels === 1 ? /mono/i : /stereo/i,
+      )
+      expect(Number.isInteger(clip?.durationSec), `${clip?.kind} 長度不該剛好是整數秒`).toBe(false)
+    }
   })
 
   it('白話錯誤：找不到的鏡頭、沒有台詞的鏡頭、不存在的片段；不是例外', async () => {
