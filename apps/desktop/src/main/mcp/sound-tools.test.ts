@@ -179,8 +179,31 @@ describe('聲音工具（示範模式）', () => {
     expect(mixed.filmVersion).toBeGreaterThanOrEqual(2)
     const again = dataOf(z.looseObject({ filmVersion: z.number() }), await r.call('mix_sound'))
     expect(again.filmVersion).toBeGreaterThan(mixed.filmVersion)
+    // 量測：整體響度、每鏡音量、警示（示範影片的聲音是真的 FFmpeg 量出來的數字）
+    const analysis = dataOf(
+      z.looseObject({
+        filmVersion: z.number(),
+        durationSec: z.number(),
+        loudness: z.looseObject({ integratedLufs: z.number().nullable() }),
+        shots: z.array(z.looseObject({ number: z.number(), rmsDb: z.number().nullable() })),
+        warnings: z.array(z.string()),
+      }),
+      await r.call('analyze_sound'),
+    )
+    expect(analysis.filmVersion).toBeGreaterThanOrEqual(mixed.filmVersion)
+    expect(analysis.durationSec).toBeGreaterThan(0)
+    expect(analysis.shots.length).toBeGreaterThan(0)
+    expect(Array.isArray(analysis.warnings)).toBe(true)
     const exported = JSON.parse(textOf(await r.call('export_film'))) as { fileName: string }
     expect(exported.fileName).toMatch(/\.mp4$/)
+  })
+
+  it('量測：還沒接片 → 白話錯誤，不是例外', async () => {
+    const r = await start()
+    await withShots(r)
+    const out = await r.call('analyze_sound')
+    expect(out.isError).toBe(true)
+    expect(textOf(out)).not.toMatch(/undefined|\.ts:|at .*\(/)
   })
 
   it('白話錯誤：找不到的鏡頭、沒有台詞的鏡頭、不存在的片段；不是例外', async () => {

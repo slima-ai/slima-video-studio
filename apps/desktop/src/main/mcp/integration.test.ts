@@ -339,6 +339,7 @@ describe('工具', () => {
       'adjust_sound_clip',
       'adopt_sound_clip',
       'adopt_version',
+      'analyze_sound',
       'assemble_film',
       'cancel_generation',
       'configure_project',
