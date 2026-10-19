@@ -478,6 +478,8 @@ export const ipcContract = {
     response: z.object({
       models: z.array(ModelOptionSchema),
       selected: z.partialRecord(PickableCapabilitySchema, z.string()),
+      /** 每個旁白模型（管道 id）目前用的聲音；沒選的是卡上的第一個。 */
+      voices: z.record(z.string(), z.string()).default({}),
       /** 還沒填金鑰、不能用的模型（選單上灰色，寫要填哪家的金鑰）；示範模式沒有。 */
       locked: z.array(ModelOptionSchema).default([]),
       /**

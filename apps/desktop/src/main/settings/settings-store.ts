@@ -36,6 +36,11 @@ export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSe
     if (id === null) Reflect.deleteProperty(models, capability)
     else models[capability] = id
   }
+  const voices = { ...current.audio.voices }
+  for (const [modelId, voice] of Object.entries(patch.audio?.voices ?? {})) {
+    if (voice === null) Reflect.deleteProperty(voices, modelId)
+    else voices[modelId] = voice
+  }
   return AppSettingsSchema.parse({
     ...current,
     ...(patch.onboardingDone === undefined ? {} : { onboardingDone: patch.onboardingDone }),
@@ -48,6 +53,7 @@ export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSe
       : { storyboardGuide: patch.storyboardGuide.trim() }),
     ...(patch.mcp === undefined ? {} : { mcp: { ...current.mcp, ...definedOnly(patch.mcp) } }),
     models,
+    audio: { voices },
   })
 }
 

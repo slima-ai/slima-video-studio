@@ -45,6 +45,40 @@ test.describe('第一次使用的引導與設定頁', () => {
     }
   })
 
+  test('旁白與配樂：填 OpenRouter 金鑰後各有一列，旁白底下可以選聲音；換旁白模型聲音跟著換', async ({
+    page,
+  }, testInfo) => {
+    await page.getByRole('button', { name: '設定' }).click()
+    await page.getByTestId('demo-mode').uncheck()
+    await page.getByLabel('OpenRouter 的服務金鑰').fill('sk-or-e2e-SECRETVALUE-wxyz')
+    await page.getByTestId('key-openrouter').getByRole('button', { name: '儲存' }).click()
+    await expect(page.getByTestId('key-openrouter-status')).toHaveText('已設定（結尾 wxyz）')
+
+    await expect(page.getByTestId('model-tts')).toHaveAttribute(
+      'data-value',
+      'openrouter/minimax-speech-2.8-hd',
+    )
+    await expect(page.getByTestId('model-music')).toHaveAttribute(
+      'data-value',
+      'openrouter/lyria-3-pro',
+    )
+    await expect(page.getByTestId('voice-tts')).toContainText('青澀青年男聲')
+    await page.getByTestId('model-tts').scrollIntoViewIfNeeded()
+    await page.getByTestId('models-section').screenshot({
+      path: testInfo.outputPath('settings-tts-music-voice.png'),
+    })
+
+    // 換成備案的旁白模型：聲音清單跟著換
+    await page.getByTestId('model-tts').click()
+    await page.getByRole('option', { name: /ElevenLabs Eleven v3/ }).click()
+    await expect(page.getByTestId('model-tts')).toHaveAttribute(
+      'data-value',
+      'openrouter/eleven-v3',
+    )
+    await expect(page.getByTestId('voice-tts')).toContainText('Adam')
+    expect(await page.content()).not.toContain('SECRETVALUE')
+  })
+
   test('在設定頁填服務金鑰：顯示已設定與末四碼、模型選單出現對應模型、關掉示範模式', async ({
     page,
   }) => {

@@ -23,6 +23,7 @@ export const SETTINGS: AppSettings = {
   models: {},
   budget: { perRunLimitUsd: 5 },
   modelNotices: [],
+  audio: { voices: {} },
 }
 
 export const KEYS: KeyStatus[] = [
@@ -43,6 +44,7 @@ export const MODELS: ModelOption[] = [
     priceShort: '每張約 US$0.08',
     priceVerified: false,
     badges: [],
+    voices: [],
     otherChannels: [],
   },
   {
@@ -57,6 +59,7 @@ export const MODELS: ModelOption[] = [
     priceShort: '每張約 US$0.04',
     priceVerified: true,
     badges: [],
+    voices: [],
     otherChannels: [],
   },
 ]
@@ -85,7 +88,7 @@ export function installFakeSvs(handlers: Partial<Record<IpcChannel, Handler>> = 
     }),
     'settings.get': () => SETTINGS,
     'models.notices': () => ({ notices: [] }),
-    'models.list': () => ({ models: [], selected: {}, locked: [], project: null }),
+    'models.list': () => ({ models: [], selected: {}, voices: {}, locked: [], project: null }),
     'queue.list': () => ({ jobs: [] }),
     'slima.status': () => ({ state: 'no_token' }),
     'slima.books': () => ({ books: [] }),

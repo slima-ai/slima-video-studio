@@ -29,6 +29,7 @@ describe('createSettingsStore', () => {
       modelNotices: [],
       storyboardGuide: '',
       mcp: { enabled: false, port: 47821, allowanceUsd: 0 },
+      audio: { voices: {} },
     })
   })
 
@@ -113,5 +114,30 @@ describe('createMemorySettingsStore', () => {
     const store = createMemorySettingsStore()
     expect(store.update({ demoMode: true }).demoMode).toBe(true)
     expect(store.get().demoMode).toBe(true)
+  })
+})
+
+describe('applyPatch：旁白的聲音', () => {
+  it('逐模型合併；null 刪掉該模型的選擇（改回預設聲音）；沒提到的不動', () => {
+    const base = createMemorySettingsStore().get()
+    const a = applyPatch(base, { audio: { voices: { 'openrouter/eleven-v3': 'Adam' } } })
+    expect(a.audio.voices).toEqual({ 'openrouter/eleven-v3': 'Adam' })
+    const b = applyPatch(a, { audio: { voices: { 'openrouter/minimax-speech-2.8-hd': 'v' } } })
+    expect(b.audio.voices).toEqual({
+      'openrouter/eleven-v3': 'Adam',
+      'openrouter/minimax-speech-2.8-hd': 'v',
+    })
+    expect(
+      applyPatch(b, { audio: { voices: { 'openrouter/eleven-v3': null } } }).audio.voices,
+    ).toEqual({
+      'openrouter/minimax-speech-2.8-hd': 'v',
+    })
+    // 改別的設定不會動到聲音
+    expect(applyPatch(b, { theme: 'dark' }).audio).toEqual(b.audio)
+  })
+
+  it('舊的設定檔沒有 audio 欄位，讀進來是空的', () => {
+    writeFileSync(file, JSON.stringify({ onboardingDone: true }), 'utf8')
+    expect(createSettingsStore({ file }).get().audio).toEqual({ voices: {} })
   })
 })

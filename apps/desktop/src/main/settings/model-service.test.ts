@@ -64,7 +64,13 @@ describe('SettingsService.listModels', () => {
   it('示範模式只列示範模型，並自動選它們', () => {
     const { models, selected } = setup({ demoMode: true, keys: ['fal'] }).service.listModels()
     expect(new Set(models.map((m) => m.provider))).toEqual(new Set(['mock']))
-    expect(selected).toEqual({ llm: 'mock/llm', t2i: 'mock/image', i2v: 'mock/video' })
+    // 示範模式沒有示範配樂，只有旁白
+    expect(selected).toEqual({
+      llm: 'mock/llm',
+      t2i: 'mock/image',
+      i2v: 'mock/video',
+      tts: 'mock/tts',
+    })
   })
 
   it('只填 fal 的 Key → 看得到圖片與影片模型，沒有文字模型', () => {
@@ -81,6 +87,8 @@ describe('SettingsService.listModels', () => {
       llm: 'openrouter/claude-sonnet-5.5',
       t2i: 'fal/nano-banana-2',
       i2v: 'fal/kling-3.0-standard',
+      tts: 'openrouter/minimax-speech-2.8-hd',
+      music: 'openrouter/lyria-3-pro',
     })
   })
 
@@ -247,5 +255,52 @@ describe('SettingsService：這個專案預設用什麼', () => {
       service.setProjectModels({ llm: 'fal/nano-banana-2' })
     }).toThrow('沒辦法用在這個用途')
     expect(project.models).toEqual({})
+  })
+})
+
+describe('SettingsService：旁白與配樂', () => {
+  it('只填 OpenRouter：旁白預設 MiniMax、配樂預設 Lyria 3 Pro；選單帶出每個模型的聲音', () => {
+    const { service } = setup({ keys: ['openrouter'] })
+    expect(service.resolveModel('tts')).toBe('openrouter/minimax-speech-2.8-hd')
+    expect(service.resolveModel('music')).toBe('openrouter/lyria-3-pro')
+    const listing = service.listModels()
+    expect(listing.selected.tts).toBe('openrouter/minimax-speech-2.8-hd')
+    expect(listing.selected.music).toBe('openrouter/lyria-3-pro')
+    expect(listing.voices['openrouter/minimax-speech-2.8-hd']).toBe('male-qn-qingse')
+    const minimax = listing.models.find((m) => m.id === 'openrouter/minimax-speech-2.8-hd')
+    expect(minimax?.voices.map((v) => v.id)).toEqual(['male-qn-qingse'])
+  })
+
+  it('可以換旁白模型與聲音；聲音一定要在該模型的清單裡，換了模型就用新模型的預設聲音', () => {
+    const { service } = setup({ keys: ['openrouter'] })
+    service.update({ models: { tts: 'openrouter/eleven-v3' } })
+    expect(service.resolveModel('tts')).toBe('openrouter/eleven-v3')
+    expect(service.resolveVoice('openrouter/eleven-v3')).toBe('Adam')
+    service.update({ audio: { voices: { 'openrouter/eleven-v3': 'Adam' } } })
+    expect(service.listModels().voices['openrouter/eleven-v3']).toBe('Adam')
+    expect(() =>
+      service.update({ audio: { voices: { 'openrouter/eleven-v3': 'Rachel' } } }),
+    ).toThrow(/沒辦法用在這個旁白模型/)
+    expect(() => service.update({ audio: { voices: { 'openrouter/ghost': 'Adam' } } })).toThrow(
+      /沒辦法用在這個旁白模型/,
+    )
+    // null 改回預設聲音
+    service.update({ audio: { voices: { 'openrouter/eleven-v3': null } } })
+    expect(service.resolveVoice('openrouter/eleven-v3')).toBe('Adam')
+  })
+
+  it('旁白模型不能拿去當配樂用；沒有聲音清單的模型沒有聲音可選', () => {
+    const { service } = setup({ keys: ['openrouter'] })
+    expect(() => service.update({ models: { music: 'openrouter/eleven-v3' } })).toThrow(
+      /沒辦法用在這個用途/,
+    )
+    expect(service.resolveVoice('openrouter/lyria-3-pro')).toBeUndefined()
+  })
+
+  it('這個專案可以自己指定旁白模型', () => {
+    const { service, project } = setup({ keys: ['openrouter'], project: true })
+    service.setProjectModels({ tts: 'openrouter/eleven-v3' })
+    expect(project.models.tts).toBe('openrouter/eleven-v3')
+    expect(service.resolveModel('tts')).toBe('openrouter/eleven-v3')
   })
 })
