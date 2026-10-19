@@ -3,6 +3,7 @@ import { probe, resolveTools } from '@svs/media'
 import type { JobQueue } from '@svs/engine'
 import { createMockDriver } from '@svs/providers'
 import { GenerationOutputSchema } from '@svs/schema'
+import { spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -54,7 +55,7 @@ describe('示範供應商 + 任務佇列 + 真的 SQLite 與素材庫', () => {
     handle.close()
   })
 
-  it('長任務（配音）：submit → poll → 完成，結果是素材庫裡的 WAV', async () => {
+  it('長任務（配音）：submit → poll → 完成，結果是素材庫裡的 mp3，FFmpeg 讀得出來', async () => {
     const handle = open()
     const driver = createMockDriver(createProviderServices(handle), { pollsBeforeDone: 1 })
     const queue = createProjectJobQueue(handle, {
@@ -73,7 +74,45 @@ describe('示範供應商 + 任務佇列 + 真的 SQLite 與素材庫', () => {
     expect(done.status).toBe('succeeded')
     expect(driver.pollCalls).toBe(2)
     const output = GenerationOutputSchema.parse(done.output)
-    expect(output.kind === 'assets' && output.assets[0]?.mime).toBe('audio/wav')
+    if (output.kind !== 'assets') throw new Error('應為素材')
+    expect(output.assets[0]?.mime).toBe('audio/mpeg')
+    const info = await probe(
+      resolveTools(),
+      handle.assets.find(output.assets[0]?.hash ?? '')?.path ?? '',
+    )
+    expect(info.durationSec).toBeCloseTo(output.assets[0]?.durationSec ?? 0, 1)
+    expect(info).toMatchObject({ hasAudio: true, hasVideo: false })
+    handle.close()
+  })
+
+  it('示範配樂：重複樣本拼成的 mp3 能整段解碼，長度與記下的一致', async () => {
+    const handle = open()
+    const driver = createMockDriver(createProviderServices(handle), { pollsBeforeDone: 0 })
+    const queue = createProjectJobQueue(handle, {
+      drivers: { mock: driver },
+      defaultLimits: { pollIntervalMs: 10 },
+    })
+    queue.start()
+    const job = queue.enqueue({
+      provider: 'mock',
+      modelId: 'mock/music',
+      kind: 'music',
+      input: { capability: 'music', modelId: 'mock/music', prompt: 'calm', durationSec: 7 },
+    })
+    const done = await queue.wait(job.id)
+    queue.stop()
+    const output = GenerationOutputSchema.parse(done.output)
+    if (output.kind !== 'assets') throw new Error('應為素材')
+    const path = handle.assets.find(output.assets[0]?.hash ?? '')?.path ?? ''
+    const tools = resolveTools()
+    const info = await probe(tools, path)
+    expect(info.durationSec).toBeCloseTo(7, 1)
+    // 整段解碼不能有錯誤輸出（影格拼接壞掉時 FFmpeg 會喊）
+    const decoded = spawnSync(tools.ffmpegPath, ['-v', 'error', '-i', path, '-f', 'null', '-'], {
+      encoding: 'utf8',
+    })
+    expect(decoded.status).toBe(0)
+    expect(decoded.stderr.trim()).toBe('')
     handle.close()
   })
 
