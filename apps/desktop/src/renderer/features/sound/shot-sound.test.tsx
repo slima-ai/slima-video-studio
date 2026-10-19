@@ -2,7 +2,7 @@ import type { SoundState } from '@svs/schema'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { installFakeSvs } from '../../test/fake-svs'
+import { appError, installFakeSvs } from '../../test/fake-svs'
 import { ShotSound } from './shot-sound'
 import { SoundTimeline } from './sound-timeline'
 
@@ -122,6 +122,31 @@ describe('ShotSound：一個鏡頭的聲音', () => {
     await waitFor(() => {
       expect(mix).toHaveBeenCalledTimes(1)
     })
+  })
+
+  it('「用影片原聲」一點就換狀態，不用等主程序回應（回應慢的時候不會先彈回去）；設定沒存成功才退回來', async () => {
+    let finish: (ok: boolean) => void = () => undefined
+    installFakeSvs({
+      'sound.get': () => state(),
+      'sound.updateSettings': () =>
+        new Promise((resolve, reject) => {
+          finish = (ok) => {
+            if (ok) resolve(SETTINGS)
+            else reject(appError('存不進去'))
+          }
+        }),
+    })
+    render(<ShotSound shotId="s1" />)
+    const box = await screen.findByTestId<HTMLInputElement>('shot-sound-native')
+    expect(box.checked).toBe(true)
+    fireEvent.click(box)
+    // 主程序還沒回：畫面上已經是取消勾選
+    expect(box.checked).toBe(false)
+    finish(false)
+    await waitFor(() => {
+      expect(box.checked).toBe(true)
+    })
+    expect(screen.getByRole('alert').textContent).toContain('存不進去')
   })
 
   it('沒台詞 → 在聲音區寫入並儲存（走 shots.update）→ 出現「念出這句台詞」；沒存之前不能念', async () => {

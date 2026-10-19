@@ -1,5 +1,5 @@
 import type { SoundPlan } from '@svs/schema'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '../../components/button'
 import { call, errorText } from '../../lib/svs'
@@ -83,6 +83,8 @@ export function ShotSound({ shotId }: { shotId: string }) {
   const [flow, setFlow] = useState<Step>({ step: 'idle' })
   const [error, setError] = useState<string>()
   const [dialogueDirty, setDialogueDirty] = useState(false)
+  // 勾選的當下就換狀態，不等主程序回應；回應慢時才不會先彈回原樣再跳過來
+  const [pendingUse, setPendingUse] = useState<boolean>()
   const {
     mixing,
     error: mixError,
@@ -92,6 +94,11 @@ export function ShotSound({ shotId }: { shotId: string }) {
     onDone: reload,
   })
   const view = state?.shots.find((s) => s.shotId === shotId)
+  const nativeMuted = view?.nativeMuted
+  useEffect(() => {
+    // 主程序那邊的狀態更新了（含別處改的）：以它為準
+    setPendingUse(undefined)
+  }, [nativeMuted])
   if (!state || !view) return null
 
   const fail = (e: unknown): void => {
@@ -103,11 +110,15 @@ export function ShotSound({ shotId }: { shotId: string }) {
     const muted = new Set(state.settings.muteNativeShotIds)
     if (use) muted.delete(shotId)
     else muted.add(shotId)
+    setPendingUse(use)
     call('sound.updateSettings', { muteNativeShotIds: [...muted] })
       .then(() => {
         schedule()
       })
-      .catch(fail)
+      .catch((e: unknown) => {
+        setPendingUse(undefined)
+        fail(e)
+      })
   }
 
   const askNarration = (): void => {
@@ -156,7 +167,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
         <input
           type="checkbox"
           data-testid="shot-sound-native"
-          checked={!view.nativeMuted}
+          checked={pendingUse ?? !view.nativeMuted}
           onChange={(event) => {
             toggleNative(event.target.checked)
           }}
