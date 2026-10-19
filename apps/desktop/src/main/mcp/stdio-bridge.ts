@@ -6,6 +6,7 @@
  * 設定檔不用跟著改。這支檔不能 import electron，也不碰服務金鑰。
  */
 import { readFileSync } from 'node:fs'
+import { request as httpRequest } from 'node:http'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 
@@ -25,6 +26,73 @@ interface RpcRequest {
 
 const NOT_RUNNING =
   'Slima Video Studio 沒有開著，或沒有允許 AI 工具連線。請打開 App，到「設定 → AI 工具連線」勾選「允許 AI 工具連線」。'
+
+/** 連得上、但等不到回應（App 還在做，或卡住、中途關掉）：不是設定問題，不要叫人去勾設定。 */
+const NO_REPLY =
+  'Slima Video Studio 還在處理這個動作，或沒有回應。請看 App 的畫面；稍後可以用 get_generation_status 之類的工具確認結果，不需要改任何設定。'
+
+/** 「連不上」的錯誤代碼：App 沒開、埠不對、沒有允許連線。其他的（等太久、中途斷線）都算「沒有回應」。 */
+const UNREACHABLE_CODES = new Set([
+  'ECONNREFUSED',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENOTFOUND',
+  'EADDRNOTAVAIL',
+  'UND_ERR_CONNECT_TIMEOUT',
+])
+
+/** 沿著 cause 找 Node 的錯誤代碼（fetch 把真正原因包在 error.cause 裡）。 */
+function errorCode(error: unknown): string | undefined {
+  for (let current = error, depth = 0; current && depth < 5; depth++) {
+    const code = (current as { code?: unknown }).code
+    if (typeof code === 'string') return code
+    current = (current as { cause?: unknown }).cause
+  }
+  return undefined
+}
+
+/** 這個 fetch 例外是「連不上」嗎？ */
+export const isUnreachable = (error: unknown): boolean =>
+  UNREACHABLE_CODES.has(errorCode(error) ?? '')
+
+/**
+ * 等 App 回應的上限。有些工具（念旁白、做配樂、接片、匯出）要等供應商或 FFmpeg，可能超過幾分鐘；
+ * 這個上限要比任何一個工具的合理時間都長，但不能是無限（App 當掉不回時，使用者要看得到說明）。
+ */
+export const REPLY_TIMEOUT_MS = 30 * 60_000
+
+/**
+ * 給轉接用的 fetch：用 node:http 直接送，沒有 Node 內建 fetch 的 5 分鐘「等回應標頭」上限
+ * （那個上限會把還在做的長工具砍掉）；改成只有自己的 `timeoutMs` 上限，逾時丟 code 為 SVS_REPLY_TIMEOUT 的錯誤。
+ */
+export function makeNodeFetch(timeoutMs: number = REPLY_TIMEOUT_MS): typeof fetch {
+  return (input, init) =>
+    new Promise<Response>((resolve, reject) => {
+      const url = new URL(
+        typeof input === 'string' ? input : input instanceof URL ? input.href : input.url,
+      )
+      const headers: Record<string, string> = {}
+      new Headers(init?.headers).forEach((value, key) => {
+        headers[key] = value
+      })
+      const req = httpRequest(url, { method: init?.method ?? 'GET', headers }, (res) => {
+        const chunks: Buffer[] = []
+        res.on('data', (chunk: Buffer) => chunks.push(chunk))
+        res.on('error', reject)
+        res.on('end', () => {
+          const status = res.statusCode ?? 0
+          const body =
+            status === 204 || status === 205 || status === 304 ? null : Buffer.concat(chunks)
+          resolve(new Response(body, { status }))
+        })
+      })
+      req.setTimeout(timeoutMs, () => {
+        req.destroy(Object.assign(new Error('等 App 回應太久'), { code: 'SVS_REPLY_TIMEOUT' }))
+      })
+      req.on('error', reject)
+      req.end(typeof init?.body === 'string' ? init.body : undefined)
+    })
+}
 
 /** 讀目前的連線設定；讀不到（App 還沒跑過、設定壞了）就回 undefined。 */
 export function readConnection(userDataDir: string): { url: string; token: string } | undefined {
@@ -81,8 +149,8 @@ export async function forward(line: string, env: BridgeEnv): Promise<void> {
       },
       body: line,
     })
-  } catch {
-    fail(NOT_RUNNING)
+  } catch (error) {
+    fail(isUnreachable(error) ? NOT_RUNNING : NO_REPLY)
     return
   }
   if (response.status === 401) {
@@ -119,7 +187,7 @@ export function main(argv: readonly string[]): void {
   }
   const env: BridgeEnv = {
     userDataDir,
-    fetch,
+    fetch: makeNodeFetch(),
     write: (line) => process.stdout.write(`${line}\n`),
   }
   const pending = new Set<Promise<void>>()
