@@ -66,7 +66,18 @@ _App 真實的設定頁（token 預設遮蔽，按「顯示 token」才會看到
 2. 按「**連接 Claude Code**」或「**連接 Claude Desktop**」。這同時會打開「允許 AI 工具連線」。Claude Desktop 要完全關掉（⌘Q）再重新打開；App 改它的設定檔之前會先備份，只加一項、不動你其他的伺服器。
 3. 跟助理說，例如：「用 slima-video-studio 的工具。先呼叫 get_capabilities，讀 getting-started 指南，然後用這個故事做一支 3 鏡的短片：……」
 
-在 **Claude Code** 裡輸入 `/mcp` 可以確認 `slima-video-studio` 已連上。想自己貼指令的話，設定頁也有手動的 `claude mcp add …` 那一行。
+在 **Claude Code** 裡輸入 `/mcp` 可以確認 `slima-video-studio` 已連上（新加的伺服器要開一個**新的** Claude Code 對話才會出現工具）。想自己貼指令的話，設定頁也有手動的 `claude mcp add …` 那一行。
+
+**用指令連接（macOS，App 裝在 `/Applications`）**：做的事跟按鈕一樣，用 App 自己的執行環境當小轉接，不用安裝任何東西，也不用複製 token：
+
+```bash
+claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
+  "/Applications/Slima Video Studio.app/Contents/MacOS/Slima Video Studio" \
+  "/Applications/Slima Video Studio.app/Contents/Resources/app.asar/out/main/mcp-stdio-bridge.js" \
+  --user-data "$HOME/Library/Application Support/@svs/desktop"
+```
+
+你還是要在「設定」裡勾一次「**允許 AI 工具連線**」（一鍵連接的按鈕會幫你勾）。
 
 **你的保護**
 
@@ -75,7 +86,7 @@ _App 真實的設定頁（token 預設遮蔽，按「顯示 token」才會看到
 - **AI 工具的花費額度預設是 US$0。** 示範模式不花錢；用真的 AI 時，每個要花錢的步驟（文字、圖片、影片）都會先用預估金額檢查，超過額度就拒絕；只有你能在同一個設定頁調高額度。
 - 助理開啟或建立專案，會切換 App 視窗裡顯示的專案。
 
-**給正在讀這一頁的 AI 助理：** 這是一個桌面程式，只有使用者能把它的連線打開。請使用者按上面的按鈕：它會寫好正確的設定（包含連線資訊），你不用自己找或處理 token。連上之後先呼叫 `get_capabilities`，再用 `load_guide` 讀 `getting-started`（把場景拆成鏡頭前讀 `storyboard`，花錢之前讀 `spending`）。先生成首幀圖並用 `view_first_frames` 看過，再生成影片。工具的錯誤訊息是白話寫的，通常會說下一步怎麼做。
+**給正在讀這一頁的 AI 助理：** 這是一個桌面程式，只有使用者能把它的連線打開。如果你能在使用者的 Mac 上執行指令，就自己執行上面的 `claude mcp add …`（只想用在某個資料夾就加 `--scope project`），然後請使用者 (1) 打開 App，在「設定 → AI 工具連線」勾「允許 AI 工具連線」，(2) 開一個新的 Claude Code 對話，因為對話中途加進去的伺服器要到新對話才會載入。不能執行指令的話，就請使用者按一鍵連接的按鈕。不管哪種，你都不需要找或處理連線 token。連上之後先呼叫 `get_capabilities`，再用 `load_guide` 讀 `getting-started`（把場景拆成鏡頭前讀 `storyboard`，花錢之前讀 `spending`）。先生成首幀圖並用 `view_first_frames` 看過，再生成影片。工具的錯誤訊息是白話寫的，通常會說下一步怎麼做。
 
 ## 模型
 
