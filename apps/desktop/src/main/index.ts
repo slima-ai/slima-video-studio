@@ -9,7 +9,12 @@ import { createKeyVault } from './keys/key-vault'
 import { ProjectManager } from './project-manager'
 import { registerAllHandlers } from './ipc/handlers'
 import { installIpc } from './ipc/install'
-import { bridgeCommand, createConnector, runInLoginShell } from './mcp/connect'
+import {
+  bridgeCommand,
+  createConnector,
+  findClaudeInLoginShell,
+  runFileDirect,
+} from './mcp/connect'
 import { createMcpController, type McpController } from './mcp/controller'
 import { createIpcRegistry } from './ipc/registry'
 import { restoreLastProject } from './last-project'
@@ -247,7 +252,8 @@ void app.whenReady().then(() => {
     appData: process.env.APPDATA,
     // 轉接檔跟 index.js 放在同一個資料夾；用 App 自己的 Electron 當 Node 跑
     bridge: bridgeCommand(process.execPath, join(__dirname, 'mcp-stdio-bridge.js'), userData),
-    runShell: runInLoginShell,
+    findClaude: findClaudeInLoginShell,
+    runFile: runFileDirect,
   })
   runtime = studio.runtime
   slimaService = slima
