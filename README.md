@@ -128,6 +128,7 @@ GPT Image 2 (standard and high quality) is available as an image model through O
 
 ## Known limitations
 
+- **Demo mode's scene breakdown is fake.** The story split in demo mode returns canned placeholder acts and scenes (several scenes with the same name and empty summaries), not something made from your story. Demo mode is for trying the flow (buttons, panels, export) at no cost; to judge how the story breakdown really turns out, use real AI.
 - Video models sometimes add a mouth, arms or legs to characters that have none (we saw it with Kling and, less often, with Veo). Describing the character as a still, plain shape in the prompt helps; always check the result.
 - No sound effects yet (narration, music and the video model's own sound are supported) and no subtitles. Narration is one spoken line per shot and a line longer than its shot is only warned about, not shortened.
 - The AI-credits closing card is made by the app and is added only to the exported file; if it cannot be made the export still succeeds without it and says so.
