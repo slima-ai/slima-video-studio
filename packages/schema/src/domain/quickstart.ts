@@ -112,8 +112,8 @@ export type ShotProgress = z.infer<typeof ShotProgressSchema>
 export const QuickStartProgressSchema = z.object({
   runId: z.string(),
   status: z.enum(['running', 'succeeded', 'failed', 'cancelled']),
-  /** 目前在做哪一大步：拆鏡頭 → 逐鏡生成 → 接成一支。 */
-  phase: z.enum(['breakdown', 'shots', 'join', 'done']),
+  /** 目前在做哪一大步：拆鏡頭 → 逐鏡生成 → 接成一支 → （勾了才有）加旁白與配樂。 */
+  phase: z.enum(['breakdown', 'shots', 'join', 'sound', 'done']),
   title: z.string().optional(),
   shots: z.array(ShotProgressSchema),
   /** 接好的完整影片。 */
@@ -122,6 +122,8 @@ export const QuickStartProgressSchema = z.object({
   costUsd: UsdSchema,
   /** 已經匯出的檔案位置。 */
   exportedPath: z.string().optional(),
+  /** 勾了旁白或配樂、但沒有加成功（影片本身沒問題，成品面板可以再試）。 */
+  soundFailed: z.boolean().optional(),
   error: z.object({ userMessage: z.string(), retryable: z.boolean() }).optional(),
 })
 export type QuickStartProgress = z.infer<typeof QuickStartProgressSchema>

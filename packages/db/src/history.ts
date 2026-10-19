@@ -5,6 +5,7 @@ import { isDeepStrictEqual } from 'node:util'
 
 import type { AppDb } from './database'
 import { canvasEdges, canvasLayout, canvasNodes } from './tables/canvas'
+import { soundClips } from './tables/sound'
 import {
   acts,
   characterConcepts,
@@ -130,6 +131,10 @@ const TABLES: readonly TrackedTable[] = [
       .all()
       .map((r) => r.row),
   ]),
+  // 聲音（旁白、配樂的各個版本）：整次生成含聲音時，復原要一起退回、重做要一起回來（旁白屬於鏡頭，排在鏡頭之後）
+  track('soundClips', soundClips, soundClips.id, (db, projectId) =>
+    db.select().from(soundClips).where(eq(soundClips.projectId, projectId)).all(),
+  ),
   // 節點位置與連線：移動節點、剪線都能復原。視角（鍵 viewport）不算編輯，不記錄。
   track('canvasLayout', canvasLayout, canvasLayout.id, (db, projectId) =>
     db
