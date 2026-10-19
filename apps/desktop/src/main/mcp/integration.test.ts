@@ -332,12 +332,28 @@ describe('工具', () => {
     const client = await connect(env)
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
+      'configure_project',
       'create_project',
+      'create_shot',
+      'delete_shots',
+      'edit_outline',
+      'estimate_cost',
       'get_capabilities',
       'get_current_project',
+      'get_outline',
+      'get_shot',
+      'list_models',
       'list_projects',
+      'list_shots',
       'load_guide',
       'open_project',
+      'redo',
+      'reorder_shots',
+      'set_models',
+      'split_scene_into_shots',
+      'split_story_into_scenes',
+      'undo',
+      'update_shot',
     ])
     for (const tool of tools) {
       expect(tool.annotations?.readOnlyHint, tool.name).toBeTypeOf('boolean')

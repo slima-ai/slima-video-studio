@@ -1,5 +1,5 @@
 import type { ProjectLibrary } from '../project-library'
-import { AppError, KEY_PROVIDERS, type McpStatus } from '@svs/schema'
+import { AppError, KEY_PROVIDERS, QUICK_STYLE_IDS, type McpStatus } from '@svs/schema'
 
 import type { HistoryService } from '../history/history-service'
 import { addLabel, outlineLabel, shotEditLabel } from '../history/history-service'
@@ -112,6 +112,27 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('project.create', ({ dir, name }) => projects.create(dir, name))
   registry.registerHandler('project.open', ({ dir }) => projects.open(dir))
   registry.registerHandler('project.current', () => projects.info())
+  registry.registerHandler('project.configure', ({ styleId, aspectRatio }) => {
+    const handle = projects.current()
+    if (!handle || handle.closed) {
+      throw new AppError({
+        code: 'project_not_found',
+        userMessage: '請先開啟或建立一個專案。',
+      })
+    }
+    const repo = handle.repos.projects
+    const project =
+      styleId === undefined && aspectRatio === undefined
+        ? repo.get()
+        : repo.update({
+            ...(styleId === undefined ? {} : { defaultStyleId: styleId }),
+            ...(aspectRatio === undefined ? {} : { aspectRatio }),
+          })
+    return {
+      styleId: QUICK_STYLE_IDS.find((id) => id === project.defaultStyleId) ?? 'realistic',
+      aspectRatio: project.aspectRatio,
+    }
+  })
   registry.registerHandler('project.close', () => {
     projects.close()
     return {}

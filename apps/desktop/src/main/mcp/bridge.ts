@@ -25,7 +25,23 @@ export const MCP_CHANNELS = [
   'project.current',
   'project.createNew',
   'project.open',
+  'project.configure',
   'models.list',
+  'models.setProject',
+  'outline.get',
+  'outline.edit',
+  'outline.splitCheck',
+  'outline.split',
+  'storyboard.splitCheck',
+  'storyboard.splitScene',
+  'shots.list',
+  'shots.update',
+  'shots.create',
+  'shots.delete',
+  'shots.reorder',
+  'history.state',
+  'history.undo',
+  'history.redo',
 ] as const satisfies readonly IpcChannel[]
 
 export type McpChannel = (typeof MCP_CHANNELS)[number]

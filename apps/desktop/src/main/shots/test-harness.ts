@@ -19,6 +19,8 @@ export interface HarnessOptions {
   mockCostUsd?: StudioAppOptions['mockCostUsd']
   /** 畫布「上傳」的選檔視窗要回傳的檔案。 */
   pickFiles?: StudioAppOptions['pickFiles']
+  /** 把 OpenRouter 換成本機的假伺服器（真實模式的測試用）。 */
+  openrouterBaseUrl?: string
 }
 
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -61,6 +63,8 @@ export function createStudioHarness(options: HarnessOptions = {}) {
     records,
     files,
     demo,
+    history,
+    library,
   } = createStudioApp({
     projects,
     keys,
@@ -74,6 +78,7 @@ export function createStudioHarness(options: HarnessOptions = {}) {
       revealed.push(path)
     },
     ...(options.mockLlm ? { mockLlm: options.mockLlm } : {}),
+    ...(options.openrouterBaseUrl ? { openrouterBaseUrl: options.openrouterBaseUrl } : {}),
     ...(options.mockCostUsd ? { mockCostUsd: options.mockCostUsd } : {}),
     ...(options.pickFiles ? { pickFiles: options.pickFiles } : {}),
   })
@@ -149,6 +154,8 @@ export function createStudioHarness(options: HarnessOptions = {}) {
     graph,
     records,
     files,
+    history,
+    library,
     events,
     revealed,
     progress,
