@@ -3,19 +3,35 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSy
 import { dirname, join } from 'node:path'
 import { z } from 'zod'
 
+import { directKeyCrypto, type KeyCrypto, type SafeStorageLike } from './key-crypto'
+
+export type { SafeStorageLike } from './key-crypto'
+
 /**
  * 服務金鑰的保管。明文只存在主行程：`get` 只給主行程內的 adapter 用，
  * IPC 只能看到 `status`（有沒有設定、末四碼）。
+ *
+ * **除了 `save`／`load` 之外，所有方法都不碰作業系統的金鑰圈**（所以不會卡住）：
+ * 金鑰圈的存取很慢、而且可能停在「要不要允許」的提示上，只能用非同步的 `save`／`load`。
  */
 export interface KeyVault {
+  /** 儲存狀態（不碰金鑰圈）。 */
   storage: () => KeyStorageInfo
   status: (provider: string) => KeyStatus
   /** 已設定的供應商 ID。 */
   providers: () => string[]
-  set: (provider: string, key: string) => KeyStatus
+  /** 加密並存起來（非同步；金鑰圈提示出現時不會卡住畫面）。 */
+  save: (provider: string, key: string) => Promise<KeyStatus>
   delete: (provider: string) => KeyStatus
-  /** 取出明文。只有主行程的供應商 adapter 可以呼叫，不能接到 IPC。 */
+  /** 把已存的金鑰從金鑰圈讀進記憶體（非同步、可重複呼叫）。讀不到會丟白話錯誤。 */
+  load: () => Promise<void>
+  /**
+   * 取出明文，只看記憶體、從不碰金鑰圈。只有主行程的供應商 adapter 可以呼叫，不能接到 IPC。
+   * 有存、但還沒讀進來時：丟「可重試」的白話錯誤，並在背景開始讀。
+   */
   get: (provider: string) => string | undefined
+  /** 目前在記憶體裡的金鑰明文（給回傳內容過濾用；不碰金鑰圈）。 */
+  knownSecrets: () => string[]
 }
 
 const MIN_LAST4_LENGTH = 12
@@ -84,20 +100,23 @@ export class MemoryVault implements KeyVault {
     return this.keys.get(provider)
   }
 
+  save(provider: string, key: string): Promise<KeyStatus> {
+    return Promise.resolve(this.set(provider, key))
+  }
+
+  load(): Promise<void> {
+    return Promise.resolve()
+  }
+
+  knownSecrets(): string[] {
+    return [...this.keys.values()]
+  }
+
   private persist(): void {
     if (this.persistPath) {
       writeFileSync(this.persistPath, JSON.stringify(Object.fromEntries(this.keys)), 'utf8')
     }
   }
-}
-
-/** Electron `safeStorage` 的最小介面（方便測試時替換）。 */
-export interface SafeStorageLike {
-  isEncryptionAvailable: () => boolean
-  encryptString: (plain: string) => Buffer
-  decryptString: (cipher: Buffer) => string
-  /** Linux 才有：`basic_text` 代表沒有金鑰圈、只是用固定密碼混淆，不算加密。 */
-  getSelectedStorageBackend?: () => string
 }
 
 const FileSchema = z.object({
@@ -109,32 +128,32 @@ const FileSchema = z.object({
 })
 type KeyFile = z.infer<typeof FileSchema>
 
-/** 用作業系統金鑰圈（Keychain / DPAPI / libsecret）加密後存到 userData，不寫進專案資料夾。 */
+const LOADING_MESSAGE =
+  '服務金鑰正在從系統金鑰圈讀取，請稍等幾秒再試一次。如果螢幕上有「要允許存取鑰匙圈」的提示，請按「允許」。'
+/** 讀取失敗之後，這麼久之內不再自動重試（避免一直跳提示）。 */
+const RETRY_AFTER_MS = 15_000
+
+/**
+ * 用作業系統金鑰圈加密後存到 userData，不寫進專案資料夾。
+ * 讀寫金鑰圈都經過 KeyCrypto（非同步，macOS 在另一個行程裡做），所以金鑰圈停在提示上時，
+ * 畫面與 MCP 都照常運作；明文讀進來之後只留在記憶體。
+ */
 export class SafeStorageVault implements KeyVault {
+  private readonly cache = new Map<string, string>()
+  /** 讀過、但解不開的供應商（換了電腦或系統帳號）。 */
+  private readonly broken = new Set<string>()
+  private inflight: Promise<void> | undefined
+  private failure: { error: AppError; at: number } | undefined
+
   constructor(
-    private readonly safeStorage: SafeStorageLike,
+    private readonly crypto: KeyCrypto,
     private readonly filePath: string,
     private readonly warn: (message: string) => void = () => undefined,
+    private readonly now: () => number = Date.now,
   ) {}
 
   storage(): KeyStorageInfo {
-    if (!this.safeStorage.isEncryptionAvailable()) {
-      return {
-        available: false,
-        kind: 'os',
-        reason:
-          '這台電腦的系統金鑰圈目前無法使用，所以不能安全地儲存服務金鑰。請先登入系統金鑰圈後重新開啟 App。',
-      }
-    }
-    if (this.safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
-      return {
-        available: false,
-        kind: 'os',
-        reason:
-          '找不到系統金鑰圈（例如 GNOME Keyring 或 KWallet），所以不能安全地儲存服務金鑰。請安裝其中一個並登入後重新開啟 App。',
-      }
-    }
-    return { available: true, kind: 'os' }
+    return this.crypto.storageInfo()
   }
 
   status(provider: string): KeyStatus {
@@ -149,7 +168,7 @@ export class SafeStorageVault implements KeyVault {
     return Object.keys(this.read().entries)
   }
 
-  set(provider: string, key: string): KeyStatus {
+  async save(provider: string, key: string): Promise<KeyStatus> {
     const info = this.storage()
     if (!info.available) {
       throw new AppError({
@@ -158,13 +177,13 @@ export class SafeStorageVault implements KeyVault {
       })
     }
     const normalized = normalizeKey(key)
+    const cipher = await this.crypto.encrypt(normalized)
     const file = this.read()
     const last4 = statusOf(provider, normalized).last4
-    file.entries[provider] = {
-      cipher: this.safeStorage.encryptString(normalized).toString('base64'),
-      ...(last4 ? { last4 } : {}),
-    }
+    file.entries[provider] = { cipher, ...(last4 ? { last4 } : {}) }
     this.write(file)
+    this.cache.set(provider, normalized)
+    this.broken.delete(provider)
     return this.status(provider)
   }
 
@@ -176,21 +195,70 @@ export class SafeStorageVault implements KeyVault {
       )
       this.write({ version: 1, entries })
     }
+    this.cache.delete(provider)
+    this.broken.delete(provider)
     return { provider, configured: false }
   }
 
+  load(): Promise<void> {
+    if (this.inflight) return this.inflight
+    const pending = Object.entries(this.read().entries).filter(
+      ([provider]) => !this.cache.has(provider) && !this.broken.has(provider),
+    )
+    if (pending.length === 0) return Promise.resolve()
+    const run = async (): Promise<void> => {
+      const plains = await this.crypto.decryptMany(pending.map(([, entry]) => entry.cipher))
+      pending.forEach(([provider], index) => {
+        const plain = plains[index]
+        if (typeof plain === 'string') this.cache.set(provider, plain)
+        else this.broken.add(provider)
+      })
+      this.failure = undefined
+    }
+    const task = run()
+      .catch((error: unknown) => {
+        const failure =
+          error instanceof AppError
+            ? error
+            : new AppError({
+                code: 'key_storage_unavailable',
+                userMessage: '無法讀取已儲存的服務金鑰，請重新開啟 App 再試一次。',
+                cause: error,
+              })
+        this.failure = { error: failure, at: this.now() }
+        this.warn(`讀取服務金鑰失敗：${failure.userMessage}`)
+        throw failure
+      })
+      .finally(() => {
+        this.inflight = undefined
+      })
+    this.inflight = task
+    return task
+  }
+
   get(provider: string): string | undefined {
-    const entry = this.read().entries[provider]
-    if (!entry) return undefined
-    try {
-      return this.safeStorage.decryptString(Buffer.from(entry.cipher, 'base64'))
-    } catch (error) {
+    const cached = this.cache.get(provider)
+    if (cached !== undefined) return cached
+    if (!(provider in this.read().entries)) return undefined
+    if (this.broken.has(provider)) {
       throw new AppError({
         code: 'key_storage_unavailable',
         userMessage: '無法解開已儲存的服務金鑰（可能換了電腦或系統帳號），請重新輸入。',
-        cause: error,
       })
     }
+    // 還沒讀進來：剛失敗過就直接說原因，不要一直重試；否則在背景開始讀，這次請使用者稍後再試
+    const failed = this.failure
+    if (failed && this.now() - failed.at < RETRY_AFTER_MS) throw failed.error
+    this.load().catch(() => undefined)
+    throw new AppError({
+      code: 'key_storage_unavailable',
+      userMessage: LOADING_MESSAGE,
+      retryable: true,
+    })
+  }
+
+  knownSecrets(): string[] {
+    return [...this.cache.values()]
   }
 
   private read(): KeyFile {
@@ -218,7 +286,9 @@ export class SafeStorageVault implements KeyVault {
 export interface CreateKeyVaultOptions {
   isPackaged: boolean
   env: Readonly<Record<string, string | undefined>>
-  safeStorage: SafeStorageLike
+  /** 沒給 crypto 時用 safeStorage 直接加解密（測試用）。 */
+  safeStorage?: SafeStorageLike
+  crypto?: KeyCrypto
   userDataDir: string
   /** MemoryVault 的明文落地檔（只給 E2E 驗證重開用）。 */
   testVaultFile?: string
@@ -236,9 +306,8 @@ export function createKeyVault(options: CreateKeyVaultOptions): KeyVault {
   if (!options.isPackaged && options.env.SVS_REAL_VAULT !== '1') {
     return new MemoryVault(options.testVaultFile)
   }
-  return new SafeStorageVault(
-    options.safeStorage,
-    join(options.userDataDir, KEY_FILE_NAME),
-    options.warn,
-  )
+  const crypto =
+    options.crypto ?? (options.safeStorage ? directKeyCrypto(options.safeStorage) : undefined)
+  if (!crypto) throw new Error('createKeyVault 需要 crypto 或 safeStorage')
+  return new SafeStorageVault(crypto, join(options.userDataDir, KEY_FILE_NAME), options.warn)
 }

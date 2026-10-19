@@ -56,7 +56,8 @@ export function createMcpController(deps: McpControllerDeps): McpController {
   })
   const redactor = createRedactor(() => [
     tokens.get(),
-    ...deps.keys.providers().map((provider) => deps.keys.get(provider)),
+    // 只看記憶體裡已經有的金鑰，絕不為了過濾回傳內容去碰鑰匙圈
+    ...deps.keys.knownSecrets(),
   ])
 
   const viewer = createAssetViewer({ projects: deps.projects, tools: deps.tools })

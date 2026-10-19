@@ -26,6 +26,8 @@ export function createKeyTester(deps: {
   })
 
   return async (provider, signal) => {
+    // 金鑰在金鑰圈裡時要先讀進來（非同步；鑰匙圈提示出現時這裡等，畫面與 MCP 照常運作）
+    await keys.load()
     if (keys.get(provider) === undefined) {
       throw new AppError({
         code: 'key_invalid',

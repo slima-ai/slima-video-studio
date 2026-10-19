@@ -477,6 +477,36 @@ describe('金鑰與不開放的功能', () => {
     expect(all.length).toBeGreaterThan(100)
   })
 
+  it('MCP 完全不碰金鑰保管庫的讀取：鑰匙圈卡住（讀取永遠不回來）時，連線與工具照常回應，回傳仍會遮蔽已知的金鑰', async () => {
+    // 模擬鑰匙圈停在「要不要允許」的提示：保管庫的讀取一律掛住、同步的 get 會丟錯
+    const hang = new Promise<never>(() => undefined)
+    const touched: string[] = []
+    env.keys.get = () => {
+      touched.push('get')
+      throw new Error('MCP 不應該去讀金鑰')
+    }
+    env.keys.load = () => {
+      touched.push('load')
+      return hang
+    }
+    env.keys.save = () => {
+      touched.push('save')
+      return hang
+    }
+    const client = await connect(env)
+    const { tools } = await client.listTools()
+    expect(tools.length).toBeGreaterThan(10)
+    const caps = await client.callTool({ name: 'get_capabilities', arguments: {} })
+    expect(caps.isError).not.toBe(true)
+    const created = await client.callTool({ name: 'create_project', arguments: { name: SECRET } })
+    expect(textOf(created)).not.toContain(SECRET) // 已經在記憶體裡的金鑰照樣被遮蔽
+    expect((await client.callTool({ name: 'list_projects', arguments: {} })).isError).not.toBe(true)
+    expect(
+      (await client.callTool({ name: 'load_guide', arguments: { topic: 'spending' } })).isError,
+    ).not.toBe(true)
+    expect(touched).toEqual([])
+  })
+
   it('輸入格式不對時 SDK 自己產生的錯誤訊息，也不會把金鑰原樣帶回去', async () => {
     const client = await connect(env)
     const topic = await client
