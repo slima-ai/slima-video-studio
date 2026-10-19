@@ -8,10 +8,6 @@
 
 > **現況：早期版本（v0.x）。** 在 macOS（Apple Silicon）上可以從頭走到尾。Windows 版有打包，但還沒在真的 Windows 電腦上實測，也還沒提供下載。安裝檔還沒有程式碼簽章（見[第一次開啟](#第一次開啟)）。介面目前只有繁體中文。
 
-![畫布上，故事變成場、鏡頭、第一張畫面、影片和成品](docs/images/04-canvas-grown.png)
-
-_示範模式：圖片是假的，讓你不用金鑰、不花錢就能看完整個流程。_
-
 ## 你可以做什麼
 
 - **一張畫布，從故事到成片。** 寫一句話，選畫風、鏡頭數、每鏡幾秒，畫布就長出整支短片：場、鏡頭、第一張畫面、影片片段和剪輯。
@@ -21,8 +17,6 @@ _示範模式：圖片是假的，讓你不用金鑰、不花錢就能看完整�
 - **預覽與匯出。** 在 App 裡播放接好的成品，匯出成 MP4。接片用內建的 FFmpeg，除了你設定的 AI 服務之外，不會有資料離開你的電腦。
 - **畫布之外也有表格。** 大綱、分鏡表、角色、地點、生成紀錄、檔案都是同一份資料的不同檢視，復原與重做可以跨過去。
 - **選用：** 從 [Slima](https://slima.ai) 匯入故事（唯讀，透過官方的 `slima-mcp`）。
-
-![分鏡表](docs/images/07-storyboard.png)
 
 ## 開始使用
 
@@ -117,7 +111,3 @@ pnpm --filter @svs/desktop dist                             # 打包安裝檔（
 ## 授權
 
 Apache License 2.0，見 [LICENSE](LICENSE) 與 [NOTICE](NOTICE)。「Slima」與「Slima Video Studio」的名稱、Logo，以及小饅頭（Little Bun／Mochi）美術**不在**這個授權裡。安裝檔內含 FFmpeg（GPL v2 或更新版，只開 libx264，當成獨立程式執行），它的授權全文與原始碼取得方式隨安裝檔附上；其他第三方授權在 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。AI 服務金鑰與產生的費用由你自己負責。軟體依現況提供，不附任何保證。
-
-![用 Video Studio 會用到的模型做的一支短片的範例畫面](docs/images/sample-frames.jpg)
-
-_用同類模型做的短片範例畫面（第一張畫面用 Gemini 3 Pro Image，影片片段用 Veo 3.1 Lite，透過 OpenRouter）。_

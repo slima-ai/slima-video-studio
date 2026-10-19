@@ -8,10 +8,6 @@ It is **bring-your-own-key**: the app has no server and provides no models. You 
 
 > **Status: early (v0.x).** It works end to end on macOS (Apple Silicon). A Windows build exists but has not been tested on a real Windows machine and is not offered for download yet. The installers are not code-signed yet (see [First launch](#first-launch)). The user interface is currently in Traditional Chinese only.
 
-![A story turned into scenes, shots, first frames, clips and a finished cut on the canvas](docs/images/04-canvas-grown.png)
-
-_Demo mode: the pictures are placeholders, so you can see the whole flow without a key or any cost._
-
 ## What you can do
 
 - **Story to film on one canvas.** Write one sentence, pick a style, the number of shots and seconds per shot, and the canvas grows a whole short film: scenes, shots, first frames, video clips and a cut.
@@ -21,8 +17,6 @@ _Demo mode: the pictures are placeholders, so you can see the whole flow without
 - **Preview and export.** Play the joined film in the app and export it as an MP4. Joining uses the bundled FFmpeg; nothing leaves your computer except the calls to the AI service you configured.
 - **Tables as well as a canvas.** Outline, storyboard table, characters, locations, generation history and files are all views of the same data; undo and redo work across them.
 - **Optional:** import a story from [Slima](https://slima.ai) (read-only, through the official `slima-mcp`).
-
-![Storyboard table](docs/images/07-storyboard.png)
 
 ## Get started
 
@@ -117,7 +111,3 @@ Requirements: Node 22 and pnpm 10. It is a pnpm workspace: `apps/desktop` (Elect
 ## License
 
 Apache License 2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). The names "Slima" and "Slima Video Studio", the logos and the Little Bun / Mochi artwork are **not** covered by that license. The installers bundle FFmpeg (GPL v2 or later, built with libx264 only, run as a separate program); its license text and source instructions ship with it, and the other third-party licenses are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). You are responsible for your own AI service keys and for any charges they incur. The software is provided "as is", without warranty.
-
-![Sample frames from a short film made with the models Video Studio uses](docs/images/sample-frames.jpg)
-
-_Sample frames of a short film made with the same kind of models (Gemini 3 Pro Image for first frames, Veo 3.1 Lite for clips, through OpenRouter)._
