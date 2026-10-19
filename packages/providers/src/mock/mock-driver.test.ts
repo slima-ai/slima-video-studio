@@ -7,6 +7,36 @@ import { createMockDriver, mockSize, type MockProviderConfig } from './mock-driv
 import { toLabelText } from './png'
 import { memoryServices } from './test-services'
 
+/** 讀 mp3 第一個影格的標頭：取樣率、聲道、位元率。 */
+function mp3Format(bytes: Buffer): { sampleRate: number; channels: number; kbps: number } {
+  const header = bytes.readUInt32BE(0)
+  expect(header >>> 21).toBe(0x7ff) // 影格同步字
+  expect((header >>> 19) & 3).toBe(3) // MPEG-1
+  expect((header >>> 17) & 3).toBe(1) // Layer III
+  return {
+    sampleRate: [44100, 48000, 32000][(header >>> 10) & 3] ?? 0,
+    channels: ((header >>> 6) & 3) === 3 ? 1 : 2,
+    kbps:
+      [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320][(header >>> 12) & 15] ?? 0,
+  }
+}
+
+/** 數 mp3 有幾個影格（照標頭算每格長度，一路走到檔尾）。 */
+function mp3Frames(bytes: Buffer): number {
+  let offset = 0
+  let count = 0
+  while (offset + 4 <= bytes.length) {
+    const header = bytes.readUInt32BE(offset)
+    const kbps =
+      [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320][(header >>> 12) & 15] ?? 0
+    const rate = [44100, 48000, 32000][(header >>> 10) & 3] ?? 1
+    offset += Math.floor((144 * kbps * 1000) / rate) + ((header >>> 9) & 1)
+    count++
+  }
+  expect(offset).toBe(bytes.length) // 沒有多出來的零碎位元組
+  return count
+}
+
 const signal = new AbortController().signal
 const ctx = { signal }
 
@@ -286,22 +316,34 @@ describe('Mock driver：長任務（影片、配音）', () => {
     )
   })
 
-  it('配音產生 WAV 音訊，長度依文字多寡', async () => {
+  it('配音產生單聲道 32 kHz、128 kbps 的 mp3（和 MiniMax 一樣），長度依文字多寡', async () => {
     const { driver, services } = setup({ pollsBeforeDone: 0 })
-    const req = { capability: 'tts', modelId: 'm', text: '你好，這是一段示範配音。' }
-    await driver.submit(job(req, 't1'), ctx)
-    const done = await driver.poll({ ...job(req, 't1'), providerJobId: 'mock-t1' }, ctx)
-    if (done.status !== 'done') throw new Error('應完成')
-    const out = GenerationOutputSchema.parse(done.output)
-    if (out.kind !== 'assets') throw new Error('應為素材')
-    expect(out.assets[0]).toMatchObject({ kind: 'audio', mime: 'audio/wav' })
-    const wav = Buffer.from(services.files.get(out.assets[0]?.hash ?? '') ?? [])
-    expect(wav.subarray(0, 4).toString()).toBe('RIFF')
-    expect(wav.subarray(8, 12).toString()).toBe('WAVE')
+    const bytesFor = async (text: string, id: string) => {
+      const req = { capability: 'tts', modelId: 'm', text }
+      await driver.submit(job(req, id), ctx)
+      const done = await driver.poll({ ...job(req, id), providerJobId: `mock-${id}` }, ctx)
+      if (done.status !== 'done') throw new Error('應完成')
+      const out = GenerationOutputSchema.parse(done.output)
+      if (out.kind !== 'assets') throw new Error('應為素材')
+      expect(out.assets[0]).toMatchObject({ kind: 'audio', mime: 'audio/mpeg' })
+      return {
+        bytes: Buffer.from(services.files.get(out.assets[0]?.hash ?? '') ?? []),
+        durationSec: out.assets[0]?.durationSec ?? 0,
+      }
+    }
+    const short = await bytesFor('你好，這是一段示範配音。', 't1')
+    expect(mp3Format(short.bytes)).toEqual({ sampleRate: 32000, channels: 1, kbps: 128 })
+    const long = await bytesFor(
+      '這是一段比較長的示範配音，字數多一些，所以聽起來會比較久一點。',
+      't2',
+    )
+    expect(long.durationSec).toBeGreaterThan(short.durationSec)
+    // 內容長度就是記下來的長度（誤差不到一個影格）
+    expect(Math.abs(short.durationSec - mp3Frames(short.bytes) * (1152 / 32000))).toBeLessThan(1e-6)
   })
 
-  it('配樂產生 WAV 音訊，長度依 durationSec（沒給就 30 秒，最多 60 秒）', async () => {
-    const { driver } = setup({ pollsBeforeDone: 0 })
+  it('配樂產生立體聲 44.1 kHz、192 kbps 的 mp3（和 Lyria 一樣），長度依 durationSec（沒給就 30 秒，最多 60 秒）', async () => {
+    const { driver, services } = setup({ pollsBeforeDone: 0 })
     const durationOf = async (extra: Record<string, unknown>, id: string): Promise<number> => {
       const req = { capability: 'music', modelId: 'm', prompt: 'calm', ...extra }
       await driver.submit(job(req, id), ctx)
@@ -309,12 +351,18 @@ describe('Mock driver：長任務（影片、配音）', () => {
       if (done.status !== 'done') throw new Error('應完成')
       const out = GenerationOutputSchema.parse(done.output)
       if (out.kind !== 'assets') throw new Error('應為素材')
-      expect(out.assets[0]).toMatchObject({ kind: 'audio', mime: 'audio/wav' })
+      expect(out.assets[0]).toMatchObject({ kind: 'audio', mime: 'audio/mpeg' })
+      expect(mp3Format(Buffer.from(services.files.get(out.assets[0]?.hash ?? '') ?? []))).toEqual({
+        sampleRate: 44100,
+        channels: 2,
+        kbps: 192,
+      })
       return out.assets[0]?.durationSec ?? 0
     }
-    expect(await durationOf({ durationSec: 12 }, 'm1')).toBe(12)
-    expect(await durationOf({}, 'm2')).toBe(30)
-    expect(await durationOf({ durationSec: 600 }, 'm3')).toBe(60)
+    // 長度取到最近的 mp3 影格（約 26 毫秒）
+    expect(await durationOf({ durationSec: 12 }, 'm1')).toBeCloseTo(12, 1)
+    expect(await durationOf({}, 'm2')).toBeCloseTo(30, 1)
+    expect(await durationOf({ durationSec: 600 }, 'm3')).toBeCloseTo(60, 1)
   })
 })
 

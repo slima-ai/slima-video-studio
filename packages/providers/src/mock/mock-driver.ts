@@ -14,7 +14,7 @@ import {
 
 import { exampleFromJsonSchema } from './json-example'
 import { createCanvas, drawText, encodePng, toLabelText } from './png'
-import { makeWav } from './wav'
+import { makeMp3 } from './mp3'
 
 export const MOCK_PROVIDER_ID = 'mock'
 
@@ -254,13 +254,17 @@ export function createMockDriver(
         return { kind: 'assets', assets: [asset] }
       }
       case 'tts': {
-        const durationSec = Math.max(0.5, Math.min(30, request.text.length * 0.08))
-        const asset = await services.assets.put(makeWav(durationSec), 'audio/wav', { durationSec })
+        const mp3 = makeMp3('narration', Math.max(0.5, Math.min(30, request.text.length * 0.08)))
+        const asset = await services.assets.put(mp3.bytes, 'audio/mpeg', {
+          durationSec: mp3.durationSec,
+        })
         return { kind: 'assets', assets: [asset] }
       }
       case 'music': {
-        const durationSec = Math.max(1, Math.min(60, request.durationSec ?? 30))
-        const asset = await services.assets.put(makeWav(durationSec), 'audio/wav', { durationSec })
+        const mp3 = makeMp3('music', Math.max(1, Math.min(60, request.durationSec ?? 30)))
+        const asset = await services.assets.put(mp3.bytes, 'audio/mpeg', {
+          durationSec: mp3.durationSec,
+        })
         return { kind: 'assets', assets: [asset] }
       }
     }
