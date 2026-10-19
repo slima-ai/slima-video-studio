@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 資安問題 / Security problem
+    url: https://github.com/slima-ai/slima-video-studio/security/advisories/new
+    about: 請不要開公開 issue；用這裡私下回報。 / Please report privately here, not in a public issue.

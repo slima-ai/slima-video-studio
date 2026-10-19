@@ -1,0 +1,52 @@
+name: 回報問題 / Report a bug
+description: App 出錯、畫面怪怪的、結果不對 / Something is broken or behaves wrongly
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        謝謝你回報！**請不要貼 API 金鑰、連線 token、個人路徑或不想公開的內容**（截圖也請先遮掉）。
+        資安問題請不要開公開 issue，改用 Security 分頁的 **Report a vulnerability**。
+
+        Thanks for reporting! **Never paste API keys, connection tokens, personal paths or private content** (also blur them in screenshots). For security problems use **Report a vulnerability** on the Security tab instead of a public issue.
+  - type: textarea
+    id: what
+    attributes:
+      label: 發生了什麼事？ / What happened?
+      description: 你做了什麼、看到什麼，以及你原本預期會怎樣 / What you did, what you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 怎麼重現？ / Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: false
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 當時用哪個模式？ / Which mode?
+      options:
+        - 示範模式（沒填金鑰）/ Demo mode (no key)
+        - 真實模式（用自己的 AI 金鑰）/ Real mode (own AI key)
+        - 透過 Claude 等 AI 工具（MCP）操作 / Driven by an AI assistant (MCP)
+        - 不確定 / Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App 版本與系統 / App version and system
+      description: 例如 v0.2.0、macOS 15（Apple Silicon）/ e.g. v0.2.0, macOS 15 (Apple Silicon)
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 其他資訊（截圖、錯誤訊息）/ Anything else (screenshots, error text)
+      description: 錯誤訊息請直接貼文字。App 的 log 在使用者資料夾的 logs 裡，貼之前請先確認沒有金鑰或路徑。
+    validations:
+      required: false

@@ -2,6 +2,10 @@
 
 Thanks for your interest in Slima Video Studio. This is a small desktop app (Electron, TypeScript, pnpm workspace); issues and pull requests are welcome, but there is no promise that a change will be merged.
 
+## Report a bug or make a wish
+
+Use **New issue** and pick **回報問題 / Report a bug** or **許願 / Make a wish** (English and Traditional Chinese are both fine). Please never paste API keys, connection tokens or personal paths. Issues are triaged regularly; a wish is read but not a promise.
+
 ## Set up
 
 ```bash

@@ -1,0 +1,43 @@
+name: 許願 / Make a wish
+description: 想要新功能、新模型、或讓某件事更好用 / A feature, a model, or something that should be easier
+labels: [enhancement, wish, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        歡迎許願！我們會看每一則，但**不保證都會做**。講「你想完成什麼事」比講「要怎麼做」更有用。
+        請不要貼 API 金鑰、連線 token 或個人資料。
+
+        Wishes are welcome. We read every one but cannot promise to build them all. Tell us what you are trying to get done rather than how to build it. Never paste keys, tokens or personal data.
+  - type: textarea
+    id: goal
+    attributes:
+      label: 你想完成什麼事？ / What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: now
+    attributes:
+      label: 現在是怎麼做的、哪裡不順？ / How do you do it today, and what hurts?
+    validations:
+      required: false
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你希望它變成怎樣？ / What would you like instead?
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: 跟哪一塊有關？ / Which area?
+      options:
+        - 畫布與分鏡 / Canvas and storyboard
+        - 角色與場景 / Characters and locations
+        - 模型與供應商 / Models and providers
+        - 聲音（旁白、配樂）/ Sound
+        - 匯出 / Export
+        - 連接 Claude 等 AI 工具（MCP）/ AI assistants (MCP)
+        - 其他 / Other
+    validations:
+      required: false
