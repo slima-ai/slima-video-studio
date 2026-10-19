@@ -4,9 +4,13 @@ import { join } from 'node:path'
 import type { Logger } from '../logger'
 import type { IpcRegistry } from '../ipc/registry'
 import type { KeyVault } from '../keys/key-vault'
+import type { MediaTools } from '@svs/media'
+
+import type { ProjectManager } from '../project-manager'
 import type { Broadcast } from '../runtime/project-runtime'
 import type { SettingsStore } from '../settings/settings-store'
 import { createAllowance, type Allowance } from './allowance'
+import { createAssetViewer } from './viewer'
 import { createMcpCaller } from './bridge'
 import { createMcpServer } from './create-server'
 import { createRedactor } from './redact'
@@ -29,6 +33,10 @@ export interface McpControllerDeps {
   keys: KeyVault
   /** 通知 App 的視窗（AI 工具改了東西，畫面要跟著更新）。 */
   broadcast: Broadcast
+  /** 目前開著的專案（看圖要用它的素材庫）。 */
+  projects: Pick<ProjectManager, 'current'>
+  /** 內建的 FFmpeg（給 AI 看的縮圖與影片抽格）。 */
+  tools: () => MediaTools | undefined
   /** 使用者資料夾：放 token 與「已預留」金額的檔案。 */
   userDataDir: string
   info: { name: string; version: string }
@@ -51,6 +59,7 @@ export function createMcpController(deps: McpControllerDeps): McpController {
     ...deps.keys.providers().map((provider) => deps.keys.get(provider)),
   ])
 
+  const viewer = createAssetViewer({ projects: deps.projects, tools: deps.tools })
   let http: McpHttp | undefined
   let runningPort: number | undefined
   let error: string | undefined
@@ -96,7 +105,7 @@ export function createMcpController(deps: McpControllerDeps): McpController {
         log,
         redactor,
         createMcpServer: () =>
-          createMcpServer({ caller, settings, allowance, redactor, info: deps.info }),
+          createMcpServer({ caller, settings, allowance, redactor, viewer, info: deps.info }),
       })
       try {
         const bound = await next.start()
