@@ -59,11 +59,12 @@
         "min": 3,
         "max": 15
       },
+      "minBillableSec": 5,
       "resolutions": ["720p"],
       "referenceLimits": {
         "images": 4
       },
-      "notes": "只填 OpenRouter 金鑰時的預設影片模型。OpenRouter 上只有 720p，也沒有確認支援 Kling Elements（角色一致性靠參考圖）。",
+      "notes": "只填 OpenRouter 金鑰時的預設影片模型。最低計費 5 秒：2026-10-19 實測 3 秒的請求收 US$0.63（有聲）、前一天 3 秒無聲收 US$0.42，都是 5 秒的價錢。模型清單寫 720p，但 2026-10-19 實測 3 秒有聲的輸出是 1920×1080（只有一個資料點）。沒有確認支援 Kling Elements（角色一致性靠參考圖）。",
       "characterMechanism": "reference",
       "prompt": {
         "language": "en"
