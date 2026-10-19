@@ -22,6 +22,24 @@ export const QUICK_START_LIMITS = {
   maxDurationSec: 15,
 } as const
 
+/**
+ * 快速開始要不要帶聲音（對話框的三個勾選，預設全開）：
+ * native＝生成影片時帶原聲（影片費約 +50%）；narration＝完成後念每個鏡頭的台詞；music＝完成後配一首背景音樂。
+ * 沒給就不自動加聲音（舊的呼叫方式不變）。
+ */
+export const QuickStartSoundSchema = z.object({
+  native: z.boolean(),
+  narration: z.boolean(),
+  music: z.boolean(),
+})
+export type QuickStartSound = z.infer<typeof QuickStartSoundSchema>
+
+export const DEFAULT_QUICK_START_SOUND: QuickStartSound = {
+  native: true,
+  narration: true,
+  music: true,
+}
+
 export const QuickStartRequestSchema = z.object({
   /** 使用者寫的故事或一句話。 */
   story: z.string().max(QUICK_START_LIMITS.maxStoryChars),
@@ -45,6 +63,8 @@ export const QuickStartRequestSchema = z.object({
   mode: z.enum(['replace', 'append']).optional(),
   /** 從哪個一句話節點生成的（節點鍵）：長出來的場會連一條線到它。 */
   sourceKey: z.string().min(1).optional(),
+  /** 要不要帶聲音；沒給就不自動加。 */
+  sound: QuickStartSoundSchema.optional(),
 })
 export type QuickStartRequest = z.infer<typeof QuickStartRequestSchema>
 

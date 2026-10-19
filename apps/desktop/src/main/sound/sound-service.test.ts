@@ -1,5 +1,6 @@
 import { probe, resolveTools } from '@svs/media'
-import { afterEach, describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createStudioHarness } from '../shots/test-harness'
 
@@ -378,5 +379,74 @@ describe('影片原聲開關：專案的聲音設定決定生成影片時帶不�
     const added = videoAudio(h).slice(before)
     expect(added.length).toBeGreaterThan(0)
     expect(added.every((a) => !a)).toBe(true)
+  })
+})
+
+describe('快速開始的聲音勾選', () => {
+  const request = {
+    story: '一隻貓在雨天裡找到溫暖的家',
+    style: 'anime',
+    shotCount: 2,
+    durationSec: 3,
+    aspectRatio: '16:9',
+    variation: 0,
+  } as const
+
+  it('勾了配樂：影片完成後自動加配樂並混進成品；原聲勾選存進專案設定', async () => {
+    const h = setup()
+    await h.quickstart.run({ ...request, sound: { native: false, narration: true, music: true } })
+    await h.finished()
+    await vi.waitFor(
+      () => {
+        expect(h.sound.state().music).toBeDefined()
+        expect(h.sound.state().final).toMatchObject({ hasSound: true, soundStale: false })
+      },
+      { timeout: 30_000, interval: 50 },
+    )
+    expect(h.sound.state().settings.nativeAudio).toBe(false)
+  })
+
+  it('沒給 sound（舊的呼叫方式）：不自動加聲音', async () => {
+    const h = setup()
+    await h.quickstart.run(request)
+    await h.finished()
+    expect(h.sound.state().music).toBeUndefined()
+    expect(h.sound.state().final?.hasSound).toBe(false)
+  })
+
+  it('預估：勾了配樂與旁白就多算它們的花費', () => {
+    const h = setup()
+    const without = h.quickstart.check(request).estimatedUsd
+    const withMusic = h.quickstart.check({
+      ...request,
+      sound: { native: true, narration: false, music: true },
+    }).estimatedUsd
+    const withBoth = h.quickstart.check({
+      ...request,
+      sound: { native: true, narration: true, music: true },
+    }).estimatedUsd
+    expect(withMusic).toBeGreaterThan(without)
+    expect(withBoth).toBeGreaterThan(withMusic)
+  })
+
+  it('匯出的是最新一版成品（含聲音），不是這次接好的沒聲音的那版', async () => {
+    const h = setup()
+    await h.quickstart.run({ ...request, sound: { native: true, narration: false, music: true } })
+    await h.finished()
+    await vi.waitFor(
+      () => {
+        expect(h.sound.state().final?.hasSound).toBe(true)
+      },
+      { timeout: 30_000, interval: 50 },
+    )
+    const handle = h.projects.current()
+    const latest = handle?.repos.finalCuts.latest()
+    if (!handle || !latest?.baseAssetHash) throw new Error('應該有混好的成品')
+    const { path } = h.quickstart.export()
+    const exported = readFileSync(path)
+    const mixed = readFileSync(handle.assets.find(latest.assetHash)?.path ?? '')
+    const base = readFileSync(handle.assets.find(latest.baseAssetHash)?.path ?? '')
+    expect(exported.equals(mixed)).toBe(true)
+    expect(exported.equals(base)).toBe(false)
   })
 })

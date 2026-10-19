@@ -52,6 +52,7 @@ export const kindCount = async (page: Page, kind: string): Promise<number> =>
 export async function generateAndOpenCanvas(
   page: Page,
   story = '一隻貓在下雨的夜晚找到溫暖的家',
+  options: { sound?: boolean } = {},
 ): Promise<void> {
   await page.getByRole('button', { name: '畫布', exact: true }).click()
   await expect(page.getByTestId('canvas-root')).toBeVisible()
@@ -67,6 +68,13 @@ export async function generateAndOpenCanvas(
   await page.getByTestId('oneliner-story').blur()
   await pick(page, 'oneliner-shots', '3')
   await pick(page, 'oneliner-duration', '3')
+  // 聲音三個勾選預設全開；其他測試不是在測聲音，這裡先取消（旁白、配樂完成後會自動加，成品會多一版、花費也會變）。
+  // 要測聲音的測試傳 { sound: true } 保持勾選
+  if (options.sound !== true) {
+    for (const key of ['native', 'narration', 'music']) {
+      await page.getByTestId(`oneliner-sound-${key}`).uncheck()
+    }
+  }
   await page.getByTestId('oneliner-generate').click()
   await page.getByTestId('run-confirm-ok').click()
   await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'true')

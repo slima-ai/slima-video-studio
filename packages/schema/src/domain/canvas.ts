@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { ContentHashSchema } from './common'
 import { ModelTierSchema } from './models'
-import { QUICK_START_LIMITS, QuickStyleIdSchema } from './quickstart'
+import { QUICK_START_LIMITS, QuickStartSoundSchema, QuickStyleIdSchema } from './quickstart'
 
 /**
  * 畫布（首頁）上的節點種類。幕、場、鏡頭、角色、地點與版本仍存在原本的表，畫布把它們「投影」成節點；
@@ -107,6 +107,8 @@ export const OnelinerParamsSchema = z.object({
     .min(QUICK_START_LIMITS.minDurationSec)
     .max(QUICK_START_LIMITS.maxDurationSec),
   aspectRatio: z.enum(['16:9', '9:16']),
+  /** 聲音三個勾選；舊的節點沒有這個欄位，畫面上當成全開。 */
+  sound: QuickStartSoundSchema.optional(),
 })
 export type OnelinerParams = z.infer<typeof OnelinerParamsSchema>
 

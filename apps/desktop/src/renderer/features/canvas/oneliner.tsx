@@ -1,4 +1,10 @@
-import { QUICK_STYLE_IDS, QUICK_STYLE_LABELS, type OnelinerParams } from '@svs/schema'
+import {
+  DEFAULT_QUICK_START_SOUND,
+  QUICK_STYLE_IDS,
+  QUICK_STYLE_LABELS,
+  type OnelinerParams,
+  type QuickStartSound,
+} from '@svs/schema'
 import { Lock } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -19,6 +25,13 @@ const DURATION_OPTIONS = Array.from({ length: 13 }, (_, i) => ({
 }))
 /** 欄位上方的小標籤：選了、寫了之後還看得出這一格是什麼。 */
 const FIELD_LABEL = 'text-[11px] font-medium text-fg-muted'
+
+/** 聲音三個勾選（預設全開）：原聲在生成影片時帶；旁白與配樂在影片完成後自動加。 */
+const SOUND_CHOICES: { key: keyof QuickStartSound; label: string; hint: string }[] = [
+  { key: 'native', label: '影片原聲', hint: '生成影片時一起生成聲音（影片費約多 50%）' },
+  { key: 'narration', label: '旁白', hint: '完成後念每個鏡頭的台詞' },
+  { key: 'music', label: '配樂', hint: '完成後配一首背景音樂' },
+]
 
 const ASPECT_OPTIONS = [
   { value: '16:9', label: '橫式 16:9' },
@@ -150,6 +163,36 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
           />
         </div>
       </div>
+      {picked ? (
+        <fieldset
+          className="nodrag lod-full flex flex-wrap items-center gap-x-3 gap-y-1"
+          disabled={running}
+          data-testid="oneliner-sound"
+        >
+          <legend className="sr-only">聲音</legend>
+          <span className={FIELD_LABEL} aria-hidden>
+            聲音
+          </span>
+          {SOUND_CHOICES.map(({ key, label, hint }) => (
+            <label key={key} className="flex items-center gap-1 text-xs" title={hint}>
+              <input
+                type="checkbox"
+                data-testid={`oneliner-sound-${key}`}
+                checked={(picked.sound ?? DEFAULT_QUICK_START_SOUND)[key]}
+                onChange={(event) => {
+                  commit({
+                    sound: {
+                      ...(picked.sound ?? DEFAULT_QUICK_START_SOUND),
+                      [key]: event.target.checked,
+                    },
+                  })
+                }}
+              />
+              {label}
+            </label>
+          ))}
+        </fieldset>
+      ) : null}
       {growStory && picked ? (
         <div className="nodrag lod-full flex gap-1.5">
           <button
@@ -158,7 +201,11 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
             disabled={running || story.trim() === ''}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-accent-fg disabled:opacity-50"
             onClick={(event) => {
-              growStory(id, { ...picked, story }, anchorOf(event.currentTarget))
+              growStory(
+                id,
+                { ...picked, sound: picked.sound ?? DEFAULT_QUICK_START_SOUND, story },
+                anchorOf(event.currentTarget),
+              )
             }}
           >
             {running ? (

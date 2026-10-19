@@ -156,6 +156,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     broadcast,
     log,
     projectsDir: options.projectsDir,
+    sound: () => soundRef.current,
     ...toolsOption,
   })
   const upgrade = createUpgradeService({

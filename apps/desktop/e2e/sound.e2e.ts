@@ -2,6 +2,40 @@ import { centerOn, generateAndOpenCanvas } from './canvas-helpers'
 import { expect, test } from './fixtures'
 
 test.describe('成品的聲音（示範模式）', () => {
+  test('快速開始的聲音勾選預設全開：生成完成後旁白與配樂自動加好，成品是有聲音的', async ({
+    page,
+  }, testInfo) => {
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const empty = page.getByTestId('empty-add-oneliner')
+    if (await empty.isVisible()) await empty.click()
+    else await page.getByTestId('palette-oneliner').click()
+    await page.getByTestId('oneliner-story').fill('一隻貓在下雨的夜晚找到溫暖的家')
+    await page.getByTestId('oneliner-story').blur()
+    for (const key of ['native', 'narration', 'music']) {
+      await expect(page.getByTestId(`oneliner-sound-${key}`)).toBeChecked()
+    }
+    await page.getByTestId('oneliner-sound').scrollIntoViewIfNeeded()
+    await page.screenshot({ path: testInfo.outputPath('oneliner-sound-checkboxes.png') })
+    await page.getByTestId('oneliner-generate').click()
+    // 確認面板的預估已經含聲音的花費
+    await expect(page.getByTestId('run-confirm')).toBeVisible()
+    await page.getByTestId('run-confirm-ok').click()
+    await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false', {
+      timeout: 60_000,
+    })
+    // 影片完成後自動加聲音：成品變成混好聲音的版本
+    await expect
+      .poll(
+        async () => {
+          const result = await page.evaluate(() => window.svs.invoke('sound.get', {}))
+          return result.ok ? result.data.final?.hasSound : undefined
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(true)
+  })
+
   test('兩下加上旁白與配樂：預估花費 → 開始 → 出現音量調整；改音量會自動重混，成品變成有聲的新版本', async ({
     page,
   }, testInfo) => {
