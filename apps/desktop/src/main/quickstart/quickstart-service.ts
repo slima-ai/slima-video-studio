@@ -3,6 +3,7 @@ import {
   checkBudget,
   createRegistry,
   estimateWorkflowCost,
+  type EngineEvent,
   type NodeRegistry,
 } from '@svs/engine'
 import { appendEndCard, probe, type MediaTools } from '@svs/media'
@@ -252,11 +253,22 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
         priceLookup: (id, usage) => models.estimate(id, usage),
         onEvent: (event) => {
           shots.record(event)
+          // 勾了旁白或配樂：影片成功完成的訊息先扣住，等聲音也做完才說完成（整次生成算同一次，畫布一直顯示生成中，
+          // 復原也會把整次（含聲音）一起退回）
+          if (wantSound && event.type === 'run-finished' && event.status === 'succeeded') {
+            heldFinish = event
+            return
+          }
           const snapshot = myTracker.handle(event)
           if (snapshot && myTracker === tracker) broadcast('quickstart.progress', snapshot)
         },
       })
 
+      const wantSound =
+        request.sound !== undefined &&
+        (request.sound.narration || request.sound.music) &&
+        deps.sound?.() !== undefined
+      let heldFinish: Extract<EngineEvent, { type: 'run-finished' }> | undefined
       const running = engine
         .run(flow, {
           projectId: handle.projectId,
@@ -282,17 +294,39 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
           throw error
         })
         .then(async (result) => {
-          // 完成後自動加旁白與配樂（對話框勾了才加）；聲音失敗不影響已經生成好的影片，
-          // 成品面板的「加上旁白與配樂」還可以再試
-          if (result.run.status !== 'succeeded') return
+          // 勾了旁白或配樂：影片接好之後加聲音（進度顯示「正在加旁白與配樂」），做完才說完成。
+          // 聲音失敗不影響已經生成好的影片，完成訊息會說「聲音沒加成」，成品面板的「加上旁白與配樂」可以再試
+          const finish = heldFinish
+          heldFinish = undefined
+          if (!finish || result.run.status !== 'succeeded') return
           const want = request.sound
           const sound = deps.sound?.()
-          if (!sound || !want || !(want.narration || want.music)) return
-          try {
-            await sound.addAll({ narration: want.narration, music: want.music })
-          } catch (error) {
-            log.warn(`快速開始完成後加聲音失敗：${String(error)}`)
+          let failed = false
+          if (sound && want) {
+            const started = myTracker.startSound()
+            if (started && myTracker === tracker) broadcast('quickstart.progress', started)
+            try {
+              await sound.addAll({
+                narration: want.narration,
+                music: want.music,
+                signal: controller.signal,
+              })
+            } catch (error) {
+              failed = !controller.signal.aborted
+              log.warn(`快速開始完成後加聲音失敗：${String(error)}`)
+            }
           }
+          const mixedHash = shots.finalVideoHash()
+          myTracker.finishSound({
+            ...(mixedHash === undefined ? {} : { finalVideoHash: mixedHash }),
+            failed,
+          })
+          // 加聲音的途中按了停止：算停止（做好的部分留著）
+          const closing: typeof finish = controller.signal.aborted
+            ? { ...finish, status: 'cancelled' as const }
+            : finish
+          const done = myTracker.handle(closing)
+          if (done && myTracker === tracker) broadcast('quickstart.progress', done)
         })
         .finally(() => {
           if (active === controller) active = undefined

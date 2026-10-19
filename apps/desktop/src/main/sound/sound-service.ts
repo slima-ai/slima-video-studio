@@ -76,6 +76,8 @@ export interface SoundService {
   addAll: (input: {
     narration: boolean
     music: boolean
+    /** 停止時不再往下做。 */
+    signal?: AbortSignal
   }) => Promise<{ narrations: number; music: boolean }>
   /** 目前聲音的指紋（採用中的片段與設定）；沒有聲音要處理是 undefined。成品記著它，不一樣就是過期。 */
   soundKey: (handle: ProjectHandle) => string | undefined
@@ -597,14 +599,22 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         ...(input.music ? { music: {} } : {}),
       })
       if (!items.ok) throw invalid(items.issue ?? '現在不能加聲音。')
+      const stopped = (): void => {
+        if (input.signal?.aborted) {
+          throw new AppError({ code: 'cancelled', userMessage: '已取消。' })
+        }
+      }
       let narrations = 0
       for (const item of items.items) {
         if (item.kind !== 'narration' || item.shotId === undefined) continue
+        stopped()
         await service.generateNarration({ shotId: item.shotId })
         narrations++
       }
       const wantMusic = items.items.some((i) => i.kind === 'music')
+      stopped()
       if (wantMusic) await service.generateMusic({})
+      stopped()
       if (narrations > 0 || wantMusic) {
         if (handle.repos.finalCuts.latest()) await service.mix()
       }

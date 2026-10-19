@@ -328,3 +328,37 @@ describe('StructureHistory：紀錄的規則', () => {
     expect(repos.outline.listScenes()).toHaveLength(0)
   })
 })
+
+describe('StructureHistory：聲音', () => {
+  it('同一筆動作裡新增鏡頭與它的旁白、配樂：復原一起退回，重做一起回來', () => {
+    const { repos, history } = setup()
+    let shotId = ''
+    history.record('生成影片', () => {
+      const shot = repos.shots.create({ description: 'A' })
+      shotId = shot.id
+      repos.sound.addClip({
+        kind: 'narration',
+        shotId: shot.id,
+        assetHash: HASH('a'),
+        modelId: 'mock/tts',
+        text: '一句話',
+      })
+      repos.sound.addClip({ kind: 'music', assetHash: HASH('m'), modelId: 'mock/music' })
+    })
+    expect(repos.sound.listClips()).toHaveLength(2)
+
+    history.undo()
+    expect(repos.shots.list()).toHaveLength(0)
+    expect(repos.sound.listClips()).toHaveLength(0)
+
+    history.redo()
+    expect(repos.shots.list().map((s) => s.id)).toEqual([shotId])
+    const clips = repos.sound.listClips()
+    expect(clips.map((c) => c.kind).sort()).toEqual(['music', 'narration'])
+    expect(clips.find((c) => c.kind === 'narration')).toMatchObject({
+      shotId,
+      text: '一句話',
+      adopted: true,
+    })
+  })
+})

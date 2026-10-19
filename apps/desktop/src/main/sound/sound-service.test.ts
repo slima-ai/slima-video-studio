@@ -393,18 +393,57 @@ describe('快速開始的聲音勾選', () => {
     variation: 0,
   } as const
 
-  it('勾了配樂：影片完成後自動加配樂並混進成品；原聲勾選存進專案設定', async () => {
+  it('勾了配樂：加聲音算進同一次生成——說完成的時候聲音已經混進成品；過程中先顯示「正在加聲音」；原聲勾選存進專案設定', async () => {
     const h = setup()
     await h.quickstart.run({ ...request, sound: { native: false, narration: true, music: true } })
-    await h.finished()
-    await vi.waitFor(
-      () => {
-        expect(h.sound.state().music).toBeDefined()
-        expect(h.sound.state().final).toMatchObject({ hasSound: true, soundStale: false })
-      },
-      { timeout: 30_000, interval: 50 },
-    )
+    const done = await h.finished()
+    // 一說完成，旁白、配樂與混音都已經做完（不用再等）
+    expect(h.sound.state().music).toBeDefined()
+    expect(h.sound.state().final).toMatchObject({ hasSound: true, soundStale: false })
     expect(h.sound.state().settings.nativeAudio).toBe(false)
+    expect(done.soundFailed).toBeUndefined()
+    // 進度順序：接片 → 加聲音（還是進行中）→ 完成；完成之前不能先說完成
+    const snapshots = h.progress()
+    const soundIndex = snapshots.findIndex((p) => p.phase === 'sound')
+    const doneIndex = snapshots.findIndex((p) => p.status === 'succeeded')
+    expect(soundIndex).toBeGreaterThan(-1)
+    expect(doneIndex).toBeGreaterThan(soundIndex)
+    expect(snapshots.slice(0, doneIndex).every((p) => p.status === 'running')).toBe(true)
+    // 完成時的成品就是混好聲音的那一版
+    const handle = h.projects.current()
+    expect(done.finalVideoHash).toBe(handle?.repos.finalCuts.latest()?.assetHash)
+    expect(handle?.repos.finalCuts.latest()?.soundKey).toBeTruthy()
+  })
+
+  it('加聲音失敗：影片照樣完成（狀態成功），標記聲音沒加成，成品是沒有聲音的那一版', async () => {
+    const h = setup()
+    vi.spyOn(h.sound, 'addAll').mockRejectedValue(new Error('旁白服務壞了'))
+    await h.quickstart.run({ ...request, sound: { native: true, narration: true, music: true } })
+    const done = await h.finished()
+    expect(done).toMatchObject({ status: 'succeeded', phase: 'done', soundFailed: true })
+    expect(done.finalVideoHash).toBeDefined()
+    expect(h.projects.current()?.repos.finalCuts.latest()?.soundKey).toBeUndefined()
+  })
+
+  it('加聲音的途中按停止：算停止（做好的影片留著），不算失敗', async () => {
+    const h = setup()
+    vi.spyOn(h.sound, 'addAll').mockImplementation(
+      (input) =>
+        new Promise((_resolve, reject) => {
+          input.signal?.addEventListener('abort', () => {
+            reject(new Error('已取消'))
+          })
+          // 等到進入加聲音階段才停止
+          setTimeout(() => {
+            h.quickstart.cancel()
+          }, 20)
+        }),
+    )
+    await h.quickstart.run({ ...request, sound: { native: true, narration: true, music: true } })
+    const done = await h.finished()
+    expect(done.status).toBe('cancelled')
+    expect(done.soundFailed).toBeUndefined()
+    expect(done.finalVideoHash).toBeDefined()
   })
 
   it('沒給 sound（舊的呼叫方式）：不自動加聲音', async () => {
@@ -434,12 +473,7 @@ describe('快速開始的聲音勾選', () => {
     const h = setup()
     await h.quickstart.run({ ...request, sound: { native: true, narration: false, music: true } })
     await h.finished()
-    await vi.waitFor(
-      () => {
-        expect(h.sound.state().final?.hasSound).toBe(true)
-      },
-      { timeout: 30_000, interval: 50 },
-    )
+    expect(h.sound.state().final?.hasSound).toBe(true)
     const handle = h.projects.current()
     const latest = handle?.repos.finalCuts.latest()
     if (!handle || !latest?.baseAssetHash) throw new Error('應該有混好的成品')

@@ -34,11 +34,6 @@ async function prepare(page: Page, story = '一隻貓在下雨的夜晚找到溫
   await page.getByTestId('oneliner-story').blur()
   await pick(page, 'oneliner-shots', '3')
   await pick(page, 'oneliner-duration', '3')
-  // 聲音三個勾選預設全開；這裡不是在測聲音，先取消（完成後會在背景加旁白與配樂，
-  // 那段時間有任務進行中，「復原」要等它做完）
-  for (const key of ['native', 'narration', 'music']) {
-    await page.getByTestId(`oneliner-sound-${key}`).uncheck()
-  }
 }
 
 /** 按「生成影片」→ 看確認面板 → 確認。 */

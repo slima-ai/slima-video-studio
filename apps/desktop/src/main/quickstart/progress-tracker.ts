@@ -36,6 +36,26 @@ export class ProgressTracker {
     return this.state
   }
 
+  /** 影片接好了，開始加旁白與配樂（狀態仍是進行中，畫布一直顯示生成中）。 */
+  startSound(): QuickStartProgress | undefined {
+    return this.update({ phase: 'sound' })
+  }
+
+  /** 加聲音做完：成品換成混好的那一版；沒加成功就記下來（完成訊息會說）。 */
+  finishSound(result: {
+    finalVideoHash?: string
+    failed: boolean
+  }): QuickStartProgress | undefined {
+    if (!this.state) return undefined
+    const next = {
+      ...this.state,
+      ...(result.finalVideoHash === undefined ? {} : { finalVideoHash: result.finalVideoHash }),
+      ...(result.failed ? { soundFailed: true } : {}),
+    }
+    this.state = next
+    return this.state
+  }
+
   /** 重新接片之後換成新的成品；之前匯出的檔案是舊的影片，所以清掉匯出位置。 */
   setFinalVideo(hash: string): QuickStartProgress | undefined {
     if (!this.state) return undefined
