@@ -23,6 +23,7 @@ import { createMockFrameRenderer } from './mock-frame'
 import { createStudioApp } from './studio-app'
 import { openrouterBaseUrlOverride } from './test-overrides'
 import { isInternalUrl, isSafeExternalUrl } from './navigation'
+import { QUIET_COMMAND_LINE_SWITCHES, quietWindowsEnabled } from './quiet-windows'
 import { APP_TITLE, createWindowOptions } from './window'
 
 // 只有非打包版才允許用環境變數指定 userData（E2E 用）
@@ -82,14 +83,25 @@ let mainLog: Logger | undefined
 let appUrl = ''
 
 function createMainWindow(log: Logger): BrowserWindow {
-  const win = new BrowserWindow(createWindowOptions(join(__dirname, '../preload/index.js')))
+  const quiet = quietWindowsEnabled(process.env, app.isPackaged)
+  const win = new BrowserWindow(
+    createWindowOptions(join(__dirname, '../preload/index.js'), { quiet }),
+  )
   guardWebContents(win, () => appUrl, log)
   win.once('ready-to-show', () => {
-    win.show()
+    // 安靜模式用 showInactive：視窗存在、照常繪製，但不會跳到最前面、不搶焦點
+    if (quiet) win.showInactive()
+    else win.show()
   })
   win.setTitle(APP_TITLE)
   appUrl = loadRenderer(win)
   return win
+}
+
+// 安靜模式（自動化測試用）：不出現在 Dock、不變成使用中的 App；視窗被擋住也照常繪製
+if (quietWindowsEnabled(process.env, app.isPackaged)) {
+  for (const [name, value] of QUIET_COMMAND_LINE_SWITCHES) app.commandLine.appendSwitch(name, value)
+  if (process.platform === 'darwin') app.setActivationPolicy('accessory')
 }
 
 void app.whenReady().then(() => {
