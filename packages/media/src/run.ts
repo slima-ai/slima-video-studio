@@ -9,7 +9,7 @@ export interface MediaTools {
 }
 
 /**
- * 找 FFmpeg：環境變數 SVS_FFMPEG / SVS_FFPROBE 優先，其次是呼叫端給的路徑
+ * 找 FFmpeg：環境變數 SVS_FFMPEG / SVS_FFPROBE 優先（SVS_FFPROBE=none 表示沒有 ffprobe，跟打包版一樣由 ffmpeg 讀影片資訊），其次是呼叫端給的路徑
  * （打包版由主行程傳入 ffmpeg-static 解出來的路徑），最後用系統 PATH 上的 ffmpeg / ffprobe。
  */
 export function resolveTools(
@@ -20,7 +20,10 @@ export function resolveTools(
     ffmpegPath: env.SVS_FFMPEG ?? overrides.ffmpegPath ?? 'ffmpeg',
     // null 是有意義的值（明確表示沒有 ffprobe），所以不能用 ?? 蓋掉
     ffprobePath:
-      env.SVS_FFPROBE ?? (overrides.ffprobePath === undefined ? 'ffprobe' : overrides.ffprobePath),
+      env.SVS_FFPROBE === 'none'
+        ? null
+        : (env.SVS_FFPROBE ??
+          (overrides.ffprobePath === undefined ? 'ffprobe' : overrides.ffprobePath)),
   }
 }
 
