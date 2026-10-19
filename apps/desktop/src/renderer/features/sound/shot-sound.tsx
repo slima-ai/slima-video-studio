@@ -84,7 +84,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
   const [error, setError] = useState<string>()
   const [dialogueDirty, setDialogueDirty] = useState(false)
   // 勾選的當下就換狀態，不等主程序回應；回應慢時才不會先彈回原樣再跳過來。
-  // 記下點擊當下主程序那邊的 nativeMuted（base）：它一變（含別處改的）就以主程序為準。
+  // 記下點擊當下主程序那邊的 nativeMuted（base）：它一變（含別處改的）就以主程序為準並把暫存清掉。
   // 不用 useEffect 去清：載入那次 commit 留下的 effect 可能在點擊之後才跑，會把剛點的蓋回去
   const [pending, setPending] = useState<{ use: boolean; base: boolean | undefined }>()
   const {
@@ -97,6 +97,10 @@ export function ShotSound({ shotId }: { shotId: string }) {
   })
   const view = state?.shots.find((s) => s.shotId === shotId)
   const nativeMuted = view?.nativeMuted
+  if (pending && pending.base !== nativeMuted) {
+    // 主程序的狀態已經不是點擊當下那樣：暫存用完了。不清掉的話，之後別處改回原樣時它會復活
+    setPending(undefined)
+  }
   const pendingUse = pending?.base === nativeMuted ? pending?.use : undefined
   if (!state || !view) return null
 
