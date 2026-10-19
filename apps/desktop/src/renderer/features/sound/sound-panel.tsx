@@ -206,10 +206,6 @@ export function SoundPanel() {
             </Button>
           </div>
         </div>
-      ) : add.step === 'running' ? (
-        <p className="text-sm" role="status" data-testid="sound-progress">
-          {add.text}
-        </p>
       ) : noModels ? (
         <p className="text-sm text-fg-muted">
           還沒有可用的旁白與配樂模型：請到設定填入 OpenRouter 的金鑰（或打開示範模式）。
