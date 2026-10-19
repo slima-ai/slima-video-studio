@@ -99,6 +99,8 @@ export function createMcpController(deps: McpControllerDeps): McpController {
       }
       if (http && runningPort === port) return
       await stop()
+      // 伺服器一開就把 token 檔建好：stdio 轉接是直接讀這個檔，不能等到有人看過設定頁才有
+      tokens.get()
       const next = createMcpHttp({
         port,
         token: tokens.get,
