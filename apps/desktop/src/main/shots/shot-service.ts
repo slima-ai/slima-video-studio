@@ -798,6 +798,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       style: toStyle(project.defaultStyleId),
       durationSec: shot.durationSec,
       aspectRatio: project.aspectRatio,
+      // 影片要不要帶原聲：專案的聲音設定（預設開）
+      audio: handle.repos.sound.getSettings().nativeAudio,
       models: picked,
       anchors,
       scenes,
