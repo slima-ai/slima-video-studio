@@ -38,7 +38,12 @@ import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
 import type { ShotService } from '../shots/shot-service'
-import { collectAttributions, creditLines, type CardRenderer } from '../credits/credits'
+import {
+  CREDITS_RENDER_TIMEOUT_MS,
+  collectAttributions,
+  creditLines,
+  type CardRenderer,
+} from '../credits/credits'
 import type { SoundService } from '../sound/sound-service'
 import { createStudioServices } from '../studio-services'
 import { ProgressTracker } from './progress-tracker'
@@ -60,6 +65,8 @@ export interface QuickStartDeps {
   sound?: () => Pick<SoundService, 'addAll'> | undefined
   /** 把片尾字卡畫成圖（Electron 離屏視窗）；沒給就匯出時不加字卡。 */
   renderCreditsCard?: CardRenderer
+  /** 畫字卡最多等幾毫秒（預設 20 秒）；測試縮短用。 */
+  creditsTimeoutMs?: number
   now?: () => Date
 }
 
@@ -74,6 +81,32 @@ export interface QuickStartService {
   state: () => QuickStartProgress | null
   /** 匯出最新一版成品；credits（預設 true）＝片尾接一張「用了哪些 AI 服務」的字卡，只加在匯出的檔案上。 */
   export: (options?: { credits?: boolean }) => Promise<{ path: string; credits: boolean }>
+}
+
+/**
+ * 畫字卡，最多等 `ms` 毫秒。超過就取消（讓畫圖的一方放掉視窗）並丟錯，呼叫端改匯出沒有字卡的版本。
+ * 不靠畫圖那邊自己會回來：離屏視窗有可能一直等不到畫面（例如 Playwright 驅動、測試行程被同步卡住時，新視窗不會載入）。
+ */
+async function renderWithin(
+  ms: number,
+  render: CardRenderer,
+  input: Omit<Parameters<CardRenderer>[0], 'signal'>,
+): Promise<Uint8Array> {
+  const abort = new AbortController()
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      abort.abort()
+      reject(new Error(`畫片尾字卡等了 ${String(Math.round(ms / 1000))} 秒還沒畫完`))
+    }, ms)
+  })
+  try {
+    const rendering = render({ ...input, signal: abort.signal })
+    rendering.catch(() => undefined) // 逾時後才失敗的結果不再有人等，避免未處理的拒絕
+    return await Promise.race([rendering, timeout])
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 const invalid = (userMessage: string): AppError =>
@@ -371,11 +404,15 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       if ((options.credits ?? true) && deps.renderCreditsCard && tool) {
         try {
           const info = await probe(tool, source.path)
-          const png = await deps.renderCreditsCard({
-            lines: creditLines(collectAttributions(handle, models)),
-            width: info.width ?? 1280,
-            height: info.height ?? 720,
-          })
+          const png = await renderWithin(
+            deps.creditsTimeoutMs ?? CREDITS_RENDER_TIMEOUT_MS,
+            deps.renderCreditsCard,
+            {
+              lines: creditLines(collectAttributions(handle, models)),
+              width: info.width ?? 1280,
+              height: info.height ?? 720,
+            },
+          )
           const work = await mkdtemp(join(tmpdir(), 'svs-credits-'))
           try {
             const card = join(work, 'card.png')

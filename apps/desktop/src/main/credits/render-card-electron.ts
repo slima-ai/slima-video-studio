@@ -27,7 +27,7 @@ p.last{margin-top:${String(Math.round(size * 0.8))}px;font-size:${String(Math.ro
  * 用 Electron 的離屏視窗把字卡畫成 PNG（不顯示視窗、不搶焦點）。因為自編的 FFmpeg 沒有 drawtext（沒有 freetype），
  * 文字只能在 Electron 裡畫；用系統字型，中文也行。畫面大小跟著影片。
  */
-export const renderCardWithElectron: CardRenderer = async ({ lines, width, height }) => {
+export const renderCardWithElectron: CardRenderer = async ({ lines, width, height, signal }) => {
   const win = new BrowserWindow({
     show: false,
     width,
@@ -42,6 +42,11 @@ export const renderCardWithElectron: CardRenderer = async ({ lines, width, heigh
       nodeIntegration: false,
     },
   })
+  // 被取消（等太久）就直接關掉視窗，不留一個永遠不會畫完的離屏視窗
+  const onAbort = (): void => {
+    if (!win.isDestroyed()) win.destroy()
+  }
+  signal?.addEventListener('abort', onAbort, { once: true })
   try {
     await win.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(creditsHtml(lines, height))}`,
@@ -54,6 +59,7 @@ export const renderCardWithElectron: CardRenderer = async ({ lines, width, heigh
       size.width === width && size.height === height ? image : image.resize({ width, height })
     return new Uint8Array(fitted.toPNG())
   } finally {
-    win.destroy()
+    signal?.removeEventListener('abort', onAbort)
+    if (!win.isDestroyed()) win.destroy()
   }
 }

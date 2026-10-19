@@ -64,6 +64,8 @@ export interface StudioAppOptions {
   openrouterBaseUrl?: string
   /** 把片尾字卡畫成圖（Electron 離屏視窗）；沒給就匯出時不加字卡。 */
   renderCreditsCard?: CardRenderer
+  /** 畫字卡最多等幾毫秒；沒給用預設（20 秒）。測試縮短用。 */
+  creditsTimeoutMs?: number
 }
 
 export interface StudioApp {
@@ -161,6 +163,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     projectsDir: options.projectsDir,
     sound: () => soundRef.current,
     ...(options.renderCreditsCard ? { renderCreditsCard: options.renderCreditsCard } : {}),
+    ...(options.creditsTimeoutMs ? { creditsTimeoutMs: options.creditsTimeoutMs } : {}),
     ...toolsOption,
   })
   const upgrade = createUpgradeService({

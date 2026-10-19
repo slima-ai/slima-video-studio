@@ -124,4 +124,39 @@ test.describe('匯出的片尾字卡（示範模式、真的 Electron 離屏畫�
       Buffer.from(base64, 'base64'),
     )
   })
+
+  test('Playwright 驅動、測試行程被同步卡住時（新開的視窗不會載入）：畫字卡等太久就改匯出沒有字卡的版本，匯出不會被無限期卡住', async ({
+    page,
+  }) => {
+    // 重現 10-20 助理驗收的卡住：Playwright 驅動的 App，測試行程同步等一個外部指令（例如 claude -p）時，
+    // App 裡新開的視窗一直等不到載入，離屏畫字卡就永遠不會回來（測試行程放開那一刻才繼續）。沒有修正時 export 會一直等。
+    test.setTimeout(120_000)
+    await generateAndOpenCanvas(page)
+    await page.evaluate(() => {
+      const w = window as unknown as Record<string, unknown>
+      w.__t0 = Date.now()
+      void window.svs.invoke('quickstart.export', {}).then((result) => {
+        w.__t1 = Date.now()
+        w.__result = result
+      })
+    })
+    // 測試行程同步卡住 30 秒（比字卡上限 20 秒久）
+    execFileSync('sleep', ['30'])
+    const outcome = await page.evaluate(() => {
+      const w = window as unknown as {
+        __t0: number
+        __t1?: number
+        __result?: { ok: boolean; data?: { path: string; credits: boolean } }
+      }
+      return { took: w.__t1 === undefined ? undefined : w.__t1 - w.__t0, result: w.__result }
+    })
+    // 卡住的條件沒有出現（這個環境新視窗照常載入）就沒什麼好驗的
+    test.skip(outcome.took !== undefined && outcome.took < 10_000, '這個環境沒有卡住，無從驗證逾時')
+    // 卡住了：測試行程放開的那一刻，匯出必須已經在上限內結束，改匯出沒有字卡的版本
+    expect(outcome.took, '匯出在卡住期間就該照上限結束').toBeDefined()
+    expect(outcome.took).toBeLessThan(26_000)
+    expect(outcome.result?.ok).toBe(true)
+    expect(outcome.result?.data?.credits).toBe(false)
+    expect(existsSync(outcome.result?.data?.path ?? '')).toBe(true)
+  })
 })
