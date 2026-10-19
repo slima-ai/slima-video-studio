@@ -33,4 +33,4 @@ By contributing you agree that your contribution is licensed under the Apache Li
 
 ## Security
 
-Please do not open a public issue for a security problem or a leaked key. Use **Report a vulnerability** on the repository's **Security** tab to report it privately.
+Please do not open a public issue for a security problem or a leaked key. Use **Report a vulnerability** on the repository's **Security** tab to report it privately. See [SECURITY.md](SECURITY.md).
