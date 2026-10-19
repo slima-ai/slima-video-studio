@@ -14,6 +14,7 @@ import lyria3Clip from '../../models/lyria-3-clip.json'
 import lyria3Pro from '../../models/lyria-3-pro.json'
 import mockImage from '../../models/mock-image.json'
 import mockLlm from '../../models/mock-llm.json'
+import mockMusic from '../../models/mock-music.json'
 import mockTts from '../../models/mock-tts.json'
 import mockVideo from '../../models/mock-video.json'
 import nanoBanana2 from '../../models/nano-banana-2.json'
@@ -37,6 +38,7 @@ const RAW_SPECS: readonly unknown[] = [
   lyria3Pro,
   mockImage,
   mockLlm,
+  mockMusic,
   mockTts,
   mockVideo,
   nanoBanana2,
@@ -60,6 +62,7 @@ export const BUILTIN_MODEL_FILES: readonly string[] = [
   'lyria-3-pro.json',
   'mock-image.json',
   'mock-llm.json',
+  'mock-music.json',
   'mock-tts.json',
   'mock-video.json',
   'nano-banana-2.json',

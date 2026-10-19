@@ -91,6 +91,16 @@ import {
   ShotsSnapshotSchema,
   StoryboardSplitCheckSchema,
 } from './domain/shots'
+import {
+  NARRATION_MAX_CHARS,
+  SoundClipPatchSchema,
+  SoundClipSchema,
+  SoundPlanRequestSchema,
+  SoundPlanSchema,
+  SoundSettingsPatchSchema,
+  SoundSettingsSchema,
+  SoundStateSchema,
+} from './domain/sound'
 import { AppErrorShapeSchema, type AppErrorShape } from './errors'
 
 /** renderer 看得到的專案摘要（不包含資料庫、路徑以外的內部細節）。 */
@@ -624,6 +634,53 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ videoHash: z.string() }),
   },
+  // ---- 聲音（sound.*）：studio 2 負責，新增的通道都加在這一段 ----
+  /** 目前專案的聲音：每鏡的時間位置、旁白、配樂、設定與警示。 */
+  'sound.get': {
+    request: z.object({}),
+    response: SoundStateSchema,
+  },
+  /** 生成之前的預估花費與檢查（不花錢）。 */
+  'sound.plan': {
+    request: SoundPlanRequestSchema,
+    response: SoundPlanSchema,
+  },
+  /** 為一鏡生旁白（沒給文字就念鏡頭的台詞，沒給聲音就用設定裡選的）。會花錢。 */
+  'sound.generateNarration': {
+    request: z.object({
+      shotId: IdSchema,
+      text: z.string().max(NARRATION_MAX_CHARS).optional(),
+      voiceId: z.string().min(1).optional(),
+    }),
+    response: z.object({ clip: SoundClipSchema }),
+  },
+  /** 生一首配樂（沒給描述就依風格與場景情緒組一段，永遠是純音樂）。會花錢。 */
+  'sound.generateMusic': {
+    request: z.object({
+      prompt: z.string().min(1).max(2000).optional(),
+      durationSec: z.number().positive().optional(),
+    }),
+    response: z.object({ clip: SoundClipSchema }),
+  },
+  /** 調整一個片段的起點、增益、淡入淡出（不花錢）；給 null 改回預設。 */
+  'sound.updateClip': {
+    request: z.object({ clipId: IdSchema, patch: SoundClipPatchSchema }),
+    response: z.object({ clip: SoundClipSchema }),
+  },
+  /** 把某個版本設為採用中。 */
+  'sound.adoptClip': {
+    request: z.object({ clipId: IdSchema }),
+    response: z.object({ clip: SoundClipSchema }),
+  },
+  'sound.removeClip': {
+    request: z.object({ clipId: IdSchema }),
+    response: z.object({}),
+  },
+  /** 聲音設定（逐項合併）：原聲開關與增益、哪幾鏡靜音原聲、旁白壓低、配樂增益。 */
+  'sound.updateSettings': {
+    request: SoundSettingsPatchSchema,
+    response: SoundSettingsSchema,
+  },
   /** 目前專案的大綱（沒有開啟專案就是空的）。 */
   'outline.get': {
     request: z.object({}),
@@ -817,6 +874,8 @@ export const ipcEvents = {
   'quickstart.progress': QuickStartProgressSchema,
   /** 鏡頭或版本有變動（完整快照）。 */
   'shots.changed': ShotsSnapshotSchema,
+  /** 聲音有變動（新的旁白、配樂、調整或設定；完整快照）。 */
+  'sound.changed': SoundStateSchema,
   /** 某個角色的概念圖有變動（完整快照）。 */
   'characters.conceptsChanged': ConceptsStateSchema,
   /** 某個角色的三視圖候選有變動（完整快照）。 */

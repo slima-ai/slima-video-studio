@@ -1,0 +1,183 @@
+import { afterEach, describe, expect, it } from 'vitest'
+
+import { createStudioHarness } from '../shots/test-harness'
+
+type Harness = ReturnType<typeof createStudioHarness>
+const open: Harness[] = []
+const setup = (options: Parameters<typeof createStudioHarness>[0] = {}): Harness => {
+  const harness = createStudioHarness(options)
+  open.push(harness)
+  return harness
+}
+afterEach(() => {
+  for (const harness of open.splice(0)) harness.cleanup()
+})
+
+/** 跑完一次快速開始（3 鏡、每鏡 3 秒），回傳鏡頭編號。 */
+async function withShots(h: Harness): Promise<string[]> {
+  await h.runQuickStart()
+  return h.shots.list().shots.map((s) => s.id)
+}
+
+describe('SoundService（示範模式）', () => {
+  it('沒開專案時回報白話錯誤', () => {
+    const h = setup()
+    expect(() => h.sound.state()).toThrow('請先開啟或建立一個專案')
+  })
+
+  it('狀態：鏡頭依序排在時間軸上（起點是前面各鏡長度的累加），預設設定全開，模型用示範的', async () => {
+    const h = setup()
+    const ids = await withShots(h)
+    const state = h.sound.state()
+    expect(state.shots.map((s) => s.shotId)).toEqual(ids)
+    expect(state.shots[0]?.startSec).toBe(0)
+    const [a, b, c] = state.shots
+    expect(b?.startSec).toBeCloseTo(a?.durationSec ?? -1)
+    expect(c?.startSec).toBeCloseTo((a?.durationSec ?? 0) + (b?.durationSec ?? 0))
+    expect(state.totalSec).toBeCloseTo(state.shots.reduce((sum, s) => sum + s.durationSec, 0))
+    expect(state.settings).toMatchObject({ nativeAudio: true, duck: true, musicGainDb: -18 })
+    expect(state.models).toEqual({ tts: 'mock/tts', music: 'mock/music' })
+    expect(state.music).toBeUndefined()
+    expect(state.warnings).toEqual([])
+  })
+
+  it('預估：只列有台詞而且還沒有旁白的鏡頭，加上配樂；不花錢', async () => {
+    const h = setup()
+    const [first, second] = await withShots(h)
+    if (!first || !second) throw new Error('應該有鏡頭')
+    h.shots.update(first, { dialogue: '黑藤爬滿了斷橋。' })
+    const plan = h.sound.plan({ narration: {}, music: {} })
+    expect(plan.ok).toBe(true)
+    expect(plan.items.map((i) => i.kind)).toEqual(['narration', 'music'])
+    expect(plan.items[0]?.shotId).toBe(first)
+    expect(plan.totalUsd).toBeCloseTo(plan.items.reduce((sum, i) => sum + i.estimatedUsd, 0))
+    // 指定鏡頭時，沒有台詞的鏡頭不列
+    expect(h.sound.plan({ narration: { shotIds: [second] } }).items).toEqual([])
+  })
+
+  it('旁白：念鏡頭的台詞，存成採用中的版本，量長度、記帳、推送 sound.changed', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    h.shots.update(first, { dialogue: '黑藤爬滿了斷橋。' })
+    const clip = await h.sound.generateNarration({ shotId: first })
+    expect(clip).toMatchObject({
+      kind: 'narration',
+      shotId: first,
+      text: '黑藤爬滿了斷橋。',
+      version: 1,
+      adopted: true,
+      modelId: 'mock/tts',
+      offsetSec: 0.4,
+    })
+    expect(clip.durationSec).toBeGreaterThan(0)
+    expect(clip.costEstimated).toBe(true)
+    expect(h.sound.state().shots[0]?.narration?.id).toBe(clip.id)
+    const handle = h.projects.current()
+    expect(handle?.repos.costs.list(handle.projectId).some((c) => c.jobId !== undefined)).toBe(true)
+    const pushed = h.events.filter((e) => e.name === 'sound.changed')
+    expect(pushed.length).toBeGreaterThan(0)
+  })
+
+  it('再生一次多一個版本並自動採用；可以改回舊版本、刪除，刪掉採用中的就採用剩下最新的', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    h.shots.update(first, { dialogue: '第一句。' })
+    const v1 = await h.sound.generateNarration({ shotId: first })
+    const v2 = await h.sound.generateNarration({ shotId: first, text: '改成第二句比較長的台詞。' })
+    expect([v1.version, v2.version]).toEqual([1, 2])
+    expect(h.sound.state().shots[0]?.narration?.id).toBe(v2.id)
+    h.sound.adoptClip(v1.id)
+    expect(h.sound.state().shots[0]?.narration?.id).toBe(v1.id)
+    h.sound.removeClip(v1.id)
+    expect(h.sound.state().shots[0]?.narration?.id).toBe(v2.id)
+  })
+
+  it('沒有台詞、文字太長、找不到鏡頭：送出前就用白話回報，不花錢', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    await expect(h.sound.generateNarration({ shotId: first })).rejects.toThrow('還沒有台詞')
+    await expect(
+      h.sound.generateNarration({ shotId: first, text: '字'.repeat(5001) }),
+    ).rejects.toThrow('旁白太長')
+    await expect(h.sound.generateNarration({ shotId: 'nope', text: 'x' })).rejects.toThrow(
+      '找不到這個鏡頭',
+    )
+    const handle = h.projects.current()
+    expect(handle?.repos.sound.listClips()).toEqual([])
+  })
+
+  it('同一鏡正在生成時不能重複開始', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    h.shots.update(first, { dialogue: '一句話。' })
+    const running = h.sound.generateNarration({ shotId: first })
+    await expect(h.sound.generateNarration({ shotId: first })).rejects.toThrow('正在生成中')
+    await running
+  })
+
+  it('旁白比鏡頭長很多：state 給白話警示，說是第幾鏡', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    h.shots.update(first, { dialogue: '很長的台詞'.repeat(20) })
+    await h.sound.generateNarration({ shotId: first })
+    const warning = h.sound.state().warnings.find((w) => w.kind === 'narration_too_long')
+    expect(warning?.shotId).toBe(first)
+    expect(warning?.message).toContain('第 1 鏡的旁白')
+  })
+
+  it('配樂：沒給描述就組一段純音樂的描述；整支一首，再生一次換成新版本', async () => {
+    const h = setup()
+    await withShots(h)
+    const clip = await h.sound.generateMusic({})
+    expect(clip).toMatchObject({ kind: 'music', version: 1, adopted: true, modelId: 'mock/music' })
+    expect(clip.shotId).toBeUndefined()
+    expect(clip.text).toContain('Instrumental only, no vocals')
+    expect(h.sound.state().music?.id).toBe(clip.id)
+    const second = await h.sound.generateMusic({ prompt: 'Calm piano, instrumental only.' })
+    expect(second.version).toBe(2)
+    expect(h.sound.state().music?.id).toBe(second.id)
+  })
+
+  it('調整片段與設定不花錢：起點、增益、淡化、哪幾鏡靜音原聲、關掉壓低', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    h.shots.update(first, { dialogue: '一句話。' })
+    const clip = await h.sound.generateNarration({ shotId: first })
+    const spentBefore = h.projects
+      .current()
+      ?.repos.costs.list(h.projects.current()?.projectId ?? '').length
+    const tuned = h.sound.updateClip(clip.id, { offsetSec: 1, gainDb: -3, fadeOutSec: 0.5 })
+    expect(tuned).toMatchObject({ offsetSec: 1, gainDb: -3, fadeOutSec: 0.5 })
+    expect(h.sound.updateClip(clip.id, { gainDb: null }).gainDb).toBeUndefined()
+    const settings = h.sound.updateSettings({ duck: false, muteNativeShotIds: [first] })
+    expect(settings).toMatchObject({ duck: false, nativeAudio: true, muteNativeShotIds: [first] })
+    expect(h.sound.state().shots[0]?.nativeMuted).toBe(true)
+    // 只改一項，其他不動
+    expect(h.sound.updateSettings({ musicGainDb: -24 })).toMatchObject({
+      duck: false,
+      musicGainDb: -24,
+    })
+    const spentAfter = h.projects
+      .current()
+      ?.repos.costs.list(h.projects.current()?.projectId ?? '').length
+    expect(spentAfter).toBe(spentBefore)
+  })
+
+  it('超過單次花費上限：送出前就擋下，並說明', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    h.settings.update({ budget: { perRunLimitUsd: 0.000001 } })
+    h.shots.update(first, { dialogue: '一句話。' })
+    const plan = h.sound.plan({ narration: {}, music: {} })
+    expect(plan.ok).toBe(false)
+    expect(plan.issue).toBeTruthy()
+    await expect(h.sound.generateMusic({})).rejects.toThrow()
+  })
+})

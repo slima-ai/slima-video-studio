@@ -64,12 +64,12 @@ describe('SettingsService.listModels', () => {
   it('示範模式只列示範模型，並自動選它們', () => {
     const { models, selected } = setup({ demoMode: true, keys: ['fal'] }).service.listModels()
     expect(new Set(models.map((m) => m.provider))).toEqual(new Set(['mock']))
-    // 示範模式沒有示範配樂，只有旁白
     expect(selected).toEqual({
       llm: 'mock/llm',
       t2i: 'mock/image',
       i2v: 'mock/video',
       tts: 'mock/tts',
+      music: 'mock/music',
     })
   })
 

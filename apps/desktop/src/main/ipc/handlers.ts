@@ -8,6 +8,7 @@ import type { LocationService } from '../locations/location-service'
 import type { OutlineService } from '../outline/outline-service'
 import type { StoryboardService } from '../storyboard/storyboard-service'
 import type { ConceptService } from '../characters/concept-service'
+import type { SoundService } from '../sound/sound-service'
 import type { CharacterService } from '../characters/character-service'
 import type { KeyVault } from '../keys/key-vault'
 import type { McpConnector } from '../mcp/connect'
@@ -60,6 +61,8 @@ export interface HandlerDeps {
   shots: ShotService
   characters: CharacterService
   concepts: ConceptService
+  /** 聲音服務；測試可以不給（呼叫時回報服務還沒準備好）。 */
+  sound?: SoundService
   turnarounds: TurnaroundService
   outline: OutlineService
   storyboard: StoryboardService
@@ -96,6 +99,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     shots,
     characters,
     concepts,
+    sound,
     turnarounds,
     outline,
     storyboard,
@@ -389,6 +393,34 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('characters.setAnchor', ({ characterId, text }) =>
     characters.setAnchor(characterId, text),
   )
+  const needSound = (): SoundService => {
+    if (!sound) {
+      throw new AppError({
+        code: 'internal_error',
+        userMessage: '聲音服務還沒準備好，請重新啟動 App。',
+      })
+    }
+    return sound
+  }
+  registry.registerHandler('sound.get', () => needSound().state())
+  registry.registerHandler('sound.plan', (request) => needSound().plan(request))
+  registry.registerHandler('sound.generateNarration', async (request) => ({
+    clip: await needSound().generateNarration(request),
+  }))
+  registry.registerHandler('sound.generateMusic', async (request) => ({
+    clip: await needSound().generateMusic(request),
+  }))
+  registry.registerHandler('sound.updateClip', ({ clipId, patch }) => ({
+    clip: needSound().updateClip(clipId, patch),
+  }))
+  registry.registerHandler('sound.adoptClip', ({ clipId }) => ({
+    clip: needSound().adoptClip(clipId),
+  }))
+  registry.registerHandler('sound.removeClip', ({ clipId }) => {
+    needSound().removeClip(clipId)
+    return {}
+  })
+  registry.registerHandler('sound.updateSettings', (patch) => needSound().updateSettings(patch))
   registry.registerHandler('characters.concepts', ({ characterId }) => concepts.state(characterId))
   registry.registerHandler('characters.conceptCheck', ({ characterId }) =>
     concepts.check(characterId),

@@ -8,6 +8,7 @@ import {
   type SoundClip,
   type SoundClipKind,
   type SoundSettings,
+  type SoundSettingsPatch,
 } from '@svs/schema'
 
 import type { AppDb } from '../database'
@@ -221,8 +222,10 @@ export class SoundRepository {
   }
 
   /** 逐項合併，驗證後存回；回傳合併後的設定。 */
-  updateSettings(patch: Partial<SoundSettings>): SoundSettings {
-    const next = SoundSettingsSchema.safeParse({ ...this.getSettings(), ...patch })
+  updateSettings(patch: SoundSettingsPatch): SoundSettings {
+    // 沒提到的欄位（undefined）不能蓋掉原值
+    const given = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined))
+    const next = SoundSettingsSchema.safeParse({ ...this.getSettings(), ...given })
     if (!next.success) throw invalid('聲音設定的內容不對。')
     this.db
       .insert(soundSettings)
