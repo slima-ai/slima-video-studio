@@ -1,5 +1,5 @@
 import type { SoundState } from '@svs/schema'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { appError, installFakeSvs } from '../../test/fake-svs'
@@ -147,6 +147,27 @@ describe('ShotSound：一個鏡頭的聲音', () => {
       expect(box.checked).toBe(true)
     })
     expect(screen.getByRole('alert').textContent).toContain('存不進去')
+  })
+
+  it('點掉之後主程序變成靜音、別處又改回來：勾選要跟著主程序回到勾著（暫存不能復活）', async () => {
+    const fake = installFakeSvs({
+      'sound.get': () => state(),
+      'sound.updateSettings': () => SETTINGS,
+    })
+    render(<ShotSound shotId="s1" />)
+    const box = await screen.findByTestId<HTMLInputElement>('shot-sound-native')
+    fireEvent.click(box)
+    expect(box.checked).toBe(false)
+    // 主程序存好了：這一鏡靜音
+    act(() => {
+      fake.emit('sound.changed', state({ shots: [view(1, { nativeMuted: true }), view(2)] }))
+    })
+    expect(box.checked).toBe(false)
+    // 別處（例如 MCP 的聲音設定）把它改回來：以主程序為準
+    act(() => {
+      fake.emit('sound.changed', state({ shots: [view(1, { nativeMuted: false }), view(2)] }))
+    })
+    expect(box.checked).toBe(true)
   })
 
   it('資料剛載入、畫面剛出現就點「用影片原聲」：不會被載入那一刻留下的重設蓋回去', async () => {
