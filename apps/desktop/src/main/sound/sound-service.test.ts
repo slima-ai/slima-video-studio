@@ -227,8 +227,10 @@ describe('SoundService：混音與成品（示範模式）', () => {
     await h.sound.generateNarration({ shotId: first })
     await h.sound.generateMusic({})
     expect(h.shots.finalCut()?.stale).toBe(true)
+    expect(h.sound.state().final).toMatchObject({ hasSound: false, soundStale: true })
 
     const { videoHash, version } = await h.sound.mix()
+    expect(h.sound.state().final).toMatchObject({ hasSound: true, soundStale: false })
     expect(version).toBe(plain.version + 1)
     const mixed = finalOf(h)
     expect(mixed.assetHash).toBe(videoHash)

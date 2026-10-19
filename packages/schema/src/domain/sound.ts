@@ -56,6 +56,8 @@ export const SoundSettingsSchema = z.object({
   muteNativeShotIds: z.array(IdSchema).default([]),
   /** 旁白出現時自動壓低原聲與配樂。 */
   duck: z.boolean().default(true),
+  /** 旁白的預設增益（dB）；片段自己有增益就用片段的。 */
+  narrationGainDb: z.number().min(-60).max(24).default(0),
   /** 配樂的增益（dB）。 */
   musicGainDb: z.number().min(-60).max(24).default(-18),
 })
@@ -109,6 +111,14 @@ export const SoundStateSchema = z.object({
   totalSec: z.number().min(0),
   /** 採用中的配樂。 */
   music: SoundClipSchema.optional(),
+  /** 最新一版成品；還沒接過片就沒有。soundStale＝聲音變了、成品還沒重混；hasSound＝成品裡已經混了聲音。 */
+  final: z
+    .object({
+      version: z.number().int().positive(),
+      hasSound: z.boolean(),
+      soundStale: z.boolean(),
+    })
+    .optional(),
   warnings: z.array(SoundWarningSchema),
   /** 現在會用的模型（沒有可用的就沒有）；voice 是旁白模型目前用的聲音。 */
   models: z.object({

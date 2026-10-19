@@ -34,6 +34,7 @@ describe('SoundSettingsSchema', () => {
       nativeGainDb: 0,
       muteNativeShotIds: [],
       duck: true,
+      narrationGainDb: 0,
       musicGainDb: -18,
     })
   })

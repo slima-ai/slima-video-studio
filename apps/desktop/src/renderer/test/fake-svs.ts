@@ -103,6 +103,20 @@ export function installFakeSvs(handlers: Partial<Record<IpcChannel, Handler>> = 
     'files.list': () => ({ files: [], exports: [], totalBytes: 0 }),
     'records.list': () => ({ records: [], total: 0, totalCostUsd: 0 }),
     'shots.list': () => ({ shots: [] }),
+    'sound.get': () => ({
+      settings: {
+        nativeAudio: true,
+        nativeGainDb: 0,
+        muteNativeShotIds: [],
+        duck: true,
+        narrationGainDb: 0,
+        musicGainDb: -18,
+      },
+      shots: [],
+      totalSec: 0,
+      warnings: [],
+      models: {},
+    }),
     'characters.list': () => ({ characters: [] }),
     'locations.list': () => ({ locations: [] }),
     'locations.images': (payload: { locationId: string }) => ({
