@@ -1,6 +1,6 @@
 {
   "name": "slima-video-studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Slima Video Studio: a node-based desktop studio that turns a story into an AI video (bring your own API keys)",
   "license": "Apache-2.0",
