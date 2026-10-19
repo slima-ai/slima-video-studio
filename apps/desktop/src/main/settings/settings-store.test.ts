@@ -28,6 +28,7 @@ describe('createSettingsStore', () => {
       budget: { perRunLimitUsd: 5 },
       modelNotices: [],
       storyboardGuide: '',
+      mcp: { enabled: false, port: 47821, allowanceUsd: 0 },
     })
   })
 
@@ -81,6 +82,22 @@ describe('applyPatch', () => {
   it('沒提到的欄位維持原樣', () => {
     expect(applyPatch(base, {})).toEqual(base)
     expect(applyPatch(base, { demoMode: true }).models).toEqual(base.models)
+  })
+
+  it('AI 工具連線：預設關閉、額度 0；更新逐項合併，只改給的欄位', () => {
+    expect(base.mcp).toEqual({ enabled: false, port: 47821, allowanceUsd: 0 })
+    const on = applyPatch(base, { mcp: { enabled: true } })
+    expect(on.mcp).toEqual({ enabled: true, port: 47821, allowanceUsd: 0 })
+    const more = applyPatch(on, { mcp: { allowanceUsd: 2.5 } })
+    expect(more.mcp).toEqual({ enabled: true, port: 47821, allowanceUsd: 2.5 })
+    // 改別的設定不會動到它
+    expect(applyPatch(more, { demoMode: true }).mcp).toEqual(more.mcp)
+    // 沒給的欄位（undefined）不會把原值蓋掉
+    expect(applyPatch(more, { mcp: { port: undefined, enabled: false } }).mcp).toEqual({
+      enabled: false,
+      port: 47821,
+      allowanceUsd: 2.5,
+    })
   })
 
   it('分鏡準則：存下去會去掉頭尾空白，傳空字串表示恢復預設', () => {

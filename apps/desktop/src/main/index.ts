@@ -9,6 +9,7 @@ import { createKeyVault } from './keys/key-vault'
 import { ProjectManager } from './project-manager'
 import { registerAllHandlers } from './ipc/handlers'
 import { installIpc } from './ipc/install'
+import { createMcpController, type McpController } from './mcp/controller'
 import { createIpcRegistry } from './ipc/registry'
 import { restoreLastProject } from './last-project'
 import { createLogger, type Logger } from './logger'
@@ -74,6 +75,7 @@ function guardWebContents(win: BrowserWindow, appUrl: () => string, log: Logger)
 let projects: ProjectManager | undefined
 let runtime: ProjectRuntime | undefined
 let slimaService: SlimaService | undefined
+let mcpController: McpController | undefined
 let mainLog: Logger | undefined
 
 // 目前只有一個主視窗，其 URL 同時是 IPC 寄件者驗證的依據
@@ -208,6 +210,16 @@ void app.whenReady().then(() => {
     demoMode: () => settings.get().demoMode,
   })
   restoreLastProject(join(userData, 'last-project.json'), projects, log)
+  const mcp = createMcpController({
+    registry,
+    settings,
+    keys,
+    broadcast: relay,
+    userDataDir: userData,
+    info: { name: APP_TITLE, version: app.getVersion() },
+    log,
+  })
+  mcpController = mcp
   runtime = studio.runtime
   slimaService = slima
   registerAllHandlers(registry, {
@@ -225,6 +237,7 @@ void app.whenReady().then(() => {
     }),
     settings,
     settingsService,
+    mcp,
     runtime,
     quickstart,
     upgrade,
@@ -247,6 +260,8 @@ void app.whenReady().then(() => {
   })
   broadcast = installIpc(registry, () => appUrl, log).broadcast
   slima.start()
+  // 使用者之前開著「AI 工具連線」，重開 App 後自動接回（預設是關的）
+  void mcp.sync()
 
   createMainWindow(log)
 
@@ -260,6 +275,7 @@ app.on('before-quit', () => {
   runShutdown(
     [
       ['中斷 Slima 連線', () => slimaService?.stop()],
+      ['停止 AI 工具連線', () => mcpController?.stop()],
       ['停止生成佇列', () => runtime?.dispose()],
       ['關閉專案', () => projects?.close()],
     ],

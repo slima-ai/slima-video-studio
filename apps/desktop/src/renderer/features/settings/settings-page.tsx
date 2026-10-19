@@ -4,6 +4,7 @@ import { Button } from '../../components/button'
 import { SkeletonCards } from '../../components/skeleton'
 import { GeneralSection } from './general-section'
 import { KeysSection } from './keys-section'
+import { McpSection } from './mcp-section'
 import { ModelsSection } from './models-section'
 import { ProjectModelsSection } from './project-models-section'
 import { SlimaSection } from './slima-section'
@@ -33,7 +34,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
   return (
     <Page
       title="設定"
-      hint="服務金鑰、使用的模型、分鏡準則、Slima 連線與外觀"
+      hint="服務金鑰、使用的模型、分鏡準則、AI 工具連線、Slima 連線與外觀"
       width="narrow"
       testId="settings-page"
     >
@@ -69,6 +70,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
               />
             ) : null}
             <StoryboardGuideSection settings={state.data.settings} onChanged={reload} />
+            <McpSection onChanged={reload} />
             <SlimaSection storageAvailable={state.data.storage.available} />
             <GeneralSection settings={state.data.settings} onChanged={reload} />
           </>

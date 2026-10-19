@@ -33,6 +33,19 @@ describe('分鏡準則', () => {
     expect(AppSettingsPatchSchema.parse({ storyboardGuide: '' })).toEqual({ storyboardGuide: '' })
   })
 
+  it('AI 工具連線的更新不會帶出沒提到的欄位的預設值；埠與額度有範圍', () => {
+    expect(AppSettingsPatchSchema.parse({ mcp: { enabled: true } })).toEqual({
+      mcp: { enabled: true },
+    })
+    expect(AppSettingsPatchSchema.safeParse({ mcp: { port: 80 } }).success).toBe(false)
+    expect(AppSettingsPatchSchema.safeParse({ mcp: { allowanceUsd: -1 } }).success).toBe(false)
+    expect(AppSettingsSchema.parse({}).mcp).toEqual({
+      enabled: false,
+      port: 47821,
+      allowanceUsd: 0,
+    })
+  })
+
   it('只改別的欄位的更新不會帶出預設的花費上限（不然會把使用者設的上限蓋掉）', () => {
     expect(AppSettingsPatchSchema.parse({ theme: 'light' })).toEqual({ theme: 'light' })
     expect(

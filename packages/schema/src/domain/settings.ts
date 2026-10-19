@@ -17,6 +17,20 @@ export const THEME_PREFERENCES = ['system', 'light', 'dark'] as const
 export const ThemePreferenceSchema = z.enum(THEME_PREFERENCES)
 export type ThemePreference = z.infer<typeof ThemePreferenceSchema>
 
+/** 給 AI 工具（Claude Code 等）連線的本機 MCP 伺服器預設埠。 */
+export const DEFAULT_MCP_PORT = 47821
+
+/**
+ * AI 工具連線（MCP）：預設關閉。額度（`allowanceUsd`）是「AI 工具可以花多少美金」，預設 0，
+ * 只有人在 App 的設定頁能改；MCP 的任何工具都改不了它。
+ */
+export const McpSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  port: z.number().int().min(1024).max(65535).default(DEFAULT_MCP_PORT),
+  allowanceUsd: UsdSchema.default(0),
+})
+export type McpSettings = z.infer<typeof McpSettingsSchema>
+
 const BudgetSettingsSchema = z.object({
   perRunLimitUsd: UsdSchema.default(DEFAULT_PER_RUN_LIMIT_USD),
   projectLimitUsd: UsdSchema.optional(),
@@ -42,6 +56,7 @@ export const AppSettingsSchema = z.object({
   modelNotices: z.array(z.string().min(1)).default([]),
   /** 自訂的分鏡準則；空字串表示用內建預設（DEFAULT_STORYBOARD_GUIDE）。 */
   storyboardGuide: z.string().max(STORYBOARD_GUIDE_MAX_CHARS).default(''),
+  mcp: McpSettingsSchema.default({ enabled: false, port: DEFAULT_MCP_PORT, allowanceUsd: 0 }),
 })
 export type AppSettings = z.infer<typeof AppSettingsSchema>
 
@@ -56,6 +71,14 @@ export const AppSettingsPatchSchema = z.object({
   budget: BudgetSettingsSchema.optional(),
   /** 自訂的分鏡準則；傳空字串表示恢復預設。 */
   storyboardGuide: z.string().max(STORYBOARD_GUIDE_MAX_CHARS).optional(),
+  /** AI 工具連線：逐項合併（只給要改的欄位）。不能直接用 McpSettingsSchema.partial()——欄位帶預設值，會把沒提到的欄位蓋回預設。 */
+  mcp: z
+    .object({
+      enabled: z.boolean().optional(),
+      port: z.number().int().min(1024).max(65535).optional(),
+      allowanceUsd: UsdSchema.optional(),
+    })
+    .optional(),
 })
 export type AppSettingsPatch = z.infer<typeof AppSettingsPatchSchema>
 

@@ -93,6 +93,25 @@ import {
 import { AppErrorShapeSchema, type AppErrorShape } from './errors'
 
 /** renderer 看得到的專案摘要（不包含資料庫、路徑以外的內部細節）。 */
+/** AI 工具連線（MCP）的狀態（見 `mcp.status`）。 */
+export const McpStatusSchema = z.object({
+  enabled: z.boolean(),
+  /** 伺服器真的在聽（開了、而且埠沒被佔用）。 */
+  running: z.boolean(),
+  port: z.number().int(),
+  /** 在聽的時候才有：`http://127.0.0.1:<埠>/mcp`。 */
+  url: z.string().optional(),
+  /** 連線用的 token（只給設定頁顯示與複製）。 */
+  token: z.string().optional(),
+  /** 開了卻沒在聽的原因（例如埠被佔用）。 */
+  error: z.string().optional(),
+  /** AI 工具可以花的額度（美金），由人在設定頁設定。 */
+  allowanceUsd: z.number().nonnegative(),
+  /** 已經預留給 AI 工具的金額（美金）；額度減掉它就是還能花的。 */
+  committedUsd: z.number().nonnegative(),
+})
+export type McpStatus = z.infer<typeof McpStatusSchema>
+
 export const ProjectInfoSchema = z.object({
   id: IdSchema,
   name: z.string(),
@@ -386,6 +405,24 @@ export const ipcContract = {
   'settings.update': {
     request: AppSettingsPatchSchema,
     response: AppSettingsSchema,
+  },
+  /**
+   * AI 工具連線（MCP）的狀態：有沒有在聽、網址、連線用的 token、額度與已預留的金額。
+   * 只給 App 自己的畫面用（設定頁要顯示可複製的連線指令）；MCP 的工具看不到也改不了這幾項。
+   */
+  'mcp.status': {
+    request: z.object({}),
+    response: McpStatusSchema,
+  },
+  /** 換一組新的連線 token（舊的立刻失效）。 */
+  'mcp.regenerateToken': {
+    request: z.object({}),
+    response: McpStatusSchema,
+  },
+  /** 把「已預留」的金額歸零（人決定重新開始算額度）。 */
+  'mcp.resetCommitted': {
+    request: z.object({}),
+    response: McpStatusSchema,
   },
   /**
    * 目前可以選的模型：已填 Key 的供應商（示範模式再加上示範模型）。

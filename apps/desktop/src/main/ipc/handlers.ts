@@ -1,5 +1,5 @@
 import type { ProjectLibrary } from '../project-library'
-import { AppError, KEY_PROVIDERS } from '@svs/schema'
+import { AppError, KEY_PROVIDERS, type McpStatus } from '@svs/schema'
 
 import type { HistoryService } from '../history/history-service'
 import { addLabel, outlineLabel, shotEditLabel } from '../history/history-service'
@@ -10,6 +10,7 @@ import type { StoryboardService } from '../storyboard/storyboard-service'
 import type { ConceptService } from '../characters/concept-service'
 import type { CharacterService } from '../characters/character-service'
 import type { KeyVault } from '../keys/key-vault'
+import type { McpController } from '../mcp/controller'
 import type { KeyTester } from '../keys/key-tester'
 import type { ProjectManager } from '../project-manager'
 import type { QuickStartService } from '../quickstart/quickstart-service'
@@ -42,6 +43,8 @@ export interface HandlerDeps {
   keyTester: KeyTester
   settings: SettingsStore
   settingsService: SettingsService
+  /** AI 工具連線（MCP）；測試可以不給（狀態會是「沒開」）。 */
+  mcp?: McpController
   runtime: QueueAccess
   quickstart: QuickStartService
   upgrade: UpgradeService
@@ -76,6 +79,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     keyTester,
     settings,
     settingsService,
+    mcp,
     runtime,
     quickstart,
     upgrade,
@@ -250,7 +254,19 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   })
 
   registry.registerHandler('settings.get', () => settings.get())
-  registry.registerHandler('settings.update', (patch) => settingsService.update(patch))
+  registry.registerHandler('settings.update', async (patch) => {
+    const next = settingsService.update(patch)
+    // 改了「AI 工具連線」的開關或埠，伺服器要跟著啟動／停止／換埠
+    await mcp?.sync()
+    return next
+  })
+  const mcpOff = (): McpStatus => {
+    const { port, allowanceUsd } = settings.get().mcp
+    return { enabled: false, running: false, port, allowanceUsd, committedUsd: 0 }
+  }
+  registry.registerHandler('mcp.status', () => mcp?.status() ?? mcpOff())
+  registry.registerHandler('mcp.regenerateToken', () => mcp?.regenerateToken() ?? mcpOff())
+  registry.registerHandler('mcp.resetCommitted', () => mcp?.resetCommitted() ?? mcpOff())
   registry.registerHandler('models.list', () => settingsService.listModels())
   registry.registerHandler('models.setProject', ({ models }) => {
     settingsService.setProjectModels(models)
