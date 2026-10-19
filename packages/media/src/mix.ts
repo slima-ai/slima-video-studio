@@ -34,6 +34,8 @@ export interface MixOptions extends RunOptions {
   nativeGainDb?: number
   /** 靜音影片原聲（仍然保留影片長度）。 */
   muteNative?: boolean
+  /** 只靜音影片原聲的某幾段（例如不想要原聲的鏡頭）；秒數從影片開頭算起。 */
+  nativeMutes?: readonly { startSec: number; endSec: number }[]
   /** 旁白出現時自動壓低原聲與配樂；預設開。 */
   duck?: boolean
   /** 整體響度正規化；預設開，目標 −16 LUFS、真峰值 −1.5 dBTP。 */
@@ -170,6 +172,7 @@ export function buildMixGraph(input: {
   music?: MusicPlan
   nativeGainDb: number
   muteNative: boolean
+  nativeMutes?: readonly { startSec: number; endSec: number }[]
   duck: boolean
 }): MixPlan {
   const { videoSec } = input
@@ -177,7 +180,13 @@ export function buildMixGraph(input: {
   const parts: string[] = []
 
   // 影片原聲（沒有聲音的影片就用靜音墊著，讓整支長度對得上）
-  const nativeGain = input.muteNative ? 'volume=0' : `volume=${num(input.nativeGainDb)}dB`
+  const rangeMutes = (input.nativeMutes ?? []).map(
+    (r) => `volume=0:enable='between(t,${num(r.startSec)},${num(r.endSec)})'`,
+  )
+  const nativeGain = [
+    input.muteNative ? 'volume=0' : `volume=${num(input.nativeGainDb)}dB`,
+    ...(input.muteNative ? [] : rangeMutes),
+  ].join(',')
   parts.push(
     input.videoHasAudio
       ? `[0:a]${STEREO},${nativeGain}[nat]`
@@ -421,6 +430,7 @@ export async function mixAudio(
     ...(music ? { music } : {}),
     nativeGainDb: options.nativeGainDb ?? 0,
     muteNative: options.muteNative ?? false,
+    ...(options.nativeMutes === undefined ? {} : { nativeMutes: options.nativeMutes }),
     duck: options.duck ?? true,
   })
   const inputArgs = plan.inputs.flatMap((file) => ['-i', file])

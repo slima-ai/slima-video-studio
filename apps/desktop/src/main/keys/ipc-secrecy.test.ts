@@ -129,6 +129,7 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'sound.updateClip': [{ clipId: 'nope', patch: { gainDb: -3 } }],
   'sound.adoptClip': [{ clipId: 'nope' }],
   'sound.removeClip': [{ clipId: 'nope' }],
+  'sound.mix': [{}],
   'sound.updateSettings': [{ duck: false }],
   'outline.get': [{}],
   'outline.edit': [{ op: 'addAct' }],

@@ -71,6 +71,17 @@ export interface ShotServiceDeps {
   tools?: () => MediaTools | undefined
   /** 還沒有開啟專案時，新增鏡頭會自動建一個，放在這個資料夾（沒給就不自動建）。 */
   projectsDir?: string
+  /**
+   * 接片之後的聲音混音：有旁白、配樂或原聲設定就把它們混進接好的影片，回傳混好的成品與聲音指紋；
+   * 沒有聲音要處理就回傳 undefined（成品就是接片的結果）。
+   */
+  mixSound?: (
+    handle: ProjectHandle,
+    joined: AssetRef,
+    signal: AbortSignal,
+  ) => Promise<{ asset: AssetRef; soundKey: string } | undefined>
+  /** 現在的聲音指紋（沒有聲音要處理是 undefined）；跟成品記的不一樣，成品就是過期的。 */
+  soundKeyNow?: (handle: ProjectHandle) => string | undefined
   now?: () => Date
 }
 
@@ -394,11 +405,18 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       }))
 
   /** 存下一個新的成品版本，記住用了哪些影片版本（之後判斷成品是不是對不上）。 */
-  const recordFinal = (handle: ProjectHandle, hash: string, takeIds: readonly string[]): void => {
+  const recordFinal = (
+    handle: ProjectHandle,
+    hash: string,
+    takeIds: readonly string[],
+    sound?: { baseAssetHash: string; soundKey: string },
+  ): void => {
     handle.repos.finalCuts.record({
       assetHash: hash,
       durationSec: handle.assets.getMeta(hash)?.durationSec,
       takeIds,
+      baseAssetHash: sound?.baseAssetHash,
+      soundKey: sound?.soundKey,
     })
   }
 
@@ -407,7 +425,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     if (!latest) return undefined
     const now = cutTakes(handle).map((c) => c.take?.id ?? '')
     const stale =
-      now.length !== latest.takeIds.length || now.some((id, i) => id !== latest.takeIds[i])
+      now.length !== latest.takeIds.length ||
+      now.some((id, i) => id !== latest.takeIds[i]) ||
+      deps.soundKeyNow?.(handle) !== latest.soundKey
     return {
       version: latest.version,
       assetHash: latest.assetHash,
@@ -1540,14 +1560,19 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       }).concatVideos(refs, {
         signal: new AbortController().signal,
       })
+      const takeIds = list.flatMap(({ take }) => (take ? [take.id] : []))
+      // 有聲音要處理就混進去：成品是混好的，接片的結果另外記著（之後只改聲音時不用重新接片）
+      const mixed = await deps.mixSound?.(handle, joined, new AbortController().signal)
+      const finalHash = mixed?.asset.hash ?? joined.hash
       recordFinal(
         handle,
-        joined.hash,
-        list.flatMap(({ take }) => (take ? [take.id] : [])),
+        finalHash,
+        takeIds,
+        mixed ? { baseAssetHash: joined.hash, soundKey: mixed.soundKey } : undefined,
       )
       changed(s)
-      for (const listener of rejoinListeners) listener(joined.hash)
-      return { videoHash: joined.hash }
+      for (const listener of rejoinListeners) listener(finalHash)
+      return { videoHash: finalHash }
     },
 
     beginQuickStart(context) {

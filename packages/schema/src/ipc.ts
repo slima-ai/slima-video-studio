@@ -676,6 +676,11 @@ export const ipcContract = {
     request: z.object({ clipId: IdSchema }),
     response: z.object({}),
   },
+  /** 把聲音混進最新的成品（不花錢、不用重新接片），存成新的成品版本。 */
+  'sound.mix': {
+    request: z.object({}),
+    response: z.object({ videoHash: z.string(), version: z.number().int().positive() }),
+  },
   /** 聲音設定（逐項合併）：原聲開關與增益、哪幾鏡靜音原聲、旁白壓低、配樂增益。 */
   'sound.updateSettings': {
     request: SoundSettingsPatchSchema,

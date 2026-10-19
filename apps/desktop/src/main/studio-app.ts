@@ -130,6 +130,8 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
       ? {}
       : { openrouterBaseUrl: options.openrouterBaseUrl }),
   })
+  // 聲音服務在鏡頭服務之後才建（它需要鏡頭服務推送快照），接片時再用 soundRef 呼叫它
+  const soundRef: { current?: SoundService } = {}
   const shots = createShotService({
     projectsDir: options.projectsDir,
     projects,
@@ -139,6 +141,9 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     models,
     broadcast,
     log,
+    mixSound: (handle, joined, signal) =>
+      soundRef.current?.mixInto(handle, joined, signal) ?? Promise.resolve(undefined),
+    soundKeyNow: (handle) => soundRef.current?.soundKey(handle),
     ...toolsOption,
   })
   const quickstart = createQuickStartService({
@@ -187,8 +192,10 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     models,
     broadcast,
     log,
+    shots,
     ...toolsOption,
   })
+  soundRef.current = sound
   const turnarounds = createTurnaroundService({
     projects,
     runtime,

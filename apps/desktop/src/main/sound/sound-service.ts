@@ -1,6 +1,9 @@
 import type { ProjectHandle } from '@svs/db'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { budgetExceededError, checkBudget } from '@svs/engine'
-import { probe, type MediaTools } from '@svs/media'
+import { mixAudio, probe, type MediaTools, type MixClip } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
@@ -8,6 +11,7 @@ import {
   NARRATION_MAX_CHARS,
   billableChars,
   isAppError,
+  type AssetRef,
   type SoundClip,
   type SoundClipPatchInput,
   type SoundPlan,
@@ -19,6 +23,7 @@ import {
   type SoundWarning,
 } from '@svs/schema'
 
+import type { ShotService } from '../shots/shot-service'
 import type { Logger } from '../logger'
 import type { ProjectManager } from '../project-manager'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
@@ -35,6 +40,8 @@ export interface SoundServiceDeps {
   broadcast: Broadcast
   log: Pick<Logger, 'info' | 'warn' | 'error'>
   tools?: () => MediaTools | undefined
+  /** 混音後成品有變動時，叫鏡頭服務推送最新的快照（成品面板跟著更新）。 */
+  shots?: Pick<ShotService, 'list'>
 }
 
 export interface SoundService {
@@ -53,6 +60,16 @@ export interface SoundService {
   adoptClip: (clipId: string) => SoundClip
   removeClip: (clipId: string) => void
   updateSettings: (patch: SoundSettingsPatch) => SoundSettings
+  /** 目前聲音的指紋（採用中的片段與設定）；沒有聲音要處理是 undefined。成品記著它，不一樣就是過期。 */
+  soundKey: (handle: ProjectHandle) => string | undefined
+  /** 把聲音混進接好的影片（接片時用）；沒有聲音要處理回傳 undefined。 */
+  mixInto: (
+    handle: ProjectHandle,
+    base: AssetRef,
+    signal: AbortSignal,
+  ) => Promise<{ asset: AssetRef; soundKey: string } | undefined>
+  /** 用最新成品的接片結果重新混音（不花錢、不用重新接片），存成新的成品版本。 */
+  mix: () => Promise<{ videoHash: string; version: number }>
 }
 
 const invalid = (userMessage: string): AppError =>
@@ -181,6 +198,113 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
   }
 
   /** 專案預算（單次上限、專案上限）：超過就回報白話說明。 */
+  /** 要不要混音：有採用中的旁白或配樂，或原聲設定不是預設（增益、靜音某幾鏡）。 */
+  const soundWork = (handle: ProjectHandle): boolean => {
+    const s = handle.repos.sound.getSettings()
+    return (
+      handle.repos.sound.listClips({ adoptedOnly: true }).length > 0 ||
+      s.nativeGainDb !== 0 ||
+      s.muteNativeShotIds.length > 0
+    )
+  }
+
+  const soundKeyOf = (handle: ProjectHandle): string | undefined => {
+    if (!soundWork(handle)) return undefined
+    const s = handle.repos.sound.getSettings()
+    const clips = handle.repos.sound.listClips({ adoptedOnly: true })
+    // 旁白的位置跟各鏡的起點有關，所以鏡頭起點也算進去
+    const starts = timeline(handle).map((v) => [v.shotId, Number(v.startSec.toFixed(3))])
+    return JSON.stringify({
+      c: clips.map((c) => [c.id, c.offsetSec, c.gainDb, c.fadeInSec, c.fadeOutSec]),
+      s: [s.nativeGainDb, [...s.muteNativeShotIds].sort(), s.duck, s.musicGainDb],
+      t: starts,
+    })
+  }
+
+  const mixInto = async (
+    handle: ProjectHandle,
+    base: AssetRef,
+    signal: AbortSignal,
+  ): Promise<{ asset: AssetRef; soundKey: string } | undefined> => {
+    const soundKey = soundKeyOf(handle)
+    if (soundKey === undefined) return undefined
+    const tool = tools()
+    if (!tool) {
+      throw new AppError({
+        code: 'internal_error',
+        userMessage: '找不到影片處理工具（FFmpeg），沒辦法混音。',
+      })
+    }
+    const pathOf = (hash: string): string => {
+      const found = handle.assets.find(hash)
+      if (!found) throw invalid('找不到聲音檔，可能已被刪除。')
+      return found.path
+    }
+    const settings = handle.repos.sound.getSettings()
+    const views = timeline(handle)
+    const totalSec = views.reduce((sum, v) => sum + v.durationSec, 0)
+    const narration: MixClip[] = []
+    for (const view of views) {
+      const clip = view.narration
+      if (!clip) continue
+      const startSec = view.startSec + clip.offsetSec
+      if (startSec >= totalSec - 0.05) continue // 超出片長的旁白沒辦法混，state 的警示會提醒
+      narration.push({
+        file: pathOf(clip.assetHash),
+        startSec,
+        ...(clip.gainDb === undefined ? {} : { gainDb: clip.gainDb }),
+        ...(clip.fadeInSec === undefined ? {} : { fadeInSec: clip.fadeInSec }),
+        ...(clip.fadeOutSec === undefined ? {} : { fadeOutSec: clip.fadeOutSec }),
+      })
+    }
+    const music = handle.repos.sound
+      .listClips({ adoptedOnly: true })
+      .find((c) => c.kind === 'music')
+    const mutes = views
+      .filter((v) => v.nativeMuted)
+      .map((v) => ({ startSec: v.startSec, endSec: v.startSec + v.durationSec }))
+    const dir = await mkdtemp(join(tmpdir(), 'svs-mix-'))
+    try {
+      const out = join(dir, 'mixed.mp4')
+      await mixAudio(tool, pathOf(base.hash), out, {
+        signal,
+        narration,
+        ...(music
+          ? {
+              music: {
+                file: pathOf(music.assetHash),
+                gainDb: music.gainDb ?? settings.musicGainDb,
+                ...(music.fadeInSec === undefined ? {} : { fadeInSec: music.fadeInSec }),
+                ...(music.fadeOutSec === undefined ? {} : { fadeOutSec: music.fadeOutSec }),
+              },
+            }
+          : {}),
+        nativeGainDb: settings.nativeGainDb,
+        nativeMutes: mutes,
+        duck: settings.duck,
+      })
+      const info = await probe(tool, out, { signal })
+      const meta = {
+        ...(info.width ? { width: info.width } : {}),
+        ...(info.height ? { height: info.height } : {}),
+        durationSec: info.durationSec,
+      }
+      const stored = await handle.assets.put(new Uint8Array(await readFile(out)), 'video/mp4', meta)
+      return {
+        asset: {
+          hash: stored.hash,
+          kind: 'video',
+          mime: 'video/mp4',
+          bytes: stored.bytes,
+          ...meta,
+        },
+        soundKey,
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  }
+
   const budgetIssue = (handle: ProjectHandle, usd: number): string | undefined => {
     const exceeded = checkBudget({
       budget: settings.get().budget,
@@ -426,6 +550,41 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       const next = handle.repos.sound.updateSettings(patch)
       changed(handle)
       return next
+    },
+
+    soundKey: soundKeyOf,
+    mixInto,
+
+    async mix() {
+      const handle = need()
+      const latest = handle.repos.finalCuts.latest()
+      if (!latest) throw invalid('還沒有接好的成品，先把鏡頭接成一支影片。')
+      const baseHash = latest.baseAssetHash ?? latest.assetHash
+      const meta = handle.assets.getMeta(baseHash)
+      if (!meta) throw invalid('找不到接好的影片，請重新接片。')
+      const base: AssetRef = {
+        hash: meta.hash,
+        kind: 'video',
+        mime: meta.mime,
+        bytes: meta.bytes,
+        ...(meta.width ? { width: meta.width } : {}),
+        ...(meta.height ? { height: meta.height } : {}),
+        ...(meta.durationSec === undefined ? {} : { durationSec: meta.durationSec }),
+      }
+      const mixed = await mixInto(handle, base, new AbortController().signal)
+      const finalHash = mixed?.asset.hash ?? baseHash
+      const record = handle.repos.finalCuts.record({
+        assetHash: finalHash,
+        durationSec: handle.assets.getMeta(finalHash)?.durationSec,
+        takeIds: latest.takeIds,
+        baseAssetHash: mixed ? baseHash : undefined,
+        soundKey: mixed?.soundKey,
+      })
+      if (!handle.closed) {
+        if (deps.shots) broadcast('shots.changed', deps.shots.list())
+        changed(handle)
+      }
+      return { videoHash: finalHash, version: record.version }
     },
   }
 

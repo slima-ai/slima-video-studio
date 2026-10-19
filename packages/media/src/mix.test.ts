@@ -169,6 +169,24 @@ describe('mixAudio：對齊與長度', () => {
     }
   })
 
+  it('只靜音原聲的某一段（例如某一鏡）：那段的 220 Hz 消失，前後都還在', async () => {
+    const out = path('native-range-muted.mp4')
+    await mixAudio(tools, soundVideo, out, {
+      nativeMutes: [{ startSec: 4, endSec: 7 }],
+      normalize: false,
+    })
+    const band220 = { filter: band(220) }
+    expect(
+      await measureRmsDb(tools, out, { startSec: 1, durationSec: 2, ...band220 }),
+    ).toBeGreaterThan(-45)
+    expect(
+      await measureRmsDb(tools, out, { startSec: 4.3, durationSec: 2.4, ...band220 }),
+    ).toBeLessThan(-60)
+    expect(
+      await measureRmsDb(tools, out, { startSec: 7.5, durationSec: 2, ...band220 }),
+    ).toBeGreaterThan(-45)
+  })
+
   it('靜音影片原聲：220 Hz 消失，但長度不變', async () => {
     const kept = path('native-kept.mp4')
     const muted = path('native-muted.mp4')

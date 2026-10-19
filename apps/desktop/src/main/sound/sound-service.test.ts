@@ -1,3 +1,4 @@
+import { probe, resolveTools } from '@svs/media'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { createStudioHarness } from '../shots/test-harness'
@@ -179,5 +180,115 @@ describe('SoundService（示範模式）', () => {
     expect(plan.ok).toBe(false)
     expect(plan.issue).toBeTruthy()
     await expect(h.sound.generateMusic({})).rejects.toThrow()
+  })
+})
+
+describe('SoundService：混音與成品（示範模式）', () => {
+  const tools = resolveTools()
+  const finalOf = (h: Harness) => {
+    const handle = h.projects.current()
+    const latest = handle?.repos.finalCuts.latest()
+    if (!latest) throw new Error('還沒有成品')
+    return latest
+  }
+  const durationOf = async (
+    h: Harness,
+    hash: string,
+  ): Promise<{ hasAudio: boolean; durationSec: number }> => {
+    const found = h.projects.current()?.assets.find(hash)
+    if (!found) throw new Error('找不到素材')
+    return probe(tools, found.path)
+  }
+
+  it('還沒有接好的成品時不能混音', async () => {
+    const h = setup()
+    // 只新增一個空鏡頭（會自動建專案），還沒接過片
+    h.shots.create({})
+    await expect(h.sound.mix()).rejects.toThrow('還沒有接好的成品')
+  })
+
+  it('沒有聲音要處理：接片的成品就是接片的結果，不算過期', async () => {
+    const h = setup()
+    await withShots(h)
+    await h.shots.rejoin()
+    const latest = finalOf(h)
+    expect(latest.baseAssetHash).toBeUndefined()
+    expect(latest.soundKey).toBeUndefined()
+    expect(h.shots.finalCut()?.stale).toBe(false)
+  })
+
+  it('加了旁白與配樂之後成品變過期；混音產生新的成品版本（有聲、長度不變、記得接片結果），不再過期', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    await h.shots.rejoin()
+    const plain = finalOf(h)
+    h.shots.update(first, { dialogue: '黑藤爬滿了斷橋。' })
+    await h.sound.generateNarration({ shotId: first })
+    await h.sound.generateMusic({})
+    expect(h.shots.finalCut()?.stale).toBe(true)
+
+    const { videoHash, version } = await h.sound.mix()
+    expect(version).toBe(plain.version + 1)
+    const mixed = finalOf(h)
+    expect(mixed.assetHash).toBe(videoHash)
+    expect(mixed.baseAssetHash).toBe(plain.assetHash)
+    expect(mixed.soundKey).toBeTruthy()
+    expect(h.shots.finalCut()?.stale).toBe(false)
+    const before = await durationOf(h, plain.assetHash)
+    const after = await durationOf(h, videoHash)
+    expect(after.hasAudio).toBe(true)
+    expect(after.durationSec).toBeCloseTo(before.durationSec, 0)
+
+    // 只調整音量也會讓成品過期，重混就好（接片的結果沒變）
+    const narration = h.sound.state().shots[0]?.narration
+    if (!narration) throw new Error('應該有旁白')
+    h.sound.updateClip(narration.id, { gainDb: -6 })
+    expect(h.shots.finalCut()?.stale).toBe(true)
+    await h.sound.mix()
+    expect(finalOf(h).baseAssetHash).toBe(plain.assetHash)
+    expect(h.shots.finalCut()?.stale).toBe(false)
+  })
+
+  it('有聲音之後重新接片會自動混音：成品是混好的，不用再按混音', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    h.shots.update(first, { dialogue: '一句話。' })
+    await h.sound.generateNarration({ shotId: first })
+    const { videoHash } = await h.shots.rejoin()
+    const latest = finalOf(h)
+    expect(latest.assetHash).toBe(videoHash)
+    expect(latest.baseAssetHash).toBeTruthy()
+    expect(latest.baseAssetHash).not.toBe(videoHash)
+    expect(h.shots.finalCut()?.stale).toBe(false)
+  })
+
+  it('把聲音都刪掉再混音：成品回到接片的結果，不再有聲音指紋', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    h.shots.update(first, { dialogue: '一句話。' })
+    const clip = await h.sound.generateNarration({ shotId: first })
+    await h.shots.rejoin()
+    const mixed = finalOf(h)
+    h.sound.removeClip(clip.id)
+    await h.sound.mix()
+    const back = finalOf(h)
+    expect(back.assetHash).toBe(mixed.baseAssetHash)
+    expect(back.soundKey).toBeUndefined()
+    expect(h.shots.finalCut()?.stale).toBe(false)
+  })
+
+  it('靜音某一鏡的原聲也能混（只設定、沒有其他聲音）', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    await h.shots.rejoin()
+    h.sound.updateSettings({ muteNativeShotIds: [first] })
+    expect(h.shots.finalCut()?.stale).toBe(true)
+    await h.sound.mix()
+    expect(finalOf(h).soundKey).toBeTruthy()
+    expect(h.shots.finalCut()?.stale).toBe(false)
   })
 })
