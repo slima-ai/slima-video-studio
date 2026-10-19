@@ -63,8 +63,9 @@ export function claudeAddArgs(bridge: BridgeCommand): string[] {
     'add',
     '--scope',
     'user',
-    ...Object.entries(bridge.env).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
+    // 名字一定要放在 -e 前面：-e 會吃掉後面所有參數（實測：放後面會報 Invalid environment variable format）
     SERVER_NAME,
+    ...Object.entries(bridge.env).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
     '--',
     bridge.command,
     ...bridge.args,

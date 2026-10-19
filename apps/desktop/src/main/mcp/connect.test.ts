@@ -60,7 +60,7 @@ describe('設定檔位置與轉接指令', () => {
     const mac = claudeCodeBridgeCommand(BRIDGE, 'darwin')
     expect(
       mac.startsWith(
-        'claude mcp add --scope user -e ELECTRON_RUN_AS_NODE=1 slima-video-studio -- ',
+        'claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- ',
       ),
     ).toBe(true)
     expect(mac).toContain(
@@ -79,11 +79,13 @@ describe('設定檔位置與轉接指令', () => {
 
   it('claude mcp add 的參數是陣列：有空白、有單引號的路徑各是一個元素，不會被拆開', () => {
     const args = claudeAddArgs(BRIDGE)
-    expect(args.slice(0, 6)).toEqual([
+    // 名字要在 -e 前面（-e 會吃掉後面的參數；用真的 claude 指令驗證過）
+    expect(args.slice(0, 7)).toEqual([
       'mcp',
       'add',
       '--scope',
       'user',
+      'slima-video-studio',
       '-e',
       'ELECTRON_RUN_AS_NODE=1',
     ])
