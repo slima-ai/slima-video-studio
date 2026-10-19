@@ -24,6 +24,7 @@ import {
   type Shot,
   type ShotBatchCheck,
   type ShotBatchRequest,
+  type ShotBatchStage,
   type ShotBatchResult,
   type ShotEdit,
   type ShotView,
@@ -277,6 +278,8 @@ export function nextVariations(
       return { imageVariation: seedOf(adopted(frames)), videoVariation: next(videos) }
     case 'all':
       return { imageVariation: next(frames), videoVariation: next(videos) }
+    case 'frame':
+      return { imageVariation: next(frames), videoVariation: seedOf(adopted(videos)) }
   }
 }
 
@@ -771,7 +774,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const editModel = referenceEditModel(anchors, settingsService, models, scenes)
     const uploaded = uploadedFrameOf(handle, shot.id)
     const firstFrame = uploaded ? assetRefOf(handle, uploaded.assetHash) : undefined
-    const flow = buildShotWorkflow({
+    const full = buildShotWorkflow({
       style: toStyle(project.defaultStyleId),
       durationSec: shot.durationSec,
       aspectRatio: project.aspectRatio,
@@ -782,6 +785,22 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(firstFrame ? { firstFrame } : {}),
       ...variations,
     })
+    // 只生成首幀圖：拿掉影片節點，輸出改成首幀圖（花費預估與執行都不含影片）
+    const flow =
+      mode === 'frame'
+        ? {
+            ...full,
+            nodes: full.nodes.filter((n) => n.id !== 'video'),
+            edges: [
+              ...full.edges.filter((e) => e.from.nodeId !== 'video' && e.to.nodeId !== 'video'),
+              {
+                id: 'b5',
+                from: { nodeId: 'image', port: 'image' },
+                to: { nodeId: 'out', port: 'value' },
+              },
+            ],
+          }
+        : full
     return {
       flow,
       ctx: {
@@ -913,6 +932,19 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     return { ...base, ok: true, estimatedUsd, estimateIsLowerBound: lowerBound }
   }
 
+  /** 批次生成這一步每個鏡頭要用的重新生成方式：只生首幀→frame；只生影片→已有影片換新的、沒有就補；全做→all。 */
+  const batchModeOf = (
+    handle: ProjectHandle,
+    shot: Shot,
+    stage: ShotBatchStage,
+  ): RegenerateMode => {
+    if (stage === 'frame') return 'frame'
+    if (stage === 'video') {
+      return handle.repos.shots.listTakes(shot.id, 'video').length > 0 ? 'video' : 'apply'
+    }
+    return 'all'
+  }
+
   /** 批次生成：分出「真的要做」「已經生成過」「正在生成」，並加總預估花費。 */
   const checkBatch = (
     s: Session,
@@ -920,15 +952,21 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   ): { check: ShotBatchCheck; toRun: Shot[] } => {
     const { handle } = s
     const { shots } = handle.repos
+    const stage = request.stage ?? 'full'
     const wanted = new Set(request.shotIds)
     const picked = shots.list().filter((shot) => wanted.has(shot.id))
+    const hasFrame = (shot: Shot): boolean =>
+      shots.listTakes(shot.id, 'first_frame').some((t) => t.adopted)
+    const hasVideo = (shot: Shot): boolean => shots.listTakes(shot.id, 'video').length > 0
     let skippedBusy = 0
     let skippedGenerated = 0
+    let skippedNoFrame = 0
     const toRun: Shot[] = []
     for (const shot of picked) {
       if (s.regens.has(shot.id)) skippedBusy++
-      else if (request.skipGenerated && shots.listTakes(shot.id, 'video').length > 0)
+      else if (request.skipGenerated && (stage === 'frame' ? hasFrame(shot) : hasVideo(shot)))
         skippedGenerated++
+      else if (stage === 'video' && !hasFrame(shot)) skippedNoFrame++
       else toRun.push(shot)
     }
     const quality = request.draft === true ? 'budget' : undefined
@@ -937,6 +975,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       willGenerate: toRun.length,
       skippedGenerated,
       skippedBusy,
+      skippedNoFrame,
       demoMode,
       models: names,
     }
@@ -947,26 +986,45 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
 
     if (picked.length === 0) return fail('找不到選取的鏡頭。')
     if (s.quick) return fail('整支影片正在生成，等它完成再生成鏡頭。')
-    if (!image || !video) {
-      return fail('還沒有可用的圖片或影片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。')
+    // 只生首幀圖不需要影片模型
+    if (!image || (stage !== 'frame' && !video)) {
+      return fail(
+        stage === 'frame'
+          ? '還沒有可用的圖片模型：請到設定填入服務金鑰（或打開示範模式）。'
+          : '還沒有可用的圖片或影片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。',
+      )
     }
     if (toRun.length === 0) {
+      if (skippedNoFrame > 0 && skippedGenerated === 0 && skippedBusy === 0) {
+        return fail('選取的鏡頭都還沒有首幀圖：請先生成首幀圖。')
+      }
       return fail(
         skippedBusy > 0 && skippedGenerated === 0
           ? '選取的鏡頭都正在生成中。'
-          : '選取的鏡頭都已經生成過了。要重做的話，請取消「略過已生成的」。',
+          : stage === 'frame'
+            ? '選取的鏡頭都已經有首幀圖了。要重做的話，請取消「略過已生成的」。'
+            : '選取的鏡頭都已經生成過了。要重做的話，請取消「略過已生成的」。',
       )
     }
 
     let estimatedUsd = 0
     let lowerBound = false
     for (const shot of toRun) {
-      const { flow } = flowFor(handle, shot, 'all', { image, video })
+      const mode = batchModeOf(handle, shot, stage)
+      const { flow } = flowFor(handle, shot, mode, { image, video: video ?? image })
       const estimate = estimateWorkflowCost(flow, registry, {
         priceLookup: (id, usage) => models.estimate(id, usage),
       })
-      estimatedUsd += estimate.totalUsd
-      lowerBound ||= estimate.uncertainNodeIds.length > 0
+      // 只生影片：首幀與提示會從快取拿，不重複花錢
+      const steps =
+        stage === 'full' ? undefined : stage === 'frame' ? ['prompt', 'image'] : ['video']
+      estimatedUsd +=
+        steps === undefined
+          ? estimate.totalUsd
+          : steps.reduce((sum, id) => sum + (estimate.byNode[id] ?? 0), 0)
+      lowerBound ||= estimate.uncertainNodeIds.some(
+        (id) => steps === undefined || steps.includes(id),
+      )
     }
     // 整批是使用者一次按下去的，合起來不能超過單次花費上限
     const exceeded = checkBudget({
@@ -993,7 +1051,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     if (s.regens.has(shotId)) throw invalid('這個鏡頭正在重新生成。')
 
     const image = settingsService.resolveModel('t2i', quality)
-    const video = settingsService.resolveModel('i2v', quality)
+    // 只生首幀圖不需要影片模型
+    const video = mode === 'frame' ? image : settingsService.resolveModel('i2v', quality)
     if (!image || !video) {
       throw invalid(
         '還沒有可用的圖片或影片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。',
@@ -1344,7 +1403,12 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       // 一個一個開始（各自在背景跑，供應商的並行數由佇列控制）；開始不了的記下來，繼續下一個
       for (const shot of toRun) {
         try {
-          await launch(s, shot, 'all', request.draft === true ? 'budget' : undefined)
+          await launch(
+            s,
+            shot,
+            batchModeOf(s.handle, shot, request.stage ?? 'full'),
+            request.draft === true ? 'budget' : undefined,
+          )
           started++
         } catch (error) {
           failed.push({
