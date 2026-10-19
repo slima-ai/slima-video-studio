@@ -1,6 +1,7 @@
 {
   "key": "veo-3.1-lite",
   "displayName": "Veo 3.1 Lite",
+  "userNote": "便宜的草稿與預覽，定稿再換高階",
   "tasks": ["t2v", "i2v"],
   "tier": "budget",
   "recommended": false,

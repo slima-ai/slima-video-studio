@@ -120,7 +120,10 @@ export const ModelOptionSchema = z.object({
   otherChannels: z.array(z.string()).default([]),
   /** 還沒解鎖：要填哪家的金鑰才能用（例如「fal.ai」「OpenRouter 或 fal.ai」）。能用的模型沒有這個欄位。 */
   needsKey: z.string().optional(),
+  /** 工程備註（實測日期、查無的條款等）：給 AI 工具（MCP）讀，設定頁不顯示。 */
   notes: z.string().optional(),
+  /** 給使用者看的一句白話說明（設定頁顯示）。 */
+  userNote: z.string().optional(),
 })
 export type ModelOption = z.infer<typeof ModelOptionSchema>
 

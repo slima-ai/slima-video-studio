@@ -1,6 +1,7 @@
 {
   "key": "seedream-5.0",
   "displayName": "Seedream 5.0 Lite",
+  "userNote": "便宜量大，動畫風表現好",
   "tasks": ["t2i", "edit"],
   "tier": "budget",
   "recommended": true,

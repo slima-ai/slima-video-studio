@@ -1,6 +1,7 @@
 {
   "key": "eleven-v3",
   "displayName": "ElevenLabs Eleven v3",
+  "userNote": "備案旁白，支援很多語言",
   "tasks": ["tts"],
   "tier": "premium",
   "recommended": false,

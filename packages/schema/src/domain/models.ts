@@ -123,6 +123,8 @@ export const ModelCardSchema = z
     model: z.string().min(1).optional(),
     /** 選單上的小標籤，例如「角色一致」「有聲」。 */
     badges: z.array(z.string().min(1)).default([]),
+    /** 給使用者看的一句白話說明（設定頁顯示）；工程備註（實測日期、查無的條款）寫在 notes，不給使用者看。 */
+    userNote: z.string().optional(),
     /** 授權說明，例如「可商用」。 */
     licenseNote: z.string().optional(),
     /** 這個模型是否需要使用者的 Key。示範模式的假模型不需要。 */
@@ -239,6 +241,8 @@ export const ModelChannelSchema = z.object({
   /** 預設是 `<provider>/<模型 key>`；只有要沿用舊 id 時才填（示範模型）。 */
   id: z.string().optional(),
   needsKey: z.boolean().default(true),
+  /** 這個管道自己的使用者說明；沒填就用模型的 userNote。 */
+  userNote: z.string().optional(),
   endpoints: z.partialRecord(CapabilitySchema, z.string().min(1)),
   pricing: PricingSchema,
   verification: ModelVerificationSchema,
@@ -277,6 +281,8 @@ export const ModelSpecSchema = z
       })
       .default({ nativeAudio: false, characterMechanism: 'none' }),
     badges: z.array(z.string().min(1)).default([]),
+    /** 給使用者看的一句白話說明（設定頁顯示）；工程備註寫在 notes。 */
+    userNote: z.string().optional(),
     status: ModelStatusSchema.default('active'),
     sunsetDate: z.iso.date().optional(),
     licenseNote: z.string().optional(),
@@ -331,6 +337,9 @@ export function expandModelSpec(spec: ModelSpec): ModelCard[] {
       provider: channel.provider,
       model: spec.key,
       badges: spec.badges,
+      ...((channel.userNote ?? spec.userNote) === undefined
+        ? {}
+        : { userNote: channel.userNote ?? spec.userNote }),
       ...(spec.licenseNote === undefined ? {} : { licenseNote: spec.licenseNote }),
       needsKey: channel.needsKey,
       capabilities: Object.keys(channel.endpoints),

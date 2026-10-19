@@ -160,6 +160,17 @@ describe('內建 ModelCard', () => {
     expect(priceShort({ unit: 'track', usd: 0.04 })).toBe('每首約 US$0.04')
   })
 
+  it('每張卡都有給使用者看的一句白話說明：一行以內，不寫日期、實測、查無、估算這類工程用語', () => {
+    for (const card of cards) {
+      const note = card.userNote
+      expect(note, `${card.id} 缺 userNote`).toBeTruthy()
+      expect(note?.length ?? 0, `${card.id} 的 userNote 太長`).toBeLessThanOrEqual(40)
+      expect(note, `${card.id} 的 userNote 有工程用語`).not.toMatch(
+        /\d{4}-\d{2}|實測|查無|估算|未確認/,
+      )
+    }
+  })
+
   it('新增 GPT Image 2 不改變既有的預設圖片模型，使用者要自己切換', () => {
     const only = { configuredProviders: new Set(['openrouter']) }
     for (const capability of ['t2i', 'edit'] as const) {
