@@ -120,7 +120,7 @@ export async function centerOn(page: Page, nodeId: string): Promise<void> {
       window as unknown as {
         __svsCanvas?: {
           getNode: (id: string) => { position: { x: number; y: number } } | undefined
-          setCenter: (x: number, y: number, o: object) => Promise<boolean> | unknown
+          setCenter: (x: number, y: number, o: object) => Promise<boolean>
         }
       }
     ).__svsCanvas
