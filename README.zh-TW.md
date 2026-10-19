@@ -2,7 +2,7 @@
 
 [English](README.md) · **繁體中文**
 
-免費、開源的桌面工作台，把故事做成 AI 影片。你寫一句話或貼上劇本，App 會把它拆成場和鏡頭、為每個鏡頭生成第一張畫面和影片片段，再接成一支完整的短片。一切都在可編輯的節點畫布上，所以任何一個鏡頭有問題，只要重跑那一個。
+免費、開源的桌面工作台，把故事做成 AI 影片。你寫一句話或貼上劇本，App 會把它拆成場和鏡頭、為每個鏡頭生成第一張畫面和影片片段，配上旁白與配樂，再接成一支完整的短片。一切都在可編輯的節點畫布上，所以任何一個鏡頭有問題，只要重跑那一個。
 
 它是**自帶金鑰（BYOK）**：App 沒有伺服器，也不提供模型。你連上自己的 AI 服務帳號（一把 [OpenRouter](https://openrouter.ai) 金鑰就能跑文字、圖片和影片），每次生成前都會先看到預估花費。
 
@@ -14,7 +14,9 @@
 - **只修一個鏡頭，不重做整支片。** 改了鏡頭描述或角色，只有受影響的圖和影片會標「需要重跑」；每個鏡頭都保留各個版本。
 - **角色與地點。** 角色卡有鎖定的外觀描述、概念圖和三視圖，同一個角色可以在不同鏡頭重複使用。
 - **先看花費。** 每次生成都會顯示預估並請你確認；單次上限（預設 US$5）保護你不會超支。
-- **預覽與匯出。** 在 App 裡播放接好的成品，匯出成 MP4。接片用內建的 FFmpeg，除了你設定的 AI 服務之外，不會有資料離開你的電腦。
+- **聲音。** 旁白（把鏡頭的台詞用 AI 聲音念出來）、一首配樂和影片模型自己的聲音會自動混進成品；成品面板可以把每一種的音量調成小／中／大，並用時間軸看什麼時候有什麼聲音。混音在本機、不花錢；旁白與配樂要花一點錢，會先顯示預估。
+- **預覽與匯出。** 在 App 裡播放接好的成品，匯出成 MP4。預設會在片尾加 3 秒的字卡，列出用了哪些 AI 服務（不想要可以取消勾選；專案裡的成品不會被改）。接片與混音用內建的 FFmpeg，除了你設定的 AI 服務之外，不會有資料離開你的電腦。
+- **讓 AI 助理幫你操作。** Claude Code、Claude Desktop 可以透過 App 內建的 MCP 伺服器做完整支片（見[連接 Claude](#連接-claude讓-ai-幫你操作)）。
 - **畫布之外也有表格。** 大綱、分鏡表、角色、地點、生成紀錄、檔案都是同一份資料的不同檢視，復原與重做可以跨過去。
 - **選用：** 從 [Slima](https://slima.ai) 匯入故事（唯讀，透過官方的 `slima-mcp`）。
 
@@ -41,14 +43,14 @@
 ### 用真的 AI
 
 1. 建立 [OpenRouter](https://openrouter.ai) 帳號、儲值幾美元，建立一把 API 金鑰（可以在金鑰上設花費上限）。帳號要有餘額才能用付費的圖片和影片模型。
-2. 在 App 的設定精靈（或「設定」）貼上金鑰。金鑰由作業系統加密保存在你的電腦上，之後畫面不會再完整顯示。
+2. 在 App 的設定精靈（或「設定」）貼上金鑰。金鑰由作業系統加密保存在你的電腦上，之後畫面不會再完整顯示。在 macOS 上，系統可能會請你輸入登入密碼，讓 App 使用鑰匙圈；因為安裝檔還沒有 Developer ID 簽章，更新 App 之後可能會再問一次。
 3. 在畫布上寫一句話，設定鏡頭數和秒數，按**生成**並確認預估花費。
 
 我們自己跑一支 2 鏡 × 3 秒的測試短片約花 US$1.1。預估有可能比實際價格低（我們那次預估 US$0.78），所以請從小的開始。
 
 ## 連接 Claude（讓 AI 幫你操作）
 
-除了自己動手點，你也可以讓 **Claude Code**、**Claude Desktop** 這類 AI 助理幫你做片。App 內建一個本機的小伺服器，說的是 [MCP](https://modelcontextprotocol.io) 協定：助理可以建專案、把故事拆成場景與鏡頭、生成並「看」首幀圖、生成影片、重做某一鏡、接片並匯出 MP4，而且就在你畫面上同一個專案裡做。除了 App 之外不用另外安裝任何東西，連線也不會離開你的電腦（只連 `127.0.0.1`）。
+除了自己動手點，你也可以讓 **Claude Code**、**Claude Desktop** 這類 AI 助理幫你做片。App 內建一個本機的小伺服器，說的是 [MCP](https://modelcontextprotocol.io) 協定：助理可以建專案、把故事拆成場景與鏡頭、生成並「看」首幀圖、生成影片、重做某一鏡、替影片配旁白與配樂並混音與量測、接片並匯出 MP4，而且就在你畫面上同一個專案裡做，示範模式或用你自己的金鑰都可以。除了 App 之外不用另外安裝任何東西，連線也不會離開你的電腦（只連 `127.0.0.1`）。
 
 ![設定頁：AI 工具連線](docs/images/08-connect-claude.png)
 
@@ -60,7 +62,14 @@ _App 真實的設定頁（token 預設遮蔽，按「顯示 token」才會看到
 2. 按「**連接 Claude Code**」或「**連接 Claude Desktop**」。這同時會打開「允許 AI 工具連線」。Claude Desktop 要完全關掉（⌘Q）再重新打開；App 改它的設定檔之前會先備份，只加一項、不動你其他的伺服器。
 3. 跟助理說，例如：「用 slima-video-studio 的工具。先呼叫 get_capabilities，讀 getting-started 指南，然後用這個故事做一支 3 鏡的短片：……」
 
-在 **Claude Code** 裡輸入 `/mcp` 可以確認 `slima-video-studio` 已連上（新加的伺服器要開一個**新的** Claude Code 對話才會出現工具）。想自己貼指令的話，設定頁也有手動的 `claude mcp add …` 那一行。
+在 **Claude Code** 裡輸入 `/mcp` 可以確認 `slima-video-studio` 已連上（新加的伺服器要開一個**新的** Claude Code 對話才會出現工具）。
+
+**該用哪一種連法？** 有兩種，都安全：
+
+- **一鍵連接的按鈕和下面的指令用的是一個小轉接**：它跟著你的助理一起啟動，每次都從 App 自己的資料夾讀目前的埠與 token，不用複製任何東西，按了「換一組新的 token」也不會失效。預設用這種；Claude Desktop 只會啟動指令，也只能用這種。
+- **圖下面那行手動的 `claude mcp add --transport http …` 是直接連 App**，裡面寫著埠與秘密 token，所以換 token 或換埠就失效。只有你的 MCP 工具不能啟動指令、但可以送 HTTP 標頭時才用它。
+
+**如果 Claude 說連線失敗、工具載不進來：** 先確認 App 有開著，而且「**設定 → AI 工具連線 → 允許 AI 工具連線**」有勾，再開一個新的 Claude 對話。App 沒開的時候，助理那邊只看得到「連線失敗」；白話的說明要在 App 開著之後才會出現。
 
 **用指令連接（macOS，App 裝在 `/Applications`）**：做的事跟按鈕一樣，用 App 自己的執行環境當小轉接，不用安裝任何東西，也不用複製 token：
 
@@ -73,6 +82,21 @@ claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
 
 你還是要在「設定」裡勾一次「**允許 AI 工具連線**」（一鍵連接的按鈕會幫你勾）。
 
+**助理能做什麼**（共 52 個工具；它用 `load_guide` 讀指南，也看得到每個工具的說明）：
+
+| 範圍       | 工具                                                                                                                                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 開始       | `get_capabilities`、`load_guide`、`estimate_cost`                                                                                                                                                             |
+| 專案與模型 | `list_projects`、`get_current_project`、`open_project`、`create_project`、`configure_project`、`list_models`、`set_models`、`undo`、`redo`                                                                    |
+| 故事       | `split_story_into_scenes`、`get_outline`、`edit_outline`、`split_scene_into_shots`                                                                                                                            |
+| 鏡頭       | `list_shots`、`get_shot`、`update_shot`、`create_shot`、`delete_shots`、`reorder_shots`                                                                                                                       |
+| 角色       | `list_characters`、`create_character`、`update_character`、`suggest_character_anchor`、`set_character_anchor`、`generate_character_images`、`view_character_images`、`pick_character_image`、`lock_character` |
+| 圖片與影片 | `generate_first_frames`、`view_first_frames`、`generate_videos`、`view_video_stills`、`regenerate_shot`、`adopt_version`、`cancel_generation`、`wait_for_generation`、`get_generation_status`                 |
+| 成片       | `assemble_film`、`export_film`（有 `credits`：片尾字卡，預設開）                                                                                                                                              |
+| 聲音       | `get_sound`、`plan_sound`、`generate_narration`、`generate_music`、`adjust_sound_clip`、`adopt_sound_clip`、`remove_sound_clip`、`set_sound_settings`、`mix_sound`、`analyze_sound`                           |
+
+會看圖的工具回傳真的（縮小過的）圖片，所以助理可以在你花更多錢之前，先檢查第一張畫面與影片截圖有沒有出錯。
+
 **你的保護**
 
 - **預設關閉**，只在 `127.0.0.1`，每個請求都要帶秘密 token；「換一組新的 token」會讓舊的立刻失效。
@@ -82,9 +106,9 @@ claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
 
 **聲音（旁白、配樂、混音）。** 助理也能幫影片配上聲音：替每一鏡寫台詞、要旁白和一首配樂、調整時間與音量、把全部混進影片，並且**量測**結果（響度、峰值、安靜的段落、某一鏡完全沒聲音），因為它聽不到。旁白與配樂跟其他生成步驟一樣會花錢：先預估、受花費額度限制，也可以替單一步驟設最高價格。成品好不好聽由你在 App 裡聽，同樣的控制項你也可以手動調：
 
-![成品面板的聲音區：影片原聲、旁白、配樂各有小／中／大的音量按鈕](docs/images/09-sound-panel.png)
+![成品面板的聲音區：影片原聲、配樂的音量按鈕，以及每一種聲音一列的時間軸](docs/images/09-sound-panel.png)
 
-_App 成品面板真實的聲音區（只有介面）。_
+_App 成品面板真實的聲音區（只有介面）。這裡旁白那一列是空的，因為這些鏡頭還沒有台詞；在鏡頭裡寫一句台詞，它就會被念出來。_
 
 **給正在讀這一頁的 AI 助理：** 這是一個桌面程式，只有使用者能把它的連線打開。如果你能在使用者的 Mac 上執行指令，就自己執行上面的 `claude mcp add …`（只想用在某個資料夾就加 `--scope project`），然後請使用者 (1) 打開 App，在「設定 → AI 工具連線」勾「允許 AI 工具連線」，(2) 開一個新的 Claude Code 對話，因為對話中途加進去的伺服器要到新對話才會載入。不能執行指令的話，就請使用者按一鍵連接的按鈕。不管哪種，你都不需要找或處理連線 token。連上之後先呼叫 `get_capabilities`，再用 `load_guide` 讀 `getting-started`（把場景拆成鏡頭前讀 `storyboard`，花錢之前讀 `spending`，配旁白與配樂之前讀 `sound`）。先生成首幀圖並用 `view_first_frames` 看過，再生成影片。工具的錯誤訊息是白話寫的，通常會說下一步怎麼做。
 
@@ -92,19 +116,22 @@ _App 成品面板真實的聲音區（只有介面）。_
 
 只填一把 OpenRouter 金鑰時的預設：
 
-| 用途                       | 預設                                                |
-| -------------------------- | --------------------------------------------------- |
-| 拆鏡與描述                 | Claude Sonnet 5.5                                   |
-| 圖片（角色圖、第一張畫面） | Gemini 3 Pro Image                                  |
-| 影片                       | Kling 3.0 Standard（Veo 3.1 Lite 當便宜的草稿模型） |
+| 用途                       | 預設                                                                |
+| -------------------------- | ------------------------------------------------------------------- |
+| 拆鏡與描述                 | Claude Sonnet 5.5                                                   |
+| 圖片（角色圖、第一張畫面） | Gemini 3 Pro Image                                                  |
+| 影片                       | Kling 3.0 Standard（Veo 3.1 Lite 當便宜的草稿模型）                 |
+| 旁白（念每一鏡的台詞）     | MiniMax Speech 2.8 HD（備選：ElevenLabs Eleven v3；聲音在設定裡選） |
+| 配樂（一首純音樂）         | Google Lyria 3 Pro                                                  |
 
-再填一把 [fal.ai](https://fal.ai) 金鑰會多出更多模型與角色鎖定影片。實測的價格、endpoint 和我們實際觀察到的結果在 [docs/models.md](docs/models.md)。
+GPT Image 2（標準與高畫質兩檔）可以透過 OpenRouter 當圖片模型。再填一把 [fal.ai](https://fal.ai) 金鑰會多出更多模型與角色鎖定影片。實測的價格、endpoint 和我們實際觀察到的結果在 [docs/models.md](docs/models.md)。
 
 ## 已知限制
 
 - 影片模型有時會替沒有嘴巴、手腳的角色加上嘴、手臂或腳（Kling 常見，Veo 比較少）。在提示詞裡把角色描述成靜止、簡單的形狀有幫助；成品一定要檢查。
-- 還不支援 OpenAI 的圖片模型（`gpt-image-2`）：它們要走 OpenRouter 的另一個端點，不是 App 現在用的那個。
-- 還沒有聲音（配音、配樂、音效），也沒有字幕。
+- 還沒有音效（旁白、配樂和影片模型自己的聲音都有），也沒有字幕。旁白是每一鏡一句台詞；台詞比鏡頭長只會警告，不會自動縮短。
+- 片尾的 AI 服務字卡是 App 自己畫的，只加在匯出的檔案上；做不出來時匯出仍然成功，只是沒有字卡，並且會告訴你。
+- macOS 安裝檔還沒有 Developer ID 簽章，所以每次更新後 macOS 可能再問一次密碼（只有用真的 AI 時）；見[第一次開啟](#第一次開啟)。
 - 預設的「寫實」畫風，對可愛的角色可能畫出偏暗或令人不安的畫面；請選適合你故事的畫風。
 - 安裝檔：macOS Intel 版還沒打；Linux 沒測過。
 - **還沒有 Windows 下載。** Windows 版有打包，但沒在真的 Windows 電腦上實測過，而且它內建的 FFmpeg 是別人編的、我們還沒有提供它靜態連結的函式庫的對應原始碼。等我們把那個 FFmpeg 改成從原始碼編譯（macOS 版已經是）之後才會提供。
