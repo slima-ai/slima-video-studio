@@ -108,22 +108,30 @@ export async function viewportSettled(page: Page): Promise<void> {
     .toBe(true)
 }
 
-/** 把某個節點拉到畫面中央（縮放 100%）；畫面外的節點不會畫出來，點不到。 */
+/**
+ * 把某個節點拉到畫面中央（縮放 100%）；畫面外的節點不會畫出來，點不到。
+ * setCenter 不是立刻生效（實測約 140 毫秒後節點才跳到新位置），所以要等它回傳的 Promise，再等畫面不動；
+ * 沒等就去滑鼠移上去，節點會在滑鼠底下搬走（「滑過說明」的測試偶爾因此逾時，CI 上機器忙時更常發生）。
+ */
 export async function centerOn(page: Page, nodeId: string): Promise<void> {
   await viewportSettled(page)
-  await page.evaluate((id) => {
+  await page.evaluate(async (id) => {
     const rf = (
       window as unknown as {
         __svsCanvas?: {
           getNode: (id: string) => { position: { x: number; y: number } } | undefined
-          setCenter: (x: number, y: number, o: object) => unknown
+          setCenter: (x: number, y: number, o: object) => Promise<boolean> | unknown
         }
       }
     ).__svsCanvas
     const node = rf?.getNode(id)
-    if (node)
-      void rf?.setCenter(node.position.x + 130, node.position.y + 60, { zoom: 1, duration: 0 })
+    if (node) {
+      await rf?.setCenter(node.position.x + 130, node.position.y + 60, { zoom: 1, duration: 0 })
+    }
   }, nodeId)
+  // 縮放真的到 100% 了（比只等 Promise 更穩：機器忙時 Promise 回來得比畫面早）
+  await expect.poll(async () => (await viewportOf(page)).zoom).toBeCloseTo(1, 2)
+  await viewportSettled(page)
   await expect(page.locator(`.react-flow__node[data-id="${nodeId}"]`)).toBeVisible()
 }
 
