@@ -79,21 +79,22 @@ test.describe('成品的聲音（示範模式）', () => {
     page,
   }, testInfo) => {
     await generateAndOpenCanvas(page)
-    // 第 1 鏡寫一句台詞（示範模式拆出來的鏡頭沒有台詞）
+    // 左邊的新增面板預設是展開的（設計如此）；收起來，截圖才看得到聲音區
+    await page.getByTestId('palette-close').click()
     const shots = await page.evaluate(() => window.svs.invoke('shots.list', {}))
     if (!shots.ok) throw new Error(shots.error.userMessage)
     const first = shots.data.shots[0]
     if (!first) throw new Error('沒有鏡頭')
-    await page.evaluate(
-      (id) =>
-        window.svs.invoke('shots.update', { shotId: id, patch: { dialogue: '黑藤爬滿了斷橋。' } }),
-      first.id,
-    )
     const key = `shot:${first.id}`
     await centerOn(page, key)
     await page.getByTestId(`open-${key}`).click()
     await expect(page.getByTestId('shot-panel')).toBeVisible()
     await page.getByTestId('shot-sound').scrollIntoViewIfNeeded()
+    // 示範模式拆出來的鏡頭沒有台詞：直接在聲音區寫，存了才出現「念出這句台詞」
+    await expect(page.getByTestId('shot-sound-no-dialogue')).toBeVisible()
+    await expect(page.getByTestId('shot-sound-narrate')).toHaveCount(0)
+    await page.getByTestId('shot-sound-dialogue').fill('黑藤爬滿了斷橋。')
+    await page.getByTestId('shot-sound-dialogue-save').click()
     await expect(page.getByTestId('shot-sound-native')).toBeChecked()
     await page.getByTestId('shot-sound-narrate').click()
     await expect(page.getByTestId('shot-sound-confirm')).toContainText('預估約')

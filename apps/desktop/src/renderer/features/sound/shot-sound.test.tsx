@@ -124,6 +124,36 @@ describe('ShotSound：一個鏡頭的聲音', () => {
     })
   })
 
+  it('沒台詞 → 在聲音區寫入並儲存（走 shots.update）→ 出現「念出這句台詞」；沒存之前不能念', async () => {
+    let dialogue = ''
+    const updates: unknown[] = []
+    installFakeSvs({
+      'sound.get': () => state({ shots: [view(1, { dialogue }), view(2)] }),
+      'shots.update': (p: unknown) => {
+        updates.push(p)
+        dialogue = (p as { patch: { dialogue: string } }).patch.dialogue
+        return {}
+      },
+    })
+    render(<ShotSound shotId="s1" />)
+    expect((await screen.findByTestId('shot-sound-no-dialogue')).textContent).toContain('沒有台詞')
+    expect(screen.queryByTestId('shot-sound-narrate')).toBeNull()
+    expect(screen.queryByTestId('shot-sound-dialogue-save')).toBeNull()
+    fireEvent.change(screen.getByTestId('shot-sound-dialogue'), {
+      target: { value: '  黑藤爬滿了斷橋。 ' },
+    })
+    fireEvent.click(await screen.findByTestId('shot-sound-dialogue-save'))
+    await waitFor(() => {
+      expect(updates).toEqual([{ shotId: 's1', patch: { dialogue: '黑藤爬滿了斷橋。' } }])
+    })
+    expect((await screen.findByTestId('shot-sound-narrate')).textContent).toBe('念出這句台詞')
+    expect(screen.queryByTestId('shot-sound-no-dialogue')).toBeNull()
+    expect(screen.queryByTestId('shot-sound-dialogue-save')).toBeNull()
+    // 改到一半還沒存：不能用舊台詞去念
+    fireEvent.change(screen.getByTestId('shot-sound-dialogue'), { target: { value: '改一下' } })
+    expect((screen.getByTestId('shot-sound-narrate') as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it('預估說不能做（超過預算）時顯示原因，不跳確認', async () => {
     installFakeSvs({
       'sound.get': () => state(),

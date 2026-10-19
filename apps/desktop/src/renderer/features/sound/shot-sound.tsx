@@ -10,6 +10,70 @@ const usd = (n: number): string => `US$${n < 0.1 ? n.toFixed(4) : n.toFixed(2)}`
 
 type Step = { step: 'idle' } | { step: 'confirm'; plan: SoundPlan } | { step: 'running' }
 
+/** 這一鏡的台詞：直接在這裡寫、改；存檔走跟分鏡表一樣的 shots.update。 */
+function DialogueEditor({
+  shotId,
+  saved,
+  onDirty,
+  onSaved,
+}: {
+  shotId: string
+  saved: string
+  onDirty: (dirty: boolean) => void
+  onSaved: (error?: unknown) => void
+}) {
+  const [draft, setDraft] = useState(saved)
+  const [saving, setSaving] = useState(false)
+  const dirty = draft.trim() !== saved.trim()
+
+  const save = (): void => {
+    setSaving(true)
+    call('shots.update', { shotId, patch: { dialogue: draft.trim() } })
+      .then(() => {
+        onDirty(false)
+        onSaved()
+      })
+      .catch((e: unknown) => {
+        onSaved(e)
+      })
+      .finally(() => {
+        setSaving(false)
+      })
+  }
+
+  return (
+    <div className="space-y-1">
+      <label className="block text-sm text-fg-muted" htmlFor={`shot-sound-dialogue-${shotId}`}>
+        台詞（旁白念的就是這句）
+      </label>
+      <textarea
+        id={`shot-sound-dialogue-${shotId}`}
+        data-testid="shot-sound-dialogue"
+        className="w-full resize-y rounded-lg border border-border bg-surface px-2 py-1 text-sm"
+        rows={2}
+        maxLength={2000}
+        value={draft}
+        placeholder="例如：黑藤爬滿了斷橋。"
+        onChange={(event) => {
+          setDraft(event.target.value)
+          onDirty(event.target.value.trim() !== saved.trim())
+        }}
+      />
+      {dirty ? (
+        <Button
+          size="sm"
+          variant="primary"
+          data-testid="shot-sound-dialogue-save"
+          disabled={saving}
+          onClick={save}
+        >
+          儲存台詞
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
 /**
  * 一個鏡頭的聲音：影片原聲要不要用、旁白（念台詞／重新念，先給預估花費、確認才開始）。
  * 改了原聲開關或重新念之後，成品自動重混。
@@ -18,6 +82,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
   const { state, reload } = useSound()
   const [flow, setFlow] = useState<Step>({ step: 'idle' })
   const [error, setError] = useState<string>()
+  const [dialogueDirty, setDialogueDirty] = useState(false)
   const {
     mixing,
     error: mixError,
@@ -71,6 +136,15 @@ export function ShotSound({ shotId }: { shotId: string }) {
   const dialogue = view.dialogue.trim()
   const narration = view.narration
 
+  const dialogueSaved = (e?: unknown): void => {
+    if (e === undefined) {
+      setError(undefined)
+      reload()
+    } else {
+      fail(e)
+    }
+  }
+
   return (
     <section
       className="space-y-2 border-t border-border pt-3"
@@ -89,6 +163,13 @@ export function ShotSound({ shotId }: { shotId: string }) {
         />
         用影片原聲
       </label>
+      <DialogueEditor
+        key={`${shotId}:${view.dialogue}`}
+        shotId={shotId}
+        saved={view.dialogue}
+        onDirty={setDialogueDirty}
+        onSaved={dialogueSaved}
+      />
       <div className="space-y-1">
         {narration ? (
           <p className="text-sm" data-testid="shot-sound-narration">
@@ -98,7 +179,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
           </p>
         ) : dialogue === '' ? (
           <p className="text-sm text-fg-muted" data-testid="shot-sound-no-dialogue">
-            這一鏡沒有台詞，所以沒有旁白。寫下台詞就能念出來。
+            這一鏡還沒有台詞，所以沒有旁白。在下面寫一句，就能念出來。
           </p>
         ) : (
           <p className="text-sm text-fg-muted">這一鏡還沒有旁白。</p>
@@ -131,7 +212,13 @@ export function ShotSound({ shotId }: { shotId: string }) {
             正在念…
           </p>
         ) : dialogue !== '' ? (
-          <Button size="sm" data-testid="shot-sound-narrate" onClick={askNarration}>
+          <Button
+            size="sm"
+            data-testid="shot-sound-narrate"
+            disabled={dialogueDirty}
+            title={dialogueDirty ? '先儲存台詞' : undefined}
+            onClick={askNarration}
+          >
             {narration ? '重新念' : '念出這句台詞'}
           </Button>
         ) : null}
