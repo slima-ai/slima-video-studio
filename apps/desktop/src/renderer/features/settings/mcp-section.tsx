@@ -1,4 +1,4 @@
-import { DEFAULT_MCP_PORT, type McpStatus } from '@svs/schema'
+import { DEFAULT_MCP_PORT, type McpConnectInfo, type McpStatus } from '@svs/schema'
 import { useCallback, useEffect, useState } from 'react'
 
 import { Button } from '../../components/button'
@@ -22,6 +22,10 @@ export function McpSection({ onChanged }: { onChanged: () => void }) {
   const [allowance, setAllowance] = useState('0')
   // 勾選框先照使用者的操作反應，不用等主行程回應；失敗時還原
   const [enabled, setEnabled] = useState(false)
+  const [info, setInfo] = useState<McpConnectInfo | undefined>()
+  const [connecting, setConnecting] = useState<'desktop' | 'code' | undefined>()
+  const [connectNote, setConnectNote] = useState<{ ok: boolean; text: string } | undefined>()
+  const [codeFallback, setCodeFallback] = useState<string | undefined>()
 
   const apply = useCallback((next: McpStatus) => {
     setStatus(next)
@@ -37,6 +41,54 @@ export function McpSection({ onChanged }: { onChanged: () => void }) {
         setError(errorText(e))
       })
   }, [apply])
+
+  const loadInfo = useCallback(() => {
+    call('mcp.connectInfo', {})
+      .then(setInfo)
+      .catch(() => {
+        // 拿不到連接資訊就不顯示一鍵按鈕，手動連線還是可以用
+      })
+  }, [])
+  useEffect(loadInfo, [loadInfo])
+
+  /** 一鍵連接：還沒開「允許 AI 工具連線」就先替使用者打開（他按了連接就是要用）。 */
+  const connect = (kind: 'desktop' | 'code'): void => {
+    setError(undefined)
+    setConnectNote(undefined)
+    setCodeFallback(undefined)
+    setConnecting(kind)
+    const task = async (): Promise<void> => {
+      if (!status?.enabled) {
+        await call('settings.update', { mcp: { enabled: true } })
+        apply(await call('mcp.status', {}))
+        onChanged()
+      }
+      if (kind === 'desktop') {
+        const result = await call('mcp.connectClaudeDesktop', {})
+        setConnectNote({
+          ok: true,
+          text: `已寫進 Claude Desktop 的設定檔。請完全關掉 Claude Desktop 再重新打開（Mac：⌘Q）。${
+            result.backupPath ? '原本的設定檔已備份在同一個資料夾。' : ''
+          }`,
+        })
+      } else {
+        await call('mcp.connectClaudeCode', {})
+        setConnectNote({
+          ok: true,
+          text: '已連接 Claude Code。開一個新的 Claude Code，輸入 /mcp 就看得到 slima-video-studio。',
+        })
+      }
+      loadInfo()
+    }
+    task()
+      .catch((e: unknown) => {
+        setConnectNote({ ok: false, text: errorText(e) })
+        if (kind === 'code' && info) setCodeFallback(info.claudeCodeCommand)
+      })
+      .finally(() => {
+        setConnecting(undefined)
+      })
+  }
 
   const run = (task: () => Promise<McpStatus>): void => {
     setError(undefined)
@@ -93,9 +145,64 @@ export function McpSection({ onChanged }: { onChanged: () => void }) {
         </span>
       </label>
 
+      <div className="mt-4" data-testid="mcp-oneclick">
+        <p className="text-sm font-medium">一鍵連接</p>
+        <p className="text-sm text-fg-muted">
+          按下去會自動打開上面的「允許 AI 工具連線」，並把這個 App 加進 Claude
+          的設定。不需要另外安裝任何東西；之後換 token 也不用重連。App 要開著才連得上。
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {info?.claudeDesktop.supported ? (
+            <Button
+              data-testid="mcp-connect-desktop"
+              variant="secondary"
+              disabled={connecting !== undefined}
+              onClick={() => {
+                connect('desktop')
+              }}
+            >
+              {info.claudeDesktop.connected ? '重新連接 Claude Desktop' : '連接 Claude Desktop'}
+            </Button>
+          ) : null}
+          <Button
+            data-testid="mcp-connect-code"
+            variant="secondary"
+            disabled={connecting !== undefined}
+            onClick={() => {
+              connect('code')
+            }}
+          >
+            連接 Claude Code
+          </Button>
+        </div>
+        {info?.claudeDesktop.supported && !info.claudeDesktop.installed ? (
+          <p className="mt-1 text-sm text-fg-muted">這台電腦好像還沒裝 Claude Desktop。</p>
+        ) : null}
+        {info?.claudeDesktop.connected && !connectNote ? (
+          <p className="mt-1 text-sm text-success">Claude Desktop 已經連接。</p>
+        ) : null}
+        {connectNote ? (
+          <p
+            role={connectNote.ok ? 'status' : 'alert'}
+            data-testid="mcp-connect-note"
+            className={`mt-2 text-sm ${connectNote.ok ? 'text-success' : 'text-danger'}`}
+          >
+            {connectNote.text}
+          </p>
+        ) : null}
+        {codeFallback ? (
+          <pre
+            data-testid="mcp-code-fallback"
+            className="mt-1 overflow-x-auto rounded-md border border-border bg-surface p-3 text-xs"
+          >
+            {codeFallback}
+          </pre>
+        ) : null}
+      </div>
+
       {status?.enabled && status.running && command ? (
         <div className="mt-4" data-testid="mcp-connect">
-          <p className="text-sm font-medium">在 Claude Code 貼上這一行</p>
+          <p className="text-sm font-medium">手動連線：在 Claude Code 貼上這一行</p>
           <pre
             data-testid="mcp-command"
             className="mt-1 overflow-x-auto rounded-md border border-border bg-surface p-3 text-xs"
