@@ -66,7 +66,18 @@ _The real settings page of the app (the token is hidden until you press "顯示 
 2. Press **連接 Claude Code** or **連接 Claude Desktop**. This also switches on "允許 AI 工具連線". For Claude Desktop, quit it completely (⌘Q) and open it again; the app backs up Claude Desktop's configuration file before adding one entry and leaves your other servers untouched.
 3. Tell your assistant, for example: _"Use the slima-video-studio tools. Call get_capabilities, then load the getting-started guide, and make a 3-shot film from this story: …"_
 
-In **Claude Code**, type `/mcp` to check that `slima-video-studio` is connected. If you prefer to paste a command yourself, Settings also shows the manual `claude mcp add …` line.
+In **Claude Code**, type `/mcp` to check that `slima-video-studio` is connected (tools of a newly added server only appear in a **new** Claude Code session). If you prefer to paste a command yourself, Settings also shows the manual `claude mcp add …` line.
+
+**Connect from the command line (macOS, app installed in `/Applications`)** — the same thing the button does, using the app's own runtime as a small bridge; nothing is installed and no token is copied:
+
+```bash
+claude mcp add --scope user -e ELECTRON_RUN_AS_NODE=1 slima-video-studio -- \
+  "/Applications/Slima Video Studio.app/Contents/MacOS/Slima Video Studio" \
+  "/Applications/Slima Video Studio.app/Contents/Resources/app.asar/out/main/mcp-stdio-bridge.js" \
+  --user-data "$HOME/Library/Application Support/@svs/desktop"
+```
+
+You still have to switch on **允許 AI 工具連線** once in Settings (the one-click buttons do that for you).
 
 **What protects you**
 
@@ -75,7 +86,7 @@ In **Claude Code**, type `/mcp` to check that `slima-video-studio` is connected.
 - **Spending allowance: US$0 by default.** In demo mode nothing costs money. With real AI, every paid step (text, pictures, videos) is checked against the estimate first and refused when it is over the allowance; only you can raise the allowance, in the same settings page.
 - Opening or creating a project in the assistant switches the project shown in the app window.
 
-**For an AI assistant reading this page:** the app is a desktop program that only the user can switch on. Ask the user to press the button above: it writes the correct configuration (including the connection details), so you do not have to find or handle the token. Once connected, call `get_capabilities` first, then `load_guide` with `getting-started` (and `storyboard` before splitting scenes into shots, `spending` before paying for anything). Generate first frames and look at them (`view_first_frames`) before you generate videos. Read tool errors: they are written in plain language and usually say what to do next.
+**For an AI assistant reading this page:** the app is a desktop program that only the user can switch on. If you can run shell commands on the user's Mac, run the `claude mcp add …` command above yourself (use `--scope project` if the user wants it for one folder only), then ask the user to (1) open the app and tick **允許 AI 工具連線** under Settings → AI 工具連線 and (2) start a new Claude Code session, because a server added mid-session is not loaded until then. Otherwise ask the user to press the one-click button. Either way you never need to find or handle the connection token. Once connected, call `get_capabilities` first, then `load_guide` with `getting-started` (and `storyboard` before splitting scenes into shots, `spending` before paying for anything). Generate first frames and look at them (`view_first_frames`) before you generate videos. Read tool errors: they are written in plain language and usually say what to do next.
 
 ## Models
 
