@@ -1,7 +1,7 @@
 import { resolveStoryboardGuide } from '@svs/schema'
 
 /** `load_guide` 的主題。內容寫在這裡（隨 App 版本更新），不寫進伺服器的 instructions（每個工作階段都要付的長度）。 */
-export const GUIDE_TOPICS = ['getting-started', 'storyboard', 'spending'] as const
+export const GUIDE_TOPICS = ['getting-started', 'storyboard', 'spending', 'sound'] as const
 export type GuideTopic = (typeof GUIDE_TOPICS)[number]
 
 const GETTING_STARTED = `# Making a video with Slima Video Studio
@@ -16,7 +16,8 @@ Order of work (call get_capabilities for the tools that exist right now):
 5. Characters: list_characters (the story step creates drafts), create_character / update_character, set_character_anchor (the fixed look text; suggest_character_anchor drafts it), then generate_character_images → wait_for_generation → view_character_images (you can SEE the pictures) → pick_character_image → lock_character. A locked character's look is sent unchanged with every shot that includes it.
 6. Shots: load_guide("storyboard") first, then split_scene_into_shots(sceneId) for each scene. list_shots / get_shot to review, update_shot / create_shot / delete_shots / reorder_shots to improve. undo / redo work like the app's own.
 7. Pictures then video (look before you spend on video): generate_first_frames → wait_for_generation → view_first_frames (you can SEE them; fix a wrong shot with update_shot, then regenerate_shot what="first_frame") → generate_videos → wait_for_generation → view_video_stills (check for extra limbs/faces, a changed character, flicker; redo with regenerate_shot what="video"; adopt_version goes back to an older version) → assemble_film → view_video_stills with finalCut=true → export_film.
-8. Before any step that calls an AI model, estimate_cost tells you what it would cost and whether the allowance covers it.
+8. Sound (after the videos exist; load_guide("sound") first): get_sound → plan_sound → generate_narration per shot (it reads the shot's dialogue) and generate_music → adjust_sound_clip / set_sound_settings. You cannot hear it, so check the numbers and warnings in get_sound.
+9. Before any step that calls an AI model, estimate_cost tells you what it would cost and whether the allowance covers it.
 
 Notes
 - Work in small steps and look at the result before spending more.
@@ -32,9 +33,22 @@ const SPENDING = `# Spending
 - Never try to work around a refusal.
 `
 
+const SOUND = `# Sound
+
+You cannot hear audio. You work with numbers: get_sound shows every shot's start time in the film, its length, its dialogue, the adopted narration and music, and warnings; the user listens to the result in the app.
+
+What the film's sound is made of
+- The video model's own sound ("native audio", settings.nativeAudio). Asking for it makes video about 50% more expensive and only applies to videos generated after you turn it on. muteNativeShotIds silences it for some shots.
+- Narration: one spoken line per shot, read from the shot's dialogue. Write or fix the line with update_shot (dialogue), then generate_narration(shotId). Each call makes a new version; adopt_sound_clip switches back. It starts 0.4 s after the shot starts. A line longer than the shot is reported as a warning in get_sound: shorten the dialogue, lengthen the shot (update_shot durationSec) or lower the speed by using fewer words.
+- Music: one instrumental track for the whole film (generate_music). A track shorter than the film is a warning. Music is quiet by default (−18 dB) and is lowered further while narration speaks (settings.duck).
+
+Order: videos first (the film's length and each shot's real length come from them), then narration, then music, then adjust. Narration and music cost money: plan_sound gives the estimate, the spending allowance applies (load_guide("spending")), pass maxCostUsd if you want a hard limit.
+`
+
 /** 使用者自己改過的分鏡準則（設定頁）優先，沒改就是內建的。 */
 export function guideText(topic: GuideTopic, customStoryboardGuide: string): string {
   if (topic === 'getting-started') return GETTING_STARTED
   if (topic === 'spending') return SPENDING
+  if (topic === 'sound') return SOUND
   return `# Storyboard guide (set by the user in Settings; this is what the app's own AI storyboard step uses)\n\n${resolveStoryboardGuide(customStoryboardGuide)}\n`
 }

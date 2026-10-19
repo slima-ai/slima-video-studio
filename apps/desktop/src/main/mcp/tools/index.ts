@@ -1,6 +1,7 @@
 import type { ToolContext } from './define'
 import { registerCharacterTools } from './characters'
 import { registerFilmTools } from './film'
+import { registerSoundTools } from './sound'
 import { registerGenerationTools } from './generation'
 import { registerMetaTools } from './meta'
 import { registerProjectTools } from './project'
@@ -18,4 +19,5 @@ export function registerAllTools(ctx: ToolContext): void {
   registerCharacterTools(ctx)
   registerGenerationTools(ctx)
   registerFilmTools(ctx)
+  registerSoundTools(ctx)
 }

@@ -30,6 +30,9 @@ export function registerSetupTools(ctx: ToolContext): void {
         priceVerified: m.priceVerified,
         badges: m.badges,
         ...(m.notes === undefined ? {} : { notes: m.notes }),
+        ...(m.voices.length === 0
+          ? {}
+          : { voices: m.voices.map((v) => ({ id: v.id, label: v.label, language: v.language })) }),
       })
       return {
         available: models.map(view),

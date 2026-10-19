@@ -7,7 +7,9 @@ import type { ToolContext } from './define'
  */
 export const TEXT_RESERVE_FACTOR = 2
 
-const usd = (value: number): string => `US$${value.toFixed(2)}`
+/** 不到一分錢的金額多顯示一位，才不會把 US$0.002 寫成 US$0.00。 */
+const usd = (value: number): string =>
+  `US$${value > 0 && value < 0.01 ? value.toFixed(3) : value.toFixed(2)}`
 
 /**
  * 花錢的工具在真的呼叫 AI 模型之前，先向「AI 工具額度」預留預估金額。
