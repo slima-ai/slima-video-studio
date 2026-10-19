@@ -78,6 +78,13 @@
       "when": 1791903904262,
       "tag": "0010_project_models",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1792395252227,
+      "tag": "0011_sound_clips",
+      "breakpoints": true
     }
   ]
 }

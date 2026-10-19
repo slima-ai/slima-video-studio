@@ -23,4 +23,19 @@ describe('FinalCutRepository', () => {
     expect(repos.finalCuts.latest()).toEqual(second)
     expect(repos.finalCuts.latest()?.durationSec).toBeUndefined()
   })
+
+  it('有聲音的成品記住接片的結果（重混從這支開始）與聲音的指紋；沒有聲音就都沒有', () => {
+    const { repos } = newProject()
+    const plain = repos.finalCuts.record({ assetHash: HASH('a'), takeIds: ['t1'] })
+    expect(plain.baseAssetHash).toBeUndefined()
+    expect(plain.soundKey).toBeUndefined()
+    const mixed = repos.finalCuts.record({
+      assetHash: HASH('m'),
+      baseAssetHash: HASH('a'),
+      soundKey: 'k1',
+      takeIds: ['t1'],
+    })
+    expect(repos.finalCuts.latest()).toEqual(mixed)
+    expect(mixed).toMatchObject({ baseAssetHash: HASH('a'), soundKey: 'k1' })
+  })
 })

@@ -58,6 +58,10 @@ export const finalCuts = sqliteTable(
     assetHash: text('asset_hash').notNull(),
     durationSec: real('duration_sec'),
     takeIds: text('take_ids', { mode: 'json' }).$type<string[]>().notNull(),
+    /** 接片的結果（還沒混音）。有聲音時 asset_hash 是混音後的成品，要重混就從這支開始，不用重新接片。 */
+    baseAssetHash: text('base_asset_hash'),
+    /** 混音用了哪一組聲音（採用中的片段與設定的指紋）；沒有聲音就是空的。 */
+    soundKey: text('sound_key'),
     createdAt: text('created_at').notNull(),
   },
   (t) => [unique('final_cuts_project_version_uq').on(t.projectId, t.version)],
