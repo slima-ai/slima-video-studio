@@ -196,7 +196,8 @@ describe('聲音工具（示範模式）', () => {
     expect(Array.isArray(analysis.warnings)).toBe(true)
     const exported = JSON.parse(textOf(await r.call('export_film'))) as { fileName: string }
     expect(exported.fileName).toMatch(/\.mp4$/)
-  })
+  }, // 真的用 FFmpeg 接片、混音兩次、量測：機器忙的時候要將近 20 秒，預設逾時會誤判
+  60_000)
 
   it('量測：還沒接片 → 白話錯誤，不是例外', async () => {
     const r = await start()
