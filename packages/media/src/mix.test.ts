@@ -290,6 +290,32 @@ describe('mixAudio：響度', () => {
   })
 })
 
+describe('mixAudio：不同規格的旁白檔', () => {
+  it('8 kHz 單聲道的旁白（示範模式的假旁白就是這種）加預設的響度正規化也能混（FFmpeg 6.0 的第二趟曾因聲道配置失敗）', async () => {
+    const mono = path('mono-8k.wav')
+    await runTool(tools.ffmpegPath, [
+      ...BASE,
+      '-f',
+      'lavfi',
+      '-i',
+      'sine=frequency=440:duration=2',
+      '-ar',
+      '8000',
+      '-ac',
+      '1',
+      mono,
+    ])
+    const out = path('mono-mixed.mp4')
+    await mixAudio(tools, silentVideo, out, { narration: [{ file: mono, startSec: 1 }] })
+    const info = await probe(tools, out)
+    expect(info.hasAudio).toBe(true)
+    expect(info.durationSec).toBeCloseTo(10, 0)
+    expect(
+      await measureRmsDb(tools, out, { startSec: 1.2, durationSec: 1.5, filter: band(440) }),
+    ).toBeGreaterThan(-45)
+  })
+})
+
 describe('mixAudio：輸入不對', () => {
   it('旁白起點超出影片長度、音檔沒有聲音、檔案沒有影像：都給白話錯誤，不留半成品', async () => {
     const out = path('bad.mp4')

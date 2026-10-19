@@ -471,7 +471,7 @@ export async function mixAudio(
         `[mix]loudnorm=${norm}:measured_I=${String(measured.integratedLufs)}` +
         `:measured_TP=${String(measured.truePeakDb)}:measured_LRA=${String(measured.loudnessRange)}` +
         `:measured_thresh=${String(measured.thresholdLufs)}:offset=${String(measured.offsetDb)}` +
-        `:linear=true,aresample=${String(RATE)}[out]`
+        `:linear=true,aresample=${String(RATE)},aformat=channel_layouts=stereo[out]`
     }
   }
 
