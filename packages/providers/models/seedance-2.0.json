@@ -2,6 +2,7 @@
   "key": "seedance-2.0",
   "displayName": "Seedance 2.0",
   "userNote": "有聲音，可以參考多張圖與影片",
+  "attribution": "Video generated with Seedance (ByteDance)",
   "tasks": ["t2v", "i2v", "r2v"],
   "tier": "premium",
   "recommended": false,

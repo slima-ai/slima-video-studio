@@ -2,6 +2,7 @@
   "key": "claude-sonnet-5.5",
   "displayName": "Claude Sonnet 5.5",
   "userNote": "預設的文字模型，用來拆鏡頭",
+  "attribution": "Story and prompts assisted by Claude (Anthropic)",
   "tasks": ["llm"],
   "tier": "balanced",
   "recommended": true,

@@ -343,7 +343,7 @@ describe('shots.adopt 與 shots.rejoin', { timeout: 30_000 }, () => {
     const { videoHash } = await shots.rejoin()
     expect(quickstart.state()?.finalVideoHash).toBe(videoHash)
     expect(progress().at(-1)?.finalVideoHash).toBe(videoHash)
-    expect(quickstart.export().path).toMatch(/\.mp4$/)
+    expect((await quickstart.export()).path).toMatch(/\.mp4$/)
   })
 
   it('有鏡頭還沒有影片 → 說清楚是第幾鏡', async () => {

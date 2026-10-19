@@ -125,6 +125,8 @@ export const ModelCardSchema = z
     badges: z.array(z.string().min(1)).default([]),
     /** 給使用者看的一句白話說明（設定頁顯示）；工程備註（實測日期、查無的條款）寫在 notes，不給使用者看。 */
     userNote: z.string().optional(),
+    /** 匯出時片尾字卡上的標註（英文一行），例如「Video generated with Kling AI」；示範模型沒有。 */
+    attribution: z.string().optional(),
     /** 授權說明，例如「可商用」。 */
     licenseNote: z.string().optional(),
     /** 這個模型是否需要使用者的 Key。示範模式的假模型不需要。 */
@@ -283,6 +285,8 @@ export const ModelSpecSchema = z
     badges: z.array(z.string().min(1)).default([]),
     /** 給使用者看的一句白話說明（設定頁顯示）；工程備註寫在 notes。 */
     userNote: z.string().optional(),
+    /** 匯出時片尾字卡上的標註（英文一行）；沒有就不列。 */
+    attribution: z.string().optional(),
     status: ModelStatusSchema.default('active'),
     sunsetDate: z.iso.date().optional(),
     licenseNote: z.string().optional(),
@@ -337,6 +341,7 @@ export function expandModelSpec(spec: ModelSpec): ModelCard[] {
       provider: channel.provider,
       model: spec.key,
       badges: spec.badges,
+      ...(spec.attribution === undefined ? {} : { attribution: spec.attribution }),
       ...((channel.userNote ?? spec.userNote) === undefined
         ? {}
         : { userNote: channel.userNote ?? spec.userNote }),

@@ -2,6 +2,7 @@
   "key": "gemini-3-pro-image",
   "displayName": "Gemini 3 Pro Image",
   "userNote": "能參考多張圖的圖片模型",
+  "attribution": "Images generated with Google Gemini",
   "tasks": ["t2i", "edit"],
   "tier": "premium",
   "recommended": false,

@@ -564,8 +564,9 @@ export const ipcContract = {
 
   /** 把接好的影片複製到專案的 exports 資料夾。 */
   'quickstart.export': {
-    request: z.object({}),
-    response: z.object({ path: z.string() }),
+    /** credits（預設 true）：片尾接一張「用了哪些 AI 服務」的字卡，只加在匯出的檔案上。 */
+    request: z.object({ credits: z.boolean().optional() }),
+    response: z.object({ path: z.string(), credits: z.boolean() }),
   },
   /** 目前專案的所有鏡頭，連同每個鏡頭的各個版本。 */
   'shots.list': {

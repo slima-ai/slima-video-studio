@@ -1,5 +1,6 @@
 import { probe, resolveTools } from '@svs/media'
-import { readFileSync } from 'node:fs'
+import { makePng } from '@svs/test-utils'
+import { existsSync, readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createStudioHarness } from '../shots/test-harness'
@@ -442,11 +443,86 @@ describe('快速開始的聲音勾選', () => {
     const handle = h.projects.current()
     const latest = handle?.repos.finalCuts.latest()
     if (!handle || !latest?.baseAssetHash) throw new Error('應該有混好的成品')
-    const { path } = h.quickstart.export()
+    const { path } = await h.quickstart.export()
     const exported = readFileSync(path)
     const mixed = readFileSync(handle.assets.find(latest.assetHash)?.path ?? '')
     const base = readFileSync(handle.assets.find(latest.baseAssetHash)?.path ?? '')
     expect(exported.equals(mixed)).toBe(true)
     expect(exported.equals(base)).toBe(false)
+  })
+})
+
+describe('匯出的片尾字卡', () => {
+  const request = {
+    story: '一隻貓在雨天裡找到溫暖的家',
+    style: 'anime',
+    shotCount: 2,
+    durationSec: 3,
+    aspectRatio: '16:9',
+    variation: 0,
+  } as const
+  const tools = resolveTools()
+  const fakeCard =
+    (seen: { lines: string[]; width: number; height: number }[]) =>
+    (input: { lines: readonly string[]; width: number; height: number }) => {
+      seen.push({ lines: [...input.lines], width: input.width, height: input.height })
+      return Promise.resolve(
+        makePng({ width: input.width, height: input.height, color: [20, 20, 20] }),
+      )
+    }
+  const lengthOf = async (path: string): Promise<number> => (await probe(tools, path)).durationSec
+
+  it('預設加字卡：匯出的檔案比成品多 3 秒，字卡文字收到的是這個專案用的服務（示範模式只有產品那一行），專案裡的成品不變', async () => {
+    const seen: { lines: string[]; width: number; height: number }[] = []
+    const h = setup({ renderCreditsCard: fakeCard(seen) })
+    await h.quickstart.run(request)
+    await h.finished()
+    const handle = h.projects.current()
+    const latest = handle?.repos.finalCuts.latest()
+    if (!handle || !latest) throw new Error('應該有成品')
+    const finalPath = handle.assets.find(latest.assetHash)?.path ?? ''
+    const before = await lengthOf(finalPath)
+    const exported = await h.quickstart.export()
+    expect(exported.credits).toBe(true)
+    expect(await lengthOf(exported.path)).toBeCloseTo(before + 3, 0)
+    expect(seen).toHaveLength(1)
+    expect(seen[0]?.lines).toEqual(['Made with Slima Video Studio'])
+    expect(seen[0]?.width).toBeGreaterThan(0)
+    // 專案裡的成品沒有被改
+    expect(handle.repos.finalCuts.latest()?.assetHash).toBe(latest.assetHash)
+    expect(await lengthOf(finalPath)).toBeCloseTo(before, 1)
+  })
+
+  it('credits: false 就匯出沒有字卡的原版（不呼叫畫圖）', async () => {
+    const seen: { lines: string[]; width: number; height: number }[] = []
+    const h = setup({ renderCreditsCard: fakeCard(seen) })
+    await h.quickstart.run(request)
+    await h.finished()
+    const plain = await h.quickstart.export({ credits: false })
+    expect(plain.credits).toBe(false)
+    expect(seen).toEqual([])
+    const handle = h.projects.current()
+    const latest = handle?.repos.finalCuts.latest()
+    expect(
+      readFileSync(plain.path).equals(
+        readFileSync(handle?.assets.find(latest?.assetHash ?? '')?.path ?? ''),
+      ),
+    ).toBe(true)
+  })
+
+  it('字卡畫失敗：不能害使用者匯不出影片，改匯出沒有字卡的版本；沒給畫圖的函式也一樣', async () => {
+    const h = setup({
+      renderCreditsCard: () => Promise.reject(new Error('離屏視窗開不起來')),
+    })
+    await h.quickstart.run(request)
+    await h.finished()
+    const exported = await h.quickstart.export()
+    expect(exported.credits).toBe(false)
+    expect(existsSync(exported.path)).toBe(true)
+
+    const none = setup()
+    await none.quickstart.run(request)
+    await none.finished()
+    expect((await none.quickstart.export()).credits).toBe(false)
   })
 })

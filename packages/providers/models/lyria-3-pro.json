@@ -2,6 +2,7 @@
   "key": "lyria-3-pro",
   "displayName": "Google Lyria 3 Pro",
   "userNote": "一首完整的背景音樂",
+  "attribution": "Music generated with Google Lyria",
   "tasks": ["music"],
   "tier": "balanced",
   "recommended": true,

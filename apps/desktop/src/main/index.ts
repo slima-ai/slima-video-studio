@@ -29,6 +29,7 @@ import { createSlimaImportService } from './slima/import-service'
 import { createSlimaService, slimaLaunchFor, type SlimaService } from './slima/slima-service'
 import { appMenuTemplate } from './app-menu'
 import { createMockFrameRenderer } from './mock-frame'
+import { renderCardWithElectron } from './credits/render-card-electron'
 import { createStudioApp } from './studio-app'
 import { openrouterBaseUrlOverride } from './test-overrides'
 import { isInternalUrl, isSafeExternalUrl } from './navigation'
@@ -202,6 +203,8 @@ void app.whenReady().then(() => {
     log,
     tools: () => tools,
     projectsDir,
+    // 匯出時的片尾字卡：用 Electron 離屏視窗畫成圖（自編的 FFmpeg 沒有 drawtext）
+    renderCreditsCard: renderCardWithElectron,
     reveal: (path) => {
       shell.showItemInFolder(path)
     },

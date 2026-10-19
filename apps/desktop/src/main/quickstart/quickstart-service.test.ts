@@ -103,7 +103,7 @@ describe('QuickStartService.run（示範模式，不連網、不用 Key）', () 
     expect(phases).toEqual(new Set(['breakdown', 'shots', 'join', 'done']))
     expect(service.state()).toEqual(done)
 
-    const { path } = service.export()
+    const { path } = await service.export()
     expect(path).toMatch(/exports[\\/].+\.mp4$/)
     expect(existsSync(path)).toBe(true)
     expect(service.state()?.exportedPath).toBe(path)
@@ -186,8 +186,8 @@ describe('QuickStartService.run（示範模式，不連網、不用 Key）', () 
 })
 
 describe('QuickStartService.export', () => {
-  it('還沒有成品就匯出 → 白話錯誤', () => {
+  it('還沒有成品就匯出 → 白話錯誤', async () => {
     const { service } = setup()
-    expect(() => service.export()).toThrow(/還沒有可以匯出的影片/)
+    await expect(service.export()).rejects.toThrow(/還沒有可以匯出的影片/)
   })
 })
