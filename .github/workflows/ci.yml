@@ -75,7 +75,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # 媒體套件的測試會真的呼叫 FFmpeg
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - run: pnpm test --coverage
+      # GitHub 的共用 runner 只有 4 個核心：平行數跟著降成 4（設定檔裡的上限仍是 8，見 tools/config/worker-cap.test.ts）
+      - run: pnpm test --coverage --maxWorkers=4
       - uses: actions/upload-artifact@v4
         if: always()
         with:
