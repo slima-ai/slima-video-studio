@@ -4,7 +4,10 @@
  */
 export const QUIET_WINDOWS_ENV = 'SVS_QUIET_WINDOWS'
 
-/** 視窗放在螢幕外這麼遠（Playwright 走 DevTools 協定操作，不需要視窗在螢幕上）。 */
+/**
+ * 視窗放在螢幕外這麼遠（Windows／Linux 有效；macOS 會把視窗夾回螢幕內，所以另外讓視窗完全透明，見 index.ts）。
+ * Playwright 走 DevTools 協定操作，不需要視窗在螢幕上。
+ */
 export const QUIET_WINDOW_POSITION = { x: -20_000, y: -20_000 } as const
 
 export function quietWindowsEnabled(

@@ -88,6 +88,12 @@ function createMainWindow(log: Logger): BrowserWindow {
     createWindowOptions(join(__dirname, '../preload/index.js'), { quiet }),
   )
   guardWebContents(win, () => appUrl, log)
+  if (quiet) {
+    // macOS 會把視窗位置夾回螢幕內（放到螢幕外沒用），所以讓視窗完全透明、不吃滑鼠：看不到、點不到，
+    // 但 Chromium 照常繪製（Playwright 的截圖與操作走 DevTools 協定，不受影響）
+    win.setOpacity(0)
+    win.setIgnoreMouseEvents(true)
+  }
   win.once('ready-to-show', () => {
     // 安靜模式用 showInactive：視窗存在、照常繪製，但不會跳到最前面、不搶焦點
     if (quiet) win.showInactive()
