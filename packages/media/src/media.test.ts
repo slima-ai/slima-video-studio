@@ -58,6 +58,13 @@ describe('resolveTools', () => {
       '/env/ffprobe',
     )
   })
+
+  it('SVS_FFPROBE=none：沒有 ffprobe（跟打包版一樣），測試可以用它對「App 實際帶的 FFmpeg」跑', () => {
+    expect(resolveTools({}, { SVS_FFPROBE: 'none' }).ffprobePath).toBeNull()
+    expect(
+      resolveTools({ ffprobePath: '/a/ffprobe' }, { SVS_FFPROBE: 'none' }).ffprobePath,
+    ).toBeNull()
+  })
 })
 
 describe('probe', () => {

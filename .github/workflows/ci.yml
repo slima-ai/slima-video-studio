@@ -136,6 +136,14 @@ jobs:
       # 打包時 afterPack 檢查會確認它與授權檔、原始碼說明都在。ffmpeg-static 的 macOS 版含 nonfree，不能散布。
       - name: 編 arm64 的 FFmpeg
         run: tools/ffmpeg/build-macos.sh
+      # 防再犯：媒體（接片、混音、量測）的測試要對「App 實際帶的 FFmpeg」跑，不能只有開發機的系統版或 ffmpeg-static。
+      # 用剛編好的版本、而且跟打包版一樣沒有 ffprobe（SVS_FFPROBE=none，由 ffmpeg 自己讀影片資訊）。
+      # 這個 job 只在 main／手動打包時跑；其他 PR 的 CI 用 ffmpeg-static 6.0，兩邊的差異才抓得到
+      - name: 用剛編好的 FFmpeg 跑媒體測試
+        run: pnpm exec vitest run packages/media
+        env:
+          SVS_FFMPEG: ${{ github.workspace }}/apps/desktop/build/ffmpeg/arm64/ffmpeg
+          SVS_FFPROBE: none
       - run: pnpm --filter @svs/desktop build
       - run: pnpm --filter @svs/desktop dist --mac --arm64
         env:
