@@ -3,3 +3,9 @@ contact_links:
   - name: 資安問題 / Security problem
     url: https://github.com/slima-ai/slima-video-studio/security/advisories/new
     about: 請不要開公開 issue；用這裡私下回報。 / Please report privately here, not in a public issue.
+  - name: 在 Discord 許願或回報 / Wish or report on Discord
+    url: https://discord.gg/vBh9c7ErXv
+    about: 在 Discord 或 email 的許願，我們會轉成 GitHub issue。 / Wishes sent on Discord or by email are turned into GitHub issues by us.
+  - name: 用 Email 許願或回報 / Wish or report by email
+    url: mailto:service@slima.ai
+    about: 在 Discord 或 email 的許願，我們會轉成 GitHub issue。請不要在信裡附 API 金鑰。 / Wishes sent on Discord or by email are turned into GitHub issues by us. Never include API keys.
