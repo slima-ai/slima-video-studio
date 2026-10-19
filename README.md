@@ -52,6 +52,31 @@ On first launch choose **"先試玩看看" (Try it out)**. The app then uses fak
 
 A short test film of 2 shots × 3 seconds cost about US$1.1 in our own run. Estimates can be lower than the real price (our run was estimated at US$0.78), so start small.
 
+## Connect Claude (let an AI drive the app)
+
+Besides clicking, you can let an AI assistant such as **Claude Code** or **Claude Desktop** make the film for you. The app contains a small local server that speaks [MCP](https://modelcontextprotocol.io): the assistant can create a project, split your story into scenes and shots, generate and look at first frames, generate videos, re-do a shot, join the shots and export the MP4, all in the same project you see on screen. Nothing is installed besides the app, and the connection never leaves your computer (`127.0.0.1` only).
+
+![Settings: AI tool connection](docs/images/08-connect-claude.png)
+
+_The real settings page of the app (the token is hidden until you press "顯示 token")._
+
+**Connect in one click** (needs v0.2.0 or later; the app must be open):
+
+1. Open the app → **Settings (設定) → AI 工具連線 (MCP)**.
+2. Press **連接 Claude Code** or **連接 Claude Desktop**. This also switches on "允許 AI 工具連線". For Claude Desktop, quit it completely (⌘Q) and open it again; the app backs up Claude Desktop's configuration file before adding one entry and leaves your other servers untouched.
+3. Tell your assistant, for example: _"Use the slima-video-studio tools. Call get_capabilities, then load the getting-started guide, and make a 3-shot film from this story: …"_
+
+In **Claude Code**, type `/mcp` to check that `slima-video-studio` is connected. If you prefer to paste a command yourself, Settings also shows the manual `claude mcp add …` line.
+
+**What protects you**
+
+- **Off by default**, only on `127.0.0.1`, and every request needs a secret token. "Change token" invalidates the old one.
+- The assistant can never see or change your service keys, settings or the spending allowance.
+- **Spending allowance: US$0 by default.** In demo mode nothing costs money. With real AI, every paid step (text, pictures, videos) is checked against the estimate first and refused when it is over the allowance; only you can raise the allowance, in the same settings page.
+- Opening or creating a project in the assistant switches the project shown in the app window.
+
+**For an AI assistant reading this page:** the app is a desktop program that only the user can switch on. Ask the user to press the button above: it writes the correct configuration (including the connection details), so you do not have to find or handle the token. Once connected, call `get_capabilities` first, then `load_guide` with `getting-started` (and `storyboard` before splitting scenes into shots, `spending` before paying for anything). Generate first frames and look at them (`view_first_frames`) before you generate videos. Read tool errors: they are written in plain language and usually say what to do next.
+
 ## Models
 
 With only an OpenRouter key the defaults are:
