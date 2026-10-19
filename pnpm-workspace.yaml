@@ -1,0 +1,15 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 10 預設不跑 postinstall；只放行必要的套件
+# （Electron 44 沒有 postinstall，第一次 require('electron') 時才會下載執行檔）
+onlyBuiltDependencies:
+  - esbuild
+  # 下載對應平台的 FFmpeg 執行檔（打包版內建，使用者不用另外安裝）
+  - ffmpeg-static
+
+# 避免同一個套件被安裝多個版本而造成型別衝突
+overrides:
+  '@types/node': 22.20.5
+  vite: 7.3.7

@@ -1,0 +1,74 @@
+{
+  "key": "kling-3.0-pro",
+  "displayName": "Kling 3.0 Pro",
+  "tasks": ["t2v", "i2v", "r2v"],
+  "tier": "premium",
+  "recommended": true,
+  "features": {
+    "nativeAudio": true,
+    "characterMechanism": "elements"
+  },
+  "badges": ["有聲", "角色一致"],
+  "prompt": {
+    "language": "en",
+    "hint": "用 @Element1 引用角色元素；每鏡獨立 prompt 與秒數。"
+  },
+  "channels": [
+    {
+      "provider": "fal",
+      "endpoints": {
+        "t2v": "fal-ai/kling-video/v3/pro/text-to-video",
+        "i2v": "fal-ai/kling-video/v3/pro/image-to-video"
+      },
+      "pricing": {
+        "unit": "second",
+        "usd": 0.112,
+        "usdWithAudio": 0.168
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "fal.ai 官方模型頁（2026-10-12 核對，見 docs/models.md）",
+        "checkedAt": "2026-10-12"
+      },
+      "durationSec": {
+        "min": 3,
+        "max": 15
+      },
+      "resolutions": ["720p", "1080p"],
+      "notes": "寫實預設；fal.ai 支援 Kling Elements 鎖定角色（官方頁沒有列 Elements 另加價）。"
+    },
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "t2v": "kwaivgi/kling-v3.0-pro",
+        "i2v": "kwaivgi/kling-v3.0-pro",
+        "r2v": "kwaivgi/kling-v3.0-pro"
+      },
+      "pricing": {
+        "unit": "second",
+        "usd": 0.112,
+        "usdWithAudio": 0.168
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "openrouter.ai 官方模型頁與文件（2026-10-12 核對，見 docs/models.md）",
+        "checkedAt": "2026-10-12"
+      },
+      "durationSec": {
+        "min": 3,
+        "max": 15
+      },
+      "resolutions": ["720p", "1080p"],
+      "referenceLimits": {
+        "images": 4
+      },
+      "notes": "畫質最好的選擇之一。OpenRouter 沒有確認支援 Kling Elements，要用 Elements 請填 fal.ai 的金鑰。",
+      "characterMechanism": "reference",
+      "prompt": {
+        "language": "en"
+      }
+    }
+  ]
+}

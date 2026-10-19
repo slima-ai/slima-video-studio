@@ -1,0 +1,73 @@
+{
+  "key": "kling-3.0-standard",
+  "displayName": "Kling 3.0 Standard",
+  "tasks": ["t2v", "i2v", "r2v"],
+  "tier": "balanced",
+  "recommended": true,
+  "features": {
+    "nativeAudio": true,
+    "characterMechanism": "elements"
+  },
+  "badges": ["有聲", "角色一致"],
+  "prompt": {
+    "language": "en"
+  },
+  "channels": [
+    {
+      "provider": "fal",
+      "endpoints": {
+        "t2v": "fal-ai/kling-video/v3/standard/text-to-video",
+        "i2v": "fal-ai/kling-video/v3/standard/image-to-video"
+      },
+      "pricing": {
+        "unit": "second",
+        "usd": 0.084,
+        "usdWithAudio": 0.126
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "fal.ai 官方模型頁（2026-10-12 核對，見 docs/models.md）",
+        "checkedAt": "2026-10-12"
+      },
+      "durationSec": {
+        "min": 3,
+        "max": 15
+      },
+      "resolutions": ["720p", "1080p"],
+      "notes": "快速開始的預設影片模型。"
+    },
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "t2v": "kwaivgi/kling-v3.0-std",
+        "i2v": "kwaivgi/kling-v3.0-std",
+        "r2v": "kwaivgi/kling-v3.0-std"
+      },
+      "pricing": {
+        "unit": "second",
+        "usd": 0.084,
+        "usdWithAudio": 0.126
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "openrouter.ai 官方模型頁與文件（2026-10-12 核對，見 docs/models.md）",
+        "checkedAt": "2026-10-12"
+      },
+      "durationSec": {
+        "min": 3,
+        "max": 15
+      },
+      "resolutions": ["720p"],
+      "referenceLimits": {
+        "images": 4
+      },
+      "notes": "只填 OpenRouter 金鑰時的預設影片模型。OpenRouter 上只有 720p，也沒有確認支援 Kling Elements（角色一致性靠參考圖）。",
+      "characterMechanism": "reference",
+      "prompt": {
+        "language": "en"
+      }
+    }
+  ]
+}

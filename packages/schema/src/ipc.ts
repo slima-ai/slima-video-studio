@@ -1,0 +1,803 @@
+import { z } from 'zod'
+
+import {
+  CharacterEditSchema,
+  CharacterNameSchema,
+  CharacterVersionSchema,
+  CharacterViewSchema,
+  ConceptCheckSchema,
+  ConceptsStateSchema,
+  TurnaroundCutsSchema,
+  TurnaroundViewSchema,
+  TurnaroundsStateSchema,
+} from './domain/characters'
+import { AspectRatioSchema, IdSchema } from './domain/common'
+import {
+  OUTLINE_TEXT_MAX,
+  OutlineOpSchema,
+  OutlineSplitCheckSchema,
+  OutlineSplitResultSchema,
+  OutlineTextSchema,
+  OutlineViewSchema,
+} from './domain/outline'
+import {
+  CanvasAddResultSchema,
+  CanvasAddSchema,
+  CanvasLinkSchema,
+  CanvasRemoveResultSchema,
+  CanvasRemoveSchema,
+  CanvasGetSchema,
+  CanvasPasteSchema,
+  CanvasPasteResultSchema,
+  CanvasNoticeSchema,
+  CanvasRunPlanSchema,
+  CanvasRunRequestSchema,
+  CanvasRunResultSchema,
+  CanvasRenameSchema,
+  CanvasUpdateFreeSchema,
+  CanvasImportBytesSchema,
+  CanvasImportFilesSchema,
+  CanvasImportResultSchema,
+  CanvasUpdateOnelinerSchema,
+  CanvasChangedSchema,
+  CanvasGraphSchema,
+  CanvasMoveSchema,
+  CanvasViewportSchema,
+} from './domain/canvas'
+import { HistoryChangedSchema, HistoryResultSchema, HistoryStateSchema } from './domain/history'
+import { JobSummarySchema } from './domain/queue'
+import { ShotGraphSchema } from './domain/graph'
+import {
+  SlimaBooksSchema,
+  SlimaImportCheckSchema,
+  SlimaImportRequestSchema,
+  SlimaImportResultSchema,
+  SlimaStatusSchema,
+  SlimaTreeSchema,
+} from './domain/slima'
+import {
+  QuickStartCheckSchema,
+  QuickStartProgressSchema,
+  QuickStartRequestSchema,
+  UpgradeCheckSchema,
+  UpgradeResultSchema,
+} from './domain/quickstart'
+import {
+  LocationCardViewSchema,
+  LocationGenerateKindSchema,
+  LocationImagesStateSchema,
+} from './domain/location-cards'
+import { FileRevealRequestSchema, FilesFilterSchema, FilesSnapshotSchema } from './domain/files'
+import {
+  RecordRedoRequestSchema,
+  RecordsFilterSchema,
+  RecordsSnapshotSchema,
+} from './domain/records'
+import {
+  AppSettingsPatchSchema,
+  AppSettingsSchema,
+  KeyTestResultSchema,
+  ModelOptionSchema,
+  PickableCapabilitySchema,
+} from './domain/settings'
+import {
+  RegenerateModeSchema,
+  ShotBatchCheckSchema,
+  ShotBatchRequestSchema,
+  ShotBatchResultSchema,
+  ShotEditSchema,
+  ShotViewSchema,
+  ShotsSnapshotSchema,
+  StoryboardSplitCheckSchema,
+} from './domain/shots'
+import { AppErrorShapeSchema, type AppErrorShape } from './errors'
+
+/** renderer 看得到的專案摘要（不包含資料庫、路徑以外的內部細節）。 */
+export const ProjectInfoSchema = z.object({
+  id: IdSchema,
+  name: z.string(),
+  /** 專案資料夾（名稱.svsproj）的絕對路徑。 */
+  dir: z.string(),
+  aspectRatio: AspectRatioSchema,
+})
+export type ProjectInfo = z.infer<typeof ProjectInfoSchema>
+
+/** 效能自測：產生一個 N 鏡的示範專案（uiux-spec §12.13）。 */
+export const DemoSeedRequestSchema = z.object({
+  shots: z.number().int().min(1).max(500).default(250),
+})
+export const DemoSeedResultSchema = z.object({
+  project: ProjectInfoSchema,
+  shots: z.number().int().nonnegative(),
+  /** 建好花了幾毫秒。 */
+  ms: z.number().int().nonnegative(),
+})
+export type DemoSeedResult = z.infer<typeof DemoSeedResultSchema>
+
+/** 專案資料夾裡的一個專案（專案頁的清單）。 */
+export const ProjectSummarySchema = z.object({
+  dir: z.string(),
+  name: z.string(),
+  createdAt: z.string(),
+  /** 最後一次修改（資料庫檔案的修改時間）。 */
+  updatedAt: z.string(),
+  /** 現在開著的就是它。 */
+  current: z.boolean(),
+})
+export type ProjectSummary = z.infer<typeof ProjectSummarySchema>
+
+/** 供應商 ID（小寫英數與 - _），也是 ModelCard.provider。 */
+export const KeyProviderIdSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9_-]{1,31}$/, '供應商 ID 格式不正確')
+
+/**
+ * Key 的狀態。**這是 renderer 唯一看得到的 Key 資訊**：有沒有設定、末四碼，
+ * 明文只存在主行程，任何 channel 都不會回傳。
+ */
+export const KeyStatusSchema = z.object({
+  provider: KeyProviderIdSchema,
+  configured: z.boolean(),
+  /** 末四碼，只有 Key 夠長（12 碼以上）時才提供。 */
+  last4: z.string().length(4).optional(),
+})
+export type KeyStatus = z.infer<typeof KeyStatusSchema>
+
+export const KeyStorageInfoSchema = z.object({
+  /** false 時無法儲存 Key，reason 說明原因與解法。 */
+  available: z.boolean(),
+  /** os：作業系統金鑰圈加密；memory：只有測試模式。 */
+  kind: z.enum(['os', 'memory']),
+  reason: z.string().optional(),
+})
+export type KeyStorageInfo = z.infer<typeof KeyStorageInfoSchema>
+
+/**
+ * IPC 合約：renderer 與主行程之間所有 channel 的 request / response / event。
+ * 沒有在這裡定義的 channel 無法呼叫（preload 與主行程都會擋）。
+ */
+export const ipcContract = {
+  'app.ping': {
+    request: z.object({ message: z.string().max(200) }),
+    response: z.object({ pong: z.string(), receivedAt: z.number().int() }),
+  },
+  'app.getInfo': {
+    request: z.object({}),
+    response: z.object({
+      name: z.string(),
+      version: z.string(),
+      platform: z.string(),
+      packaged: z.boolean(),
+    }),
+  },
+  'project.create': {
+    request: z.object({ dir: z.string().min(1), name: z.string().min(1).max(200) }),
+    response: ProjectInfoSchema,
+  },
+  'project.open': {
+    request: z.object({ dir: z.string().min(1) }),
+    response: ProjectInfoSchema,
+  },
+  'project.current': {
+    request: z.object({}),
+    response: ProjectInfoSchema.nullable(),
+  },
+  'project.close': {
+    request: z.object({}),
+    response: z.object({}),
+  },
+  /** 專案資料夾裡的專案，最近修改的在前。 */
+  'project.list': {
+    request: z.object({}),
+    response: z.object({ folder: z.string(), projects: z.array(ProjectSummarySchema) }),
+  },
+  /** 在專案資料夾開一個新的空專案（會先關掉目前的）。 */
+  /**
+   * 效能自測：開一個新的示範專案，放進 N 個鏡頭（每場 10 鏡）、5 個角色、5 個地點，每鏡都有圖和影片
+   * （幾張示範素材輪流用，不呼叫模型、不花錢）。原本的專案留著。
+   */
+  'dev.seedDemo': {
+    request: DemoSeedRequestSchema,
+    response: DemoSeedResultSchema,
+  },
+  'project.createNew': {
+    request: z.object({ name: z.string().trim().min(1).max(60).optional() }),
+    response: ProjectInfoSchema,
+  },
+  /** 在檔案總管（Finder）顯示專案資料夾；沒給 dir 就是目前的專案。只接受清單裡的專案。 */
+  'project.reveal': {
+    request: z.object({ dir: z.string().min(1).optional() }),
+    response: z.object({}),
+  },
+  'keys.list': {
+    request: z.object({}),
+    response: z.object({ keys: z.array(KeyStatusSchema), storage: KeyStorageInfoSchema }),
+  },
+  'keys.set': {
+    request: z.object({
+      provider: KeyProviderIdSchema,
+      key: z.string().min(1).max(600),
+    }),
+    response: KeyStatusSchema,
+  },
+  'keys.delete': {
+    request: z.object({ provider: KeyProviderIdSchema }),
+    response: KeyStatusSchema,
+  },
+  /** 用已儲存的 Key 向供應商確認是否有效（會送出一次網路請求）。 */
+  'keys.test': {
+    request: z.object({ provider: KeyProviderIdSchema }),
+    response: KeyTestResultSchema,
+  },
+  /** Slima 連線狀態（不含 Token 本身）。 */
+  'slima.status': {
+    request: z.object({}),
+    response: SlimaStatusSchema,
+  },
+  /** 存下 Slima API Token 並連線。Token 只會存進金鑰庫，不會回傳。 */
+  'slima.connect': {
+    request: z.object({ token: z.string().min(1).max(600) }),
+    response: SlimaStatusSchema,
+  },
+  /** 清除 Token 並中斷連線。 */
+  'slima.disconnect': {
+    request: z.object({}),
+    response: SlimaStatusSchema,
+  },
+  /** 列出 Slima 資料庫裡的書（唯讀）。 */
+  'slima.books': {
+    request: z.object({}),
+    response: SlimaBooksSchema,
+  },
+  /** 一個鏡頭的生成流程圖與最近一次生成的結果（節點圖，唯讀）。 */
+  'graph.shot': {
+    request: z.object({ shotId: z.string().min(1) }),
+    response: ShotGraphSchema,
+  },
+  /** 畫布（首頁）：把幕、場、鏡頭、版本、角色、地點與自由節點投影成節點與連線，沒存過位置的自動排版。 */
+  'canvas.get': {
+    request: CanvasGetSchema,
+    response: CanvasGraphSchema,
+  },
+  /** 把一批節點移到新位置（整串一起拖就是一串）。可以復原。 */
+  'canvas.move': {
+    request: CanvasMoveSchema,
+    response: z.object({}),
+  },
+  /**
+   * 從畫布新增場、鏡頭、角色或地點（寫進原本的表）；從連接點新增時順便接上。
+   * 可以復原（新增角色本身不記進歷史，因為角色有自己的版本管理）。
+   */
+  'canvas.add': {
+    request: CanvasAddSchema,
+    response: CanvasAddResultSchema,
+  },
+  /**
+   * 拉線：角色→鏡頭的出場角色、地點→場或鏡頭的地點，寫回原本的表。
+   * 接不起來、已經接了或這裡已經有地點時丟白話錯誤。可以復原。
+   */
+  'canvas.link': {
+    request: CanvasLinkSchema,
+    response: z.object({}),
+  },
+  /** 剪線：反過來把關係拿掉（鏡頭少一個出場角色、場或鏡頭不再指到地點）。可以復原。 */
+  'canvas.unlink': {
+    request: CanvasLinkSchema,
+    response: z.object({}),
+  },
+  /**
+   * 刪除節點：鏡頭連同它的圖與影片、場（鏡頭留著只是不分場）、角色、地點；
+   * 單獨刪圖或影片是清掉這一鏡採用中的版本（版本還在生成紀錄裡）。
+   * 鏡頭、場、地點可以復原；角色不在復原歷史裡，刪了就沒了（畫面要先確認）。
+   */
+  'canvas.remove': {
+    request: CanvasRemoveSchema,
+    response: CanvasRemoveResultSchema,
+  },
+  /** 貼上複製的格子（依種類各自處理，見 `CanvasPasteSchema`）。整批算一步復原。 */
+  'canvas.paste': {
+    request: CanvasPasteSchema,
+    response: CanvasPasteResultSchema,
+  },
+  /** 「上傳」：跳出選檔視窗，選好的圖片、影片各放成一格獨立的格子（取消就什麼都不加）。可以復原。 */
+  'canvas.importFiles': {
+    request: CanvasImportFilesSchema,
+    response: CanvasImportResultSchema,
+  },
+  /** 拖進畫布的圖片或影片：存進專案的素材，放成一格獨立的格子。可以復原。 */
+  'canvas.importBytes': {
+    request: CanvasImportBytesSchema,
+    response: CanvasImportResultSchema,
+  },
+  /** 改便條的字、群組的名字／顏色／大小（自由節點）。可以復原。 */
+  'canvas.updateFree': {
+    request: CanvasUpdateFreeSchema,
+    response: z.object({}),
+  },
+  /** 改名（F2）：場的標題、角色或地點的名字、群組的名字；其他格子不能改名（丟白話錯誤）。可以復原。 */
+  'canvas.rename': {
+    request: CanvasRenameSchema,
+    response: z.object({}),
+  },
+  /** 改一句話節點的設定（故事、畫風、鏡頭數…）。可以復原。 */
+  'canvas.updateOneliner': {
+    request: CanvasUpdateOnelinerSchema,
+    response: z.object({}),
+  },
+  /** 執行之前的檢查：這次會跑哪些節點、預估花費、要標亮哪一串。 */
+  'canvas.runPlan': {
+    request: CanvasRunRequestSchema,
+    response: CanvasRunPlanSchema,
+  },
+  /** 執行：補跑還沒有結果的節點（已經有結果的不重跑），在背景進行。 */
+  'canvas.run': {
+    request: CanvasRunRequestSchema,
+    response: CanvasRunResultSchema,
+  },
+  /** 記住視角（平移、縮放之後）。不算編輯，不進復原歷史。 */
+  /** 整理：拖過的場、鏡頭、角色、地點、剪輯回到自動排版（一句話這類自由方塊不動）。可以復原。 */
+  'canvas.tidy': {
+    request: z.object({}),
+    response: z.object({ reset: z.number().int().nonnegative() }),
+  },
+  'canvas.viewport': {
+    request: CanvasViewportSchema,
+    response: z.object({}),
+  },
+  /** 生成紀錄：最近的生成，每筆有 prompt、模型、耗時、花費與結果（唯讀）。 */
+  'records.list': {
+    request: RecordsFilterSchema,
+    response: RecordsSnapshotSchema,
+  },
+  /** 用某一筆紀錄的 prompt（或改過的）重新生成它所屬的鏡頭；在背景進行，進度用 shots.changed 推送。 */
+  'records.redo': {
+    request: RecordRedoRequestSchema,
+    response: z.object({ shotId: z.string() }),
+  },
+  /** 專案裡的所有檔案（圖片、影片）、各自用在哪裡，以及匯出的成品（唯讀）。 */
+  'files.list': {
+    request: FilesFilterSchema,
+    response: FilesSnapshotSchema,
+  },
+  /** 在檔案總管（Finder）中顯示某個檔案。 */
+  'files.reveal': {
+    request: FileRevealRequestSchema,
+    response: z.object({}),
+  },
+  /** 一本書裡可以匯入的檔案（唯讀）。 */
+  'slima.tree': {
+    request: z.object({ bookToken: z.string().min(1) }),
+    response: SlimaTreeSchema,
+  },
+  /** 匯入前的檢查：會建立什麼、預估花費、會不會換掉大綱。 */
+  'slima.importCheck': {
+    request: SlimaImportRequestSchema,
+    response: SlimaImportCheckSchema,
+  },
+  /** 把選好的檔案匯入成大綱、角色與場景。 */
+  'slima.import': {
+    request: SlimaImportRequestSchema,
+    response: SlimaImportResultSchema,
+  },
+  'settings.get': {
+    request: z.object({}),
+    response: AppSettingsSchema,
+  },
+  'settings.update': {
+    request: AppSettingsPatchSchema,
+    response: AppSettingsSchema,
+  },
+  /**
+   * 目前可以選的模型：已填 Key 的供應商（示範模式再加上示範模型）。
+   * `selected` 是每種用途實際會用的模型（使用者選的，沒選就是推薦的；沒有可用的模型就沒有）。
+   */
+  'models.list': {
+    request: z.object({}),
+    response: z.object({
+      models: z.array(ModelOptionSchema),
+      selected: z.partialRecord(PickableCapabilitySchema, z.string()),
+      /** 還沒填金鑰、不能用的模型（選單上灰色，寫要填哪家的金鑰）；示範模式沒有。 */
+      locked: z.array(ModelOptionSchema).default([]),
+      /**
+       * 開著的專案自己指定的模型（每種用途實際會走的管道 id）；沒指定、或指定的現在不能用，
+       * 就跟著 App 設定（selected）。沒開專案時是 null。
+       */
+      project: z
+        .object({
+          name: z.string(),
+          models: z.partialRecord(PickableCapabilitySchema, z.string()),
+        })
+        .nullable()
+        .default(null),
+    }),
+  },
+  /** 設定這個專案預設用的模型（逐項合併，null 表示改回跟著 App 設定）。要先開專案。 */
+  'models.setProject': {
+    request: z.object({
+      models: z.partialRecord(PickableCapabilitySchema, z.string().min(1).nullable()),
+    }),
+    response: z.object({}),
+  },
+  /** 取走還沒說過的模型通知（例如選的模型下架、自動換成別的）；取完就清掉。 */
+  'models.notices': {
+    request: z.object({}),
+    response: z.object({ notices: z.array(z.string()) }),
+  },
+  /** 目前專案最近的生成任務（由舊到新）。沒有開啟專案時是空的。 */
+  'queue.list': {
+    request: z.object({}),
+    response: z.object({ jobs: z.array(JobSummarySchema) }),
+  },
+  'queue.cancel': {
+    request: z.object({ jobId: z.string().min(1) }),
+    response: JobSummarySchema,
+  },
+  /** 重新送出失敗或已取消的任務。 */
+  'queue.retry': {
+    request: z.object({ jobId: z.string().min(1) }),
+    response: JobSummarySchema,
+  },
+  /** 按「生成」前的檢查：缺什麼設定、預估花費、會用哪些模型。不會花錢。 */
+  'quickstart.check': {
+    request: QuickStartRequestSchema,
+    response: QuickStartCheckSchema,
+  },
+  /** 開始生成（在背景執行，進度用 quickstart.progress 事件推送）。沒有開啟專案時會自動建立一個。 */
+  'quickstart.run': {
+    request: QuickStartRequestSchema,
+    response: z.object({ runId: z.string() }),
+  },
+  'quickstart.cancel': {
+    request: z.object({}),
+    response: z.object({}),
+  },
+  /** 最近一次生成的進度（重新整理畫面時用）；還沒生成過就是 null。 */
+  'quickstart.state': {
+    request: z.object({}),
+    response: QuickStartProgressSchema.nullable(),
+  },
+  /** 把快速開始的結果升級成專案之前：會建立大綱、分鏡表和哪些草稿角色卡。 */
+  'quickstart.upgradeCheck': {
+    request: z.object({}),
+    response: UpgradeCheckSchema,
+  },
+  /** 升級成專案：建立大綱（一幕一場）、把鏡頭放進去、替出場的角色建草稿角色卡並從畫面挑主圖。已生成的內容全部保留。 */
+  'quickstart.upgrade': {
+    request: z.object({}),
+    response: UpgradeResultSchema,
+  },
+
+  /** 把接好的影片複製到專案的 exports 資料夾。 */
+  'quickstart.export': {
+    request: z.object({}),
+    response: z.object({ path: z.string() }),
+  },
+  /** 目前專案的所有鏡頭，連同每個鏡頭的各個版本。 */
+  'shots.list': {
+    request: z.object({}),
+    response: ShotsSnapshotSchema,
+  },
+  /** 修改鏡頭的描述、運鏡、秒數或 Prompt（只存起來，不會自動重新生成）。 */
+  'shots.update': {
+    request: z.object({ shotId: IdSchema, patch: ShotEditSchema }),
+    response: ShotViewSchema,
+  },
+  /** 重新生成一個鏡頭（在背景執行，進度用 shots.changed 事件推送）。 */
+  'shots.regenerate': {
+    request: z.object({ shotId: IdSchema, mode: RegenerateModeSchema }),
+    response: z.object({}),
+  },
+  /** 批次生成之前：略過哪些、整批預估花費、能不能開始。 */
+  'shots.batchCheck': {
+    request: ShotBatchRequestSchema,
+    response: ShotBatchCheckSchema,
+  },
+  /** 一次生成多個鏡頭（每個鏡頭各自在背景跑，某一鏡沒辦法開始不影響其他鏡）。 */
+  'shots.generateBatch': {
+    request: ShotBatchRequestSchema,
+    response: ShotBatchResultSchema,
+  },
+  /** 取消這個鏡頭正在進行的重新生成。 */
+  'shots.cancel': {
+    request: z.object({ shotId: IdSchema }),
+    response: z.object({}),
+  },
+  /** 改用另一個版本（首幀圖或影片）。 */
+  'shots.adopt': {
+    request: z.object({ takeId: IdSchema }),
+    response: ShotViewSchema,
+  },
+  /** 新增一個空的鏡頭；有指定 afterShotId 就放在它後面，否則放最後。 */
+  'shots.create': {
+    request: z.object({
+      sceneId: IdSchema.optional(),
+      afterShotId: IdSchema.optional(),
+    }),
+    response: ShotViewSchema,
+  },
+  /** 刪除鏡頭（連同它們生成過的版本），剩下的鏡頭重新編號。 */
+  'shots.delete': {
+    request: z.object({ shotIds: z.array(IdSchema).min(1) }),
+    response: ShotsSnapshotSchema,
+  },
+  /** 依傳入的順序重新排列所有鏡頭（必須包含全部鏡頭）。 */
+  'shots.reorder': {
+    request: z.object({ orderedIds: z.array(IdSchema) }),
+    response: ShotsSnapshotSchema,
+  },
+  /** 讓 AI 替某個場拆鏡頭之前的檢查與預估花費。 */
+  'storyboard.splitCheck': {
+    request: z.object({ sceneId: IdSchema }),
+    response: StoryboardSplitCheckSchema,
+  },
+  /** 讓 AI 把某個場拆成鏡頭（這個場原本的鏡頭會被換掉）。回傳新的鏡頭清單。 */
+  'storyboard.splitScene': {
+    request: z.object({ sceneId: IdSchema }),
+    response: ShotsSnapshotSchema,
+  },
+  /** 用各鏡頭目前採用的影片重新接成一支完整影片。 */
+  'shots.rejoin': {
+    request: z.object({}),
+    response: z.object({ videoHash: z.string() }),
+  },
+  /** 目前專案的大綱（沒有開啟專案就是空的）。 */
+  'outline.get': {
+    request: z.object({}),
+    response: OutlineViewSchema,
+  },
+  /** 修改大綱（新增、編輯、刪除、調整順序），回傳修改後的整份大綱。 */
+  'outline.edit': {
+    request: OutlineOpSchema,
+    response: OutlineViewSchema,
+  },
+  /** 讓 AI 把貼上的文字拆成分場之前的檢查與預估花費。 */
+  'outline.splitCheck': {
+    request: z.object({ text: z.string().max(OUTLINE_TEXT_MAX * 2) }),
+    response: OutlineSplitCheckSchema,
+  },
+  /** 讓 AI 把文字拆成「幕 → 場」，並抽出角色（草稿）與地點。已有大綱會整份換掉。 */
+  'outline.split': {
+    request: z.object({ text: OutlineTextSchema }),
+    response: OutlineSplitResultSchema,
+  },
+  /** 大綱與分鏡表目前能不能復原／重做。 */
+  'history.state': {
+    request: z.object({}),
+    response: HistoryStateSchema,
+  },
+  /** 復原最近一個大綱或分鏡表的編輯（新增、修改、排序、刪除）。 */
+  'history.undo': {
+    request: z.object({}),
+    response: HistoryResultSchema,
+  },
+  'history.redo': {
+    request: z.object({}),
+    response: HistoryResultSchema,
+  },
+  /** 目前專案的角色（沒有開啟專案就是空的）。 */
+  'characters.list': {
+    request: z.object({}),
+    response: z.object({ characters: z.array(CharacterViewSchema) }),
+  },
+  /** 新增角色；沒有開啟專案時會自動建立一個。 */
+  'characters.create': {
+    request: z.object({ name: CharacterNameSchema }),
+    response: CharacterViewSchema,
+  },
+  'characters.update': {
+    request: z.object({ characterId: IdSchema, patch: CharacterEditSchema }),
+    response: CharacterViewSchema,
+  },
+  'characters.delete': {
+    request: z.object({ characterId: IdSchema }),
+    response: z.object({}),
+  },
+  /** 請 AI 把長相和服裝整理成一段固定、精簡的外觀描述（只回傳建議，不會存起來）。 */
+  'characters.suggestAnchor': {
+    request: z.object({ characterId: IdSchema }),
+    response: z.object({ text: z.string() }),
+  },
+  /** 存固定外觀描述。已鎖定的角色改了就變成下一版的草稿。 */
+  'characters.setAnchor': {
+    request: z.object({ characterId: IdSchema, text: z.string().max(1000) }),
+    response: CharacterViewSchema,
+  },
+  /** 這個角色的概念圖與生成進度。 */
+  'characters.concepts': {
+    request: z.object({ characterId: IdSchema }),
+    response: ConceptsStateSchema,
+  },
+  /** 生成概念圖之前的檢查與預估花費。 */
+  'characters.conceptCheck': {
+    request: z.object({ characterId: IdSchema }),
+    response: ConceptCheckSchema,
+  },
+  /** 生成新的一輪概念圖（在背景執行，進度用 characters.conceptsChanged 事件推送）。 */
+  'characters.generateConcepts': {
+    request: z.object({ characterId: IdSchema }),
+    response: z.object({}),
+  },
+  'characters.cancelConcepts': {
+    request: z.object({ characterId: IdSchema }),
+    response: z.object({}),
+  },
+  /** 這個角色的三視圖候選與生成進度。 */
+  'characters.turnarounds': {
+    request: z.object({ characterId: IdSchema }),
+    response: TurnaroundsStateSchema,
+  },
+  /** 生成三視圖之前的檢查與預估花費（要先挑好主圖）。 */
+  'characters.turnaroundCheck': {
+    request: z.object({ characterId: IdSchema }),
+    response: ConceptCheckSchema,
+  },
+  /** 生成新的一輪三視圖（背景執行，進度用 characters.turnaroundsChanged 事件推送）。 */
+  'characters.generateTurnarounds': {
+    request: z.object({ characterId: IdSchema }),
+    response: z.object({}),
+  },
+  'characters.cancelTurnarounds': {
+    request: z.object({ characterId: IdSchema }),
+    response: z.object({}),
+  },
+  /** 調整切線位置，用同一張設定稿重新切。 */
+  'characters.reslice': {
+    request: z.object({
+      characterId: IdSchema,
+      turnaroundId: IdSchema,
+      cuts: TurnaroundCutsSchema,
+    }),
+    response: TurnaroundViewSchema,
+  },
+  /** 採用一組三視圖。 */
+  'characters.adoptTurnaround': {
+    request: z.object({ characterId: IdSchema, turnaroundId: IdSchema }),
+    response: CharacterViewSchema,
+  },
+  /** 把一張概念圖挑成主圖。 */
+  'characters.pickHero': {
+    request: z.object({ characterId: IdSchema, conceptId: IdSchema }),
+    response: CharacterViewSchema,
+  },
+  /** 所有版本（新的在前），含各版的固定外觀描述、主圖與三視圖。 */
+  'characters.versions': {
+    request: z.object({ characterId: IdSchema }),
+    response: z.object({ versions: z.array(CharacterVersionSchema) }),
+  },
+  /** 以某個舊版本的內容開一個新的草稿版本（舊版本都保留）。 */
+  'characters.restoreVersion': {
+    request: z.object({ characterId: IdSchema, versionId: IdSchema }),
+    response: CharacterViewSchema,
+  },
+  /** 鎖定固定外觀描述（不能是空的）。 */
+  'characters.lock': {
+    request: z.object({ characterId: IdSchema }),
+    response: CharacterViewSchema,
+  },
+
+  // ── 場景卡 ──
+
+  /** 所有場景卡（每個地點一張）。 */
+  'locations.list': {
+    request: z.object({}),
+    response: z.object({ locations: z.array(LocationCardViewSchema) }),
+  },
+  /** 寫下（或修改）固定的場景描述；已鎖定的場景卡不能改。 */
+  'locations.setAnchor': {
+    request: z.object({ locationId: IdSchema, text: z.string() }),
+    response: LocationCardViewSchema,
+  },
+  /** 某張場景卡的概念圖與目前的生成進度。 */
+  'locations.images': {
+    request: z.object({ locationId: IdSchema }),
+    response: LocationImagesStateSchema,
+  },
+  /** 生成之前的檢查與預估花費（概念圖 4 張，或另外兩個角度）。 */
+  'locations.check': {
+    request: z.object({ locationId: IdSchema, kind: LocationGenerateKindSchema }),
+    response: ConceptCheckSchema,
+  },
+  /** 開始生成（背景執行，進度用 locations.imagesChanged 事件推送）。 */
+  'locations.generate': {
+    request: z.object({ locationId: IdSchema, kind: LocationGenerateKindSchema }),
+    response: z.object({}),
+  },
+  'locations.cancel': {
+    request: z.object({ locationId: IdSchema }),
+    response: z.object({}),
+  },
+  /** 把一張概念圖挑成主場景圖（原本的另外兩個角度會清掉）。 */
+  'locations.pickMain': {
+    request: z.object({ locationId: IdSchema, conceptId: IdSchema }),
+    response: LocationCardViewSchema,
+  },
+  /** 鎖定場景卡：要有固定描述和主場景圖，之後用到這個地點的鏡頭會自動帶入。 */
+  'locations.lock': {
+    request: z.object({ locationId: IdSchema }),
+    response: LocationCardViewSchema,
+  },
+  'locations.unlock': {
+    request: z.object({ locationId: IdSchema }),
+    response: LocationCardViewSchema,
+  },
+} as const
+
+/** 主行程主動推給 renderer 的事件。 */
+export const ipcEvents = {
+  'app.pinged': z.object({ message: z.string(), receivedAt: z.number().int() }),
+  /** 某個任務的狀態改變了（新增、進度、完成、失敗…）。 */
+  'queue.changed': JobSummarySchema,
+  /** 換了專案（或關閉專案）：任務清單要重新載入。 */
+  'queue.reset': z.object({}),
+  /** 快速開始的進度有變動（完整快照）。 */
+  'quickstart.progress': QuickStartProgressSchema,
+  /** 鏡頭或版本有變動（完整快照）。 */
+  'shots.changed': ShotsSnapshotSchema,
+  /** 某個角色的概念圖有變動（完整快照）。 */
+  'characters.conceptsChanged': ConceptsStateSchema,
+  /** 某個角色的三視圖候選有變動（完整快照）。 */
+  'characters.turnaroundsChanged': TurnaroundsStateSchema,
+  /** 某張場景卡的概念圖有變動（完整快照）。 */
+  'locations.imagesChanged': LocationImagesStateSchema,
+  /** 角色有變動（新增、改名、外觀、鎖定、主圖、刪除，或復原／重做）：角色頁與畫布重新讀。 */
+  'characters.changed': z.object({}),
+  /** 地點或場景卡有變動：地點頁與畫布重新讀。 */
+  'locations.changed': z.object({}),
+  /** 大綱（幕、場、地點名稱）有變動：大綱頁、分鏡表與畫布重新讀。 */
+  'outline.changed': z.object({}),
+  /** 畫布資料有變動（移動節點）；revision 變了就重新載入。 */
+  'canvas.changed': CanvasChangedSchema,
+  /** 背景做完事的一行通知（例如生成完自動接片）。 */
+  'canvas.notice': CanvasNoticeSchema,
+  /** 復原／重做的狀態有變動（編輯、復原、重做、換專案）。 */
+  'history.changed': HistoryChangedSchema,
+  /** Slima 連線狀態改變了。 */
+  'slima.status': SlimaStatusSchema,
+  /** 有新的模型通知（例如選的模型下架、自動換掉）：畫面用 `models.notices` 取走。 */
+  'models.noticed': z.object({}),
+} as const
+
+export type IpcContract = typeof ipcContract
+export type IpcChannel = keyof IpcContract
+export type IpcEventName = keyof typeof ipcEvents
+
+/** renderer 呼叫時要傳的型別（套用 default 前）。 */
+export type IpcRequest<C extends IpcChannel> = z.input<IpcContract[C]['request']>
+/** handler 收到、驗證過的 request（套用 default 後）。 */
+export type IpcParsedRequest<C extends IpcChannel> = z.output<IpcContract[C]['request']>
+export type IpcResponse<C extends IpcChannel> = z.output<IpcContract[C]['response']>
+export type IpcEventPayload<E extends IpcEventName> = z.output<(typeof ipcEvents)[E]>
+
+export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: AppErrorShape }
+
+/** 傳給 ipcRenderer 的實際訊息格式（只有兩個真正的 Electron channel）。 */
+export const IPC_INVOKE_CHANNEL = 'svs:invoke'
+export const IPC_EVENT_CHANNEL = 'svs:event'
+
+export const IpcEnvelopeSchema = z.object({ channel: z.string(), payload: z.unknown() })
+export const IpcEventEnvelopeSchema = z.object({ name: z.string(), payload: z.unknown() })
+
+export const IpcResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), data: z.unknown() }),
+  z.object({ ok: z.literal(false), error: AppErrorShapeSchema }),
+])
+
+export function isIpcChannel(value: string): value is IpcChannel {
+  return Object.hasOwn(ipcContract, value)
+}
+
+export function isIpcEventName(value: string): value is IpcEventName {
+  return Object.hasOwn(ipcEvents, value)
+}
+
+/** preload 暴露給 renderer 的 `window.svs`。 */
+export interface SvsApi {
+  invoke: <C extends IpcChannel>(
+    channel: C,
+    payload: IpcRequest<C>,
+  ) => Promise<IpcResult<IpcResponse<C>>>
+  on: <E extends IpcEventName>(
+    event: E,
+    listener: (payload: IpcEventPayload<E>) => void,
+  ) => () => void
+}

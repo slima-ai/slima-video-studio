@@ -1,0 +1,26 @@
+Slima Video Studio
+Copyright (c) 2026 Slima
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Names, logos and artwork are NOT covered by that license
+--------------------------------------------------------
+The names "Slima" and "Slima Video Studio", the Slima logos, and the "Little Bun" / Mochi mascot
+artwork (including any images, sprites, videos and screenshots that show it) are the property of
+Slima and are All Rights Reserved. The Apache-2.0 license grants no right to use them
+(see Section 6 of the license). You may not use them in a way that suggests your own product is
+made or endorsed by Slima.
+
+Third-party software
+--------------------
+This product includes third-party software under their own licenses. See THIRD-PARTY-NOTICES.md.
+The installers bundle FFmpeg (GNU GPL v2 or later, built with libx264 only, no nonfree code) as a
+separate executable that the app starts as an external program. Its license text and the way to
+obtain its corresponding source code ship next to it (resources/ffmpeg/COPYING.GPLv3, SOURCE.txt);
+the build recipe is tools/ffmpeg/build-macos.sh.
+
+Your AI service keys and costs
+------------------------------
+Slima Video Studio is bring-your-own-key: the app calls the AI services you configure (for example
+OpenRouter) with your own keys, and you alone are responsible for those keys and for any charges.
+The software is provided "AS IS", without warranties of any kind, as stated in the Apache-2.0 license.

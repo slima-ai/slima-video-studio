@@ -1,0 +1,39 @@
+{
+  "key": "nano-banana-2",
+  "displayName": "Nano Banana 2",
+  "tasks": ["t2i", "edit"],
+  "tier": "balanced",
+  "recommended": true,
+  "features": {
+    "characterMechanism": "reference"
+  },
+  "badges": ["多圖參考"],
+  "prompt": {
+    "language": "en",
+    "hint": "多張參考圖時在 prompt 中說明每張圖的用途（角色、服裝、場景）。"
+  },
+  "channels": [
+    {
+      "provider": "fal",
+      "endpoints": {
+        "t2i": "fal-ai/nano-banana-2",
+        "edit": "fal-ai/nano-banana-2/edit"
+      },
+      "pricing": {
+        "unit": "image",
+        "usd": 0.08
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "fal.ai 官方模型頁（2026-10-12 核對，見 docs/models.md）",
+        "checkedAt": "2026-10-12"
+      },
+      "resolutions": ["1K", "2K", "4K"],
+      "referenceLimits": {
+        "images": 14
+      },
+      "notes": "適合畫角色三視圖、表情和分鏡圖，也是每個鏡頭第一張畫面的預設模型。"
+    }
+  ]
+}

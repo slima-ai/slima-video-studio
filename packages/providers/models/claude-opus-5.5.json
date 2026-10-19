@@ -1,0 +1,34 @@
+{
+  "key": "claude-opus-5.5",
+  "displayName": "Claude Opus 5.5",
+  "tasks": ["llm"],
+  "tier": "premium",
+  "recommended": true,
+  "features": {
+    "contextTokens": 1000000
+  },
+  "badges": [],
+  "prompt": {
+    "language": "any",
+    "hint": "整本劇本拆解、分場、拆鏡（長文理解與結構化輸出）。"
+  },
+  "channels": [
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "llm": "anthropic/claude-opus-5.5"
+      },
+      "pricing": {
+        "unit": "million_tokens",
+        "inputUsd": 4,
+        "outputUsd": 20
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "openrouter.ai 官方模型頁（2026-10-12 核對，見 docs/models.md）",
+        "checkedAt": "2026-10-12"
+      }
+    }
+  ]
+}

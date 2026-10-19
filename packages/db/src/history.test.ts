@@ -1,0 +1,330 @@
+import { AppError } from '@svs/schema'
+import { describe, expect, it } from 'vitest'
+
+import { newProject } from './__tests__/helpers'
+import { StructureHistory } from './history'
+import { shots } from './tables/core'
+import { eq } from 'drizzle-orm'
+
+const HASH = (c: string): string => c.repeat(64)
+
+function setup() {
+  const handle = newProject()
+  const history = new StructureHistory(handle.db, handle.projectId)
+  return { handle, repos: handle.repos, history }
+}
+
+describe('StructureHistory：大綱', () => {
+  it('修改欄位：復原回到原值、重做再套回去', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '一' })
+    const scene = repos.outline.addScene(act.id, { title: '街角' })
+
+    history.record('修改場的名字', () => repos.outline.updateScene(scene.id, { title: '巷口' }))
+    expect(history.state()).toMatchObject({
+      canUndo: true,
+      canRedo: false,
+      undoLabel: '修改場的名字',
+    })
+
+    expect(history.state()).toMatchObject({ undoCount: 1, redoCount: 0 })
+    expect(history.undo()?.label).toBe('修改場的名字')
+    expect(history.state()).toMatchObject({ undoCount: 0, redoCount: 1 })
+    expect(repos.outline.listScenes()[0]?.title).toBe('街角')
+    expect(history.state()).toMatchObject({
+      canUndo: false,
+      canRedo: true,
+      redoLabel: '修改場的名字',
+    })
+
+    history.redo()
+    expect(repos.outline.listScenes()[0]?.title).toBe('巷口')
+  })
+
+  it('新增與刪除：復原新增就是刪掉；復原刪除幕會連它的場一起回來', () => {
+    const { repos, history } = setup()
+    const added = history.record('新增一幕', () => repos.outline.addAct({ title: '序幕' }))
+    history.undo()
+    expect(repos.outline.listActs()).toHaveLength(0)
+    history.redo()
+    expect(repos.outline.listActs().map((a) => a.id)).toEqual([added.id])
+
+    const scene = repos.outline.addScene(added.id, { title: '街角', mood: '安靜' })
+    history.clear()
+    history.record('刪除這一幕', () => {
+      repos.outline.deleteAct(added.id)
+    })
+    expect(repos.outline.listActs()).toHaveLength(0)
+    history.undo()
+    expect(repos.outline.listActs().map((a) => a.id)).toEqual([added.id])
+    expect(repos.outline.listScenes()).toMatchObject([
+      { id: scene.id, mood: '安靜', actId: added.id },
+    ])
+  })
+
+  it('排序：復原與重做都回到對應的順序', () => {
+    const { repos, history } = setup()
+    const a = repos.outline.addAct({ title: 'A' })
+    const b = repos.outline.addAct({ title: 'B' })
+    history.record('整幕往後移', () => {
+      repos.outline.moveAct(a.id, 'down')
+    })
+    expect(repos.outline.listActs().map((x) => x.title)).toEqual(['B', 'A'])
+    history.undo()
+    expect(repos.outline.listActs().map((x) => x.title)).toEqual(['A', 'B'])
+    history.redo()
+    expect(repos.outline.listActs().map((x) => x.title)).toEqual(['B', 'A'])
+    expect(b.id).toBeDefined()
+  })
+
+  it('刪除場：用到它的鏡頭原本屬於這個場，復原後鏡頭又指回去', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '一' })
+    const scene = repos.outline.addScene(act.id, { title: '街角' })
+    const shot = repos.shots.create({ sceneId: scene.id })
+    history.record('刪除這個場', () => {
+      repos.outline.deleteScene(scene.id)
+    })
+    expect(repos.shots.get(shot.id)?.sceneId).toBeUndefined()
+    history.undo()
+    expect(repos.shots.get(shot.id)?.sceneId).toBe(scene.id)
+    history.redo()
+    expect(repos.shots.get(shot.id)?.sceneId).toBeUndefined()
+  })
+
+  it('刪除地點：場與鏡頭的地點指定、場景卡的概念圖都會回來', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '一' })
+    const place = repos.outline.addLocation({ name: '舊倉庫' })
+    const scene = repos.outline.addScene(act.id, { title: '追逐', locationId: place.id })
+    const shot = repos.shots.create({ locationId: place.id })
+    repos.locationCards.addConcept({
+      locationId: place.id,
+      round: 1,
+      slot: 0,
+      assetHash: HASH('a'),
+      modelId: 'm',
+    })
+    history.record('刪除地點', () => {
+      repos.outline.deleteLocation(place.id)
+    })
+    expect(repos.outline.listLocations()).toHaveLength(0)
+    history.undo()
+    expect(repos.outline.listLocations().map((l) => l.id)).toEqual([place.id])
+    expect(repos.outline.listScenes().find((s) => s.id === scene.id)?.locationId).toBe(place.id)
+    expect(repos.shots.get(shot.id)?.locationId).toBe(place.id)
+    expect(repos.locationCards.listConcepts(place.id)).toHaveLength(1)
+  })
+})
+
+describe('StructureHistory：分鏡表', () => {
+  it('刪除鏡頭：連同它生成過的版本一起回來，其他鏡頭的鏡號也還原', () => {
+    const { repos, history } = setup()
+    const first = repos.shots.create({ description: '一' })
+    const second = repos.shots.create({ description: '二' })
+    const take = repos.shots.addTake({
+      shotId: first.id,
+      kind: 'video',
+      assetHash: HASH('a'),
+      modelId: 'm',
+    })
+    history.record('刪除鏡頭', () => {
+      repos.shots.delete(first.id)
+      repos.shots.reorder([second.id])
+    })
+    expect(repos.shots.list().map((s) => [s.description, s.number])).toEqual([['二', 1]])
+
+    history.undo()
+    expect(repos.shots.list().map((s) => [s.description, s.number])).toEqual([
+      ['一', 1],
+      ['二', 2],
+    ])
+    expect(repos.shots.listTakes(first.id)).toMatchObject([{ id: take.id, adopted: true }])
+    expect(repos.shots.get(first.id)?.activeTakeId).toBe(take.id)
+
+    history.redo()
+    expect(repos.shots.list().map((s) => s.description)).toEqual(['二'])
+    expect(repos.shots.listTakes(first.id)).toHaveLength(0)
+  })
+
+  it('重新排序：復原回到原本的順序與鏡號', () => {
+    const { repos, history } = setup()
+    const a = repos.shots.create({ description: 'a' })
+    const b = repos.shots.create({ description: 'b' })
+    const c = repos.shots.create({ description: 'c' })
+    history.record('調整鏡頭順序', () => {
+      repos.shots.reorder([c.id, a.id, b.id])
+    })
+    expect(repos.shots.list().map((s) => s.description)).toEqual(['c', 'a', 'b'])
+    history.undo()
+    expect(repos.shots.list().map((s) => [s.description, s.number])).toEqual([
+      ['a', 1],
+      ['b', 2],
+      ['c', 3],
+    ])
+  })
+
+  it('欄位保護：動作之後別的地方又改了同一個欄位，復原不會把它蓋回舊值；沒動過的欄位照常復原', () => {
+    const { repos, handle, history } = setup()
+    const shot = repos.shots.create({ description: '原本', dialogue: '你好' })
+    history.record('修改鏡頭', () => {
+      repos.shots.update(shot.id, { description: '改過', dialogue: '哈囉' })
+    })
+    // 動作之後：重新生成改了狀態；使用者又在別處改了台詞（沒有記進歷史）
+    repos.shots.update(shot.id, { status: 'done', dialogue: '再改一次' })
+
+    history.undo()
+    const after = repos.shots.get(shot.id)
+    expect(after?.description).toBe('原本')
+    expect(after?.dialogue).toBe('再改一次')
+    expect(after?.status).toBe('done')
+    expect(handle.db.select().from(shots).where(eq(shots.id, shot.id)).get()?.status).toBe('done')
+  })
+})
+
+describe('StructureHistory：recordCreation', () => {
+  it('動作之前什麼都沒有：把目前的內容整個記成這個動作，復原後回到空的', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '序幕' })
+    repos.outline.addScene(act.id, { title: '街角' })
+    history.recordCreation('新增一幕')
+    expect(history.state().undoLabel).toBe('新增一幕')
+    history.undo()
+    expect(repos.outline.listActs()).toHaveLength(0)
+    expect(repos.outline.listScenes()).toHaveLength(0)
+    history.redo()
+    expect(repos.outline.listScenes()).toMatchObject([{ title: '街角', actId: act.id }])
+  })
+
+  it('什麼都沒有就不記', () => {
+    const { history } = setup()
+    history.recordCreation('空的')
+    expect(history.state().canUndo).toBe(false)
+  })
+})
+
+describe('StructureHistory：begin（背景跑一段時間的動作）', () => {
+  it('結束時把整段的變化記成一筆；復原回到開始之前，重做再全部回來', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '一' })
+    const keep = repos.shots.create({ description: '原本的' })
+    const finish = history.begin('一句話生成')
+    const scene = repos.outline.addScene(act.id, { title: '新的場' })
+    const made = repos.shots.create({ description: '新的', sceneId: scene.id })
+    repos.shots.addTake({
+      shotId: made.id,
+      kind: 'first_frame',
+      assetHash: HASH('b'),
+      modelId: 'm',
+    })
+    expect(history.state().canUndo).toBe(false)
+    finish()
+    expect(history.state()).toMatchObject({ undoLabel: '一句話生成', undoCount: 1 })
+
+    history.undo()
+    expect(repos.shots.list().map((s) => s.id)).toEqual([keep.id])
+    expect(repos.outline.listScenes()).toHaveLength(0)
+    history.redo()
+    expect(repos.shots.list().map((s) => s.description)).toEqual(['原本的', '新的'])
+    expect(repos.shots.listTakes(made.id)).toHaveLength(1)
+  })
+
+  it('取代全部（先刪掉舊的再長新的）也能整個復原', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '舊的幕' })
+    const old = repos.shots.create({ description: '舊鏡頭' })
+    repos.shots.addTake({ shotId: old.id, kind: 'video', assetHash: HASH('c'), modelId: 'm' })
+    const finish = history.begin('一句話生成')
+    repos.shots.delete(old.id)
+    repos.outline.deleteAct(act.id)
+    repos.shots.create({ description: '新鏡頭' })
+    finish()
+    history.undo()
+    expect(repos.shots.list().map((s) => s.description)).toEqual(['舊鏡頭'])
+    expect(repos.shots.listTakes(old.id)).toHaveLength(1)
+    expect(repos.outline.listActs().map((a) => a.title)).toEqual(['舊的幕'])
+  })
+
+  it('期間另外記下的動作併進這一筆；之前的紀錄不受影響；結束函式只算第一次', () => {
+    const { repos, history } = setup()
+    const shot = repos.shots.create({ description: 'a' })
+    history.record('改一', () => repos.shots.update(shot.id, { description: 'b' }))
+    const finish = history.begin('一句話生成')
+    repos.shots.create({ description: '長出來的' })
+    history.record('生成中順手改', () => repos.shots.update(shot.id, { description: 'c' }))
+    finish()
+    finish()
+    expect(history.state()).toMatchObject({ undoLabel: '一句話生成', undoCount: 2 })
+    history.undo()
+    expect(repos.shots.list().map((s) => s.description)).toEqual(['b'])
+    history.undo()
+    expect(repos.shots.list().map((s) => s.description)).toEqual(['a'])
+  })
+
+  it('什麼都沒改（例如一開始就失敗）不留紀錄', () => {
+    const { history } = setup()
+    history.begin('一句話生成')()
+    expect(history.state().canUndo).toBe(false)
+  })
+})
+
+describe('StructureHistory：紀錄的規則', () => {
+  it('沒有改到任何東西、或編輯失敗，都不會留下紀錄', () => {
+    const { repos, history } = setup()
+    const shot = repos.shots.create({ description: 'x' })
+    history.record('什麼都沒改', () => {
+      repos.shots.update(shot.id, { description: 'x' })
+    })
+    expect(history.state().canUndo).toBe(false)
+    expect(() =>
+      history.record('會失敗', () => {
+        throw new Error('壞了')
+      }),
+    ).toThrow('壞了')
+    expect(history.state().canUndo).toBe(false)
+    expect(history.undo()).toBeUndefined()
+    expect(history.redo()).toBeUndefined()
+  })
+
+  it('復原之後又做了新動作，重做的紀錄就清掉', () => {
+    const { repos, history } = setup()
+    const shot = repos.shots.create({ description: 'a' })
+    history.record('改一', () => repos.shots.update(shot.id, { description: 'b' }))
+    history.undo()
+    expect(history.state().canRedo).toBe(true)
+    history.record('改二', () => repos.shots.update(shot.id, { description: 'c' }))
+    expect(history.state()).toMatchObject({ canUndo: true, canRedo: false, undoLabel: '改二' })
+  })
+
+  it('最多記住 limit 個動作，更早的被丟掉；clear 全部清空', () => {
+    const { repos, handle } = setup()
+    const history = new StructureHistory(handle.db, handle.projectId, 3)
+    const shot = repos.shots.create({ description: '0' })
+    for (let i = 1; i <= 5; i++) {
+      history.record(`第 ${String(i)} 次`, () =>
+        repos.shots.update(shot.id, { description: String(i) }),
+      )
+    }
+    let undone = 0
+    while (history.undo()) undone++
+    expect(undone).toBe(3)
+    expect(repos.shots.get(shot.id)?.description).toBe('2')
+    history.clear()
+    expect(history.state()).toMatchObject({ canUndo: false, canRedo: false })
+    expect(history.state()).toMatchObject({ undoCount: 0, redoCount: 0 })
+  })
+
+  it('資料已經和當時對不上（相關的場被別的動作刪掉了）：回報白話錯誤，這筆紀錄作廢，資料不變', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '一' })
+    const scene = repos.outline.addScene(act.id, { title: '街角' })
+    history.record('刪除這個場', () => {
+      repos.outline.deleteScene(scene.id)
+    })
+    // 別的動作（沒有記進歷史）把幕也刪了，場就沒辦法再放回去
+    repos.outline.deleteAct(act.id)
+    expect(() => history.undo()).toThrow(AppError)
+    expect(history.state().canUndo).toBe(false)
+    expect(repos.outline.listScenes()).toHaveLength(0)
+  })
+})

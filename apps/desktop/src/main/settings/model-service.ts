@@ -1,0 +1,229 @@
+import {
+  AppError,
+  PICKABLE_CAPABILITIES,
+  type AppSettings,
+  type AppSettingsPatch,
+  type ModelCard,
+  type ModelOption,
+  type ModelTier,
+  type PickableCapability,
+} from '@svs/schema'
+import { providerName, toModelOption, type ModelRegistry } from '@svs/providers'
+
+import type { KeyVault } from '../keys/key-vault'
+import type { SettingsStore } from './settings-store'
+
+export interface ModelListing {
+  models: ModelOption[]
+  selected: Partial<Record<PickableCapability, string>>
+  /** 還沒填金鑰、不能用的模型（選單上灰色）；示範模式沒有。 */
+  locked: ModelOption[]
+  /** 開著的專案自己指定、而且現在能用的模型；沒開專案是 null。 */
+  project: { name: string; models: Partial<Record<PickableCapability, string>> } | null
+}
+
+type ModelChoice = Partial<Record<PickableCapability, string>>
+
+/** 目前開著的專案的模型設定（主行程從 ProjectManager 接進來；測試可以給假的）。 */
+export interface ProjectModels {
+  /** 沒開專案時是 undefined。 */
+  current: () => { name: string; models: ModelChoice } | undefined
+  /** 整份換掉這個專案的模型設定。 */
+  set: (models: ModelChoice) => void
+}
+
+export interface SettingsService {
+  /** 目前的模型選單與每種用途實際會用的模型。 */
+  listModels: () => ModelListing
+  /** 驗證後更新設定：選的模型必須存在、可用、而且做得到那個用途。 */
+  update: (patch: AppSettingsPatch) => AppSettings
+  /** 設定這個專案預設用的模型（逐項合併，null 表示改回跟著 App 設定）。 */
+  setProjectModels: (patch: Partial<Record<PickableCapability, string | null>>) => void
+  /**
+   * 這種用途目前會用哪個模型（管道 id）。先看開著的專案指定的，再看 App 設定，都沒有就用推薦的。
+   * 同一個模型兩家都能走時走較便宜的；選的模型下架、又沒有別家可以走，就換成同一組的下一個、
+   * 記住（專案的記在專案、App 的記在設定），並留一則通知。
+   * 指定 quality 時用那一組（高品質／平衡／經濟）推薦的，那一組沒有能用的才照平常。
+   */
+  resolveModel: (capability: PickableCapability, quality?: ModelTier) => string | undefined
+  /** 取走還沒說過的模型通知（取完就清掉，只說一次）。 */
+  takeNotices: () => string[]
+}
+
+const USE_LABEL: Record<PickableCapability, string> = { llm: '文字', t2i: '圖片', i2v: '影片' }
+
+/**
+ * 設定 + 模型註冊表 + Key 的組合：決定「現在選單裡有哪些模型」與「每種用途用哪一個」。
+ * 示範模式只看得到示範模型；一般模式只看得到已填 Key 的供應商的模型。
+ * 選單上每個模型只列一次（走最便宜的那個管道）。
+ */
+export function createSettingsService(deps: {
+  store: SettingsStore
+  registry: ModelRegistry
+  keys: KeyVault
+  /** 有新的模型通知時（例如自動換掉下架的模型）叫一聲，讓畫面來取。 */
+  onNotice?: () => void
+  /** 開著的專案的模型設定；沒給就只看 App 設定。 */
+  project?: ProjectModels
+}): SettingsService {
+  const { store, registry, keys } = deps
+
+  const queryFor = (capability?: PickableCapability) => ({
+    configuredProviders: new Set(keys.providers()),
+    demoMode: store.get().demoMode,
+    ...(capability ? { capability } : {}),
+  })
+
+  const availableFor = (capability?: PickableCapability): ModelCard[] => {
+    const { demoMode } = store.get()
+    return registry
+      .availableModels(queryFor(capability))
+      .filter((card) => (card.provider === 'mock') === demoMode)
+  }
+
+  /** 留一則只說一次的通知（例如選的模型下架、自動換掉了）。 */
+  const notify = (text: string): void => {
+    store.setNotices([...store.get().modelNotices, text])
+    deps.onNotice?.()
+  }
+
+  /**
+   * 選的模型（chosenId）現在走哪個管道。下架又沒別家可走就換同組下一個，交給 remember 記住並通知；
+   * 不能用（沒選、Key 被刪、示範模式切換）回傳 undefined。
+   */
+  const usable = (
+    capability: PickableCapability,
+    chosenId: string | undefined,
+    remember: (gone: ModelCard, next: ModelCard) => void,
+  ): string | undefined => {
+    const { demoMode } = store.get()
+    const chosen = chosenId === undefined ? undefined : registry.get(chosenId)
+    if (!chosen || (chosen.provider === 'mock') !== demoMode) return undefined
+    const query = queryFor(capability)
+    const best = registry.bestChannel(chosen, query)
+    if (best) return best.id
+    if (!registry.isSunset(chosen)) return undefined
+    const next = registry.replacementFor(chosen, { ...query, capability })
+    if (!next || (next.provider === 'mock') !== demoMode) return undefined
+    remember(chosen, next)
+    return next.id
+  }
+
+  /** 這個專案指定的模型（能用的話）；專案的模型下架就改寫專案設定。 */
+  const projectModel = (capability: PickableCapability): string | undefined => {
+    const project = deps.project?.current()
+    if (!project) return undefined
+    return usable(capability, project.models[capability], (gone, next) => {
+      deps.project?.set({ ...project.models, [capability]: next.id })
+      notify(
+        `「${gone.displayName}」已經下架，這個專案的${USE_LABEL[capability]}改用「${next.displayName}」。可以到設定換別的。`,
+      )
+    })
+  }
+
+  /** App 設定選的模型；沒選或不能用就用推薦的。 */
+  const appModel = (capability: PickableCapability): string | undefined => {
+    const chosen = usable(capability, store.get().models[capability], (gone, next) => {
+      store.update({ models: { [capability]: next.id } })
+      notify(
+        `「${gone.displayName}」已經下架，${USE_LABEL[capability]}改用「${next.displayName}」。可以到設定換別的。`,
+      )
+    })
+    if (chosen) return chosen
+    const cards = availableFor(capability)
+    const groups = (['balanced', 'premium', 'budget'] as const).flatMap((tier) =>
+      cards.filter((c) => c.tier === tier),
+    )
+    return (groups.find((c) => c.recommended) ?? groups[0])?.id
+  }
+
+  /** 換的模型要存在、而且做得到那個用途。 */
+  const checkChoice = (choice: Partial<Record<PickableCapability, string | null>>): void => {
+    for (const [capability, id] of Object.entries(choice) as [
+      PickableCapability,
+      string | null,
+    ][]) {
+      if (id === null) continue
+      const card = registry.get(id)
+      if (!card?.capabilities.includes(capability)) {
+        throw new AppError({
+          code: 'invalid_request',
+          userMessage: '這個模型沒辦法用在這個用途，請重新選擇。',
+        })
+      }
+    }
+  }
+
+  const resolveModel = (
+    capability: PickableCapability,
+    quality?: ModelTier,
+  ): string | undefined => {
+    // 指定等級（生成鈕旁的「高品質／平衡／經濟」）：那一組裡推薦的；那一組沒有能用的就照平常
+    if (quality) {
+      const tier = availableFor(capability).filter((c) => c.tier === quality)
+      const pick = tier.find((c) => c.recommended) ?? tier[0]
+      if (pick) return pick.id
+    }
+    return projectModel(capability) ?? appModel(capability)
+  }
+
+  return {
+    resolveModel,
+    takeNotices: () => {
+      const notices = store.get().modelNotices
+      if (notices.length > 0) store.setNotices([])
+      return notices
+    },
+    listModels: () => {
+      const selected: ModelChoice = {}
+      const projectChoice: ModelChoice = {}
+      for (const capability of PICKABLE_CAPABILITIES) {
+        const id = appModel(capability)
+        if (id) selected[capability] = id
+        const own = projectModel(capability)
+        if (own) projectChoice[capability] = own
+      }
+      const current = deps.project?.current()
+      const models = availableFor()
+      const locked = store.get().demoMode
+        ? []
+        : registry.lockedModels(queryFor()).map(({ card, providers }) => ({
+            ...toModelOption(card, registry.channelsOf(card)),
+            needsKey: providers.map(providerName).join(' 或 '),
+          }))
+      return {
+        models: models.map((card) => toModelOption(card, registry.channelsOf(card))),
+        selected,
+        locked,
+        project: current ? { name: current.name, models: projectChoice } : null,
+      }
+    },
+    update: (patch) => {
+      checkChoice(patch.models ?? {})
+      if (patch.budget && patch.budget.perRunLimitUsd <= 0) {
+        throw new AppError({
+          code: 'invalid_request',
+          userMessage: '單次花費上限要大於 0。',
+        })
+      }
+      return store.update(patch)
+    },
+    setProjectModels: (patch) => {
+      const project = deps.project?.current()
+      if (!project) {
+        throw new AppError({
+          code: 'project_not_found',
+          userMessage: '請先開啟或建立一個專案。',
+        })
+      }
+      checkChoice(patch)
+      const next: ModelChoice = {}
+      for (const capability of PICKABLE_CAPABILITIES) {
+        // 沒提到的照舊；null 表示改回跟著 App 設定
+        const id = capability in patch ? patch[capability] : project.models[capability]
+        if (id) next[capability] = id
+      }
+      deps.project?.set(next)
+    },
+  }
+}

@@ -1,0 +1,206 @@
+name: CI
+
+# 什麼時候跑什麼：
+# - 草稿 PR 只跑 lint / typecheck / unit；e2e-linux（最貴）等「Ready for review」或手動觸發才跑
+# - 手動觸發（Actions → CI → Run workflow，選分支）：整疊 PR 只在最上層的分支跑一次全套就好；
+#   勾「也打 Mac 安裝檔」就不用先合併進 main 也能拿到安裝檔
+# - 同一個分支新推的會取消還在跑的舊一輪；每個 job 都有逾時上限，卡住的 job 不會燒到 6 小時
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      installers:
+        description: '也打 Mac 安裝檔（安裝檔只在手動勾選時才打包）'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI: '1'
+  # E2E 與單元測試都不連網、不需要任何 Key
+  SVS_PROVIDER_MODE: mock
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - name: 相依套件安全性（high 以上才失敗）
+        run: pnpm audit --prod --audit-level high
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # 媒體套件的測試會真的呼叫 FFmpeg
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pnpm test --coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage
+          if-no-files-found: ignore
+
+  e2e-linux:
+    name: e2e-linux
+    # 草稿 PR 不跑（見最上面的說明）
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libgbm1 libasound2t64 ffmpeg
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @svs/desktop build
+      - name: Playwright Electron E2E（xvfb）
+        run: SVS_SKIP_BUILD=1 pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report
+          path: |
+            apps/desktop/playwright-report
+            apps/desktop/test-results
+          if-no-files-found: ignore
+
+  # 只在 main、tag 或手動勾了「也打安裝檔」才打包（未簽章安裝檔）
+  # 目前只打 Apple Silicon：Intel 版的 FFmpeg 還沒有（見 tools/ffmpeg/README.md），做得出來再把 x64 加回來
+  build-mac:
+    name: build-mac（arm64）
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.installers)
+    needs: [lint, typecheck, unit, e2e-linux]
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # 內建的 FFmpeg 用自己編的版本（GPL、沒有 nonfree）：輸出到 apps/desktop/build/ffmpeg/arm64/，
+      # 打包時 afterPack 檢查會確認它與授權檔、原始碼說明都在。ffmpeg-static 的 macOS 版含 nonfree，不能散布。
+      - name: 編 arm64 的 FFmpeg
+        run: tools/ffmpeg/build-macos.sh
+      - run: pnpm --filter @svs/desktop build
+      - run: pnpm --filter @svs/desktop dist --mac --arm64
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slima-video-studio-mac-arm64
+          path: apps/desktop/release/*.dmg
+
+  # 先停用：Windows 要等 FFmpeg 自己從原始碼編好（只開 libx264，tools/ffmpeg/README.md「還沒做」）才放回 release。
+  # 目前內建的是 gyan.dev 的 FFmpeg，靜態連結的第三方函式庫沒有提供原始碼，不能公開下載；
+  # 而且這個 job 也還沒有先放 build/ffmpeg/win-x64/，afterPack 檢查會擋下。放回來時：
+  # 把 `if: false` 換回 push／手動勾選的條件、補上 FFmpeg 那一步，並把 release 的 needs 加回 build-win。
+  build-win:
+    name: build-win
+    if: false
+    needs: [lint, typecheck, unit, e2e-linux]
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @svs/desktop build
+      - run: pnpm --filter @svs/desktop dist --win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slima-video-studio-win
+          path: apps/desktop/release/*.exe
+
+  release:
+    name: release（draft）
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-mac]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      # 只放 Mac（Apple Silicon）的 dmg 和 SHA256SUMS；Windows 等 build-win 放回來之後再加。
+      # 檔名的空白先換成連字號：GitHub 會把資產名稱裡的空白改成「.」，SHA256SUMS 裡的檔名才對得上下載到的檔案。
+      - name: 整理檔名並產生 SHA256SUMS
+        working-directory: dist
+        run: |
+          for f in *.dmg; do
+            [ "$f" = "${f// /-}" ] || mv "$f" "${f// /-}"
+          done
+          sha256sum *.dmg > SHA256SUMS
+          cat SHA256SUMS
+      # 同一個 tag 的 Release 如果已經有了（例如手動先建好並上傳過檔案），就跳過，不要因為「已存在」讓這一輪變紅
+      - name: 建立 draft Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$TAG" --repo "$REPO" > /dev/null 2>&1; then
+            echo "Release $TAG 已經存在，跳過建立。"
+          else
+            gh release create "$TAG" dist/*.dmg dist/SHA256SUMS --draft --generate-notes --repo "$REPO"
+          fi

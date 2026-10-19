@@ -1,0 +1,67 @@
+# 沒有 Apple 開發者憑證的安裝檔（v0.1）：用 ad-hoc 簽名（identity: "-"）讓簽章封印完整，
+# 但沒有公證，第一次打開仍要「右鍵 → 打開」。正式簽章與公證排在 P2-8。
+appId: ai.slima.videostudio
+productName: Slima Video Studio
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+# 授權文件隨安裝檔散布：專案授權（Apache-2.0）、NOTICE、第三方授權（tools/licenses 產生）
+extraResources:
+  - from: ../../LICENSE
+    to: LICENSE-slima-video-studio.txt
+  - from: ../../NOTICE
+    to: NOTICE.txt
+  - from: ../../THIRD-PARTY-NOTICES.md
+    to: THIRD-PARTY-NOTICES.md
+# 原生模組（better-sqlite3 的 .node 預編譯檔）不能留在 asar 裡
+asarUnpack:
+  - node_modules/better-sqlite3/**
+  # 內建的 FFmpeg 執行檔也要放在 asar 外面才跑得起來（路徑換算見 src/main/bundled-tools.ts）
+  - node_modules/ffmpeg-static/**
+# macOS 安裝包一定要有自己編的 FFmpeg、不能夾帶 ffmpeg-static 的（electron-builder 對缺的 extraResources 來源只會警告）
+afterPack: ../../tools/ffmpeg/check-bundled-ffmpeg.cjs
+npmRebuild: false
+publish: null
+mac:
+  category: public.app-category.video
+  icon: build/icon.icns
+  # null 會整個跳過簽名，打包出來的 App 簽章封印是壞的（codesign --verify 失敗）；"-" 是 ad-hoc 簽名
+  identity: '-'
+  # 自己編的 FFmpeg（GPL、沒有 nonfree，tools/ffmpeg/build-macos.sh 的輸出）放進 resources/ffmpeg，
+  # 授權全文與原始碼說明跟執行檔放在一起。ffmpeg-static 下載的 macOS 版含 nonfree，不能散布，所以排除。
+  # 每個架構要有對應的 build/ffmpeg/<arch>/；缺的話那個架構的打包會失敗，不會悄悄夾帶錯的檔案。
+  extraResources:
+    - from: build/ffmpeg/${arch}
+      to: ffmpeg
+  files:
+    - '!node_modules/ffmpeg-static/ffmpeg'
+    - '!node_modules/ffmpeg-static/ffmpeg.exe'
+  target:
+    - target: dmg
+      # 先只打 Apple Silicon：Intel 版的 FFmpeg 還沒有（要在 Intel 機器或 CI 上跑 build-macos.sh），
+      # 等 build/ffmpeg/x64/ 做得出來再把 x64 加回來。
+      arch: [arm64]
+win:
+  icon: build/icon.ico
+  # 固定來源的 FFmpeg（gyan.dev 6.1.1，tools/ffmpeg/fetch-windows.sh 取得並核對 SHA-256）放進 resources/ffmpeg，
+  # 授權全文與來源說明跟執行檔放在一起；排除 ffmpeg-static 在安裝當下下載的那份。缺檔時打包會失敗（afterPack）。
+  extraResources:
+    - from: build/ffmpeg/win-${arch}
+      to: ffmpeg
+  files:
+    - '!node_modules/ffmpeg-static/ffmpeg'
+    - '!node_modules/ffmpeg-static/ffmpeg.exe'
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  icon: build/icon.png
+  target:
+    - target: AppImage
+  category: AudioVideo
+  executableName: slima-video-studio

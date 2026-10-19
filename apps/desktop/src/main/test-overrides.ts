@@ -1,0 +1,23 @@
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
+
+/**
+ * 測試用：把 OpenRouter 的位址換成本機的假伺服器（`SVS_OPENROUTER_BASE_URL`）。
+ * 只有非打包版才生效，而且只接受本機位址（http／https 的 127.0.0.1、localhost、[::1]）：
+ * Key 會被送到這個位址，所以不能讓環境變數把它導到別的主機。沒設或不合格就回傳 undefined（照常連 OpenRouter）。
+ */
+export function openrouterBaseUrlOverride(
+  env: Readonly<Record<string, string | undefined>>,
+  packaged: boolean,
+): string | undefined {
+  const raw = env.SVS_OPENROUTER_BASE_URL
+  if (packaged || raw === undefined || raw === '') return undefined
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    return undefined
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined
+  if (!LOOPBACK_HOSTS.has(url.hostname)) return undefined
+  return raw.replace(/\/+$/, '')
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@svs/test-utils",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fake-slima-server": "./src/fake-slima-server.mjs"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@svs/db": "workspace:*",
+    "@svs/engine": "workspace:*",
+    "@svs/media": "workspace:*",
+    "@svs/providers": "workspace:*",
+    "@svs/schema": "workspace:*",
+    "@svs/slima": "workspace:*",
+    "@svs/workflows": "workspace:*",
+    "zod": "4.6.6"
+  }
+}

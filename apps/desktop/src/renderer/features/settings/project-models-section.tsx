@@ -1,0 +1,93 @@
+import { PICKABLE_CAPABILITIES, type ModelOption, type PickableCapability } from '@svs/schema'
+import { useState } from 'react'
+
+import { ListSelect, type ListOption } from '../../components/list-select'
+import { Section } from '../../components/section'
+import { call, errorText } from '../../lib/svs'
+import { LABELS, toOptions } from './models-section'
+
+/** 選單第一個選項：不指定，跟著上面「使用的模型」。 */
+const FOLLOW = 'follow-app'
+
+export interface ProjectModelsSectionProps {
+  /** 開著的專案：名稱與它自己指定的模型。 */
+  project: { name: string; models: Partial<Record<PickableCapability, string>> }
+  models: ModelOption[]
+  /** App 設定每種用途會用的模型（「跟著預設」時用的就是它）。 */
+  selected: Partial<Record<PickableCapability, string>>
+  locked?: ModelOption[]
+  onChanged: () => void
+}
+
+/**
+ * 這個專案預設用什麼：文字、圖片、影片各一列，第一個選項是「跟著預設（X）」。
+ * 只影響開著的這個專案；其他專案照上面的設定。
+ */
+export function ProjectModelsSection({
+  project,
+  models,
+  selected,
+  locked = [],
+  onChanged,
+}: ProjectModelsSectionProps) {
+  const [error, setError] = useState<string | undefined>()
+
+  const choose = (capability: PickableCapability, value: string): void => {
+    setError(undefined)
+    call('models.setProject', { models: { [capability]: value === FOLLOW ? null : value } })
+      .then(onChanged)
+      .catch((e: unknown) => {
+        setError(errorText(e))
+      })
+  }
+
+  return (
+    <Section
+      testId="project-models-section"
+      title="這個專案預設用什麼"
+      description={`只套用在「${project.name}」。沒改的用途跟著上面選的模型。`}
+    >
+      <div className="divide-y divide-border">
+        {PICKABLE_CAPABILITIES.map((capability) => {
+          const candidates = models.filter((m) => m.capabilities.includes(capability))
+          const appName = candidates.find((m) => m.id === selected[capability])?.displayName
+          const follow: ListOption = {
+            value: FOLLOW,
+            label: `跟著預設（${appName ?? '沒有可用的模型'}）`,
+            content: (
+              <span className="min-w-0 truncate">
+                跟著預設
+                <span className="text-fg-muted">（{appName ?? '沒有可用的模型'}）</span>
+              </span>
+            ),
+          }
+          const greyed = locked.filter((m) => m.capabilities.includes(capability))
+          return (
+            <div
+              key={capability}
+              className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3 py-2 first:pt-0 last:pb-0"
+            >
+              <label className="text-sm font-medium" htmlFor={`project-model-${capability}`}>
+                {LABELS[capability].title}
+              </label>
+              <ListSelect
+                id={`project-model-${capability}`}
+                testId={`project-model-${capability}`}
+                value={project.models[capability] ?? FOLLOW}
+                options={[follow, ...toOptions(candidates, greyed)]}
+                onChange={(value) => {
+                  choose(capability, value)
+                }}
+              />
+            </div>
+          )
+        })}
+      </div>
+      {error ? (
+        <p role="alert" className="mt-3 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+    </Section>
+  )
+}

@@ -1,0 +1,39 @@
+{
+  "key": "gemini-3-pro-image",
+  "displayName": "Gemini 3 Pro Image",
+  "tasks": ["t2i", "edit"],
+  "tier": "premium",
+  "recommended": false,
+  "features": {
+    "characterMechanism": "reference"
+  },
+  "badges": ["多圖參考"],
+  "prompt": {
+    "language": "en",
+    "hint": "多張參考圖時在 prompt 中說明每張圖的用途（角色、服裝、場景）。"
+  },
+  "channels": [
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "t2i": "google/gemini-3-pro-image",
+        "edit": "google/gemini-3-pro-image"
+      },
+      "pricing": {
+        "unit": "image",
+        "usd": 0.134
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": false,
+        "source": "OpenRouter 官方部落格〈Image Generation Models Compared〉（2026-09-11 實際生成量到的價格，slug 同文）；Gemini 依 token 計費，每張實際花費會浮動",
+        "checkedAt": "2026-10-12"
+      },
+      "resolutions": ["1K", "2K", "4K"],
+      "referenceLimits": {
+        "images": 6
+      },
+      "notes": "只填 OpenRouter 金鑰時用來畫角色與每個鏡頭的第一張畫面。每張約 US$0.134 是官方部落格實測值，依 token 計費會有浮動。"
+    }
+  ]
+}

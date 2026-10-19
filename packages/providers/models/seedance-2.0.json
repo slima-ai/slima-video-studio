@@ -1,0 +1,71 @@
+{
+  "key": "seedance-2.0",
+  "displayName": "Seedance 2.0",
+  "tasks": ["t2v", "i2v", "r2v"],
+  "tier": "premium",
+  "recommended": false,
+  "styleFit": "animation",
+  "features": {
+    "nativeAudio": true,
+    "characterMechanism": "reference"
+  },
+  "badges": ["有聲", "多圖參考"],
+  "prompt": {
+    "language": "en",
+    "hint": "多鏡頭在 prompt 以「Shot 1:」標示。"
+  },
+  "channels": [
+    {
+      "provider": "fal",
+      "endpoints": {
+        "t2v": "bytedance/seedance-2.0/text-to-video",
+        "i2v": "bytedance/seedance-2.0/image-to-video",
+        "r2v": "bytedance/seedance-2.0/reference-to-video"
+      },
+      "pricing": {
+        "unit": "second",
+        "usd": 0.3034
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "fal.ai 官方模型頁（2026-10-12 核對，見 docs/models.md）",
+        "checkedAt": "2026-10-12"
+      },
+      "durationSec": {
+        "min": 4,
+        "max": 15
+      },
+      "resolutions": ["720p"],
+      "referenceLimits": {
+        "images": 9,
+        "videos": 3,
+        "audios": 3
+      },
+      "notes": "聲音含在價格裡；多圖＋影片＋音訊參考。 720p 約 US$0.3034／秒、1080p 約 US$0.682／秒（含音訊）；這裡用 720p 價格估算。"
+    },
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "t2v": "bytedance/seedance-2.0",
+        "i2v": "bytedance/seedance-2.0"
+      },
+      "pricing": {
+        "unit": "second",
+        "usd": 0.1512
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": false,
+        "source": "openrouter.ai 官方模型頁（2026-10-12）；依 token 計費，720p 約 US$0.1512／秒，其他解析度與秒數頁面沒列",
+        "checkedAt": "2026-10-12"
+      },
+      "durationSec": {
+        "min": 4,
+        "max": 15
+      },
+      "resolutions": ["720p"],
+      "notes": "依 token 計費，這裡的價格是 720p 的約略值。同一個模型在 OpenRouter 約為 fal.ai 的一半價。"
+    }
+  ]
+}

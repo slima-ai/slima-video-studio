@@ -1,0 +1,46 @@
+{
+  "name": "slima-video-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slima Video Studio: a node-based desktop studio that turns a story into an AI video (bring your own API keys)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "eslint . && prettier --check . && pnpm depcruise",
+    "lint:fix": "eslint . --fix && prettier --write .",
+    "format": "prettier --write .",
+    "depcruise": "depcruise --config .dependency-cruiser.cjs apps packages",
+    "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r --parallel typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "pnpm --filter @svs/desktop test:e2e",
+    "smoke:real": "pnpm --filter @svs/desktop smoke:real",
+    "smoke:slima": "pnpm --filter @svs/desktop smoke:slima"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "4.1.11",
+    "dependency-cruiser": "18.6.0",
+    "eslint": "10.12.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vite": "7.3.7",
+    "vitest": "4.1.11"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slima-ai/slima-video-studio.git"
+  },
+  "homepage": "https://github.com/slima-ai/slima-video-studio#readme",
+  "bugs": {
+    "url": "https://github.com/slima-ai/slima-video-studio/issues"
+  }
+}

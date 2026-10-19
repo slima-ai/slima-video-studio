@@ -1,0 +1,30 @@
+{
+  "key": "mock-tts",
+  "displayName": "示範配音",
+  "tasks": ["tts"],
+  "tier": "balanced",
+  "recommended": true,
+  "features": {
+    "nativeAudio": false
+  },
+  "badges": [],
+  "channels": [
+    {
+      "provider": "mock",
+      "id": "mock/tts",
+      "needsKey": false,
+      "endpoints": {
+        "tts": "mock/tts"
+      },
+      "pricing": {
+        "unit": "million_chars",
+        "usd": 10
+      },
+      "verification": {
+        "endpoint": false,
+        "pricing": false
+      },
+      "notes": "示範模式用的假模型，不連網、不花錢（金額為示意）。"
+    }
+  ]
+}

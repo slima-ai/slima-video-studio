@@ -1,0 +1,55 @@
+import { _electron as electron, type ElectronApplication } from '@playwright/test'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+/** Electron 執行檔路徑（`require('electron')` 在 Node 下回傳的是路徑字串）。 */
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- Node 下 electron 套件的匯出就是執行檔路徑字串，沒有型別化的 ESM 寫法
+const electronPath = require('electron') as string
+
+const APP_ROOT = join(__dirname, '..')
+const FAKE_SLIMA_SERVER = join(__dirname, '../../../packages/test-utils/src/fake-slima-server.mjs')
+
+/** 容器 / CI 沒有 user namespace 與 GPU，需要這些旗標才啟動得了。 */
+export function isHeadless(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.CI === '1' || env.CI === 'true' || env.SVS_HEADLESS === '1'
+}
+
+export function ciArgs(env: NodeJS.ProcessEnv = process.env): string[] {
+  return isHeadless(env)
+    ? ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--password-store=basic']
+    : []
+}
+
+export interface LaunchOptions {
+  /** 測試專用 userData；沒給就建暫存資料夾 */
+  userDataDir?: string
+  /** 額外環境變數（會覆蓋預設值） */
+  env?: Record<string, string>
+}
+
+export interface LaunchedApp {
+  app: ElectronApplication
+  userDataDir: string
+}
+
+export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedApp> {
+  const userDataDir = options.userDataDir ?? mkdtempSync(join(tmpdir(), 'svs-e2e-userdata-'))
+  const app = await electron.launch({
+    executablePath: electronPath,
+    args: [APP_ROOT, ...ciArgs()],
+    env: {
+      ...(process.env as Record<string, string>),
+      SVS_PROVIDER_MODE: 'mock',
+      SVS_TEST_VAULT: 'memory',
+      SVS_USER_DATA: userDataDir,
+      SVS_DISABLE_ONBOARDING: '1',
+      // 自動建立的專案放在測試專用的資料夾，不碰使用者的「文件」
+      SVS_PROJECTS_DIR: join(userDataDir, 'projects'),
+      // Slima 一律連假的 slima-mcp 伺服器，CI 不連正式環境
+      SVS_SLIMA_SERVER: FAKE_SLIMA_SERVER,
+      ...options.env,
+    },
+  })
+  return { app, userDataDir }
+}

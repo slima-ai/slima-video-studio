@@ -1,0 +1,255 @@
+@import 'tailwindcss';
+
+/*
+ * 設計 token：深色是預設；跟隨系統時依 prefers-color-scheme，使用者在設定選了淺色或深色
+ * 就用 <html data-theme="light|dark"> 強制指定。顏色一律用 token，不直接寫 Tailwind 色名。
+ */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface: #0b0b0f;
+  --surface-raised: #14141b;
+  --surface-overlay: #1c1c26;
+  --border: #2a2a38;
+  --fg: #e8e8ee;
+  --fg-muted: #9a9ab0;
+  --fg-subtle: #8383a0;
+  --accent: #7c6cf0;
+  --accent-fg: #ffffff;
+  --success: #6ee7b7;
+  --success-soft: rgb(16 185 129 / 0.15);
+  --danger: #f87171;
+  --danger-soft: rgb(239 68 68 / 0.16);
+  --warning: #fcd34d;
+  --warning-soft: rgb(245 158 11 / 0.15);
+  --info: #7dd3fc;
+  --info-soft: rgb(14 165 233 / 0.15);
+  --premium: #c4b5fd;
+  --premium-soft: rgb(139 92 246 / 0.2);
+  --scrim: rgb(0 0 0 / 0.6);
+  --scroll-thumb: rgb(255 255 255 / 0.16);
+  --scroll-thumb-hover: rgb(255 255 255 / 0.32);
+  --shadow-card-tone: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-panel-tone: -12px 0 32px rgb(0 0 0 / 0.5);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --surface: #f5f5f8;
+    --surface-raised: #ffffff;
+    --surface-overlay: #ececf2;
+    --border: #d9d9e3;
+    --fg: #15151c;
+    --fg-muted: #5b5b6e;
+    --fg-subtle: #6b6b7a;
+    --accent: #6a5ae0;
+    --accent-fg: #ffffff;
+    --success: #065f46;
+    --success-soft: rgb(16 185 129 / 0.14);
+    --danger: #991b1b;
+    --danger-soft: rgb(239 68 68 / 0.12);
+    --warning: #92400e;
+    --warning-soft: rgb(245 158 11 / 0.16);
+    --info: #075985;
+    --info-soft: rgb(14 165 233 / 0.14);
+    --premium: #5b21b6;
+    --premium-soft: rgb(139 92 246 / 0.14);
+    --scrim: rgb(15 15 30 / 0.35);
+    --scroll-thumb: rgb(15 15 30 / 0.14);
+    --scroll-thumb-hover: rgb(15 15 30 / 0.3);
+    --shadow-card-tone: 0 1px 2px rgb(16 16 40 / 0.06), 0 1px 3px rgb(16 16 40 / 0.1);
+    --shadow-panel-tone: -12px 0 32px rgb(16 16 40 / 0.14);
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --surface: #f5f5f8;
+  --surface-raised: #ffffff;
+  --surface-overlay: #ececf2;
+  --border: #d9d9e3;
+  --fg: #15151c;
+  --fg-muted: #5b5b6e;
+  --fg-subtle: #6b6b7a;
+  --accent: #6a5ae0;
+  --accent-fg: #ffffff;
+  --success: #065f46;
+  --success-soft: rgb(16 185 129 / 0.14);
+  --danger: #991b1b;
+  --danger-soft: rgb(239 68 68 / 0.12);
+  --warning: #92400e;
+  --warning-soft: rgb(245 158 11 / 0.16);
+  --info: #075985;
+  --info-soft: rgb(14 165 233 / 0.14);
+  --premium: #5b21b6;
+  --premium-soft: rgb(139 92 246 / 0.14);
+  --scrim: rgb(15 15 30 / 0.35);
+  --scroll-thumb: rgb(15 15 30 / 0.14);
+  --scroll-thumb-hover: rgb(15 15 30 / 0.3);
+  --shadow-card-tone: 0 1px 2px rgb(16 16 40 / 0.06), 0 1px 3px rgb(16 16 40 / 0.1);
+  --shadow-panel-tone: -12px 0 32px rgb(16 16 40 / 0.14);
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-premium: var(--premium);
+  --color-premium-soft: var(--premium-soft);
+  --color-scrim: var(--scrim);
+  --shadow-card: var(--shadow-card-tone);
+  --shadow-panel: var(--shadow-panel-tone);
+}
+
+@theme {
+  --animate-scale-in: scale-in 300ms ease-out;
+  --animate-dialog-in: dialog-in 200ms ease-out;
+  --animate-fade-in: fade-in 200ms ease-out;
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', 'PingFang TC',
+    'Microsoft JhengHei', sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* 所有可操作元素的鍵盤焦點：統一 2px 主色外框（元件自己指定了的以元件為準） */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::placeholder {
+    color: var(--fg-subtle);
+    opacity: 1;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 原生控制項（選單、捲軸）跟著主題；捲軸只有 6px 細，不搶畫面 */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+/* 不要上下的小箭頭 */
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 滑塊比面板邊框淡，兩側各留 1px 空隙，才不會和邊框連成一條雙線 */
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  background-clip: padding-box;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* 使用者開啟「減少動態效果」：不做位移與縮放，只留 100ms 內的淡入淡出 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 100ms !important;
+    animation-name: fade-in !important;
+    transition-duration: 100ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 中文說明句：不在詞中間斷行（例如「電／腦」），行尾也盡量平均 */
+.wrap-zh {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+/* 切換外觀時，顏色用 300ms 漸變（切換的瞬間才加上這個 class） */
+html.theme-changing,
+html.theme-changing *,
+html.theme-changing *::before,
+html.theme-changing *::after {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease !important;
+}

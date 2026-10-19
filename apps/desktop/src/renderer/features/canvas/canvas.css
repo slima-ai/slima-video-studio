@@ -1,0 +1,572 @@
+/* 畫布雛形的樣式：連接點、縮放層級、連線動畫。顏色一律用 styles.css 的 token。 */
+
+.svs-canvas {
+  --edge-from: #cbd5e1;
+  --edge-to: #475569;
+  --edge-ref: #9ca3af;
+}
+:root[data-theme='dark'] .svs-canvas {
+  --edge-from: #475569;
+  --edge-to: #cbd5e1;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .svs-canvas {
+    --edge-from: #475569;
+    --edge-to: #cbd5e1;
+  }
+}
+.svs-canvas .react-flow {
+  background: var(--surface);
+}
+
+/* ── 縮放層級（LOD）：>=0.5 完整；0.25~0.5 只留標題、狀態色、縮圖；<0.25 只畫色塊 ──
+ * 縮小時場框改畫跟著縮放放大的「第 N 場」，鏡頭色塊上畫大編號（--zoom 由畫布根節點給）。 */
+.svs-canvas[data-lod='mid'] .lod-full,
+.svs-canvas[data-lod='low'] .lod-full,
+.svs-canvas[data-lod='low'] .lod-mid {
+  display: none;
+}
+.svs-canvas[data-lod='low'] .svs-card {
+  background: var(--c);
+  border-color: var(--c);
+}
+/* 縮小時標題列的字太小看不見：字藏起來，但標題列仍是拖動場框的把手 */
+.svs-canvas[data-lod='mid'] .svs-frame-title,
+.svs-canvas[data-lod='low'] .svs-frame-title {
+  color: transparent;
+}
+.svs-canvas[data-lod='mid'] .svs-frame-title svg,
+.svs-canvas[data-lod='low'] .svs-frame-title svg {
+  visibility: hidden;
+}
+.svs-frame-big {
+  display: none;
+}
+/* 0.25～0.5：放在場框上方。字和空隙要塞得進場與場之間的 60 單位，不然會壓到上一場；
+ * 縮到更小（只畫色塊）時改由 SceneLabels 畫在場框正中間 */
+.svs-canvas[data-lod='mid'] .svs-frame-big {
+  display: block;
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: min(calc(4px / var(--zoom, 1)), 8px);
+  white-space: nowrap;
+  font-weight: 700;
+  /* 畫面上約 18px，最多 46 單位（縮到 0.25 時約 11.5px） */
+  font-size: min(calc(18px / var(--zoom, 1)), 46px);
+  line-height: 1;
+  color: var(--fg);
+  cursor: grab;
+}
+.svs-canvas[data-lod='mid'] .svs-frame,
+.svs-canvas[data-lod='low'] .svs-frame {
+  border-style: solid;
+  border-width: calc(1.5px / var(--zoom, 1));
+  border-color: color-mix(in srgb, var(--fg) 35%, transparent);
+}
+.svs-scene-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  pointer-events: none;
+  white-space: nowrap;
+  font-weight: 700;
+  /* 畫面上約 20px，不管縮到多小 */
+  font-size: calc(20px / var(--zoom, 1));
+  line-height: 1;
+  padding: calc(5px / var(--zoom, 1)) calc(10px / var(--zoom, 1));
+  border-radius: calc(8px / var(--zoom, 1));
+  color: var(--fg);
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: 0 calc(1px / var(--zoom, 1)) calc(6px / var(--zoom, 1)) rgb(0 0 0 / 0.25);
+}
+.lod-low-only {
+  display: none;
+}
+.svs-canvas[data-lod='low'] .lod-low-only {
+  display: flex;
+}
+.svs-block-number {
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 96px;
+  font-weight: 800;
+  color: rgb(255 255 255 / 0.92);
+  pointer-events: none;
+}
+/* 字（一句話、剪輯、角色名）比編號長：字小一點、太長就截斷 */
+.svs-block-word {
+  padding: 0 12px;
+  font-size: min(calc(16px / var(--zoom, 1)), 64px);
+}
+.lod-mid-only {
+  display: none;
+}
+/* 0.25~0.5：卡片中間一行大字的名稱，畫面上約 13px */
+.svs-canvas[data-lod='mid'] .lod-mid-only {
+  display: flex;
+}
+.svs-mid-name {
+  position: absolute;
+  inset: 36px 0 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  font-size: calc(13px / var(--zoom, 1));
+  font-weight: 700;
+  color: var(--fg);
+  pointer-events: none;
+}
+.svs-canvas[data-lod='low'] .svs-handle,
+.svs-canvas[data-lod='low'] .port-plus {
+  display: none;
+}
+
+/* ── 連接點：12px、2px 邊，滑過放大到 14px；感應範圍比畫出來的大 ── */
+.react-flow__handle.svs-handle {
+  width: 12px;
+  height: 12px;
+  background: var(--c);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  transition:
+    transform 200ms,
+    box-shadow 200ms;
+}
+.react-flow__handle.svs-handle-ref {
+  background: #9ca3af;
+}
+.react-flow__handle.svs-handle::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 9999px;
+}
+.react-flow__handle-right.svs-handle:hover {
+  transform: translate(50%, -50%) scale(1.17);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+}
+.react-flow__handle-left.svs-handle:hover {
+  transform: translate(-50%, -50%) scale(1.17);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+}
+/* 沒接線的連接點（懸空）：平常藏起來；滑過或選取那一格、或正在拉線時才出現（還是可以從它拉線） */
+.react-flow__handle.svs-handle[data-dangling='true'] {
+  opacity: 0;
+  transition:
+    opacity 150ms,
+    transform 200ms,
+    box-shadow 200ms;
+}
+.react-flow__node:hover .react-flow__handle.svs-handle[data-dangling='true'],
+.react-flow__node.selected .react-flow__handle.svs-handle[data-dangling='true'],
+.react-flow__handle.svs-handle[data-dangling='true']:hover,
+.react-flow__handle.svs-handle[data-dangling='true'][data-link='valid'],
+.react-flow__handle.svs-handle[data-dangling='true'].connectingfrom {
+  opacity: 1;
+}
+.react-flow__handle.svs-handle[data-dangling='true'][data-link='invalid'] {
+  opacity: 0;
+}
+
+/* 拉線中：接得上的亮綠色 */
+.react-flow__handle-left.svs-handle.connectingto.valid {
+  background: var(--success);
+  transform: translate(-50%, -50%) scale(1.35);
+}
+.react-flow__handle-right.svs-handle.connectingto.valid {
+  background: var(--success);
+  transform: translate(50%, -50%) scale(1.35);
+}
+.react-flow__handle.svs-handle.connectingto:not(.valid) {
+  opacity: 0.4;
+}
+/* 拉線中：整張畫布上接得上的點全部亮綠、輕輕呼吸；接不上的淡掉，名字也不顯示 */
+@keyframes svs-port-ready {
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--success) 25%, transparent);
+  }
+}
+.react-flow__handle-left.svs-handle[data-link='valid'] {
+  background: var(--success);
+  transform: translate(-50%, -50%) scale(1.3);
+  animation: svs-port-ready 1s ease-in-out infinite;
+}
+.react-flow__handle-right.svs-handle[data-link='valid'] {
+  background: var(--success);
+  transform: translate(50%, -50%) scale(1.3);
+  animation: svs-port-ready 1s ease-in-out infinite;
+}
+.react-flow__handle.svs-handle[data-link='invalid'] {
+  opacity: 0.3;
+}
+.svs-handle[data-link='invalid'] ~ .port-label,
+.svs-handle[data-link='invalid'] ~ .port-plus {
+  display: none;
+}
+.svs-handle[data-link='valid'] ~ .port-label {
+  opacity: 1;
+  background: var(--success);
+  color: var(--surface);
+}
+
+/* 滑過連接點：一行小字、輸出點多一顆「＋」 */
+.port-label {
+  position: absolute;
+  transform: translateY(-50%);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  white-space: nowrap;
+  background: var(--fg);
+  color: var(--surface);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms;
+  z-index: 5;
+}
+.port-label[data-side='in'] {
+  right: calc(100% + 12px);
+}
+.port-label[data-side='out'] {
+  left: calc(100% + 12px);
+}
+.svs-handle:hover ~ .port-label {
+  opacity: 1;
+}
+.port-plus {
+  position: absolute;
+  left: calc(100% + 12px);
+  transform: translateY(-50%) scale(0.8);
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 15px;
+  line-height: 22px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 150ms,
+    transform 150ms;
+  z-index: 6;
+}
+.svs-handle:hover ~ .port-plus,
+.port-plus:hover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+}
+.svs-handle:hover ~ .port-label[data-side='out'] {
+  left: calc(100% + 42px);
+}
+/* 從連接點移到「＋」中間的空隙也算在按鈕上，滑鼠經過時按鈕不會先消失 */
+.port-plus::before {
+  content: '';
+  position: absolute;
+  inset: -4px -4px -4px -10px;
+}
+
+/* ── 連線 ──
+ * 粗細、虛線、顏色都在這裡，用 data-state 切換（rest／hover／hot／selected）。
+ * 大量節點時：軟體渲染下「長距離的虛線」最花時間，所以
+ *   - 縮小（<0.5）時參考線改成細的實線；
+ *   - 節點很多（data-many，>400）時，參考線只在相連的節點被選取或滑過時才畫。 */
+.svs-edge-flow {
+  stroke-linecap: round;
+  stroke-width: 2.5px;
+  transition: stroke-width 200ms;
+}
+.svs-edge-flow[data-state='hover'],
+.svs-edge-flow[data-state='hot'] {
+  stroke-width: 3px;
+}
+.svs-edge-flow[data-state='hot'] {
+  stroke: var(--accent);
+  opacity: 0.85;
+}
+.svs-edge-flow[data-state='selected'] {
+  stroke: var(--accent);
+  stroke-width: 3.5px;
+}
+.svs-edge-ref {
+  stroke-linecap: round;
+  /* 淡色用顏色本身的透明度，不用 opacity：每條線一層半透明的繪製層，軟體渲染會慢很多 */
+  stroke: rgb(156 163 175 / 0.4);
+  stroke-width: 2px;
+  stroke-dasharray: 5 5;
+  transition:
+    stroke 200ms,
+    stroke-width 200ms;
+}
+.svs-edge-ref[data-state='hover'] {
+  stroke: rgb(156 163 175 / 0.7);
+  stroke-width: 2.5px;
+}
+.svs-edge-ref[data-state='hot'] {
+  stroke: var(--accent);
+}
+.svs-edge-ref[data-state='selected'] {
+  stroke: var(--accent);
+  stroke-width: 3.5px;
+  stroke-dasharray: none;
+}
+.svs-canvas[data-lod='mid'] .svs-edge-ref:not([data-state='selected']),
+.svs-canvas[data-lod='low'] .svs-edge-ref:not([data-state='selected']) {
+  stroke-dasharray: none;
+  stroke-width: 1px;
+}
+.svs-canvas[data-lod='mid'] .svs-edge-flow:not([data-state='selected']),
+.svs-canvas[data-lod='low'] .svs-edge-flow:not([data-state='selected']) {
+  stroke-width: 1.5px;
+}
+.svs-canvas[data-many='true'] .svs-edge-ref[data-state='rest'] {
+  display: none;
+}
+@keyframes svs-edge-flow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+.svs-edge-flow[data-flowing='true'] {
+  stroke: var(--accent);
+  stroke-dasharray: 6 6;
+  animation: svs-edge-flow 800ms linear infinite;
+}
+
+/* 剛長出來的線：從起點畫到終點（pathLength=1，所以 dash 長度 1 就是整條） */
+@keyframes svs-edge-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.svs-edge-flow[data-born='true'] {
+  stroke-dasharray: 1;
+  animation: svs-edge-draw 400ms ease-out both;
+}
+
+/* ── 節點 ── */
+@keyframes svs-grow {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+[data-born='true'] > .svs-card,
+[data-born='true'] > .svs-frame {
+  animation: svs-grow 300ms ease-out both;
+}
+.svs-card {
+  border-left: 4px solid var(--c);
+}
+@keyframes svs-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.svs-bar-running {
+  animation: svs-pulse 2s ease-in-out infinite;
+}
+@keyframes svs-ring {
+  from {
+    box-shadow: 0 0 0 2px var(--success);
+  }
+  to {
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+.svs-done-flash {
+  animation: svs-ring 500ms ease-out;
+}
+.react-flow__node.dragging .svs-card {
+  box-shadow: 0 20px 40px rgb(0 0 0 / 0.35);
+  opacity: 0.92;
+}
+.svs-glow {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.svs-frame {
+  transition:
+    box-shadow 150ms,
+    border-color 150ms,
+    background-color 150ms;
+}
+/* 選取場框：只用外框標示，不整片上色（才看得到框裡的內容） */
+.svs-frame[data-selected='true'] {
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.svs-frame[data-drop='true'] {
+  border-style: solid;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* 拉線中：接不上的整格淡掉，接得上的整格外框亮綠（一眼看得出能接到哪裡） */
+[data-linkstate] > .svs-card,
+[data-linkstate] > .svs-frame {
+  transition:
+    opacity 150ms,
+    outline-color 150ms;
+}
+[data-linkstate='invalid'] > .svs-card {
+  opacity: 0.3;
+}
+[data-linkstate='invalid'] > .svs-frame {
+  opacity: 0.45;
+}
+[data-linkstate='valid'] > .svs-card,
+[data-linkstate='valid'] > .svs-frame {
+  outline: 2px solid var(--success);
+  outline-offset: 3px;
+}
+
+/* 對齊輔助線 */
+.svs-guide {
+  stroke: var(--accent);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+/* 場框：只有標題列可以拖，框裡的空白處照樣可以平移畫布、雙擊新增 */
+.react-flow__node-frame {
+  pointer-events: none !important;
+}
+.svs-frame-grip {
+  pointer-events: auto;
+}
+
+/* 輸入點的「＋」開在左邊，名字也往左讓出位置 */
+.port-plus[data-side='in'] {
+  left: auto;
+  right: calc(100% + 12px);
+}
+.port-plus[data-side='in']::before {
+  inset: -4px -10px -4px -4px;
+}
+.svs-handle:hover ~ .port-label[data-side='in'] {
+  right: calc(100% + 42px);
+}
+
+/* 生成中還沒有畫面：骨架的微光（不是空白一片） */
+.svs-skeleton {
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--color-fg) 6%, transparent) 30%,
+    color-mix(in srgb, var(--color-fg) 14%, transparent) 50%,
+    color-mix(in srgb, var(--color-fg) 6%, transparent) 70%
+  );
+  background-size: 300% 100%;
+  animation: svs-shimmer 1.4s linear infinite;
+}
+@keyframes svs-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .svs-skeleton {
+    animation: none;
+  }
+}
+
+/* 場框：只有標題列是抓手；框內空白處讓給框選（從框裡開始拖也是框選），連接點照樣可以拉 */
+.svs-canvas .react-flow__node.react-flow__node-frame {
+  pointer-events: none;
+}
+.svs-canvas .react-flow__node-frame .svs-frame-grip,
+.svs-canvas .react-flow__node-frame .react-flow__handle {
+  pointer-events: auto;
+}
+
+/* ── 自訂群組：彩色外框、淡淡的底色；框裡的空白處讓給框選，只有標題列是抓手 ── */
+.svs-canvas .react-flow__node.react-flow__node-freeGroup {
+  pointer-events: none;
+}
+.svs-canvas .react-flow__node-freeGroup .svs-group-grip,
+.svs-canvas .react-flow__node-freeGroup button {
+  pointer-events: auto;
+}
+.svs-group {
+  border: 2px dashed color-mix(in srgb, var(--c) 70%, transparent);
+  background: color-mix(in srgb, var(--c) 7%, transparent);
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+}
+.svs-group[data-selected='true'] {
+  border-style: solid;
+  border-color: var(--c);
+  box-shadow: 0 0 0 1px var(--c);
+}
+.svs-group-title {
+  color: var(--c);
+}
+.svs-group-big {
+  display: none;
+}
+.svs-canvas[data-lod='mid'] .svs-group-title,
+.svs-canvas[data-lod='low'] .svs-group-title {
+  visibility: hidden;
+}
+.svs-canvas[data-lod='mid'] .svs-group-big,
+.svs-canvas[data-lod='low'] .svs-group-big {
+  display: block;
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: calc(4px / var(--zoom, 1));
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: calc(18px / var(--zoom, 1));
+  line-height: 1;
+  color: var(--c);
+  cursor: grab;
+}
+.svs-canvas[data-lod='mid'] .svs-group,
+.svs-canvas[data-lod='low'] .svs-group {
+  border-style: solid;
+  border-width: calc(1.5px / var(--zoom, 1));
+}
+/* 便條：黃色小卡 */
+.react-flow__node-card [data-kind='note'] .svs-card {
+  background: color-mix(in srgb, #facc15 22%, var(--surface-raised));
+}
+
+/* 畫布的浮動面板開著時，右下角的提示往左讓開，不蓋住面板（384px + 兩邊 12px + 4px） */
+:root[data-canvas-panel='open'] .svs-toast-region {
+  right: calc(384px + 28px);
+}
+
+/* 展開或收合步驟：下面的列往下讓開、收回來（只在這段時間有位移動畫，平常拖移要跟手） */
+.svs-canvas[data-shifting='true'] .react-flow__node {
+  transition: transform 300ms ease-in-out;
+}
+.svs-canvas[data-shifting='true'] .react-flow__edge-path {
+  transition: d 300ms ease-in-out;
+}
+
+/* 步驟格子的連接點：只是線的端點，不能拉 */
+.svs-step-handle {
+  pointer-events: none;
+  opacity: 0;
+}

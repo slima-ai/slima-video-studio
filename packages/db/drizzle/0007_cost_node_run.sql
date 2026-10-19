@@ -1,0 +1,1 @@
+ALTER TABLE `cost_ledger` ADD `node_run_id` text;

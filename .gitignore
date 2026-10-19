@@ -1,0 +1,18 @@
+node_modules/
+dist/
+out/
+release/
+coverage/
+playwright-report/
+test-results/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.turbo/
+smoke-output/
+
+# 自己編的 FFmpeg（tools/ffmpeg/build-macos.sh 的輸出）
+apps/desktop/build/ffmpeg/

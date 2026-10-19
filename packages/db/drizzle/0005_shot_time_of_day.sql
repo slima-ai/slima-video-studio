@@ -1,0 +1,1 @@
+ALTER TABLE `shots` ADD `time_of_day` text;

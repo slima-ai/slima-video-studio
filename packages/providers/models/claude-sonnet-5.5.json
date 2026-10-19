@@ -1,0 +1,35 @@
+{
+  "key": "claude-sonnet-5.5",
+  "displayName": "Claude Sonnet 5.5",
+  "tasks": ["llm"],
+  "tier": "balanced",
+  "recommended": true,
+  "features": {
+    "contextTokens": 1000000
+  },
+  "badges": [],
+  "prompt": {
+    "language": "any",
+    "hint": "Prompt 生成與改寫、台詞、視覺一致性評分。"
+  },
+  "channels": [
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "llm": "anthropic/claude-sonnet-5.5"
+      },
+      "pricing": {
+        "unit": "million_tokens",
+        "inputUsd": 2,
+        "outputUsd": 10
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "openrouter.ai 官方模型頁（2026-10-12 核對，見 docs/models.md）",
+        "checkedAt": "2026-10-12"
+      },
+      "notes": "預設的 Prompt 助理。"
+    }
+  ]
+}

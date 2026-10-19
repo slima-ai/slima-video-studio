@@ -1,0 +1,222 @@
+import {
+  type AspectRatio,
+  type AssetRef,
+  type Workflow,
+  type WorkflowEdge,
+  type WorkflowNode,
+} from '@svs/schema'
+
+import {
+  NODE_TYPES,
+  breakdownNode,
+  fixedImageNode,
+  imageNode,
+  shotPromptNode,
+  videoNode,
+  type CharacterAnchor,
+  type SceneAnchor,
+} from './nodes'
+import type { QuickStyleId } from './styles'
+
+export interface QuickStartOptions {
+  /** 使用者寫的故事或一句話。 */
+  story: string
+  style: QuickStyleId
+  /** 拆成幾個鏡頭。 */
+  shotCount: number
+  /** 每個鏡頭幾秒。 */
+  durationSec: number
+  aspectRatio: AspectRatio
+  /** 各步驟用的模型（ModelCard id）。 */
+  models: { llm: string; image: string; video: string }
+  /** 想換一批結果時改這個數字（拆鏡、首幀、影片都會重新生成）。 */
+  variation?: number
+  audio?: boolean
+  /** 已鎖定角色的固定外觀描述；出場的角色對得上名字就帶進每個 Prompt。 */
+  anchors?: readonly CharacterAnchor[]
+  /** 專案裡已經建好的角色名字（不管有沒有鎖定）：拆鏡時請 AI 用一模一樣的名字。 */
+  knownCharacters?: readonly string[]
+  /** 分鏡準則：拆鏡時一併交給 AI 的做法；沒給就不附。 */
+  storyboardGuide?: string
+  /** 見 ShotWorkflowOptions.editModel。 */
+  editModel?: { id: string; referenceLimit: number }
+  /** 工作流的 id 與時間戳（測試要固定時傳入）。 */
+  id?: string
+  now?: string
+}
+
+export const QUICK_START_IDS = { breakdown: 'breakdown', each: 'each', join: 'join' } as const
+
+const node = (
+  id: string,
+  type: string,
+  params: Record<string, unknown> = {},
+  modelId?: string,
+  version = 1,
+): WorkflowNode => ({
+  id,
+  type,
+  version,
+  params,
+  ...(modelId ? { modelId } : {}),
+  position: { x: 0, y: 0 },
+})
+
+const edge = (id: string, from: [string, string], to: [string, string]): WorkflowEdge => ({
+  id,
+  from: { nodeId: from[0], port: from[1] },
+  to: { nodeId: to[0], port: to[1] },
+})
+
+export interface ShotWorkflowOptions {
+  style: QuickStyleId
+  durationSec: number
+  aspectRatio: AspectRatio
+  models: { image: string; video: string }
+  /** 首幀圖的變化編號；改這個只會重生首幀（影片因為輸入變了也會跟著重生）。 */
+  imageVariation?: number
+  /** 影片的變化編號；改這個只會重生影片，首幀沿用。 */
+  videoVariation?: number
+  audio?: boolean
+  anchors?: readonly CharacterAnchor[]
+  /** 已鎖定的場景卡；鏡頭指定的地點對得上，就帶入場景描述與參考圖。 */
+  scenes?: readonly SceneAnchor[]
+  /**
+   * 有「帶參考圖編輯」的圖片模型時傳入：鏡頭有已鎖定角色的參考圖，首幀就用它編輯出來，
+   * 參考圖張數不超過 referenceLimit。沒傳就一律純文字生圖。
+   */
+  editModel?: { id: string; referenceLimit: number }
+  /** 鏡頭接了一張上傳的圖：不生圖，直接用它生影片（「image」節點換成固定的圖）。 */
+  firstFrame?: AssetRef
+  now?: string
+}
+
+/** 單一鏡頭的子流程：[組 Prompt → 首幀圖 → 圖生影片]。快速開始的「對每個鏡頭執行」與單鏡重生共用。 */
+export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
+  const stamp = options.now ?? new Date().toISOString()
+  return {
+    id: 'quickstart-shot',
+    name: '單鏡頭',
+    version: 1,
+    createdAt: stamp,
+    updatedAt: stamp,
+    nodes: [
+      node('in', '$input'),
+      node(
+        'prompt',
+        NODE_TYPES.shotPrompt,
+        {
+          style: options.style,
+          anchors: options.anchors ?? [],
+          scenes: options.scenes ?? [],
+          ...(options.editModel ? { referenceLimit: options.editModel.referenceLimit } : {}),
+        },
+        undefined,
+        shotPromptNode.version,
+      ),
+      options.firstFrame
+        ? node(
+            'image',
+            NODE_TYPES.fixedImage,
+            { image: options.firstFrame },
+            undefined,
+            fixedImageNode.version,
+          )
+        : node(
+            'image',
+            NODE_TYPES.image,
+            {
+              aspectRatio: options.aspectRatio,
+              variation: options.imageVariation ?? 0,
+              ...(options.editModel ? { editModel: options.editModel.id } : {}),
+            },
+            options.models.image,
+            imageNode.version,
+          ),
+      node(
+        'video',
+        NODE_TYPES.video,
+        {
+          durationSec: options.durationSec,
+          aspectRatio: options.aspectRatio,
+          audio: options.audio ?? false,
+          variation: options.videoVariation ?? 0,
+        },
+        options.models.video,
+        videoNode.version,
+      ),
+      node('out', '$output'),
+    ],
+    edges: [
+      edge('b1', ['in', 'item'], ['prompt', 'shot']),
+      ...(options.firstFrame ? [] : [edge('b2', ['prompt', 'imagePrompt'], ['image', 'prompt'])]),
+      ...(options.editModel && !options.firstFrame
+        ? [edge('b7', ['prompt', 'references'], ['image', 'references'])]
+        : []),
+      edge('b3', ['image', 'image'], ['video', 'image']),
+      edge('b4', ['prompt', 'videoPrompt'], ['video', 'prompt']),
+      edge('b6', ['prompt', 'cameraMove'], ['video', 'cameraMove']),
+      edge('b5', ['video', 'video'], ['out', 'value']),
+    ],
+  }
+}
+
+/**
+ * 快速開始：故事 → 拆鏡 → 對每個鏡頭 [組 Prompt → 首幀圖 → 圖生影片] → 接成一支影片。
+ * 回傳一般的 Workflow 資料（可存、可在節點圖編輯器顯示），不是特殊物件。
+ */
+export function buildQuickStart(options: QuickStartOptions): Workflow {
+  const variation = options.variation ?? 0
+  const stamp = options.now ?? new Date().toISOString()
+  const body = buildShotWorkflow({
+    style: options.style,
+    durationSec: options.durationSec,
+    aspectRatio: options.aspectRatio,
+    models: options.models,
+    imageVariation: variation,
+    videoVariation: variation,
+    ...(options.anchors ? { anchors: options.anchors } : {}),
+    ...(options.editModel ? { editModel: options.editModel } : {}),
+    ...(options.audio === undefined ? {} : { audio: options.audio }),
+    now: stamp,
+  })
+
+  const { breakdown, each, join } = QUICK_START_IDS
+  return {
+    id: options.id ?? 'quickstart',
+    name: '快速開始',
+    version: 1,
+    createdAt: stamp,
+    updatedAt: stamp,
+    nodes: [
+      node(
+        breakdown,
+        NODE_TYPES.breakdown,
+        {
+          story: options.story,
+          shotCount: options.shotCount,
+          durationSec: options.durationSec,
+          style: options.style,
+          variation,
+          knownCharacters: [...(options.knownCharacters ?? [])],
+          guide: options.storyboardGuide ?? '',
+        },
+        options.models.llm,
+        breakdownNode.version,
+      ),
+      node(each, 'forEach', { body, concurrency: 2 }),
+      node(join, NODE_TYPES.concat),
+    ],
+    edges: [
+      edge('e1', [breakdown, 'shots'], [each, 'items']),
+      edge('e2', [each, 'results'], [join, 'videos']),
+    ],
+  }
+}
+
+/** 預估花費用：「對每個鏡頭執行」節點最多會跑幾個項目。 */
+export function quickStartItemCounts(
+  options: Pick<QuickStartOptions, 'shotCount'>,
+): Record<string, number> {
+  return { [QUICK_START_IDS.each]: options.shotCount }
+}

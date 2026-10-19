@@ -1,0 +1,67 @@
+{
+  "key": "veo-3.1-lite",
+  "displayName": "Veo 3.1 Lite",
+  "tasks": ["t2v", "i2v"],
+  "tier": "budget",
+  "recommended": false,
+  "features": {
+    "nativeAudio": true,
+    "characterMechanism": "reference"
+  },
+  "badges": ["有聲", "草稿"],
+  "prompt": {
+    "language": "en"
+  },
+  "channels": [
+    {
+      "provider": "fal",
+      "endpoints": {
+        "t2v": "fal-ai/veo3.1/lite",
+        "i2v": "fal-ai/veo3.1/lite/image-to-video"
+      },
+      "pricing": {
+        "unit": "second",
+        "usd": 0.03,
+        "usdWithAudio": 0.05
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "fal.ai 官方模型頁（2026-10-12 核對，見 docs/models.md）",
+        "checkedAt": "2026-10-12"
+      },
+      "sunsetDate": "2026-10-22",
+      "durationSec": {
+        "min": 4,
+        "max": 8
+      },
+      "resolutions": ["720p"],
+      "notes": "草稿與預覽用，定稿再用高階模型重跑。 fal 官方頁標示此端點將於 2026-10-22 停用，到期後選單會自動隱藏。 2026-10-18 只實測了 OpenRouter 通道；這條 fal 通道的秒數與單價沒有實測（未測），仍是 2026-10-12 讀官方頁的值。"
+    },
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "t2v": "google/veo-3.1-lite",
+        "i2v": "google/veo-3.1-lite"
+      },
+      "pricing": {
+        "unit": "second",
+        "usd": 0.05,
+        "usdWithAudio": 0.05
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": true,
+        "source": "2026-10-18 用真的 OpenRouter 金鑰實測（證據：review-media 分支 first-film-2026-10-18/log.jsonl）：POST /videos 只接受 4、6、8 秒（送 5 秒回 400「Supported durations: 4, 6, 8s」）；只測了 generate_audio:false，4 秒收 US$0.20、6 秒收 US$0.30（＝0.05／秒）。有聲沒測，usdWithAudio 沿用 OpenRouter /videos/models 規格表的 0.05",
+        "checkedAt": "2026-10-18"
+      },
+      "durationSec": {
+        "min": 4,
+        "max": 8,
+        "steps": [4, 6, 8]
+      },
+      "resolutions": ["720p", "1080p"],
+      "notes": "草稿與預覽用，定稿再用高階模型重跑。fal 上的 Veo 3.1 會在 2026-10-22 停用，改走 OpenRouter 的這一個。只接受 4、6、8 秒。無聲實測每秒 US$0.05，比 OpenRouter /videos/models 規格表寫的 720p 無聲價 0.03 高，原因不明（可能是預設解析度或計費方式）；有聲沒有實測。1080p 價格沒實測。"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+node_modules
+dist
+out
+release
+coverage
+pnpm-lock.yaml
+model-cards/**/*.generated.json
+docs/plans
+packages/db/drizzle
+packages/db/src/migrations.generated.ts
+THIRD-PARTY-NOTICES.md

@@ -1,0 +1,31 @@
+{
+  "key": "mock-image",
+  "displayName": "示範圖片",
+  "tasks": ["t2i", "edit"],
+  "tier": "balanced",
+  "recommended": true,
+  "features": {
+    "nativeAudio": false
+  },
+  "badges": [],
+  "channels": [
+    {
+      "provider": "mock",
+      "id": "mock/image",
+      "needsKey": false,
+      "endpoints": {
+        "t2i": "mock/t2i",
+        "edit": "mock/edit"
+      },
+      "pricing": {
+        "unit": "image",
+        "usd": 0.01
+      },
+      "verification": {
+        "endpoint": false,
+        "pricing": false
+      },
+      "notes": "示範模式用的假模型，不連網、不花錢（金額為示意）。"
+    }
+  ]
+}

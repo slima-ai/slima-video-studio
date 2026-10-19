@@ -1,0 +1,82 @@
+import type { ProjectHandle } from '@svs/db'
+import { AppError, type UpgradeCheck, type UpgradeResult } from '@svs/schema'
+
+import type { ProjectManager } from '../project-manager'
+import type { ShotService } from '../shots/shot-service'
+import { createDraftCharacters, newCharacterNamesOf } from './draft-characters'
+
+export { pickHeroFrame } from './draft-characters'
+
+export interface UpgradeServiceDeps {
+  projects: ProjectManager
+  shots: Pick<ShotService, 'assignScene'>
+  /** 快速開始的狀態：生成還在進行就不能升級；有標題就拿來當第一幕的名字。 */
+  quickstartState: () => { status: string; title?: string | undefined } | null
+}
+
+export interface UpgradeService {
+  check: () => UpgradeCheck
+  upgrade: () => UpgradeResult
+}
+
+const invalid = (userMessage: string): AppError =>
+  new AppError({ code: 'invalid_request', userMessage })
+
+/**
+ * 把快速開始的結果升級成專案：一幕一場放進全部鏡頭，替出場的角色建草稿角色卡並從畫面挑主圖。
+ * 只重新整理資料，不會重新生成任何東西——已經生成的畫面和影片全部保留。
+ */
+export function createUpgradeService(deps: UpgradeServiceDeps): UpgradeService {
+  const { projects, shots: shotService } = deps
+
+  const actTitleOf = (handle: ProjectHandle): string => {
+    const title = deps.quickstartState()?.title?.trim()
+    if (title) return title
+    return handle.repos.projects.get().name
+  }
+
+  const check = (): UpgradeCheck => {
+    const handle = projects.current()
+    const base = { shotCount: 0, newCharacters: [], actTitle: '' }
+    if (!handle || handle.closed) {
+      return { ...base, ok: false, issue: '請先用「快速開始」生成一支影片。' }
+    }
+    const list = handle.repos.shots.list()
+    const actTitle = actTitleOf(handle)
+    const info = { shotCount: list.length, newCharacters: newCharacterNamesOf(handle), actTitle }
+    if (list.length === 0) {
+      return { ...info, ok: false, issue: '還沒有可以升級的鏡頭，請先用「快速開始」生成一次。' }
+    }
+    if (deps.quickstartState()?.status === 'running') {
+      return { ...info, ok: false, issue: '影片還在生成，等它完成再升級。' }
+    }
+    if (handle.repos.outline.listActs().length > 0) {
+      return { ...info, ok: false, issue: '這個專案已經有大綱了，不需要再升級。' }
+    }
+    return { ...info, ok: true }
+  }
+
+  return {
+    check,
+
+    upgrade() {
+      const checked = check()
+      if (!checked.ok) throw invalid(checked.issue ?? '現在不能升級。')
+      const handle = projects.current()
+      if (!handle) throw invalid('請先開啟或建立一個專案。')
+      const { outline, shots } = handle.repos
+
+      const list = shots.list()
+      const act = outline.addAct({ title: checked.actTitle })
+      const scene = outline.addScene(act.id, { title: '第一場' })
+
+      const created = createDraftCharacters(handle)
+
+      shotService.assignScene(
+        list.map((shot) => shot.id),
+        scene.id,
+      )
+      return { actTitle: act.title, shotCount: list.length, characters: created }
+    },
+  }
+}

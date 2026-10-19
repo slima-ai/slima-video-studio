@@ -1,0 +1,34 @@
+{
+  "key": "seedream-5.0",
+  "displayName": "Seedream 5.0 Lite",
+  "tasks": ["t2i", "edit"],
+  "tier": "budget",
+  "recommended": true,
+  "styleFit": "both",
+  "features": {
+    "characterMechanism": "reference"
+  },
+  "badges": ["省錢"],
+  "prompt": {
+    "language": "any"
+  },
+  "channels": [
+    {
+      "provider": "fal",
+      "endpoints": {
+        "t2i": "fal-ai/bytedance/seedream/v5/lite/text-to-image",
+        "edit": "fal-ai/bytedance/seedream/v5/lite/edit"
+      },
+      "pricing": {
+        "unit": "image",
+        "usd": 0.035
+      },
+      "verification": {
+        "endpoint": false,
+        "pricing": false,
+        "source": "第三方彙整頁（2026-10），尚未對照官方"
+      },
+      "notes": "便宜大量；亞洲臉孔與動畫風表現好。"
+    }
+  ]
+}

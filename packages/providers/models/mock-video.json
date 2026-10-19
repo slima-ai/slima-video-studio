@@ -1,0 +1,31 @@
+{
+  "key": "mock-video",
+  "displayName": "示範影片",
+  "tasks": ["t2v", "i2v"],
+  "tier": "balanced",
+  "recommended": true,
+  "features": {
+    "nativeAudio": false
+  },
+  "badges": [],
+  "channels": [
+    {
+      "provider": "mock",
+      "id": "mock/video",
+      "needsKey": false,
+      "endpoints": {
+        "t2v": "mock/t2v",
+        "i2v": "mock/i2v"
+      },
+      "pricing": {
+        "unit": "second",
+        "usd": 0.05
+      },
+      "verification": {
+        "endpoint": false,
+        "pricing": false
+      },
+      "notes": "示範模式用的假模型，不連網、不花錢（金額為示意）。"
+    }
+  ]
+}

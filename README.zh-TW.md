@@ -1,0 +1,95 @@
+# Slima Video Studio
+
+[English](README.md) · **繁體中文**
+
+免費、開源的桌面工作台，把故事做成 AI 影片。你寫一句話或貼上劇本，App 會把它拆成場和鏡頭、為每個鏡頭生成第一張畫面和影片片段，再接成一支完整的短片。一切都在可編輯的節點畫布上，所以任何一個鏡頭有問題，只要重跑那一個。
+
+它是**自帶金鑰（BYOK）**：App 沒有伺服器，也不提供模型。你連上自己的 AI 服務帳號（一把 [OpenRouter](https://openrouter.ai) 金鑰就能跑文字、圖片和影片），每次生成前都會先看到預估花費。
+
+> **現況：早期版本（v0.x）。** 在 macOS（Apple Silicon）上可以從頭走到尾。Windows 版有打包，但還沒在真的 Windows 電腦上實測，也還沒提供下載。安裝檔還沒有程式碼簽章（見[第一次開啟](#第一次開啟)）。介面目前只有繁體中文。
+
+![畫布上，故事變成場、鏡頭、第一張畫面、影片和成品](docs/images/04-canvas-grown.png)
+
+_示範模式：圖片是假的，讓你不用金鑰、不花錢就能看完整個流程。_
+
+## 你可以做什麼
+
+- **一張畫布，從故事到成片。** 寫一句話，選畫風、鏡頭數、每鏡幾秒，畫布就長出整支短片：場、鏡頭、第一張畫面、影片片段和剪輯。
+- **只修一個鏡頭，不重做整支片。** 改了鏡頭描述或角色，只有受影響的圖和影片會標「需要重跑」；每個鏡頭都保留各個版本。
+- **角色與地點。** 角色卡有鎖定的外觀描述、概念圖和三視圖，同一個角色可以在不同鏡頭重複使用。
+- **先看花費。** 每次生成都會顯示預估並請你確認；單次上限（預設 US$5）保護你不會超支。
+- **預覽與匯出。** 在 App 裡播放接好的成品，匯出成 MP4。接片用內建的 FFmpeg，除了你設定的 AI 服務之外，不會有資料離開你的電腦。
+- **畫布之外也有表格。** 大綱、分鏡表、角色、地點、生成紀錄、檔案都是同一份資料的不同檢視，復原與重做可以跨過去。
+- **選用：** 從 [Slima](https://slima.ai) 匯入故事（唯讀，透過官方的 `slima-mcp`）。
+
+![分鏡表](docs/images/07-storyboard.png)
+
+## 開始使用
+
+### 下載
+
+安裝檔放在這個 repo 的 **Releases** 頁面：macOS（Apple Silicon）的 `.dmg`。Windows 安裝程式要等它內建的 FFmpeg 改成從原始碼編譯（見下方）之後才提供。每個版本都會列出各檔案的 SHA-256 雜湊。
+
+### 第一次開啟
+
+安裝檔還沒有 Apple Developer ID 或 Windows 程式碼簽章憑證，所以第一次開啟時系統會警告：
+
+- **macOS：** 打開「系統設定 → 隱私權與安全性」，往下捲到「Slima Video Studio 已被阻擋」的訊息，按「仍要打開」並輸入密碼。如果 macOS 說 App「已損毀」，在終端機執行 `xattr -dr com.apple.quarantine "/Applications/Slima Video Studio.app"` 再開一次。
+- **Windows：** 在 SmartScreen 視窗按「其他資訊 → 仍要執行」。
+- 目前**沒有自動更新**；新版本請到 Releases 下載。
+
+### 不用金鑰先試玩
+
+第一次啟動時選**「先試玩看看」**。App 會改用假的供應商：不需要金鑰、不連網，就能免費走完整個流程。
+
+![設定精靈](docs/images/01-setup-wizard.png)
+
+### 用真的 AI
+
+1. 建立 [OpenRouter](https://openrouter.ai) 帳號、儲值幾美元，建立一把 API 金鑰（可以在金鑰上設花費上限）。帳號要有餘額才能用付費的圖片和影片模型。
+2. 在 App 的設定精靈（或「設定」）貼上金鑰。金鑰由作業系統加密保存在你的電腦上，之後畫面不會再完整顯示。
+3. 在畫布上寫一句話，設定鏡頭數和秒數，按**生成**並確認預估花費。
+
+我們自己跑一支 2 鏡 × 3 秒的測試短片約花 US$1.1。預估有可能比實際價格低（我們那次預估 US$0.78），所以請從小的開始。
+
+## 模型
+
+只填一把 OpenRouter 金鑰時的預設：
+
+| 用途                       | 預設                                                |
+| -------------------------- | --------------------------------------------------- |
+| 拆鏡與描述                 | Claude Sonnet 5.5                                   |
+| 圖片（角色圖、第一張畫面） | Gemini 3 Pro Image                                  |
+| 影片                       | Kling 3.0 Standard（Veo 3.1 Lite 當便宜的草稿模型） |
+
+再填一把 [fal.ai](https://fal.ai) 金鑰會多出更多模型與角色鎖定影片。實測的價格、endpoint 和我們實際觀察到的結果在 [docs/models.md](docs/models.md)。
+
+## 已知限制
+
+- 影片模型有時會替沒有嘴巴、手腳的角色加上嘴、手臂或腳（Kling 常見，Veo 比較少）。在提示詞裡把角色描述成靜止、簡單的形狀有幫助；成品一定要檢查。
+- 還不支援 OpenAI 的圖片模型（`gpt-image-2`）：它們要走 OpenRouter 的另一個端點，不是 App 現在用的那個。
+- 還沒有聲音（配音、配樂、音效），也沒有字幕。
+- 預設的「寫實」畫風，對可愛的角色可能畫出偏暗或令人不安的畫面；請選適合你故事的畫風。
+- 安裝檔：macOS Intel 版還沒打；Linux 沒測過。
+- **還沒有 Windows 下載。** Windows 版有打包，但沒在真的 Windows 電腦上實測過，而且它內建的 FFmpeg 是別人編的、我們還沒有提供它靜態連結的函式庫的對應原始碼。等我們把那個 FFmpeg 改成從原始碼編譯（macOS 版已經是）之後才會提供。
+
+## 從原始碼建置
+
+```bash
+pnpm install
+pnpm dev                                                    # 執行 App
+SVS_PROVIDER_MODE=mock SVS_DISABLE_ONBOARDING=1 pnpm dev    # 示範模式，不用金鑰、不花錢
+pnpm lint && pnpm typecheck && pnpm test                    # 檢查
+pnpm test:e2e                                               # Electron 端對端測試（示範模式）
+pnpm --filter @svs/desktop dist                             # 打包安裝檔（未簽章）
+```
+
+需要 Node 22 與 pnpm 10。這是一個 pnpm workspace：`apps/desktop`（Electron App、React 介面）把 `packages/` 裡的套件（`schema`、`db`、`engine`、`providers`、`media`、`workflows`、`slima`）組起來，這些套件只依賴 `@svs/schema`。macOS 的 FFmpeg 由 [`tools/ffmpeg/build-macos.sh`](tools/ffmpeg/README.md) 從原始碼編譯。參與貢獻請看 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+## 授權
+
+Apache License 2.0，見 [LICENSE](LICENSE) 與 [NOTICE](NOTICE)。「Slima」與「Slima Video Studio」的名稱、Logo，以及小饅頭（Little Bun／Mochi）美術**不在**這個授權裡。安裝檔內含 FFmpeg（GPL v2 或更新版，只開 libx264，當成獨立程式執行），它的授權全文與原始碼取得方式隨安裝檔附上；其他第三方授權在 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。AI 服務金鑰與產生的費用由你自己負責。軟體依現況提供，不附任何保證。
+
+![用 Video Studio 會用到的模型做的一支短片的範例畫面](docs/images/sample-frames.jpg)
+
+_用同類模型做的短片範例畫面（第一張畫面用 Gemini 3 Pro Image，影片片段用 Veo 3.1 Lite，透過 OpenRouter）。_
