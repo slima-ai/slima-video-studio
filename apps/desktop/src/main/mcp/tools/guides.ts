@@ -8,13 +8,17 @@ const GETTING_STARTED = `# Making a video with Slima Video Studio
 
 You are connected to the user's own copy of the app, running on their computer. Everything you change appears in the app window in real time.
 
-Typical order (use only the tools that exist; call get_capabilities for the current list):
-1. get_capabilities — mode (demo or real), current project, spending allowance.
-2. list_projects / create_project / open_project — pick or start a project. open_project and create_project switch the project shown in the app window; tell the user before doing it if they might be working in it.
-3. Spending tools (anything that calls an AI model) are checked against the spending allowance first. See load_guide("spending").
+Order of work (call get_capabilities for the tools that exist right now):
+1. get_capabilities — mode (demo or real), current project, spending allowance, tools.
+2. Project: list_projects / create_project / open_project. create_project and open_project switch the project shown in the app window; tell the user before doing it if they might be working in it.
+3. Look and models: configure_project (art style, frame shape), list_models, set_models. In real mode the models decide the cost.
+4. Story: split_story_into_scenes(story) turns the text into acts and scenes (and draft characters and locations). get_outline shows them; edit_outline fixes them.
+5. Shots: load_guide("storyboard") first, then split_scene_into_shots(sceneId) for each scene. list_shots / get_shot to review, update_shot / create_shot / delete_shots / reorder_shots to improve. undo / redo work like the app's own.
+6. Before any step that calls an AI model, estimate_cost tells you what it would cost and whether the allowance covers it.
 
 Notes
-- Work in small steps and look at results before spending more.
+- Work in small steps and look at the result before spending more.
+- Steps 4 and 5's "split" tools call a text model: free in demo mode, otherwise counted against the spending allowance (load_guide("spending")).
 - Tool errors are plain-language messages; read them, they usually say what to do next.
 `
 

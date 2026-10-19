@@ -18,6 +18,7 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'project.create': [{ dir: '/nonexistent/dir/x.svsproj', name: 'x' }],
   'project.open': [{ dir: '/nonexistent/dir/y.svsproj' }],
   'project.current': [{}],
+  'project.configure': [{}, { styleId: 'anime' }],
   'project.close': [{}],
   'project.list': [{}],
   'dev.seedDemo': [{ shots: 1 }],

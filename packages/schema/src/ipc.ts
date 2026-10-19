@@ -57,6 +57,7 @@ import {
 } from './domain/slima'
 import {
   QuickStartCheckSchema,
+  QuickStyleIdSchema,
   QuickStartProgressSchema,
   QuickStartRequestSchema,
   UpgradeCheckSchema,
@@ -200,6 +201,14 @@ export const ipcContract = {
   'project.current': {
     request: z.object({}),
     response: ProjectInfoSchema.nullable(),
+  },
+  /** 目前專案的畫風與畫面比例：沒給欄位就是只讀；給了就改（之後生成的畫面會用新的設定）。 */
+  'project.configure': {
+    request: z.object({
+      styleId: QuickStyleIdSchema.optional(),
+      aspectRatio: AspectRatioSchema.optional(),
+    }),
+    response: z.object({ styleId: QuickStyleIdSchema, aspectRatio: AspectRatioSchema }),
   },
   'project.close': {
     request: z.object({}),
