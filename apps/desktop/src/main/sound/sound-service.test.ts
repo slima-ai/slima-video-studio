@@ -329,3 +329,54 @@ describe('SoundService：混音與成品（示範模式）', () => {
     expect(analysis.warnings.some((w) => w.includes('安靜') || w.includes('沒有'))).toBe(true)
   })
 })
+
+describe('SoundService：真實模式的預估價格', () => {
+  it('填了 OpenRouter 金鑰、選 Lyria 3 Pro：配樂預估是 US$0.08（不是示範模式的價錢）；旁白用 MiniMax，漢字算兩個單位', () => {
+    const h = setup({ demoMode: false })
+    h.keys.set('openrouter', 'sk-or-v1-fake-test-key-0000')
+    // 只新增一個空鏡頭（會自動建專案）；真實模式不會真的生成，只看預估
+    const shot = h.shots.create({})
+    h.shots.update(shot.id, { dialogue: '黑藤爬滿了斷橋。' })
+    const plan = h.sound.plan({ narration: {}, music: {} })
+    expect(plan.ok).toBe(true)
+    const music = plan.items.find((i) => i.kind === 'music')
+    expect(music).toMatchObject({ modelId: 'openrouter/lyria-3-pro', estimatedUsd: 0.08 })
+    const narration = plan.items.find((i) => i.kind === 'narration')
+    expect(narration?.modelId).toBe('openrouter/minimax-speech-2.8-hd')
+    // 8 個漢字＋1 個全形句點＝9 個全形字×2＝18 個單位×US$0.0001
+    expect(narration?.estimatedUsd).toBeCloseTo(0.0018)
+    expect(plan.totalUsd).toBeCloseTo(0.0818)
+    // 示範模式的價錢另外：不會跟真實模式混在一起
+    const demo = setup()
+    const demoShot = demo.shots.create({})
+    demo.shots.update(demoShot.id, { dialogue: '一句話。' })
+    expect(demo.sound.plan({ music: {} }).items[0]).toMatchObject({
+      modelId: 'mock/music',
+      estimatedUsd: 0.05,
+    })
+  })
+})
+
+describe('影片原聲開關：專案的聲音設定決定生成影片時帶不帶原聲', () => {
+  const videoAudio = (h: Harness): boolean[] =>
+    (h.projects.current()?.repos.jobs.list() ?? [])
+      .filter((job) => job.kind === 'video')
+      .map((job) => (job.input as { audio: boolean }).audio)
+
+  it('預設帶原聲；關掉之後重新生成的影片不帶', async () => {
+    const h = setup()
+    await h.runQuickStart()
+    expect(videoAudio(h).length).toBeGreaterThan(0)
+    expect(videoAudio(h).every((a) => a)).toBe(true)
+
+    h.sound.updateSettings({ nativeAudio: false })
+    const [first] = h.shots.list().shots
+    if (!first) throw new Error('應該有鏡頭')
+    const before = videoAudio(h).length
+    await h.shots.regenerate(first.id, 'video')
+    await h.shots.whenIdle()
+    const added = videoAudio(h).slice(before)
+    expect(added.length).toBeGreaterThan(0)
+    expect(added.every((a) => !a)).toBe(true)
+  })
+})

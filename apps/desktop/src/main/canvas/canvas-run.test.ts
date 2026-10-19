@@ -32,9 +32,15 @@ describe('canvas.runPlan', () => {
     const balanced = plan('balanced')
     expect(premium.models.video).toBe('Kling 3.0 Pro')
     expect(balanced.models.video).toBe('Kling 3.0 Standard')
-    // 一鏡 3 秒：影片每秒 0.112 對 0.084
+    // 一鏡 3 秒：預設帶原聲，影片每秒有聲價 0.168 對 0.126
     expect(premium.estimatedUsd).toBeGreaterThan(balanced.estimatedUsd)
-    expect(premium.estimatedUsd - balanced.estimatedUsd).toBeCloseTo((0.112 - 0.084) * 3, 3)
+    expect(premium.estimatedUsd - balanced.estimatedUsd).toBeCloseTo((0.168 - 0.126) * 3, 3)
+    // 把影片原聲關掉：回到無聲價 0.112 對 0.084
+    h.sound.updateSettings({ nativeAudio: false })
+    expect(plan('premium').estimatedUsd - plan('balanced').estimatedUsd).toBeCloseTo(
+      (0.112 - 0.084) * 3,
+      3,
+    )
     // 沒指定：設定裡的（預設是平衡組推薦的）
     expect(plan().models.video).toBe('Kling 3.0 Standard')
     // 那一組沒有能用的圖片模型（只有 fal 時高品質圖片要 OpenRouter）：照平常

@@ -9,6 +9,7 @@ import type { MediaTools } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
+  DEFAULT_SOUND_SETTINGS,
   isAppError,
   resolveStoryboardGuide,
   type QuickStartCheck,
@@ -134,6 +135,10 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       const flow = buildQuickStart({
         ...request,
         models: { llm: chosen.llm, image: chosen.image, video: chosen.video },
+        // 預估要算進原聲的加價（有開才算）
+        audio:
+          projects.current()?.repos.sound.getSettings().nativeAudio ??
+          DEFAULT_SOUND_SETTINGS.nativeAudio,
         storyboardGuide: resolveStoryboardGuide(settings.get().storyboardGuide),
       })
       const estimate = estimateWorkflowCost(flow, registry, {
@@ -205,6 +210,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       const flow = buildQuickStart({
         ...request,
         models: { llm: chosen.llm, image: chosen.image, video: chosen.video },
+        audio: handle.repos.sound.getSettings().nativeAudio,
         anchors,
         ...(editModel ? { editModel } : {}),
         knownCharacters: handle.repos.characters.list().map((c) => c.name),

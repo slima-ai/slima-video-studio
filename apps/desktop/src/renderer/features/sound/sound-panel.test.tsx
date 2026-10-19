@@ -204,4 +204,17 @@ describe('SoundPanel：調音量', () => {
     expect(screen.getByTestId('sound-remix').textContent).toContain('不花錢')
     expect(screen.getByTestId('sound-summary').textContent).toContain('2 個鏡頭有旁白')
   })
+
+  it('沒有任何鏡頭有旁白時：不顯示旁白音量那一排，改成一句說明', async () => {
+    installFakeSvs({
+      'sound.get': () =>
+        state({ music: clip('music'), final: { version: 2, hasSound: true, soundStale: false } }),
+    })
+    render(<SoundPanel />)
+    expect((await screen.findByTestId('sound-no-narration')).textContent).toContain(
+      '鏡頭沒有台詞，所以沒有旁白',
+    )
+    expect(screen.queryByTestId('sound-narration-mid')).toBeNull()
+    expect(screen.getByTestId('sound-music-mid')).toBeTruthy()
+  })
 })

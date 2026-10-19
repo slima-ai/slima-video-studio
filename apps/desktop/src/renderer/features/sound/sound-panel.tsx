@@ -241,14 +241,20 @@ export function SoundPanel() {
             }
           }}
         />
-        <LevelPicker
-          testId="sound-narration"
-          label="旁白"
-          value={levelOf(NARRATION_DB, state.settings.narrationGainDb)}
-          onPick={(choice) => {
-            if (choice !== 'off') change({ narrationGainDb: NARRATION_DB[choice] })
-          }}
-        />
+        {narrationCount > 0 ? (
+          <LevelPicker
+            testId="sound-narration"
+            label="旁白"
+            value={levelOf(NARRATION_DB, state.settings.narrationGainDb)}
+            onPick={(choice) => {
+              if (choice !== 'off') change({ narrationGainDb: NARRATION_DB[choice] })
+            }}
+          />
+        ) : (
+          <p className="text-sm text-fg-muted" data-testid="sound-no-narration">
+            鏡頭沒有台詞，所以沒有旁白。到鏡頭裡寫台詞，就會念出來。
+          </p>
+        )}
         <LevelPicker
           testId="sound-music"
           label="配樂"
@@ -258,9 +264,8 @@ export function SoundPanel() {
           }}
         />
         <p className="text-xs text-fg-muted" data-testid="sound-summary">
-          {narrationCount} 個鏡頭有旁白
-          {state.music ? '、有配樂' : '、沒有配樂'}。
-          {narrationCount === 0 ? '鏡頭填了台詞才會有旁白。' : ''}調整音量不花錢，會自動重混。
+          {narrationCount > 0 ? `${String(narrationCount)} 個鏡頭有旁白` : '沒有旁白'}
+          {state.music ? '、有配樂' : '、沒有配樂'}。調整音量不花錢，會自動重混。
         </p>
         {state.warnings.map((w) => (
           <p key={`${w.kind}:${w.shotId ?? ''}`} className="text-xs text-warning" role="status">
