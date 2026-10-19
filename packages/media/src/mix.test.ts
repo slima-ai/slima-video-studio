@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { buildMixGraph, measureLoudness, measureRmsDb, mixAudio } from './mix'
+import { buildMixGraph, detectSilences, measureLoudness, measureRmsDb, mixAudio } from './mix'
 import { probe } from './probe'
 import { resolveTools, runTool } from './run'
 
@@ -355,5 +355,29 @@ describe('buildMixGraph', () => {
         narration: [{ file: 'n.wav', startSec: 1, durationSec: 2 }],
       }).graph,
     ).not.toContain('sidechaincompress')
+  })
+})
+
+describe('detectSilences', () => {
+  it('找出旁白前後的安靜段；整支都安靜就是一段到結尾', async () => {
+    const out = path('silences.mp4')
+    await mixAudio(tools, silentVideo, out, {
+      narration: [{ file: narration, startSec: 3 }],
+      normalize: false,
+    })
+    const spans = await detectSilences(tools, out)
+    expect(spans).toHaveLength(2)
+    expect(spans[0]?.startSec).toBeCloseTo(0, 0)
+    expect(spans[0]?.endSec).toBeGreaterThan(2.5)
+    expect(spans[0]?.endSec).toBeLessThan(3.2)
+    expect(spans[1]?.startSec).toBeGreaterThan(4.8)
+    expect(spans[1]?.endSec).toBeCloseTo(10, 0)
+
+    const quiet = path('all-quiet.mp4')
+    await mixAudio(tools, silentVideo, quiet)
+    const all = await detectSilences(tools, quiet)
+    expect(all).toHaveLength(1)
+    expect(all[0]?.startSec).toBeCloseTo(0, 1)
+    expect(all[0]?.endSec).toBeCloseTo(10, 0)
   })
 })

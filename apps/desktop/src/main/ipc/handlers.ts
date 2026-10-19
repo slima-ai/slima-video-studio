@@ -423,6 +423,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     return {}
   })
   registry.registerHandler('sound.mix', () => needSound().mix())
+  registry.registerHandler('sound.analyze', () => needSound().analyze())
   registry.registerHandler('sound.updateSettings', (patch) => needSound().updateSettings(patch))
   registry.registerHandler('characters.concepts', ({ characterId }) => concepts.state(characterId))
   registry.registerHandler('characters.conceptCheck', ({ characterId }) =>
