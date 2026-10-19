@@ -1,3 +1,4 @@
+import { encodePng } from '@svs/providers'
 import { DEFAULT_STORYBOARD_GUIDE, type QuickStartRequest } from '@svs/schema'
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -189,5 +190,66 @@ describe('QuickStartService.export', () => {
   it('還沒有成品就匯出 → 白話錯誤', async () => {
     const { service } = setup()
     await expect(service.export()).rejects.toThrow(/還沒有可以匯出的影片/)
+  })
+})
+
+describe('QuickStartService.export：畫片尾字卡不能把匯出卡住', () => {
+  const solidCard = ({ width, height }: { width: number; height: number }) =>
+    Promise.resolve(new Uint8Array(encodePng(width, height, new Uint8Array(width * height * 3))))
+
+  async function runToFinish(options: HarnessOptions) {
+    const harness = setup(options)
+    await harness.service.run(request({ shotCount: 2 }))
+    await harness.finished()
+    return harness
+  }
+
+  it('字卡畫得出來：匯出多 3 秒的字卡版，回報 credits=true', async () => {
+    const { service } = await runToFinish({ renderCreditsCard: solidCard })
+    const out = await service.export()
+    expect(out.credits).toBe(true)
+    expect(existsSync(out.path)).toBe(true)
+  })
+
+  it('離屏視窗一直畫不出來（例如新視窗不載入）：超過上限就改匯出沒有字卡的版本，credits=false，並放掉視窗', async () => {
+    let aborted = false
+    const { service } = await runToFinish({
+      creditsTimeoutMs: 300,
+      // 模擬永遠不回來；只有被取消時才記下（真的畫圖那邊就是在這時關掉視窗）
+      renderCreditsCard: ({ signal }) =>
+        new Promise<never>(() => {
+          signal?.addEventListener('abort', () => {
+            aborted = true
+          })
+        }),
+    })
+    const started = Date.now()
+    const out = await service.export()
+    expect(Date.now() - started).toBeLessThan(10_000)
+    expect(out.credits).toBe(false)
+    expect(existsSync(out.path)).toBe(true) // 匯出的是原版影片，檔案有做出來
+    expect(aborted).toBe(true)
+    expect(service.state()?.exportedPath).toBe(out.path)
+  })
+
+  it('字卡逾時後才失敗的結果，不會變成未處理的拒絕', async () => {
+    const unhandled = vi.fn()
+    process.on('unhandledRejection', unhandled)
+    try {
+      const { service } = await runToFinish({
+        creditsTimeoutMs: 100,
+        renderCreditsCard: () =>
+          new Promise<never>((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('late'))
+            }, 300)
+          }),
+      })
+      expect((await service.export()).credits).toBe(false)
+      await new Promise((r) => setTimeout(r, 400))
+      expect(unhandled).not.toHaveBeenCalled()
+    } finally {
+      process.off('unhandledRejection', unhandled)
+    }
   })
 })

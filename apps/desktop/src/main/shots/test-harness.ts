@@ -23,6 +23,8 @@ export interface HarnessOptions {
   openrouterBaseUrl?: string
   /** 匯出時的片尾字卡畫圖；測試給假的（記下收到的文字）。 */
   renderCreditsCard?: StudioAppOptions['renderCreditsCard']
+  /** 畫字卡最多等幾毫秒（測試縮短用）。 */
+  creditsTimeoutMs?: number
 }
 
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -85,6 +87,7 @@ export function createStudioHarness(options: HarnessOptions = {}) {
     ...(options.mockCostUsd ? { mockCostUsd: options.mockCostUsd } : {}),
     ...(options.pickFiles ? { pickFiles: options.pickFiles } : {}),
     ...(options.renderCreditsCard ? { renderCreditsCard: options.renderCreditsCard } : {}),
+    ...(options.creditsTimeoutMs ? { creditsTimeoutMs: options.creditsTimeoutMs } : {}),
   })
 
   const progress = (): QuickStartProgress[] =>

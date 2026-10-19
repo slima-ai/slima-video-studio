@@ -6,7 +6,12 @@ export type CardRenderer = (input: {
   lines: readonly string[]
   width: number
   height: number
+  /** 被取消（例如等太久）時要放掉手上的資源（離屏視窗）。 */
+  signal?: AbortSignal
 }) => Promise<Uint8Array>
+
+/** 畫片尾字卡最多等多久；超過就改匯出沒有字卡的版本（匯出不能被一張字卡無限期卡住）。 */
+export const CREDITS_RENDER_TIMEOUT_MS = 20_000
 
 /** 最後一行：產品本身。 */
 export const MADE_WITH = 'Made with Slima Video Studio'
