@@ -1,4 +1,4 @@
-import { ShotEditSchema, type ShotView } from '@svs/schema'
+import { CAMERA_MOVES, ShotEditSchema, type ShotView } from '@svs/schema'
 import { z } from 'zod'
 
 import { defineTool, type ToolContext } from './define'
@@ -97,7 +97,9 @@ export function registerShotTools(ctx: ToolContext): void {
     name: 'update_shot',
     title: 'Edit a shot',
     description:
-      'Change fields of one shot (only the fields you pass). Does NOT generate anything and costs nothing; regenerating pictures/videos is a separate step. Fields: description, size (extreme_wide|wide|full|medium|close_up|extreme_close_up), angle, cameraMove (a preset id or null), durationSec (1–15), dialogue, characters (names), lighting, mood, timeOfDay, prompt (null = back to the automatic prompt), inCut.',
+      'Change fields of one shot (only the fields you pass). Does NOT generate anything and costs nothing; regenerating pictures/videos is a separate step. Fields: description, size (extreme_wide|wide|full|medium|close_up|extreme_close_up), angle, cameraMove (null, or a preset id: ' +
+      CAMERA_MOVES.map((c) => c.id).join(', ') +
+      '; or your own short description such as "slow push in" — a text that is not a preset id is added to the video prompt exactly as written), durationSec (1–15), dialogue, characters (names), lighting, mood, timeOfDay, prompt (null = back to the automatic prompt), inCut.',
     input: { shotId: z.string().min(1), ...ShotEditSchema.shape },
     hints: { readOnly: false, idempotent: true },
     run: async ({ shotId, ...patch }) => {

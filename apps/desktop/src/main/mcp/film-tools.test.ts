@@ -1,4 +1,4 @@
-import type { LlmRequest } from '@svs/schema'
+import { CAMERA_MOVES, type LlmRequest } from '@svs/schema'
 import { FAKE_OPENROUTER_KEY, makePng, startFakeOpenRouter } from '@svs/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -42,6 +42,7 @@ const Take = z.looseObject({ id: z.string(), version: z.number(), adopted: z.boo
 const ShotDetail = z.looseObject({
   id: z.string(),
   number: z.number(),
+  cameraMove: z.string().nullable(),
   firstFrame: z.object({ versions: z.number(), adoptedVersion: z.number().nullable() }),
   video: z.object({ versions: z.number(), adoptedVersion: z.number().nullable() }),
   takes: z.object({ firstFrames: z.array(Take), videos: z.array(Take) }),
@@ -207,6 +208,19 @@ describe('影片線：首幀圖 → 看 → 影片 → 接片 → 匯出（示�
     expect(noCard.creditsAdded).toBe(false)
     expect(cardsRendered).toBe(rendered + 2)
     expect(noCard.fileName).toMatch(/\.mp4$/)
+  })
+
+  it('運鏡：說明列出所有預設 id、也說自由文字會原樣進影片的 Prompt；自由文字真的被接受並存起來', async () => {
+    const r = await start()
+    const { tools } = await r.client.listTools()
+    const description = tools.find((t) => t.name === 'update_shot')?.description ?? ''
+    for (const move of CAMERA_MOVES) expect(description).toContain(move.id)
+    expect(description).toContain('exactly as written')
+    const [shotId] = await withShots(r)
+    await r.call('update_shot', { shotId: shotId ?? '', cameraMove: 'slow push in' })
+    expect((await detail(r, shotId ?? '')).cameraMove).toBe('slow push in')
+    await r.call('update_shot', { shotId: shotId ?? '', cameraMove: 'push_in' })
+    expect((await detail(r, shotId ?? '')).cameraMove).toBe('push_in')
   })
 
   it('沒有鏡頭、沒有影片、找不到鏡頭：白話錯誤，不是例外', async () => {
