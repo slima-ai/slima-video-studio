@@ -1,8 +1,8 @@
-import type { McpStatus } from '@svs/schema'
+import type { McpConnectInfo, McpStatus } from '@svs/schema'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { SETTINGS, installFakeSvs } from '../../test/fake-svs'
+import { SETTINGS, appError, installFakeSvs } from '../../test/fake-svs'
 import { McpSection, claudeCodeCommand } from './mcp-section'
 
 afterEach(cleanup)
@@ -119,5 +119,86 @@ describe('McpSection', () => {
     })
     fireEvent.change(screen.getByTestId('mcp-port'), { target: { value: '80' } })
     expect(screen.getByText('請輸入 1024 到 65535 之間的整數。')).toBeTruthy()
+  })
+
+  describe('一鍵連接', () => {
+    const INFO: McpConnectInfo = {
+      claudeDesktop: {
+        supported: true,
+        configPath: '/x/claude_desktop_config.json',
+        installed: true,
+        connected: false,
+      },
+      desktopSnippet: '{}',
+      claudeCodeCommand: "claude mcp add --scope user slima-video-studio -- '/app'",
+    }
+
+    it('還沒開允許連線時，按「連接 Claude Desktop」會先替使用者打開，再寫設定；成功說明要重開 Claude Desktop', async () => {
+      let status = OFF
+      const svs = installFakeSvs({
+        'mcp.status': () => status,
+        'mcp.connectInfo': () => INFO,
+        'settings.update': () => {
+          status = ON
+          return SETTINGS
+        },
+        'mcp.connectClaudeDesktop': () => ({
+          configPath: INFO.claudeDesktop.configPath ?? '',
+          backupPath: '/x/backup',
+        }),
+      })
+      render(<McpSection onChanged={vi.fn()} />)
+      const button = await screen.findByTestId('mcp-connect-desktop')
+      fireEvent.click(button)
+      await waitFor(() => {
+        expect(screen.getByTestId('mcp-connect-note').textContent).toContain('重新打開')
+      })
+      expect(svs.payloadsOf('settings.update')).toEqual([{ mcp: { enabled: true } }])
+      expect(svs.payloadsOf('mcp.connectClaudeDesktop')).toHaveLength(1)
+      expect(screen.getByTestId('mcp-connect-note').textContent).toContain('已備份')
+      expect(document.body.textContent).not.toContain(TOKEN.slice(0, 12) + 'X')
+    })
+
+    it('Claude Code 連不上時顯示白話原因，並給可貼的指令', async () => {
+      installFakeSvs({
+        'mcp.status': () => ON,
+        'mcp.connectInfo': () => INFO,
+        'mcp.connectClaudeCode': () => {
+          throw appError('沒辦法自己執行 claude 指令。請把下面的指令貼到終端機。')
+        },
+      })
+      render(<McpSection onChanged={vi.fn()} />)
+      fireEvent.click(await screen.findByTestId('mcp-connect-code'))
+      await waitFor(() => {
+        expect(screen.getByTestId('mcp-connect-note').textContent).toContain('貼到終端機')
+      })
+      expect(screen.getByTestId('mcp-code-fallback').textContent).toBe(INFO.claudeCodeCommand)
+    })
+
+    it('沒有 Claude Desktop 的系統不顯示那顆按鈕；已連接就顯示已連接', async () => {
+      installFakeSvs({
+        'mcp.status': () => ON,
+        'mcp.connectInfo': () => ({
+          ...INFO,
+          claudeDesktop: { supported: false, installed: false, connected: false },
+        }),
+      })
+      render(<McpSection onChanged={vi.fn()} />)
+      await screen.findByTestId('mcp-connect-code')
+      expect(screen.queryByTestId('mcp-connect-desktop')).toBeNull()
+      cleanup()
+      installFakeSvs({
+        'mcp.status': () => ON,
+        'mcp.connectInfo': () => ({
+          ...INFO,
+          claudeDesktop: { ...INFO.claudeDesktop, connected: true },
+        }),
+      })
+      render(<McpSection onChanged={vi.fn()} />)
+      expect((await screen.findByTestId('mcp-connect-desktop')).textContent).toBe(
+        '重新連接 Claude Desktop',
+      )
+      expect(screen.getByText('Claude Desktop 已經連接。')).toBeTruthy()
+    })
   })
 })
