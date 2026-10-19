@@ -722,6 +722,101 @@ describe('createOpenRouterDriver：旁白（POST /audio/speech）', () => {
   })
 })
 
+const sse = (...events: unknown[]): Response =>
+  new Response(`${events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('')}data: [DONE]\n\n`, {
+    status: 200,
+    headers: { 'content-type': 'text/event-stream' },
+  })
+const musicEvents = (cost?: number) => [
+  { choices: [{ delta: { role: 'assistant', content: '' } }] },
+  { choices: [{ delta: { audio: { data: Buffer.from(MP3).toString('base64') } } }] },
+  { choices: [{ delta: {} }], usage: { prompt_tokens: 39, cost } },
+]
+
+function makeMusic(...responses: (Response | Error | ((call: Call) => Response))[]) {
+  const { impl, calls } = fakeFetch(...responses)
+  const services = memoryServices()
+  const driver = createOpenRouterDriver({
+    getKey: () => KEY,
+    endpointFor: () => 'google/lyria-3-pro-preview',
+    fetch: impl,
+    services,
+  })
+  return { driver, calls, services }
+}
+
+const musicJob = (input: Record<string, unknown>): Job => ({
+  ...job({
+    capability: 'music',
+    modelId: 'openrouter/lyria',
+    prompt: 'Instrumental only.',
+    ...input,
+  }),
+  modelId: 'openrouter/lyria',
+  kind: 'music',
+})
+
+describe('createOpenRouterDriver：配樂（Lyria，串流 chat/completions）', () => {
+  it('必須串流、modalities 含 audio；把 base64 片段存成音訊素材，花費用串流最後的 usage.cost', async () => {
+    const { driver, calls, services } = makeMusic(sse(...musicEvents(0.08)))
+    const result = await driver.submit(musicJob({}), { signal })
+    expect(calls[0]?.url).toBe('https://openrouter.ai/api/v1/chat/completions')
+    expect(calls[0]?.body).toEqual({
+      model: 'google/lyria-3-pro-preview',
+      messages: [{ role: 'user', content: 'Instrumental only.' }],
+      modalities: ['text', 'audio'],
+      audio: { format: 'mp3' },
+      stream: true,
+    })
+    expect(result).toMatchObject({ status: 'done', costUsd: 0.08 })
+    const assets = (
+      result as { output: { assets: { hash: string; kind: string; mime: string }[] } }
+    ).output.assets
+    expect(assets[0]).toMatchObject({ kind: 'audio', mime: 'audio/mpeg' })
+    expect(services.files.get(assets[0]?.hash ?? '')).toEqual(MP3)
+  })
+
+  it('有 durationSec 就在 prompt 後面補「about N seconds」（長度靠文字控制）；片段分成多個也能接起來', async () => {
+    const half = Math.floor(MP3.length / 2)
+    const chunk = (bytes: Uint8Array) => ({
+      choices: [{ delta: { audio: { data: Buffer.from(bytes).toString('base64') } } }],
+    })
+    // 兩段 base64 各自編碼再串接不等於整段編碼，所以切在 3 的倍數
+    const cut = half - (half % 3)
+    const { driver, calls, services } = makeMusic(
+      sse(chunk(MP3.slice(0, cut)), chunk(MP3.slice(cut)), { usage: { cost: 0.04 } }),
+    )
+    const result = await driver.submit(musicJob({ durationSec: 44.6 }), { signal })
+    expect((calls[0]?.body?.messages as { content: string }[])[0]?.content).toBe(
+      'Instrumental only.\nMake it about 45 seconds long.',
+    )
+    const hash = (result as { output: { assets: { hash: string }[] } }).output.assets[0]?.hash ?? ''
+    expect(services.files.get(hash)).toEqual(MP3)
+  })
+
+  it('沒有 usage 也可以（不回報花費）；沒有音訊（被過濾）是不可重試的白話錯誤', async () => {
+    const free = makeMusic(sse(...musicEvents().slice(0, 2)))
+    expect(await free.driver.submit(musicJob({}), { signal })).not.toHaveProperty('costUsd')
+    const empty = makeMusic(sse({ choices: [{ delta: { content: '抱歉' } }] }))
+    expect(await failure(empty.driver.submit(musicJob({}), { signal }))).toMatchObject({
+      code: 'provider_rejected',
+      retryable: false,
+    })
+  })
+
+  it('串流裡夾帶錯誤、HTTP 錯誤：照既有規則分類', async () => {
+    const inline = makeMusic(sse({ error: { code: 402, message: 'no credits' } }))
+    expect(await failure(inline.driver.submit(musicJob({}), { signal }))).toMatchObject({
+      code: 'provider_insufficient_funds',
+    })
+    const http = makeMusic(json({ error: { message: 'x' } }, { status: 429 }))
+    expect(await failure(http.driver.submit(musicJob({}), { signal }))).toMatchObject({
+      code: 'provider_rate_limited',
+      retryable: true,
+    })
+  })
+})
+
 const t2vInput = {
   capability: 't2v',
   modelId: 'm',

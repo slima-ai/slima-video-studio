@@ -42,7 +42,7 @@ const ResultSchema = z.object({
   video: FileSchema.optional(),
 })
 
-type MediaRequest = Exclude<GenerationRequest, { capability: 'llm' | 'tts' }>
+type MediaRequest = Exclude<GenerationRequest, { capability: 'llm' | 'tts' | 'music' }>
 
 function sniffMime(bytes: Uint8Array): string {
   if (bytes[0] === 0x89 && bytes[1] === 0x50) return 'image/png'
@@ -136,7 +136,12 @@ async function buildInput(
 
 function parseRequest(job: Job): MediaRequest {
   const parsed = GenerationRequestSchema.safeParse(job.input)
-  if (!parsed.success || parsed.data.capability === 'llm' || parsed.data.capability === 'tts') {
+  if (
+    !parsed.success ||
+    parsed.data.capability === 'llm' ||
+    parsed.data.capability === 'tts' ||
+    parsed.data.capability === 'music'
+  ) {
     throw new AppError({
       code: 'provider_rejected',
       userMessage: 'fal.ai 這裡只處理圖片與影片的請求。',

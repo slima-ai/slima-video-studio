@@ -90,6 +90,17 @@ const ImagesApiResponseSchema = z.object({
 
 /** `GET /generation` 只取實收花費。 */
 const GenerationSchema = z.object({ data: z.object({ total_cost: z.number().optional() }) })
+/** 配樂串流裡的一個事件：只取音訊片段與最後那筆 usage。 */
+const MusicEventSchema = z.object({
+  choices: z
+    .array(
+      z.object({
+        delta: z.object({ audio: z.object({ data: z.string().optional() }).optional() }).optional(),
+      }),
+    )
+    .optional(),
+  usage: z.object({ cost: z.number().optional() }).optional(),
+})
 
 const VideoSubmitSchema = z.object({ id: z.string().min(1) })
 
@@ -109,6 +120,8 @@ export type VideoStatus =
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024
 /** 單一旁白檔上限（5,000 字的旁白也只有幾 MB）。 */
 const MAX_AUDIO_BYTES = 50 * 1024 * 1024
+/** 單一配樂檔上限（實測 60 秒的 mp3 約 1.5 MB）。 */
+const MAX_MUSIC_BYTES = 50 * 1024 * 1024
 
 const tooLarge = (): AppError =>
   new AppError({ code: 'provider_rejected', userMessage: 'OpenRouter 回傳的檔案太大，已略過。' })
@@ -492,6 +505,72 @@ export class OpenRouterClient {
     } catch {
       return undefined // 還沒入帳（404）或暫時查不到
     }
+  }
+
+  /**
+   * 配樂（Lyria）：`chat/completions` 加 `modalities: ["text","audio"]`，**一定要串流**（`stream: true`）；
+   * 音訊是 SSE 事件裡 `choices[0].delta.audio.data` 的 base64（實測整首只有一個片段）；`usage.cost` 是實收。
+   * 長度用文字控制（實測要求 60 秒得 62.7 秒），所以有 durationSec 時在 prompt 後面補一句。
+   */
+  async generateMusic(
+    input: { modelId: string; prompt: string; durationSec?: number },
+    signal: AbortSignal,
+  ): Promise<{ bytes: Uint8Array; mime: string; costUsd?: number }> {
+    const prompt =
+      input.durationSec === undefined
+        ? input.prompt
+        : `${input.prompt}\nMake it about ${String(Math.round(input.durationSec))} seconds long.`
+    const response = await request(
+      `${this.baseUrl}/chat/completions`,
+      {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify({
+          model: this.modelSlug(input.modelId, 'music'),
+          messages: [{ role: 'user', content: prompt }],
+          modalities: ['text', 'audio'],
+          audio: { format: 'mp3' },
+          stream: true,
+        }),
+      },
+      { fetch: this.fetch, provider: PROVIDER, signal, timeoutMs: this.timeoutMs * 2 },
+    )
+    const parts: string[] = []
+    let cost: number | undefined
+    for (const line of (await response.text()).split('\n')) {
+      if (!line.startsWith('data:')) continue
+      const data = line.slice(5).trim()
+      if (data === '' || data === '[DONE]') continue
+      let json: unknown
+      try {
+        json = JSON.parse(data)
+      } catch {
+        continue // 不認得的片段略過
+      }
+      const inline = InlineErrorSchema.safeParse(json)
+      if (inline.success) {
+        const code = Number(inline.data.error.code)
+        throw httpError(PROVIDER, Number.isFinite(code) && code >= 400 ? code : 502, {
+          ...(inline.data.error.message ? { detail: inline.data.error.message } : {}),
+        })
+      }
+      const event = MusicEventSchema.safeParse(json)
+      if (!event.success) continue
+      for (const choice of event.data.choices ?? []) {
+        const chunk = choice.delta?.audio?.data
+        if (chunk) parts.push(chunk)
+      }
+      if (event.data.usage?.cost !== undefined) cost = event.data.usage.cost
+    }
+    if (parts.length === 0) {
+      throw new AppError({
+        code: 'provider_rejected',
+        userMessage: 'OpenRouter 沒有回傳音樂，可能是內容被過濾了。請調整描述後再試。',
+      })
+    }
+    const bytes = new Uint8Array(Buffer.from(parts.join(''), 'base64'))
+    if (bytes.byteLength > MAX_MUSIC_BYTES) throw tooLarge()
+    return { bytes, mime: 'audio/mpeg', ...(cost === undefined ? {} : { costUsd: cost }) }
   }
 
   /** `data:` 網址直接解碼；一般網址就下載（公開網址，不帶 Key）。 */

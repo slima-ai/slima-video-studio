@@ -10,6 +10,7 @@ const KIND_LABEL: Record<JobKind, string> = {
   image: '圖片',
   video: '影片',
   tts: '配音',
+  music: '配樂',
   other: '其他',
 }
 

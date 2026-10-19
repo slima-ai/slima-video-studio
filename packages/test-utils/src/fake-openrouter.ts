@@ -130,6 +130,26 @@ function chatResponse(body: Record<string, unknown>): unknown {
   return { choices: [{ finish_reason: 'stop', message: { content } }], usage }
 }
 
+/**
+ * 配樂（Lyria）：音訊一定要串流，整首放在一個 SSE 事件的 `delta.audio.data`（base64），最後一個事件帶 `usage.cost`。
+ * 回的不是真音樂（只有 mp3 的開頭標記），只證明這條路接通；沒開串流照真的 API 回 400。
+ */
+function sendMusicStream(res: ServerResponse, body: Record<string, unknown>): void {
+  if (body.stream !== true) {
+    sendJson(res, 400, { error: { code: 400, message: 'Audio output requires streaming.' } })
+    return
+  }
+  const audio = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(64)]).toString('base64')
+  const cost = typeof body.model === 'string' && body.model.includes('clip') ? 0.04 : 0.08
+  const events = [
+    { choices: [{ delta: { role: 'assistant', content: '' } }] },
+    { choices: [{ delta: { audio: { data: audio } } }] },
+    { choices: [{ delta: {} }], usage: { prompt_tokens: 39, completion_tokens: 4, cost } },
+  ]
+  res.writeHead(200, { 'content-type': 'text/event-stream' })
+  res.end(`${events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('')}data: [DONE]\n\n`)
+}
+
 /** `POST /images`：照請求的 `n` 回幾張 base64 PNG，`usage.cost` 依 quality 給不同價。 */
 function imagesResponse(body: Record<string, unknown>): unknown {
   const png = makePng({ width: 64, height: 36, color: [160, 90, 70] }).toString('base64')
@@ -175,6 +195,10 @@ export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
       } else if (method === 'GET' && path === '/credits') {
         sendJson(res, 200, { data: { total_credits: 10, total_usage: 0.5 } })
       } else if (method === 'POST' && path === '/chat/completions') {
+        if (isRecord(body) && Array.isArray(body.modalities) && body.modalities.includes('audio')) {
+          sendMusicStream(res, body)
+          return
+        }
         if (isRecord(body) && body.stream === true) {
           sendJson(res, 501, { error: { code: 501, message: '假伺服器不支援串流' } })
           return

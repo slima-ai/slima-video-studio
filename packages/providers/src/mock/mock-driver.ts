@@ -86,7 +86,13 @@ export interface MockDriver extends Required<JobDriver> {
   readonly pollCalls: number
 }
 
-const LONG_CAPABILITIES = new Set<GenerationRequest['capability']>(['t2v', 'i2v', 'r2v', 'tts'])
+const LONG_CAPABILITIES = new Set<GenerationRequest['capability']>([
+  't2v',
+  'i2v',
+  'r2v',
+  'tts',
+  'music',
+])
 
 function defaultSleep(ms: number, signal: AbortSignal): Promise<void> {
   if (ms <= 0) return Promise.resolve()
@@ -249,6 +255,11 @@ export function createMockDriver(
       }
       case 'tts': {
         const durationSec = Math.max(0.5, Math.min(30, request.text.length * 0.08))
+        const asset = await services.assets.put(makeWav(durationSec), 'audio/wav', { durationSec })
+        return { kind: 'assets', assets: [asset] }
+      }
+      case 'music': {
+        const durationSec = Math.max(1, Math.min(60, request.durationSec ?? 30))
         const asset = await services.assets.put(makeWav(durationSec), 'audio/wav', { durationSec })
         return { kind: 'assets', assets: [asset] }
       }

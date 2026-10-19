@@ -77,7 +77,7 @@ export const JobStatusSchema = z.enum([
 ])
 export type JobStatus = z.infer<typeof JobStatusSchema>
 
-export const JobKindSchema = z.enum(['llm', 'image', 'video', 'tts', 'other'])
+export const JobKindSchema = z.enum(['llm', 'image', 'video', 'tts', 'music', 'other'])
 export type JobKind = z.infer<typeof JobKindSchema>
 
 /** 送給供應商的一個任務。長任務送出後只存 providerJobId，用輪詢回收。 */

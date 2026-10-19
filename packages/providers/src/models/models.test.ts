@@ -10,6 +10,7 @@ import {
   loadBuiltinModelCards,
   parseModelSpecs,
 } from './cards'
+import { priceLabel, priceShort } from './options'
 import { ModelRegistry } from './registry'
 
 const cards = loadBuiltinModelCards()
@@ -142,6 +143,21 @@ describe('內建 ModelCard', () => {
       channels: [{ ...CHANNEL, endpoints: { tts: 'x/y' }, voices: [voice, voice] }],
     }
     expect(() => expandModelSpecs(parseModelSpecs([dup]))).toThrow(/voice id 不能重複/)
+  })
+
+  it('配樂模型卡：Lyria 3 Pro（預設，每首 0.08）與 Clip（約 30 秒，每首 0.04），依首計價', () => {
+    const pro = registry.get('openrouter/lyria-3-pro')
+    const clip = registry.get('openrouter/lyria-3-clip')
+    expect(pro?.endpoints.music).toBe('google/lyria-3-pro-preview')
+    expect(clip?.endpoints.music).toBe('google/lyria-3-clip-preview')
+    expect(pro?.pricing).toEqual({ unit: 'track', usd: 0.08 })
+    expect(clip?.pricing).toEqual({ unit: 'track', usd: 0.04 })
+    const only = { configuredProviders: new Set(['openrouter']) }
+    expect(registry.defaultFor({ ...only, capability: 'music' })?.id).toBe('openrouter/lyria-3-pro')
+    expect(registry.estimate('openrouter/lyria-3-pro', { tracks: 3 })).toBeCloseTo(0.24)
+    expect(() => registry.estimate('openrouter/lyria-3-pro', {})).toThrow(/首數/)
+    expect(priceLabel({ unit: 'track', usd: 0.08 })).toBe('約 US$0.08／首')
+    expect(priceShort({ unit: 'track', usd: 0.04 })).toBe('每首約 US$0.04')
   })
 
   it('新增 GPT Image 2 不改變既有的預設圖片模型，使用者要自己切換', () => {
