@@ -233,6 +233,8 @@ void app.whenReady().then(() => {
     settings,
     keys,
     broadcast: relay,
+    projects,
+    tools: () => tools,
     userDataDir: userData,
     info: { name: APP_TITLE, version: app.getVersion() },
     log,

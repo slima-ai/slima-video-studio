@@ -7,6 +7,7 @@ import type { SettingsStore } from '../../settings/settings-store'
 import type { Allowance } from '../allowance'
 import { McpToolError, type McpCaller } from '../bridge'
 import type { Redactor } from '../redact'
+import type { AssetViewer, ViewImage } from '../viewer'
 
 /** 工具共用的東西：只有白名單呼叫器，沒有任何拿得到服務金鑰的路。 */
 export interface ToolContext {
@@ -15,9 +16,18 @@ export interface ToolContext {
   settings: SettingsStore
   allowance: Allowance
   redactor: Redactor
+  viewer: AssetViewer
   info: { name: string; version: string }
   /** 已登錄的工具名稱（給 get_capabilities 列出來）。 */
   toolNames: string[]
+}
+
+/** 工具除了文字，還想附上幾張圖（縮圖給 AI 看）時，回傳這個。 */
+export class WithImages {
+  constructor(
+    readonly data: unknown,
+    readonly images: readonly ViewImage[],
+  ) {}
 }
 
 export interface ToolSpec<Shape extends z.ZodRawShape> {
@@ -58,8 +68,19 @@ export function defineTool<Shape extends z.ZodRawShape>(
     // SDK 的泛型對不上 Shape（zod 3／4 相容層）；輸入已經由 SDK 依 inputSchema 驗證過才會進來
     (async (args: unknown): Promise<CallToolResult> => {
       try {
-        const data = await spec.run(args as z.infer<z.ZodObject<Shape>>)
-        return textResult(ctx.redactor.redact(JSON.stringify(data ?? null, null, 2)))
+        const out = await spec.run(args as z.infer<z.ZodObject<Shape>>)
+        const data = out instanceof WithImages ? out.data : out
+        const result = textResult(ctx.redactor.redact(JSON.stringify(data ?? null, null, 2)))
+        if (out instanceof WithImages) {
+          result.content.push(
+            ...out.images.map((image) => ({
+              type: 'image' as const,
+              data: image.data,
+              mimeType: image.mimeType,
+            })),
+          )
+        }
+        return result
       } catch (error) {
         // 錯誤訊息也要過遮蔽：訊息可能把輸入（例如有人把金鑰當成專案代號塞進來）原樣帶回去
         const fail = (message: string): CallToolResult =>

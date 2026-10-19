@@ -5,6 +5,7 @@ import type { Allowance } from './allowance'
 import type { McpCaller } from './bridge'
 import { SERVER_INSTRUCTIONS } from './instructions'
 import type { Redactor } from './redact'
+import type { AssetViewer } from './viewer'
 import { registerAllTools } from './tools'
 
 export interface McpServerDeps {
@@ -12,6 +13,7 @@ export interface McpServerDeps {
   settings: SettingsStore
   allowance: Allowance
   redactor: Redactor
+  viewer: AssetViewer
   info: { name: string; version: string }
 }
 

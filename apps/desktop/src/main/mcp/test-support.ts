@@ -9,6 +9,7 @@ import { registerAllHandlers } from '../ipc/handlers'
 import { createIpcRegistry } from '../ipc/registry'
 import { createStudioHarness, type HarnessOptions } from '../shots/test-harness'
 import { testSettingsDeps } from '../settings/test-deps'
+import { locateTools } from '../bundled-tools'
 import { createMcpController } from './controller'
 
 export const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -49,6 +50,8 @@ export async function startRealMcp(options: HarnessOptions = {}) {
     settings: h.settings,
     keys: h.keys,
     broadcast,
+    projects: h.projects,
+    tools: () => locateTools(),
     userDataDir: h.root,
     info: { name: 'Slima Video Studio', version: '9.9.9' },
     log,
