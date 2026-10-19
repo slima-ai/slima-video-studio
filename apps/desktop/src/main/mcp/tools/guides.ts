@@ -15,7 +15,8 @@ Order of work (call get_capabilities for the tools that exist right now):
 4. Story: split_story_into_scenes(story) turns the text into acts and scenes (and draft characters and locations). get_outline shows them; edit_outline fixes them.
 5. Characters: list_characters (the story step creates drafts), create_character / update_character, set_character_anchor (the fixed look text; suggest_character_anchor drafts it), then generate_character_images → wait_for_generation → view_character_images (you can SEE the pictures) → pick_character_image → lock_character. A locked character's look is sent unchanged with every shot that includes it.
 6. Shots: load_guide("storyboard") first, then split_scene_into_shots(sceneId) for each scene. list_shots / get_shot to review, update_shot / create_shot / delete_shots / reorder_shots to improve. undo / redo work like the app's own.
-7. Before any step that calls an AI model, estimate_cost tells you what it would cost and whether the allowance covers it.
+7. Pictures then video (look before you spend on video): generate_first_frames → wait_for_generation → view_first_frames (you can SEE them; fix a wrong shot with update_shot, then regenerate_shot what="first_frame") → generate_videos → wait_for_generation → view_video_stills (check for extra limbs/faces, a changed character, flicker; redo with regenerate_shot what="video"; adopt_version goes back to an older version) → assemble_film → view_video_stills with finalCut=true → export_film.
+8. Before any step that calls an AI model, estimate_cost tells you what it would cost and whether the allowance covers it.
 
 Notes
 - Work in small steps and look at the result before spending more.

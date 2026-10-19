@@ -336,6 +336,9 @@ describe('工具', () => {
     const client = await connect(env)
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
+      'adopt_version',
+      'assemble_film',
+      'cancel_generation',
       'configure_project',
       'create_character',
       'create_project',
@@ -343,7 +346,10 @@ describe('工具', () => {
       'delete_shots',
       'edit_outline',
       'estimate_cost',
+      'export_film',
       'generate_character_images',
+      'generate_first_frames',
+      'generate_videos',
       'get_capabilities',
       'get_current_project',
       'get_generation_status',
@@ -358,6 +364,7 @@ describe('工具', () => {
       'open_project',
       'pick_character_image',
       'redo',
+      'regenerate_shot',
       'reorder_shots',
       'set_character_anchor',
       'set_models',
@@ -368,6 +375,8 @@ describe('工具', () => {
       'update_character',
       'update_shot',
       'view_character_images',
+      'view_first_frames',
+      'view_video_stills',
       'wait_for_generation',
     ])
     for (const tool of tools) {

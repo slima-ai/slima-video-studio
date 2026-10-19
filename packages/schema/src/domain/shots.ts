@@ -105,8 +105,9 @@ export type ShotEdit = z.infer<typeof ShotEditSchema>
  * - apply：套用修改（改了描述或 Prompt 才會真的重做，沒改就沿用）
  * - video：只換一支新影片（首幀圖不動）
  * - all：整個鏡頭從頭換一組新的（首幀圖和影片都重新生成）
+ * - frame：只換一張新的首幀圖（影片不生成、也不動；之後影片會變成「需要重跑」）
  */
-export const RegenerateModeSchema = z.enum(['apply', 'video', 'all'])
+export const RegenerateModeSchema = z.enum(['apply', 'video', 'all', 'frame'])
 export type RegenerateMode = z.infer<typeof RegenerateModeSchema>
 
 /** AI 依場次拆出來的一個鏡頭。 */
@@ -138,15 +139,27 @@ export const StoryboardSplitCheckSchema = z.object({
 })
 export type StoryboardSplitCheck = z.infer<typeof StoryboardSplitCheckSchema>
 
-/** 批次生成的請求：選了哪些鏡頭，要不要略過已經有影片的。 */
+/**
+ * 批次生成做到哪一步：
+ * - full：首幀圖＋影片（預設，跟以前一樣）
+ * - frame：只生成首幀圖（先看過首幀滿意了，再花影片的錢）
+ * - video：只用現有的首幀圖生成影片（沒有首幀的鏡頭略過）
+ */
+export const ShotBatchStageSchema = z.enum(['full', 'frame', 'video'])
+export type ShotBatchStage = z.infer<typeof ShotBatchStageSchema>
+
+/** 批次生成的請求：選了哪些鏡頭，要不要略過已經有結果的。 */
 export const ShotBatchRequestSchema = z.object({
   shotIds: z.array(IdSchema).min(1),
-  /** true：已經生成過影片的鏡頭不再重做（省錢，補生成沒做完的）。 */
+  /** true：這一步已經有結果的鏡頭不再重做（full／video：已經有影片；frame：已經有首幀圖）（省錢，補生成沒做完的）。 */
   skipGenerated: z.boolean(),
+  /** 做到哪一步；沒給就是 full。 */
+  stage: ShotBatchStageSchema.default('full'),
   /** 先出草稿：整批用經濟組的模型（便宜、快），滿意的鏡頭再用高品質重做（M2-8）。 */
   draft: z.boolean().optional(),
 })
-export type ShotBatchRequest = z.infer<typeof ShotBatchRequestSchema>
+/** 呼叫端可以不給 stage（預設 full），所以用輸入型別。 */
+export type ShotBatchRequest = z.input<typeof ShotBatchRequestSchema>
 
 /** 批次生成之前的檢查與預估花費（整批加總）。 */
 export const ShotBatchCheckSchema = z.object({
@@ -158,6 +171,8 @@ export const ShotBatchCheckSchema = z.object({
   skippedGenerated: z.number().int().nonnegative(),
   /** 因為正在生成中而略過的有幾個。 */
   skippedBusy: z.number().int().nonnegative(),
+  /** 只生成影片時：因為還沒有首幀圖而略過的有幾個。 */
+  skippedNoFrame: z.number().int().nonnegative().default(0),
   estimatedUsd: z.number().nonnegative(),
   /** true 表示有些步驟估不出來，實際花費可能比 estimatedUsd 多。 */
   estimateIsLowerBound: z.boolean(),

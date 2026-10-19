@@ -585,3 +585,105 @@ describe('shots.batchCheck 先出草稿', { timeout: 30_000 }, () => {
     expect(draft.estimatedUsd).toBeLessThan(normal.estimatedUsd)
   })
 })
+
+describe('批次生成的階段：只生首幀圖／只生影片', { timeout: 60_000 }, () => {
+  /** 快速開始做出 3 個鏡頭（都有首幀與影片），再加 2 個還沒生成的新鏡頭。 */
+  async function withFiveShots() {
+    const ctx = setup()
+    await ctx.runQuickStart()
+    ctx.shots.create({})
+    ctx.shots.create({})
+    const all = ctx.shots.list().shots
+    expect(all).toHaveLength(5)
+    const jobs = (kind: string): number =>
+      (ctx.projects.current()?.repos.jobs.list() ?? []).filter((j) => j.kind === kind).length
+    return { ...ctx, all, jobs }
+  }
+
+  it('只生首幀圖：新鏡頭有了首幀、沒有影片（也沒有送出任何影片任務）；已經有首幀的略過', async () => {
+    const { shots, idle, all, jobs } = await withFiveShots()
+    const ids = all.map((s) => s.id)
+    const videoJobsBefore = jobs('video')
+    const check = shots.batchCheck({ shotIds: ids, skipGenerated: true, stage: 'frame' })
+    expect(check).toMatchObject({ ok: true, willGenerate: 2, skippedGenerated: 3 })
+
+    const result = await shots.generateBatch({ shotIds: ids, skipGenerated: true, stage: 'frame' })
+    expect(result).toMatchObject({ started: 2, skippedGenerated: 3, failed: [] })
+    for (const shot of all.slice(3)) await idle(shot.id)
+
+    const after = shots.list().shots
+    for (const shot of after.slice(3)) {
+      expect(shot.firstFrames).toHaveLength(1)
+      expect(shot.firstFrames[0]?.adopted).toBe(true)
+      expect(shot.videos).toHaveLength(0)
+      expect(shot.status).not.toBe('done')
+    }
+    expect(jobs('video')).toBe(videoJobsBefore) // 一個影片任務都沒有
+    expect(after.slice(0, 3).every((s) => s.videos.length === 1)).toBe(true)
+  })
+
+  it('只生影片：用現有的首幀圖生影片，不再生新的首幀；沒有首幀的鏡頭略過，全都沒有時說明原因', async () => {
+    const { shots, idle, all, jobs } = await withFiveShots()
+    const ids = all.map((s) => s.id)
+    // 沒有首幀的兩個鏡頭：只生影片被略過，而且說明原因
+    const noFrames = shots.batchCheck({
+      shotIds: ids.slice(3),
+      skipGenerated: true,
+      stage: 'video',
+    })
+    expect(noFrames.ok).toBe(false)
+    expect(noFrames.issue).toContain('還沒有首幀圖')
+    const mixed = shots.batchCheck({ shotIds: ids, skipGenerated: false, stage: 'video' })
+    expect(mixed).toMatchObject({ ok: true, willGenerate: 3, skippedNoFrame: 2 })
+
+    // 先生首幀，再生影片
+    await shots.generateBatch({ shotIds: ids, skipGenerated: true, stage: 'frame' })
+    for (const shot of all.slice(3)) await idle(shot.id)
+    const imageJobs = jobs('image')
+    const check = shots.batchCheck({ shotIds: ids, skipGenerated: true, stage: 'video' })
+    expect(check).toMatchObject({
+      ok: true,
+      willGenerate: 2,
+      skippedGenerated: 3,
+      skippedNoFrame: 0,
+    })
+    const result = await shots.generateBatch({ shotIds: ids, skipGenerated: true, stage: 'video' })
+    expect(result).toMatchObject({ started: 2, failed: [] })
+    for (const shot of all.slice(3)) await idle(shot.id)
+
+    for (const shot of shots.list().shots.slice(3)) {
+      expect(shot.firstFrames).toHaveLength(1) // 首幀沒有被重生
+      expect(shot.videos).toHaveLength(1)
+      expect(shot.status).toBe('done')
+    }
+    expect(jobs('image')).toBe(imageJobs) // 沒有再送出任何圖片任務
+  })
+
+  it('重做首幀（不略過）：換一張新的首幀、影片不動；regenerate 的 frame 模式一樣', async () => {
+    const { shots, idle, all } = await withFiveShots()
+    const first = all[0]
+    if (!first) throw new Error('沒有鏡頭')
+    const before = shots.list().shots[0]
+    expect(before?.firstFrames).toHaveLength(1)
+    expect(before?.videos).toHaveLength(1)
+    await shots.generateBatch({ shotIds: [first.id], skipGenerated: false, stage: 'frame' })
+    await idle(first.id)
+    let now = shots.list().shots[0]
+    expect(now?.firstFrames).toHaveLength(2)
+    expect(now?.videos).toHaveLength(1)
+    await shots.regenerate(first.id, 'frame')
+    await idle(first.id)
+    now = shots.list().shots[0]
+    expect(now?.firstFrames).toHaveLength(3)
+    expect(now?.videos).toHaveLength(1)
+  })
+
+  it('只生首幀的預估比整個鏡頭便宜；沒有影片模型也能生首幀', async () => {
+    const { shots, all } = await withFiveShots()
+    const ids = all.slice(3).map((s) => s.id)
+    const frame = shots.batchCheck({ shotIds: ids, skipGenerated: false, stage: 'frame' })
+    const full = shots.batchCheck({ shotIds: ids, skipGenerated: false, stage: 'full' })
+    expect(frame.estimatedUsd).toBeGreaterThan(0)
+    expect(frame.estimatedUsd).toBeLessThan(full.estimatedUsd)
+  })
+})
