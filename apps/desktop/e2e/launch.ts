@@ -48,8 +48,10 @@ export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedAp
       SVS_PROJECTS_DIR: join(userDataDir, 'projects'),
       // Slima 一律連假的 slima-mcp 伺服器，CI 不連正式環境
       SVS_SLIMA_SERVER: FAKE_SLIMA_SERVER,
-      // 視窗不跳到桌面上、不搶焦點（要看視窗除錯時：SVS_E2E_VISIBLE=1 pnpm test:e2e …）
-      SVS_QUIET_WINDOWS: process.env.SVS_E2E_VISIBLE === '1' ? '' : '1',
+      // 視窗不跳到桌面上、不搶焦點（要看視窗除錯時：SVS_E2E_VISIBLE=1 pnpm test:e2e …）。
+      // CI（xvfb）沒有使用者的桌面可以打擾，而且開了之後整套 E2E 慢了一倍以上、撐到逾時，所以 CI 不開；
+      // 要驗安靜模式本身的測試（window-mode）自己用 test.use({ appEnv }) 開。
+      SVS_QUIET_WINDOWS: process.env.SVS_E2E_VISIBLE === '1' || isHeadless() ? '' : '1',
       ...options.env,
     },
   })

@@ -1,6 +1,9 @@
 import { expect, test } from './fixtures'
 
 test.describe('測試用的 App 視窗（安靜模式）', () => {
+  // 不管在哪裡跑，這個測試都明確開安靜模式（CI 預設不開）
+  test.use({ appEnv: { SVS_QUIET_WINDOWS: '1' } })
+
   test('E2E 預設開出的視窗：看不到（透明）、不能拿焦點，但照常繪製（截圖是真的畫面）', async ({
     app,
     page,
