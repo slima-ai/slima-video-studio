@@ -364,9 +364,10 @@ for (const theme of THEMES) {
       })
       await shoot(page, testInfo, `settings-${theme.name}.png`)
 
-      // 捲到「使用的模型」，再拍一張展開選單的樣子
-      await main.evaluate((el) => {
-        el.scrollTo({ top: el.scrollHeight })
+      // 捲到「使用的模型」，再拍一張展開選單的樣子。
+      // 不能捲到頁面最底：設定頁後面還有別的區塊（分鏡準則、Slima 連線、一般），模型區會被捲出視窗
+      await page.getByTestId('models-section').evaluate((el) => {
+        el.scrollIntoView({ block: 'start' })
       })
       await expect(page.getByTestId('models-section')).toBeInViewport()
       await page.getByTestId('model-t2i').click()
