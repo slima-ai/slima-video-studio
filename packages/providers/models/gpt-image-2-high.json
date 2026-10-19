@@ -2,6 +2,7 @@
   "key": "gpt-image-2-high",
   "displayName": "GPT Image 2（高畫質）",
   "userNote": "高畫質檔位，適合定稿的畫面，較貴也較慢",
+  "attribution": "Images generated with GPT Image (OpenAI)",
   "tasks": ["t2i", "edit"],
   "tier": "premium",
   "recommended": false,

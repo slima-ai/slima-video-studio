@@ -359,7 +359,9 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     history.clear()
     return result
   })
-  registry.registerHandler('quickstart.export', () => quickstart.export())
+  registry.registerHandler('quickstart.export', ({ credits }) =>
+    quickstart.export(credits === undefined ? {} : { credits }),
+  )
   registry.registerHandler('shots.list', () => shots.list())
   registry.registerHandler('shots.update', ({ shotId, patch }) =>
     history.record(shotEditLabel(patch), () => shots.update(shotId, patch)),

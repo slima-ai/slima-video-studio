@@ -5,7 +5,7 @@ import {
   estimateWorkflowCost,
   type NodeRegistry,
 } from '@svs/engine'
-import type { MediaTools } from '@svs/media'
+import { appendEndCard, probe, type MediaTools } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
@@ -23,7 +23,9 @@ import {
   quickStartItemCounts,
   registerQuickStartNodes,
 } from '@svs/workflows'
-import { copyFileSync, mkdirSync } from 'node:fs'
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import type { Logger } from '../logger'
@@ -35,6 +37,7 @@ import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
 import type { ShotService } from '../shots/shot-service'
+import { collectAttributions, creditLines, type CardRenderer } from '../credits/credits'
 import type { SoundService } from '../sound/sound-service'
 import { createStudioServices } from '../studio-services'
 import { ProgressTracker } from './progress-tracker'
@@ -54,6 +57,8 @@ export interface QuickStartDeps {
   tools?: () => MediaTools | undefined
   /** 聲音服務（完成後自動加旁白與配樂用）；沒給就不加。聲音服務在快速開始之後才建，所以用函式取。 */
   sound?: () => Pick<SoundService, 'addAll'> | undefined
+  /** 把片尾字卡畫成圖（Electron 離屏視窗）；沒給就匯出時不加字卡。 */
+  renderCreditsCard?: CardRenderer
   now?: () => Date
 }
 
@@ -66,7 +71,8 @@ export interface QuickStartService {
   ) => Promise<{ runId: string }>
   cancel: () => void
   state: () => QuickStartProgress | null
-  export: () => { path: string }
+  /** 匯出最新一版成品；credits（預設 true）＝片尾接一張「用了哪些 AI 服務」的字卡，只加在匯出的檔案上。 */
+  export: (options?: { credits?: boolean }) => Promise<{ path: string; credits: boolean }>
 }
 
 const invalid = (userMessage: string): AppError =>
@@ -314,7 +320,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       return tracker.snapshot() ?? null
     },
 
-    export() {
+    async export(options = {}) {
       const handle = projects.current()
       // 最新一版成品（有聲音時是混好的）；沒有才用這次生成接好的影片
       const hash = shots.finalVideoHash() ?? tracker.snapshot()?.finalVideoHash
@@ -325,10 +331,35 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       mkdirSync(dir, { recursive: true })
       const title = safeFileName(tracker.snapshot()?.title ?? '', '短片')
       const path = join(dir, `${title}-${stamp(now())}.mp4`)
-      copyFileSync(source.path, path)
+      // 片尾字卡：列出這個專案用了哪些 AI 服務（預設加；只加在匯出的檔案上，專案裡的成品不變）
+      let credits = false
+      const tool = tools()
+      if ((options.credits ?? true) && deps.renderCreditsCard && tool) {
+        try {
+          const info = await probe(tool, source.path)
+          const png = await deps.renderCreditsCard({
+            lines: creditLines(collectAttributions(handle, models)),
+            width: info.width ?? 1280,
+            height: info.height ?? 720,
+          })
+          const work = await mkdtemp(join(tmpdir(), 'svs-credits-'))
+          try {
+            const card = join(work, 'card.png')
+            writeFileSync(card, png)
+            await appendEndCard(tool, source.path, card, path)
+            credits = true
+          } finally {
+            await rm(work, { recursive: true, force: true })
+          }
+        } catch (error) {
+          // 字卡出問題不能害使用者匯不出影片：改匯出沒有字卡的版本
+          log.warn(`片尾字卡沒有加成功，改匯出沒有字卡的版本：${String(error)}`)
+        }
+      }
+      if (!credits) copyFileSync(source.path, path)
       const snapshot = tracker.patch({ exportedPath: path })
       if (snapshot) broadcast('quickstart.progress', snapshot)
-      return { path }
+      return { path, credits }
     },
   }
 }

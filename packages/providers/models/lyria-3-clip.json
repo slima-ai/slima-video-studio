@@ -2,6 +2,7 @@
   "key": "lyria-3-clip",
   "displayName": "Google Lyria 3 Clip",
   "userNote": "約 30 秒的短配樂",
+  "attribution": "Music generated with Google Lyria",
   "tasks": ["music"],
   "tier": "budget",
   "recommended": false,

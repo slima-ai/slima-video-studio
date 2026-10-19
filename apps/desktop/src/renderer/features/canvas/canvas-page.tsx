@@ -37,6 +37,7 @@ import { Spinner } from '../../components/skeleton'
 import { useToast } from '../../components/toast'
 import { useHistory } from '../../lib/history'
 import { useShots } from '../shots/use-shots'
+import { creditsPreferred } from '../../lib/export-credits'
 import { call, errorText } from '../../lib/svs'
 import { useResolvedTheme } from '../../lib/theme'
 import {
@@ -909,7 +910,7 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
           })
       },
       exportFinal: () => {
-        call('quickstart.export', {})
+        call('quickstart.export', { credits: creditsPreferred() })
           .then(({ path }) => {
             const name = path.split(/[\\/]/).pop() ?? path
             toast.show({

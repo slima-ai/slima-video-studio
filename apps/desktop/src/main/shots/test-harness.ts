@@ -21,6 +21,8 @@ export interface HarnessOptions {
   pickFiles?: StudioAppOptions['pickFiles']
   /** 把 OpenRouter 換成本機的假伺服器（真實模式的測試用）。 */
   openrouterBaseUrl?: string
+  /** 匯出時的片尾字卡畫圖；測試給假的（記下收到的文字）。 */
+  renderCreditsCard?: StudioAppOptions['renderCreditsCard']
 }
 
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -82,6 +84,7 @@ export function createStudioHarness(options: HarnessOptions = {}) {
     ...(options.openrouterBaseUrl ? { openrouterBaseUrl: options.openrouterBaseUrl } : {}),
     ...(options.mockCostUsd ? { mockCostUsd: options.mockCostUsd } : {}),
     ...(options.pickFiles ? { pickFiles: options.pickFiles } : {}),
+    ...(options.renderCreditsCard ? { renderCreditsCard: options.renderCreditsCard } : {}),
   })
 
   const progress = (): QuickStartProgress[] =>

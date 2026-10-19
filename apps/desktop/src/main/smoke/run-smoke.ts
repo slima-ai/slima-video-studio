@@ -206,7 +206,7 @@ export async function runSmoke(options: SmokeOptions): Promise<SmokeReport> {
         path: final.path,
       }
     }
-    report.exportedPath = quickstart.export().path
+    report.exportedPath = (await quickstart.export()).path
     say(`已匯出：${report.exportedPath}`)
 
     // 4.（選用）重新生成第 1 鏡的影片，再重新接片

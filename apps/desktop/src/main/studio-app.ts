@@ -7,6 +7,7 @@ import { createAnchorSuggester } from './characters/anchor-suggester'
 import { createLocationService, type LocationService } from './locations/location-service'
 import { createTurnaroundService, type TurnaroundService } from './characters/turnaround-service'
 import { createConceptService, type ConceptService } from './characters/concept-service'
+import type { CardRenderer } from './credits/credits'
 import { createSoundService, type SoundService } from './sound/sound-service'
 import { createCharacterService, type CharacterService } from './characters/character-service'
 import type { KeyVault } from './keys/key-vault'
@@ -61,6 +62,8 @@ export interface StudioAppOptions {
   mockFrame?: ProjectRuntimeDeps['mockFrame']
   /** 測試用：OpenRouter 的位址（本機假伺服器）。 */
   openrouterBaseUrl?: string
+  /** 把片尾字卡畫成圖（Electron 離屏視窗）；沒給就匯出時不加字卡。 */
+  renderCreditsCard?: CardRenderer
 }
 
 export interface StudioApp {
@@ -157,6 +160,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     log,
     projectsDir: options.projectsDir,
     sound: () => soundRef.current,
+    ...(options.renderCreditsCard ? { renderCreditsCard: options.renderCreditsCard } : {}),
     ...toolsOption,
   })
   const upgrade = createUpgradeService({

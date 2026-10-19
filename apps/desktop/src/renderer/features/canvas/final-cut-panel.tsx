@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { Button } from '../../components/button'
 import { assetUrl } from '../../lib/asset'
+import { creditsPreferred, setCreditsPreferred } from '../../lib/export-credits'
 import { call, errorText } from '../../lib/svs'
 import { SoundPanel } from '../sound/sound-panel'
 
@@ -19,6 +20,9 @@ export function FinalCutPanel({
 }) {
   const [busy, setBusy] = useState<'export' | 'rejoin' | undefined>()
   const [exported, setExported] = useState<string | undefined>()
+  const [credits, setCredits] = useState(creditsPreferred)
+  // 要了字卡但沒加成功（改匯出了沒有字卡的版本）
+  const [creditsMissing, setCreditsMissing] = useState(false)
   const [error, setError] = useState<string | undefined>()
 
   const act = (kind: 'export' | 'rejoin'): void => {
@@ -26,8 +30,9 @@ export function FinalCutPanel({
     setError(undefined)
     const work =
       kind === 'export'
-        ? call('quickstart.export', {}).then(({ path }) => {
+        ? call('quickstart.export', { credits }).then(({ path, credits: added }) => {
             setExported(path)
+            setCreditsMissing(credits && !added)
           })
         : call('shots.rejoin', {})
     work
@@ -89,9 +94,27 @@ export function FinalCutPanel({
           </Button>
         ) : null}
       </div>
+      {finalVideoHash ? (
+        <label
+          className="flex items-center gap-2 text-xs text-fg-muted"
+          title="在影片最後多 3 秒，列出用了哪些 AI 服務（例如 Video generated with Kling AI）；只加在匯出的檔案上，專案裡的成品不變"
+        >
+          <input
+            type="checkbox"
+            data-testid="final-cut-credits"
+            checked={credits}
+            onChange={(event) => {
+              setCredits(event.target.checked)
+              setCreditsPreferred(event.target.checked)
+            }}
+          />
+          片尾加上 AI 服務標註（建議）
+        </label>
+      ) : null}
       {exported ? (
         <p className="text-sm text-success" data-testid="final-cut-exported">
           已匯出到 {exported}
+          {creditsMissing ? '（片尾字卡沒有加成功，匯出的是沒有字卡的版本）' : ''}
         </p>
       ) : null}
       {canRejoin && finalVideoHash ? (

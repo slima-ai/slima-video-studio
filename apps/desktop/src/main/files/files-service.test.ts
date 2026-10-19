@@ -77,7 +77,7 @@ describe('FilesService', () => {
   it('匯出的成品列在 exports；reveal 只接受素材雜湊或 exports 裡的檔名', async () => {
     const h = setup()
     await h.runQuickStart({ shotCount: 2 })
-    const { path } = h.quickstart.export()
+    const { path } = await h.quickstart.export()
     const snapshot = h.files.list({})
     expect(snapshot.exports.map((e) => e.path)).toEqual([path])
     expect(snapshot.exports[0]?.bytes).toBeGreaterThan(0)

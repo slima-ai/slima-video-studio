@@ -171,6 +171,23 @@ describe('內建 ModelCard', () => {
     }
   })
 
+  it('匯出片尾的標註：每張真實模型卡都有一行英文標註，示範模型沒有；Kling 的字句固定', () => {
+    for (const card of cards) {
+      if (card.provider === 'mock') {
+        expect(card.attribution, `${card.id} 是示範模型，不該有標註`).toBeUndefined()
+        continue
+      }
+      expect(card.attribution, `${card.id} 缺 attribution`).toBeTruthy()
+      expect(card.attribution?.length ?? 0).toBeLessThanOrEqual(60)
+      expect(card.attribution, `${card.id} 的標註要是英文一行`).toMatch(/^[\x20-\x7e]+$/)
+    }
+    // 條款要求標示「Kling AI」（助理研究 §10）
+    expect(registry.get('fal/kling-3.0-pro')?.attribution).toBe('Video generated with Kling AI')
+    expect(registry.get('openrouter/kling-3.0-standard')?.attribution).toBe(
+      'Video generated with Kling AI',
+    )
+  })
+
   it('新增 GPT Image 2 不改變既有的預設圖片模型，使用者要自己切換', () => {
     const only = { configuredProviders: new Set(['openrouter']) }
     for (const capability of ['t2i', 'edit'] as const) {
