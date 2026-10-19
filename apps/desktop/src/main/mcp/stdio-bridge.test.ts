@@ -26,7 +26,7 @@ const envOf = (dir: string): { env: BridgeEnv; out: Record<string, unknown>[] } 
   return {
     env: {
       userDataDir: dir,
-      fetch,
+      fetch: makeNodeFetch(),
       write: (line) => {
         out.push(JSON.parse(line) as Record<string, unknown>)
       },
