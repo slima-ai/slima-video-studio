@@ -473,31 +473,25 @@ export class OpenRouterClient {
   }
 
   /**
-   * 查某次呼叫的實收花費（美元）。旁白的回應沒有 usage，只能事後查；查不到（還沒入帳、或這家供應商查不到）
-   * 回傳 undefined，呼叫端改用牌價估算。這個查詢失敗不影響旁白本身，所以不丟錯。
+   * 查某次呼叫的實收花費（美元）。旁白的回應沒有 usage，只能事後查，而且**不可靠**：2026-10-19 實測，
+   * 第一次探測查得到 US$0.0049，之後同一個模型 12 秒內查了 6 次都是 404。所以只等一次（約 1 秒）就放棄，
+   * 回傳 undefined，呼叫端改用牌價估算並標「估算」。這個查詢失敗不影響旁白本身，所以不丟錯。
    */
   async generationCost(generationId: string, signal: AbortSignal): Promise<number | undefined> {
-    const wait = (ms: number): Promise<void> =>
-      ms <= 0 ? Promise.resolve() : new Promise((resolve) => setTimeout(resolve, ms))
     const delay = this.options.costLookupDelayMs ?? 1000
-    for (const ms of [delay, delay * 1.5]) {
-      await wait(ms)
-      if (signal.aborted) return undefined
-      try {
-        const response = await request(
-          `${this.baseUrl}/generation?id=${encodeURIComponent(generationId)}`,
-          { method: 'GET', headers: this.headers() },
-          { fetch: this.fetch, provider: PROVIDER, signal, timeoutMs: 15_000 },
-        )
-        const parsed = GenerationSchema.safeParse(await readJson(response, PROVIDER))
-        if (parsed.success && parsed.data.data.total_cost !== undefined) {
-          return parsed.data.data.total_cost
-        }
-      } catch {
-        // 還沒入帳（404）或暫時查不到：再試一次，最後放棄
-      }
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
+    if (signal.aborted) return undefined
+    try {
+      const response = await request(
+        `${this.baseUrl}/generation?id=${encodeURIComponent(generationId)}`,
+        { method: 'GET', headers: this.headers() },
+        { fetch: this.fetch, provider: PROVIDER, signal, timeoutMs: 15_000 },
+      )
+      const parsed = GenerationSchema.safeParse(await readJson(response, PROVIDER))
+      return parsed.success ? parsed.data.data.total_cost : undefined
+    } catch {
+      return undefined // 還沒入帳（404）或暫時查不到
     }
-    return undefined
   }
 
   /** `data:` 網址直接解碼；一般網址就下載（公開網址，不帶 Key）。 */

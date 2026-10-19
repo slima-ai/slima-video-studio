@@ -676,13 +676,13 @@ describe('createOpenRouterDriver：旁白（POST /audio/speech）', () => {
     expect(calls[0]?.body).toMatchObject({ voice: 'male-qn-qingse' })
   })
 
-  it('查不到實收花費（兩次都 404，或回應沒有 generation id）：旁白照樣成功，只是不回報花費', async () => {
+  it('查不到實收花費（404，或回應沒有 generation id）：旁白照樣成功，只是不回報花費', async () => {
     const notFound = () => json({ error: { code: 404, message: 'not found' } }, { status: 404 })
-    const missing = makeTts(audio(), notFound(), notFound())
+    const missing = makeTts(audio(), notFound())
     const result = await missing.driver.submit(ttsJob({}), { signal })
     expect(result).toMatchObject({ status: 'done' })
     expect(result).not.toHaveProperty('costUsd')
-    expect(missing.calls).toHaveLength(3)
+    expect(missing.calls).toHaveLength(2)
 
     const noId = makeTts(audio({}))
     expect(await noId.driver.submit(ttsJob({}), { signal })).not.toHaveProperty('costUsd')

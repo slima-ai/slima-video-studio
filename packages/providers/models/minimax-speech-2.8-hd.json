@@ -23,7 +23,7 @@
       "verification": {
         "endpoint": true,
         "pricing": true,
-        "source": "實測：用真的 OpenRouter 金鑰呼叫 POST /api/v1/audio/speech，26 字（23 個漢字、3 個標點）的中文句子 usage.cost 為 US$0.0049＝49 個單位×US$0.0001（見 docs/models.md 實測紀錄）",
+        "source": "實測：用真的 OpenRouter 金鑰呼叫 POST /api/v1/audio/speech，26 字（23 個漢字、3 個標點）的中文句子 花費為 US$0.0049＝49 個單位×US$0.0001（事後用 /generation 查到的；之後再測同一模型 12 秒內查不到，花費查詢不可靠）（見 docs/models.md 實測紀錄）",
         "checkedAt": "2026-10-19"
       },
       "notes": "中文旁白的預設。每個漢字算兩個計費單位，所以中文旁白每字約 US$0.0002（100 字約 US$0.02）。只有 male-qn-qingse 實測過；其他聲音名稱要實測才能加進來。語言參數沒有送（模型依文字判斷）。"
