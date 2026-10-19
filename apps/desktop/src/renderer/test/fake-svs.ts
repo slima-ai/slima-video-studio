@@ -18,6 +18,7 @@ export const SETTINGS: AppSettings = {
   demoMode: false,
   advancedMode: false,
   storyboardGuide: '',
+  mcp: { enabled: false, port: 47821, allowanceUsd: 0 },
   theme: 'system',
   models: {},
   budget: { perRunLimitUsd: 5 },
@@ -155,6 +156,13 @@ export function installFakeSvs(handlers: Partial<Record<IpcChannel, Handler>> = 
       modelName: 'Nano Banana 2',
     }),
     'settings.update': () => SETTINGS,
+    'mcp.status': () => ({
+      enabled: false,
+      running: false,
+      port: 47821,
+      allowanceUsd: 0,
+      committedUsd: 0,
+    }),
     'keys.set': (payload: { provider: string }) => ({
       provider: payload.provider,
       configured: true,

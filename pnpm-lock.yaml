@@ -73,6 +73,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: 3.2.2
         version: 3.2.2(react@19.3.0)
+      '@modelcontextprotocol/sdk':
+        specifier: 1.32.1
+        version: 1.32.1(zod@4.6.6)
       '@playwright/test':
         specifier: 1.64.0
         version: 1.64.0

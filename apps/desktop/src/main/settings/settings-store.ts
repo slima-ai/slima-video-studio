@@ -21,6 +21,11 @@ export interface SettingsStoreOptions {
   warn?: (message: string) => void
 }
 
+/** 去掉值是 undefined 的欄位（exactOptionalPropertyTypes 下，不能把 undefined 展開進去蓋掉原值）。 */
+function definedOnly<T extends object>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>
+}
+
 /** 把局部更新套到目前設定上：models 逐項合併（null = 改回推薦），其他欄位整塊替換。 */
 export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSettings {
   const models = { ...current.models }
@@ -41,6 +46,7 @@ export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSe
     ...(patch.storyboardGuide === undefined
       ? {}
       : { storyboardGuide: patch.storyboardGuide.trim() }),
+    ...(patch.mcp === undefined ? {} : { mcp: { ...current.mcp, ...definedOnly(patch.mcp) } }),
     models,
   })
 }
