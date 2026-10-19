@@ -14,6 +14,7 @@ import { assetUrl } from '../../lib/asset'
 import { call, errorText } from '../../lib/svs'
 import { STEP_LABEL } from './step-label'
 import { diffDraft, draftOf, type Draft } from './draft'
+import { ShotSound } from '../sound/shot-sound'
 
 export interface ShotPanelProps {
   shot: ShotView
@@ -377,6 +378,8 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
       ) : null}
 
       <ShotEditor key={`${shot.id}:${signature}`} shot={shot} busy={busy} onRun={run} />
+
+      <ShotSound shotId={shot.id} />
 
       <VersionList
         title="影片的各個版本"
