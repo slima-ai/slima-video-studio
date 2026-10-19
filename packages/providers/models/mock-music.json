@@ -1,0 +1,31 @@
+{
+  "key": "mock-music",
+  "displayName": "示範配樂",
+  "userNote": "示範用，不連網、不花錢",
+  "tasks": ["music"],
+  "tier": "balanced",
+  "recommended": true,
+  "features": {
+    "nativeAudio": false
+  },
+  "badges": [],
+  "channels": [
+    {
+      "provider": "mock",
+      "id": "mock/music",
+      "needsKey": false,
+      "endpoints": {
+        "music": "mock/music"
+      },
+      "pricing": {
+        "unit": "track",
+        "usd": 0.05
+      },
+      "verification": {
+        "endpoint": false,
+        "pricing": false
+      },
+      "notes": "示範模式用的假模型，不連網、不花錢（金額為示意）。"
+    }
+  ]
+}

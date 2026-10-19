@@ -7,6 +7,7 @@ import { createAnchorSuggester } from './characters/anchor-suggester'
 import { createLocationService, type LocationService } from './locations/location-service'
 import { createTurnaroundService, type TurnaroundService } from './characters/turnaround-service'
 import { createConceptService, type ConceptService } from './characters/concept-service'
+import { createSoundService, type SoundService } from './sound/sound-service'
 import { createCharacterService, type CharacterService } from './characters/character-service'
 import type { KeyVault } from './keys/key-vault'
 import type { Logger } from './logger'
@@ -69,6 +70,7 @@ export interface StudioApp {
   shots: ShotService
   characters: CharacterService
   concepts: ConceptService
+  sound: SoundService
   turnarounds: TurnaroundService
   locations: LocationService
   outline: OutlineService
@@ -177,6 +179,16 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     log,
     ...toolsOption,
   })
+  const sound = createSoundService({
+    projects,
+    runtime,
+    settings,
+    settingsService,
+    models,
+    broadcast,
+    log,
+    ...toolsOption,
+  })
   const turnarounds = createTurnaroundService({
     projects,
     runtime,
@@ -229,6 +241,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     shots,
     characters,
     concepts,
+    sound,
     turnarounds,
     locations,
     outline,
