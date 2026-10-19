@@ -49,20 +49,37 @@ export function desktopSnippet(bridge: BridgeCommand): string {
   return JSON.stringify({ mcpServers: { [SERVER_NAME]: bridge } }, null, 2)
 }
 
-/** shell 的單引號跳脫：路徑可能有空白（「Slima Video Studio.app」）。 */
+/** POSIX shell 的單引號跳脫：路徑可能有空白（「Slima Video Studio.app」）。 */
 export const shellQuote = (text: string): string => `'${text.replace(/'/g, `'\\''`)}'`
 
-/** 給人貼進終端機的 Claude Code 指令（走轉接，token 與埠改了都不用重貼）。 */
-export function claudeCodeBridgeCommand(bridge: BridgeCommand): string {
-  const env = Object.entries(bridge.env).map(([k, v]) => `-e ${k}=${v}`)
+/** Windows（cmd.exe）只認雙引號；內含的雙引號用 \" 跳脫，% 加倍避免被當成環境變數。 */
+export const windowsQuote = (text: string): string =>
+  `"${text.replace(/"/g, '\\"').replace(/%/g, '%%')}"`
+
+/** `claude mcp add` 的參數（陣列，不經 shell，所以路徑有空白、引號都不會被拆開）。 */
+export function claudeAddArgs(bridge: BridgeCommand): string[] {
   return [
-    'claude mcp add --scope user',
-    ...env,
+    'mcp',
+    'add',
+    '--scope',
+    'user',
+    ...Object.entries(bridge.env).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
     SERVER_NAME,
     '--',
-    shellQuote(bridge.command),
-    ...bridge.args.map(shellQuote),
-  ].join(' ')
+    bridge.command,
+    ...bridge.args,
+  ]
+}
+
+export const claudeRemoveArgs = (): string[] => ['mcp', 'remove', '--scope', 'user', SERVER_NAME]
+
+/** 給人貼進終端機的 Claude Code 指令（走轉接，token 與埠改了都不用重貼）；依平台用對的引號。 */
+export function claudeCodeBridgeCommand(bridge: BridgeCommand, platform: NodeJS.Platform): string {
+  const quote = platform === 'win32' ? windowsQuote : shellQuote
+  const args = claudeAddArgs(bridge)
+  // 只有「--」後面的路徑與參數可能有空白；前面都是固定字
+  const dashes = args.indexOf('--')
+  return ['claude', ...args.slice(0, dashes + 1), ...args.slice(dashes + 1).map(quote)].join(' ')
 }
 
 interface DesktopConfig {
@@ -99,8 +116,10 @@ export interface ConnectorDeps {
   home: string
   appData: string | undefined
   bridge: BridgeCommand
-  /** 在登入 shell 裡執行一行指令（找得到使用者 PATH 裡的 claude）；失敗就丟錯。 */
-  runShell: (commandLine: string) => Promise<void>
+  /** 找出 claude 執行檔的完整路徑（用使用者的登入環境，PATH 才跟終端機一樣）；找不到回 undefined。 */
+  findClaude: () => Promise<string | undefined>
+  /** 直接執行一個檔案、參數用陣列傳（不經 shell）；失敗就丟錯。 */
+  runFile: (file: string, args: string[]) => Promise<void>
   now?: () => Date
 }
 
@@ -133,7 +152,7 @@ export function createConnector(deps: ConnectorDeps): McpConnector {
           connected,
         },
         desktopSnippet: desktopSnippet(deps.bridge),
-        claudeCodeCommand: claudeCodeBridgeCommand(deps.bridge),
+        claudeCodeCommand: claudeCodeBridgeCommand(deps.bridge, deps.platform),
       }
     },
     connectClaudeDesktop: () => {
@@ -163,29 +182,73 @@ export function createConnector(deps: ConnectorDeps): McpConnector {
       return { configPath, ...(backupPath === undefined ? {} : { backupPath }) }
     },
     connectClaudeCode: async () => {
-      const command = claudeCodeBridgeCommand(deps.bridge)
-      try {
-        // 先移掉舊的同名設定（重新連接時不會因為「已存在」失敗）；沒有舊的就會失敗，忽略
-        await deps.runShell(`claude mcp remove --scope user ${SERVER_NAME}`).catch(() => undefined)
-        await deps.runShell(command)
-      } catch {
+      const command = claudeCodeBridgeCommand(deps.bridge, deps.platform)
+      const fail = (): never => {
         throw new AppError({
           code: 'invalid_request',
           userMessage:
             '沒辦法自己執行 claude 指令（可能還沒安裝 Claude Code，或找不到它）。請把下面的指令貼到終端機。',
         })
       }
+      const claude = await deps.findClaude().catch(() => undefined)
+      if (claude === undefined) return fail()
+      // 先移掉舊的同名設定（重新連接時不會因為「已存在」失敗）；沒有舊的就會失敗，忽略
+      await deps.runFile(claude, claudeRemoveArgs()).catch(() => undefined)
+      try {
+        await deps.runFile(claude, claudeAddArgs(deps.bridge))
+      } catch {
+        return fail()
+      }
       return { command }
     },
   }
 }
 
-/** 真的執行：登入 shell（讓 PATH 跟使用者的終端機一樣），最多等 30 秒。 */
-export function runInLoginShell(commandLine: string): Promise<void> {
-  const shell = process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL ?? '/bin/zsh')
-  const args = process.platform === 'win32' ? ['/d', '/s', '/c', commandLine] : ['-lc', commandLine]
+const firstLine = (text: string): string | undefined =>
+  text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l !== '')
+
+/** 用登入 shell 找 claude（Windows 用 where；.exe 優先）；只跑一個固定指令，沒有任何外來字串。 */
+export function findClaudeInLoginShell(): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const done = (error: Error | null, stdout: string): void => {
+      if (error) {
+        resolve(undefined)
+        return
+      }
+      const lines = stdout
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l !== '')
+      resolve(lines.find((l) => /\.exe$/i.test(l)) ?? firstLine(stdout))
+    }
+    if (process.platform === 'win32') {
+      execFile('where', ['claude'], { timeout: 10_000, windowsHide: true }, (e, out) => {
+        done(e, out)
+      })
+    } else {
+      const shell = process.env.SHELL ?? '/bin/zsh'
+      execFile(shell, ['-lc', 'command -v claude'], { timeout: 10_000 }, (e, out) => {
+        done(e, out)
+      })
+    }
+  })
+}
+
+/** 直接執行（參數用陣列，不經 shell）。Windows 的 .cmd／.bat 一定要經 cmd.exe，這時參數自己加雙引號。 */
+export function runFileDirect(file: string, args: string[]): Promise<void> {
+  const viaCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(file)
+  const [exe, exeArgs, options] = viaCmd
+    ? ([
+        'cmd.exe',
+        ['/d', '/s', '/c', `"${[file, ...args].map(windowsQuote).join(' ')}"`],
+        { windowsVerbatimArguments: true },
+      ] as const)
+    : ([file, args, {}] as const)
   return new Promise((resolve, reject) => {
-    execFile(shell, args, { timeout: 30_000, windowsHide: true }, (error) => {
+    execFile(exe, [...exeArgs], { timeout: 30_000, windowsHide: true, ...options }, (error) => {
       if (error) reject(new Error(error.message))
       else resolve()
     })

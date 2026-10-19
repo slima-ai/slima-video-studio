@@ -6,11 +6,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   bridgeCommand,
+  claudeAddArgs,
   claudeCodeBridgeCommand,
   createConnector,
   desktopConfigPath,
   desktopSnippet,
   shellQuote,
+  windowsQuote,
 } from './connect'
 
 const dirs: string[] = []
@@ -50,29 +52,55 @@ describe('設定檔位置與轉接指令', () => {
     expect(desktopSnippet(BRIDGE)).not.toMatch(/svs_|Bearer/)
   })
 
-  it('Claude Code 指令：路徑有空白或單引號都跳脫好', () => {
+  it('給人貼的 Claude Code 指令：macOS 用單引號、Windows 用雙引號，路徑有空白都包好', () => {
     expect(shellQuote("it's")).toBe(`'it'\\''s'`)
-    const command = claudeCodeBridgeCommand(BRIDGE)
+    expect(windowsQuote('C:\\Program Files\\Slima "x" 100%')).toBe(
+      '"C:\\Program Files\\Slima \\"x\\" 100%%"',
+    )
+    const mac = claudeCodeBridgeCommand(BRIDGE, 'darwin')
     expect(
-      command.startsWith(
+      mac.startsWith(
         'claude mcp add --scope user -e ELECTRON_RUN_AS_NODE=1 slima-video-studio -- ',
       ),
     ).toBe(true)
-    expect(command).toContain(
+    expect(mac).toContain(
       `'/Applications/Slima Video Studio.app/Contents/MacOS/Slima Video Studio'`,
     )
-    expect(command).toContain(`'/Users/x/Library/Application Support/it'\\''s'`)
+    expect(mac).toContain(`'/Users/x/Library/Application Support/it'\\''s'`)
+    const win = bridgeCommand(
+      'C:\\Program Files\\Slima Video Studio\\Slima Video Studio.exe',
+      'C:\\Program Files\\Slima Video Studio\\resources\\app.asar\\out\\main\\mcp-stdio-bridge.js',
+      'C:\\Users\\x\\AppData\\Roaming\\Slima Video Studio',
+    )
+    const winCommand = claudeCodeBridgeCommand(win, 'win32')
+    expect(winCommand).toContain('"C:\\Program Files\\Slima Video Studio\\Slima Video Studio.exe"')
+    expect(winCommand).not.toContain("'")
+  })
+
+  it('claude mcp add 的參數是陣列：有空白、有單引號的路徑各是一個元素，不會被拆開', () => {
+    const args = claudeAddArgs(BRIDGE)
+    expect(args.slice(0, 6)).toEqual([
+      'mcp',
+      'add',
+      '--scope',
+      'user',
+      '-e',
+      'ELECTRON_RUN_AS_NODE=1',
+    ])
+    expect(args.slice(args.indexOf('--') + 1)).toEqual([BRIDGE.command, ...BRIDGE.args])
+    expect(args).toContain("/Users/x/Library/Application Support/it's")
   })
 })
 
 describe('一鍵連接 Claude Desktop', () => {
-  const connector = (home: string, runShell = vi.fn()) =>
+  const connector = (home: string) =>
     createConnector({
       platform: 'darwin',
       home,
       appData: undefined,
       bridge: BRIDGE,
-      runShell,
+      findClaude: () => Promise.resolve(undefined),
+      runFile: vi.fn(),
       now: () => new Date('2026-10-19T08:00:00.000Z'),
     })
   const configFile = (home: string) =>
@@ -160,7 +188,8 @@ describe('一鍵連接 Claude Desktop', () => {
       home: tmp(),
       appData: undefined,
       bridge: BRIDGE,
-      runShell: vi.fn(),
+      findClaude: () => Promise.resolve(undefined),
+      runFile: vi.fn(),
     })
     expect(c.info().claudeDesktop.supported).toBe(false)
     expect(() => c.connectClaudeDesktop()).toThrow(AppError)
@@ -168,32 +197,54 @@ describe('一鍵連接 Claude Desktop', () => {
 })
 
 describe('一鍵連接 Claude Code', () => {
-  const make = (runShell: (line: string) => Promise<void>) =>
+  const CLAUDE = '/Users/x/Library/Application Support/Claude Tools/bin/claude'
+  const make = (
+    runFile: (file: string, args: string[]) => Promise<void>,
+    findClaude: () => Promise<string | undefined> = () => Promise.resolve(CLAUDE),
+  ) =>
     createConnector({
       platform: 'darwin',
       home: tmp(),
       appData: undefined,
       bridge: BRIDGE,
-      runShell,
+      findClaude,
+      runFile,
     })
 
-  it('先移掉舊的同名設定（沒有舊的也沒關係），再 add', async () => {
-    const lines: string[] = []
-    const c = make((line) => {
-      lines.push(line)
-      return line.includes(' remove ') ? Promise.reject(new Error('沒有這一項')) : Promise.resolve()
+  it('用找到的完整路徑（含空白）直接執行：先移掉舊的同名設定（沒有舊的也沒關係），再 add，參數是陣列', async () => {
+    const calls: { file: string; args: string[] }[] = []
+    const c = make((file, args) => {
+      calls.push({ file, args })
+      return args[1] === 'remove' ? Promise.reject(new Error('沒有這一項')) : Promise.resolve()
     })
     const result = await c.connectClaudeCode()
-    expect(lines).toHaveLength(2)
-    expect(lines[0]).toBe('claude mcp remove --scope user slima-video-studio')
-    expect(lines[1]).toBe(result.command)
+    expect(calls).toHaveLength(2)
+    expect(calls.every((call) => call.file === CLAUDE)).toBe(true)
+    expect(calls[0]?.args).toEqual(['mcp', 'remove', '--scope', 'user', 'slima-video-studio'])
+    expect(calls[1]?.args).toEqual(claudeAddArgs(BRIDGE))
+    expect(result.command).toBe(claudeCodeBridgeCommand(BRIDGE, 'darwin'))
   })
 
-  it('claude 跑不起來：白話錯誤，不含系統訊息', async () => {
-    const c = make(() => Promise.reject(new Error('spawn /bin/zsh ENOENT')))
+  it('找不到 claude：不執行任何東西，白話說明並給可貼的指令', async () => {
+    const runFile = vi.fn()
+    const c = make(runFile, () => Promise.resolve(undefined))
     const error = await c.connectClaudeCode().catch((e: unknown) => e)
     expect(error).toBeInstanceOf(AppError)
     expect((error as AppError).userMessage).toContain('貼到終端機')
-    expect((error as AppError).userMessage).not.toMatch(/ENOENT|spawn/)
+    expect(runFile).not.toHaveBeenCalled()
+    // 找 claude 的過程自己出錯，也一樣
+    const broken = make(runFile, () => Promise.reject(new Error('spawn /bin/zsh ENOENT')))
+    const error2 = await broken.connectClaudeCode().catch((e: unknown) => e)
+    expect((error2 as AppError).userMessage).not.toMatch(/ENOENT|spawn/)
+  })
+
+  it('add 失敗：白話錯誤，不含系統訊息', async () => {
+    const c = make((_file, args) =>
+      args[1] === 'add' ? Promise.reject(new Error('exit 1: secret path')) : Promise.resolve(),
+    )
+    const error = await c.connectClaudeCode().catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(AppError)
+    expect((error as AppError).userMessage).toContain('貼到終端機')
+    expect((error as AppError).userMessage).not.toContain('secret path')
   })
 })
