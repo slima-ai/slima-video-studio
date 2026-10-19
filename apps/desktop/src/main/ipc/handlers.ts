@@ -10,6 +10,7 @@ import type { StoryboardService } from '../storyboard/storyboard-service'
 import type { ConceptService } from '../characters/concept-service'
 import type { CharacterService } from '../characters/character-service'
 import type { KeyVault } from '../keys/key-vault'
+import type { McpConnector } from '../mcp/connect'
 import type { McpController } from '../mcp/controller'
 import type { KeyTester } from '../keys/key-tester'
 import type { ProjectManager } from '../project-manager'
@@ -45,6 +46,8 @@ export interface HandlerDeps {
   settingsService: SettingsService
   /** AI 工具連線（MCP）；測試可以不給（狀態會是「沒開」）。 */
   mcp?: McpController
+  /** 一鍵連接 Claude Desktop／Claude Code；測試可以不給。 */
+  mcpConnector?: McpConnector
   runtime: QueueAccess
   quickstart: QuickStartService
   upgrade: UpgradeService
@@ -80,6 +83,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     settings,
     settingsService,
     mcp,
+    mcpConnector,
     runtime,
     quickstart,
     upgrade,
@@ -288,6 +292,16 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('mcp.status', () => mcp?.status() ?? mcpOff())
   registry.registerHandler('mcp.regenerateToken', () => mcp?.regenerateToken() ?? mcpOff())
   registry.registerHandler('mcp.resetCommitted', () => mcp?.resetCommitted() ?? mcpOff())
+  const noConnector = (): never => {
+    throw new AppError({ code: 'invalid_request', userMessage: '這個版本還不能一鍵連接。' })
+  }
+  registry.registerHandler('mcp.connectInfo', () => (mcpConnector ?? noConnector()).info())
+  registry.registerHandler('mcp.connectClaudeDesktop', () =>
+    (mcpConnector ?? noConnector()).connectClaudeDesktop(),
+  )
+  registry.registerHandler('mcp.connectClaudeCode', () =>
+    (mcpConnector ?? noConnector()).connectClaudeCode(),
+  )
   registry.registerHandler('models.list', () => settingsService.listModels())
   registry.registerHandler('models.setProject', ({ models }) => {
     settingsService.setProjectModels(models)

@@ -113,6 +113,24 @@ export const McpStatusSchema = z.object({
 })
 export type McpStatus = z.infer<typeof McpStatusSchema>
 
+/** 「連接 Claude」要用的資訊（只給設定頁；MCP 工具看不到）。 */
+export const McpConnectInfoSchema = z.object({
+  claudeDesktop: z.object({
+    /** 這個作業系統有沒有 Claude Desktop（目前只有 macOS 與 Windows）。 */
+    supported: z.boolean(),
+    configPath: z.string().optional(),
+    /** 看起來有裝 Claude Desktop（它的設定資料夾存在）。 */
+    installed: z.boolean(),
+    /** 設定檔裡已經有一項指到這個 App（而且路徑沒變）。 */
+    connected: z.boolean(),
+  }),
+  /** 貼進 Claude Desktop 設定檔的片段（手動連線用）。 */
+  desktopSnippet: z.string(),
+  /** 貼進終端機的 Claude Code 指令（手動連線用）。 */
+  claudeCodeCommand: z.string(),
+})
+export type McpConnectInfo = z.infer<typeof McpConnectInfoSchema>
+
 export const ProjectInfoSchema = z.object({
   id: IdSchema,
   name: z.string(),
@@ -432,6 +450,24 @@ export const ipcContract = {
   'mcp.resetCommitted': {
     request: z.object({}),
     response: McpStatusSchema,
+  },
+  /** 「連接 Claude」要用的資訊：設定檔位置、已連接與否、可複製的片段與指令。 */
+  'mcp.connectInfo': {
+    request: z.object({}),
+    response: McpConnectInfoSchema,
+  },
+  /**
+   * 一鍵連接 Claude Desktop：把這個 App 的轉接加進它的設定檔（只加我們這一項，改之前先備份）。
+   * 要重開 Claude Desktop 才生效。
+   */
+  'mcp.connectClaudeDesktop': {
+    request: z.object({}),
+    response: z.object({ configPath: z.string(), backupPath: z.string().optional() }),
+  },
+  /** 一鍵連接 Claude Code：在使用者的終端機環境裡執行 `claude mcp add`；跑不起來就丟白話錯誤。 */
+  'mcp.connectClaudeCode': {
+    request: z.object({}),
+    response: z.object({ command: z.string() }),
   },
   /**
    * 目前可以選的模型：已填 Key 的供應商（示範模式再加上示範模型）。

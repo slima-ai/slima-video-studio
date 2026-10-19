@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'electron-vite'
+import { resolve } from 'node:path'
 import type { Plugin } from 'vite'
 
 import { buildCsp } from './src/shared/csp'
@@ -32,7 +33,16 @@ function injectCsp(): Plugin {
 
 export default defineConfig({
   main: {
-    build: { externalizeDeps: { exclude: WORKSPACE_PACKAGES } },
+    build: {
+      externalizeDeps: { exclude: WORKSPACE_PACKAGES },
+      // 第二個入口：給 Claude Desktop 這類只會啟動指令的 AI 工具用的 stdio 轉接（out/main/mcp-stdio-bridge.js）
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/main/index.ts'),
+          'mcp-stdio-bridge': resolve(__dirname, 'src/main/mcp-stdio-bridge.ts'),
+        },
+      },
+    },
   },
   preload: {
     // sandbox 預載腳本只能 require electron 與少數內建模組，所以第三方相依全部打包進去
