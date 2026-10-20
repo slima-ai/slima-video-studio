@@ -49,7 +49,10 @@ if (needsXvfb) {
   // 和 playwright.config.ts 的 workers 一樣多（命令列另外給 --workers 變多時，多出來的 worker 會輪流共用）
   const config = readFileSync(new URL('../playwright.config.ts', import.meta.url), 'utf8')
   const workers = Number(/workers:\s*(\d+)/.exec(config)?.[1] ?? '2')
-  const servers = await Promise.all(Array.from({ length: workers }, startXvfb))
+  // 一個一個起：同時起的話兩個 Xvfb 會搶同一個編號
+  const servers = []
+  for (let i = 0; i < workers; i++) servers.push(await startXvfb())
+  console.log(`E2E 每個 worker 的顯示器：${servers.map((server) => server.display).join(' ')}`)
   process.on('exit', () => {
     for (const { child } of servers) child.kill()
   })
