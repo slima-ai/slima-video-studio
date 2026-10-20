@@ -47,6 +47,8 @@ import {
   type Lod,
   type CanvasActions,
   type PortRef,
+  type RunEstimate,
+  type RunScope,
 } from './canvas-actions'
 import { FIT_OPTIONS, NODE_SIZE, type CanvasEdge, type CanvasNode } from './canvas-model'
 import './canvas.css'
@@ -79,6 +81,7 @@ import { AddMenu, CONTEXT_W, ContextMenu, type MenuEntry } from './menus'
 import { PerfOverlay } from './perf-overlay'
 import { NODE_TYPES } from './nodes'
 import { RenameBox, isRenamable, type RenameTarget } from './rename-box'
+import { RunModeMenu } from './run-mode-menu'
 import { SceneLabels } from './scene-labels'
 import { GettingStartedDialog } from '../help/getting-started-dialog'
 import { ShortcutsDialog } from './shortcuts-dialog'
@@ -299,6 +302,29 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     if (pan) void rf.setViewport({ ...viewport, ...pan }, { duration: 300 })
   }, [panelKey, rf])
   const { ask: askRun } = runner
+  // ▶ 滑過與 ▾ 選單看的預估：照目前選的品質等級問後端這一次會跑什麼、大概多少錢（或為什麼還不能跑）
+  const runQuality = runner.quality
+  const estimateRun = useCallback(
+    async (nodeId: string, scope?: RunScope): Promise<RunEstimate | undefined> => {
+      try {
+        const plan = await call('canvas.runPlan', {
+          keys: [nodeId],
+          ...(scope ? { scope } : {}),
+          ...(runQuality ? { quality: runQuality } : {}),
+        })
+        return {
+          usd: plan.estimatedUsd,
+          lowerBound: plan.estimateIsLowerBound,
+          nothing: plan.ok && plan.steps.length === 0,
+          ...(plan.ok ? {} : { issue: plan.issue ?? '現在不能跑。' }),
+        }
+      } catch {
+        return undefined
+      }
+    },
+    [runQuality],
+  )
+  const [runMenu, setRunMenu] = useState<{ nodeId: string; anchor: ConfirmAnchor }>()
   // 展開或收合步驟：下面的列往下讓開或收回來（300ms），只在這段時間給格子加位移動畫
   const [shifting, setShifting] = useState(false)
   const shiftTimer = useRef<number | undefined>(undefined)
@@ -1083,8 +1109,12 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       openPanel: (nodeId) => {
         setPanel(panelTargetOf(nodeId))
       },
-      run: (nodeId, anchor) => {
-        askRun({ keys: [nodeId] }, anchor)
+      run: (nodeId, anchor, scope) => {
+        askRun({ keys: [nodeId], ...(scope ? { scope } : {}) }, anchor)
+      },
+      runEstimate: (nodeId, scope) => estimateRun(nodeId, scope),
+      openRunMenu: (nodeId, anchor) => {
+        setRunMenu({ nodeId, anchor })
       },
       toggleInCut: (nodeId) => {
         const node = rf.getNode(nodeId)
@@ -1806,6 +1836,21 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                   onQuality={runner.setQuality}
                   onOk={runner.confirm}
                   onCancel={runner.cancel}
+                />
+              ) : null}
+              {runMenu ? (
+                <RunModeMenu
+                  kind={rf.getNode(runMenu.nodeId)?.data.kind === 'video' ? 'video' : 'image'}
+                  anchor={runMenu.anchor}
+                  estimate={(scope) => estimateRun(runMenu.nodeId, scope)}
+                  onPick={(scope) => {
+                    const { nodeId, anchor } = runMenu
+                    setRunMenu(undefined)
+                    askRun({ keys: [nodeId], scope }, anchor)
+                  }}
+                  onClose={() => {
+                    setRunMenu(undefined)
+                  }}
                 />
               ) : null}
               {grow.confirm ? (

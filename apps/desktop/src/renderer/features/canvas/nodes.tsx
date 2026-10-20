@@ -6,7 +6,13 @@ import { Spinner } from '../../components/skeleton'
 import { useToast } from '../../components/toast'
 import { assetUrl } from '../../lib/asset'
 import { cn } from '../../lib/cn'
-import { useCanvasActions, useConnectedPorts, useLinking, useLod } from './canvas-actions'
+import {
+  useCanvasActions,
+  useConnectedPorts,
+  useLinking,
+  useLod,
+  type RunEstimate,
+} from './canvas-actions'
 import { isRenamable } from './rename-box'
 import { choicesFor } from './connection-rules'
 import { blockedReason, deleteTip } from './delete-plan'
@@ -179,8 +185,9 @@ function DeleteButton({
 
 /** ▶ 執行；生成中換成 ■ 停止。說明用 data-tip（畫布統一顯示，確認面板打開時就收起來）。 */
 function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
-  const { run, stopNode } = useCanvasActions()
+  const { run, runEstimate, openRunMenu, stopNode } = useCanvasActions()
   const status = data.status
+  const [tipText, setTipText] = useState<string>()
   if (status === 'running' || status === 'queued') {
     if (!stopNode) return null
     return (
@@ -199,20 +206,52 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
     )
   }
   if (!run) return null
+  const generating = data.kind === 'image' || data.kind === 'video'
   return (
-    <button
-      type="button"
-      aria-label={status === 'failed' ? '重試' : '執行'}
-      data-tip={runTipOf(data)}
-      data-testid={`run-${id}`}
-      className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
-      onClick={(event) => {
-        run(id, anchorOf(event.currentTarget))
-      }}
-    >
-      {status === 'failed' ? '重試' : '▶'}
-    </button>
+    <span className="flex shrink-0 items-center">
+      <button
+        type="button"
+        aria-label={status === 'failed' ? '重試' : '執行'}
+        data-tip={tipText ? `${runTipOf(data)}・${tipText}` : runTipOf(data)}
+        data-testid={`run-${id}`}
+        className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
+        onPointerEnter={() => {
+          // 滑過就去問這一次大概多少錢，說明上補一句（說明 350 毫秒後才出現，來得及）
+          setTipText(undefined)
+          void runEstimate?.(id).then((estimate) => {
+            if (estimate) setTipText(estimateText(estimate))
+          })
+        }}
+        onClick={(event) => {
+          run(id, anchorOf(event.currentTarget))
+        }}
+      >
+        {status === 'failed' ? '重試' : '▶'}
+      </button>
+      {generating && openRunMenu ? (
+        <button
+          type="button"
+          aria-label="選要跑多少"
+          aria-haspopup="menu"
+          data-tip="只跑這個、這個和後面的、整條"
+          data-testid={`run-mode-${id}`}
+          className="nodrag -ml-1 rounded px-1 py-0.5 text-[10px] text-fg-muted hover:bg-fg/10 hover:text-fg"
+          onClick={(event) => {
+            openRunMenu(id, anchorOf(event.currentTarget))
+          }}
+        >
+          ▾
+        </button>
+      ) : null}
+    </span>
   )
+}
+
+/** 預估的一句話：約多少錢、都生成好了、或為什麼還不能跑。 */
+export function estimateText(estimate: RunEstimate): string {
+  if (estimate.issue) return estimate.issue
+  if (estimate.nothing) return '都已經生成好了'
+  return `預估約 US$${estimate.usd.toFixed(2)}${estimate.lowerBound ? '（至少）' : ''}`
 }
 
 /** 生成中、排隊中：骨架畫面，寫這一步在做什麼、已經幾秒（排隊中說明在等什麼）。 */
@@ -475,7 +514,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
               <span
                 data-testid={`header-tools-${id}`}
                 className={cn(
-                  'absolute right-[42px] top-0 flex h-9 items-center gap-1 pl-4 pr-1 transition-opacity focus-within:opacity-100',
+                  'absolute right-[58px] top-0 flex h-9 items-center gap-1 pl-4 pr-1 transition-opacity focus-within:opacity-100',
                   selected
                     ? 'opacity-100'
                     : 'pointer-events-none opacity-0 group-hover/card:pointer-events-auto group-hover/card:opacity-100',

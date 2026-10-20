@@ -29,6 +29,8 @@ interface Target {
   rejoin: boolean
   /** 「全部生成」：成品還沒接、對不上，或這次會換掉放進成品的影片，就順便接片。 */
   all: boolean
+  /** ▶ 旁選了「這個和後面的」或「整條」：跟「全部生成」一樣，需要時順便接片。 */
+  joinAfter: boolean
 }
 
 /**
@@ -42,13 +44,22 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
   const resolve = (request: CanvasRunRequest): Target => {
     const views = shots.list().shots
     const items = new Map<string, ShotRunItem>()
-    const add = (shotId: string, redo?: 'video' | 'all'): void => {
+    const add = (
+      shotId: string,
+      redo?: 'video' | 'all',
+      exact?: 'frame' | 'video' | 'all',
+    ): void => {
       // 同一個鏡頭被好幾個節點選到：只要有一個是「重做」就重做
       const merged = redo ?? items.get(shotId)?.redo
-      items.set(shotId, { shotId, ...(merged ? { redo: merged } : {}) })
+      items.set(shotId, {
+        shotId,
+        ...(merged ? { redo: merged } : {}),
+        ...(exact ? { exact } : {}),
+      })
     }
     let rejoin = false
     const single = !request.all && request.keys.length === 1
+    const scope = single ? request.scope : undefined
     if (request.all) for (const view of views) add(view.id)
     for (const key of request.keys) {
       const [kind, id, part] = key.split(':')
@@ -62,12 +73,20 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         if (!view) continue
         const done = (takes: readonly { adopted: boolean }[]): boolean =>
           takes.some((t) => t.adopted)
-        if (single && part === 'video' && done(view.videos)) add(id, 'video')
+        if (scope && part === 'image') add(id, undefined, scope === 'this' ? 'frame' : 'all')
+        else if (scope && part === 'video') add(id, undefined, scope === 'chain' ? 'all' : 'video')
+        else if (scope) add(id, undefined, 'all')
+        else if (single && part === 'video' && done(view.videos)) add(id, 'video')
         else if (single && part === 'image' && done(view.firstFrames)) add(id, 'all')
         else add(id)
       }
     }
-    return { items: [...items.values()], rejoin, all: request.all === true }
+    return {
+      items: [...items.values()],
+      rejoin,
+      all: request.all === true,
+      joinAfter: scope === 'from-here' || scope === 'chain',
+    }
   }
 
   /**
@@ -96,7 +115,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
       const check = shots.planRun(items, request.quality)
       const rejoin =
         target.rejoin ||
-        (target.all &&
+        ((target.all || target.joinAfter) &&
           joinAfterAll(check.entries.filter((entry) => entry.video).map((entry) => entry.shot.id)))
       const steps: CanvasRunStep[] = []
       const highlight = new Set<string>()
@@ -170,7 +189,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
       const { items } = target
       const rejoin =
         target.rejoin ||
-        (target.all &&
+        ((target.all || target.joinAfter) &&
           joinAfterAll(
             shots
               .planRun(items, request.quality)

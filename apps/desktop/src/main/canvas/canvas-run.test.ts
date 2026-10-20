@@ -106,6 +106,70 @@ describe('canvas.runPlan', () => {
     expect(many.steps).toEqual([])
   })
 
+  it('▶ 旁選範圍：只跑這個＝只做這一段（有結果的就重做）；這個和後面的、整條＝圖和影片，需要時接成品', async () => {
+    const h = await setup()
+    const [first] = shotIds(h)
+    const image = `shot:${first}:image`
+    const video = `shot:${first}:video`
+    const steps = (keys: string[], scope: 'this' | 'from-here' | 'chain') =>
+      h.canvas.runPlan({ keys, scope }).steps.map((s) => [s.kind, s.redo] as const)
+    // 圖：只跑這個只做第一張畫面（已經有，所以是重做）；其餘做圖和影片再接成品
+    expect(steps([image], 'this')).toEqual([['image', true]])
+    expect(steps([image], 'from-here')).toEqual([
+      ['image', true],
+      ['video', true],
+      ['cut', false],
+    ])
+    expect(steps([image], 'chain')).toEqual(steps([image], 'from-here'))
+    // 影片：只跑這個只做影片；這個和後面的是影片接成品；整條連圖一起
+    expect(steps([video], 'this')).toEqual([['video', true]])
+    expect(steps([video], 'from-here')).toEqual([
+      ['video', true],
+      ['cut', false],
+    ])
+    expect(steps([video], 'chain')).toEqual([
+      ['image', true],
+      ['video', true],
+      ['cut', false],
+    ])
+    // 只跑這個不接成品；已經是最新的也照做（明確要的就是要）
+    expect(h.canvas.runPlan({ keys: [image], scope: 'this' }).rejoin).toBe(false)
+    // 沒給範圍：原本的 ▶（已完成的影片就是重做影片）
+    expect(h.canvas.runPlan({ keys: [video] }).steps.map((s) => s.kind)).toEqual(['video'])
+  })
+
+  it('▶ 旁「只跑這個」影片但還沒有第一張畫面：還不能跑，說明先要有第一張畫面；選整條就可以', async () => {
+    const h = await setup()
+    const created = h.shots.create({})
+    const video = `shot:${created.id}:video`
+    const plan = h.canvas.runPlan({ keys: [video], scope: 'this' })
+    expect(plan.ok).toBe(false)
+    expect(plan.issue).toContain('還不能跑：先要有第一張畫面')
+    expect(plan.steps).toEqual([])
+    const chain = h.canvas.runPlan({ keys: [video], scope: 'chain' })
+    expect(chain.ok).toBe(true)
+    expect(chain.steps.map((s) => s.kind)).toEqual(['image', 'video', 'cut'])
+    // 只做第一張畫面可以
+    const frame = h.canvas.runPlan({ keys: [`shot:${created.id}:image`], scope: 'this' })
+    expect(frame.steps.map((s) => [s.kind, s.redo])).toEqual([['image', false]])
+  })
+
+  it('照選的範圍執行：只跑這個的影片＝多一版影片、圖不變；只跑這個的圖＝只多一版圖', async () => {
+    const h = await setup()
+    const [first] = shotIds(h)
+    const before = h.shots.list().shots.find((s) => s.id === first)
+    await h.canvas.run({ keys: [`shot:${first}:video`], scope: 'this' })
+    await h.shots.whenIdle()
+    const afterVideo = h.shots.list().shots.find((s) => s.id === first)
+    expect(afterVideo?.videos.length).toBe((before?.videos.length ?? 0) + 1)
+    expect(afterVideo?.firstFrames.length).toBe(before?.firstFrames.length)
+    await h.canvas.run({ keys: [`shot:${first}:image`], scope: 'this' })
+    await h.shots.whenIdle()
+    const afterImage = h.shots.list().shots.find((s) => s.id === first)
+    expect(afterImage?.firstFrames.length).toBe((before?.firstFrames.length ?? 0) + 1)
+    expect(afterImage?.videos.length).toBe(afterVideo?.videos.length)
+  })
+
   it('場節點：只跑這個場的鏡頭（缺的才補）', async () => {
     const h = await setup()
     const scene = h.canvas.add({ kind: 'scene' })
