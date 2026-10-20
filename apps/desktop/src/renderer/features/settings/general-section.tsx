@@ -122,7 +122,8 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
           每次生成的花費上限（美金）
         </label>
         <p className="text-sm text-fg-muted">
-          預估花費超過這個金額時會先停下來問你，不會偷偷花錢。預設 US${DEFAULT_PER_RUN_LIMIT_USD}。
+          預估超過這個金額，那一次就不會開始，會告訴你；要做更大的就到這裡調高。不會偷偷花錢。預設
+          US${DEFAULT_PER_RUN_LIMIT_USD}。
         </p>
         <div className="mt-2 flex gap-2">
           <input
