@@ -76,6 +76,8 @@ describe('studio.trimLetterbox（首幀帶電影黑邊就裁掉）', () => {
     expect(content.y).toBeLessThanOrEqual(1)
     expect(content.height).toBeGreaterThanOrEqual(766)
     expect(handle.assets.find(ref.hash)).toBeDefined()
+    // 記下原圖是哪一張：畫面要查花費與時間、要標「已自動裁掉黑邊」
+    expect(handle.assets.getMeta(trimmed.hash)?.trimmedFrom).toBe(ref.hash)
   })
 
   it('沒有黑邊、只有上面黑一大塊（夜景的黑天空）：原樣回傳同一個素材，不產生新檔', async () => {

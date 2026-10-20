@@ -117,11 +117,11 @@ export function createStudioServices({ queue, handle, tools, models }: StudioDep
           ...(info.width ? { width: info.width } : {}),
           ...(info.height ? { height: info.height } : {}),
         }
-        const stored = await handle.assets.put(
-          new Uint8Array(await readFile(out)),
-          'image/png',
-          meta,
-        )
+        // 記下原圖是哪一張：畫面要查花費與時間、要標「已自動裁掉黑邊」
+        const stored = await handle.assets.put(new Uint8Array(await readFile(out)), 'image/png', {
+          ...meta,
+          trimmedFrom: image.hash,
+        })
         return { hash: stored.hash, kind: 'image', mime: 'image/png', bytes: stored.bytes, ...meta }
       } finally {
         await rm(dir, { recursive: true, force: true })

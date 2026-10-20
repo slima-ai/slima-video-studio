@@ -124,5 +124,11 @@ export const MIGRATIONS: readonly Migration[] = [
       "ALTER TABLE `final_cuts` ADD `base_asset_hash` text;",
       "ALTER TABLE `final_cuts` ADD `sound_key` text;"
     ]
+  },
+  {
+    "tag": "0012_sticky_vin_gonzales",
+    "statements": [
+      "ALTER TABLE `assets` ADD `trimmed_from` text;"
+    ]
   }
 ]

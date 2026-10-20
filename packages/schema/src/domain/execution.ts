@@ -15,6 +15,8 @@ export const AssetSchema = z.object({
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
   durationSec: z.number().nonnegative().optional(),
+  /** 這張圖是從哪一張裁掉黑邊而來（原圖的雜湊）；沒有就是沒被自動裁過。 */
+  trimmedFrom: ContentHashSchema.optional(),
   createdAt: IsoDateTimeSchema,
 })
 export type Asset = z.infer<typeof AssetSchema>

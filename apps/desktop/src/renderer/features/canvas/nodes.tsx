@@ -667,7 +667,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
         {generating && data.footer && !ghost ? (
           <p className="lod-full shrink-0 border-t border-border px-3 py-1.5 text-[11px] leading-[15px] text-fg-muted">
             <span className="block truncate">{data.footer}</span>
-            <span className="block truncate" data-testid="node-usage">
+            <span className="block truncate" data-testid="node-usage" title={data.usageNote}>
               {data.usageText ?? '\u00a0'}
             </span>
           </p>

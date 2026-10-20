@@ -103,4 +103,46 @@ describe('JobsRepository', () => {
     expect(usage.size).toBe(2)
     expect(repos.jobs.usageByAsset([]).size).toBe(0)
   })
+
+  it('usageByAsset：自動裁掉黑邊的圖（另一個素材）用原圖那次生成的花費與時間，並標 letterboxTrimmed', async () => {
+    const { repos, assets } = newProject()
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      'base64',
+    )
+    const original = await assets.put(png, 'image/png', { width: 1, height: 1 })
+    const trimmed = await assets.put(Buffer.concat([png, Buffer.from([0])]), 'image/png', {
+      width: 1,
+      height: 1,
+      trimmedFrom: original.hash,
+    })
+    repos.jobs.put(
+      job('j1', {
+        status: 'succeeded',
+        output: { kind: 'assets', assets: [{ kind: 'image', hash: original.hash }] },
+        costUsd: 0.14,
+        updatedAt: '2026-10-12T07:36:52.200Z',
+      }),
+    )
+    const usage = repos.jobs.usageByAsset([original.hash, trimmed.hash])
+    expect(usage.get(original.hash)).toEqual({
+      durationMs: 3200,
+      costUsd: 0.14,
+      costEstimated: false,
+    })
+    expect(usage.get(trimmed.hash)).toEqual({
+      durationMs: 3200,
+      costUsd: 0.14,
+      costEstimated: false,
+      letterboxTrimmed: true,
+    })
+    // 找不到原圖那次生成：還是標裁過，只是沒有花費與時間
+    const orphan = await assets.put(Buffer.concat([png, Buffer.from([1])]), 'image/png', {
+      trimmedFrom: 'e'.repeat(64),
+    })
+    expect(repos.jobs.usageByAsset([orphan.hash]).get(orphan.hash)).toEqual({
+      durationMs: 0,
+      letterboxTrimmed: true,
+    })
+  })
 })

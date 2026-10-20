@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 
 import type { AppDb } from '../database'
 import { dropNulls } from '../rows'
-import { costLedger, jobs } from '../tables/execution'
+import { assets, costLedger, jobs } from '../tables/execution'
 
 /** 某個素材是花了多久、多少錢生成的。 */
 export interface AssetUsage {
@@ -11,6 +11,8 @@ export interface AssetUsage {
   costUsd?: number
   /** 花費是估算的（供應商沒有回報實際金額）。 */
   costEstimated?: boolean
+  /** 這張圖是自動裁掉黑邊之後的版本（花費與時間算的是裁之前那次生成）。 */
+  letterboxTrimmed?: boolean
 }
 
 export interface JobListFilter {
@@ -108,6 +110,21 @@ export class JobsRepository {
           Number.isFinite(started) && Number.isFinite(ended) ? Math.max(0, ended - started) : 0,
         ...(spent ? { costUsd: spent.usd, costEstimated: spent.estimated } : {}),
       })
+    }
+    // 自動裁掉黑邊的圖是另一個素材（雜湊不同），不是任務的輸出：花費與時間用裁之前的原圖那次生成
+    const missing = hashes.filter((h) => !usage.has(h))
+    if (missing.length > 0) {
+      const trimmed = this.db
+        .select({ hash: assets.hash, from: assets.trimmedFrom })
+        .from(assets)
+        .where(inArray(assets.hash, [...missing]))
+        .all()
+        .flatMap((row) => (row.from ? [{ hash: row.hash, from: row.from }] : []))
+      const originals =
+        trimmed.length > 0 ? this.usageByAsset(trimmed.map((t) => t.from)) : undefined
+      for (const t of trimmed) {
+        usage.set(t.hash, { durationMs: 0, ...originals?.get(t.from), letterboxTrimmed: true })
+      }
     }
     return usage
   }
