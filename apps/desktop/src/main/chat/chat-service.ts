@@ -25,7 +25,7 @@ import {
 } from './chat-store'
 import type { ClaudeCheck } from './claude-check'
 import { startClaudeProcess, type ClaudeProcess, type SpawnClaude } from './claude-process'
-import type { StreamSignal } from './stream-events'
+import { isBudgetChatter, type StreamSignal } from './stream-events'
 import { toolDoingLabel, toolLabel } from './tool-labels'
 
 export interface ChatServiceDeps {
@@ -94,6 +94,8 @@ interface Turn {
   /** 已經因為找不到 Claude 那邊的紀錄而改開過新對話了（一輪只做一次）。 */
   fellBack?: boolean
   assistant: ChatPanelMessage
+  /** 現在這一段文字從訊息文字的第幾個字開始（文字進行中才有）。 */
+  textStart?: number | undefined
   steps: Map<string, ChatStep>
   emitTimer?: NodeJS.Timeout | undefined
   interruptTimer?: NodeJS.Timeout | undefined
@@ -319,10 +321,28 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
         if (turn) finishTurn(conv, { state: 'error', error: NEED_LOGIN })
         proc.close()
         return
+      case 'text_start':
+        if (!turn) return
+        // 一輪裡文字與工具交錯：前一段文字後面要隔開，不能黏在一起（「…完成。Generate videos.」）
+        if (turn.assistant.text !== '' && !turn.assistant.text.endsWith('\n')) {
+          turn.assistant.text += '\n\n'
+        }
+        turn.textStart = turn.assistant.text.length
+        return
       case 'text':
         if (!turn) return
         turn.assistant.text += signal.delta
         scheduleEmit(conv, turn)
+        return
+      case 'block_end':
+        if (turn?.textStart === undefined) return
+        // 剛結束的是一段文字：整段只有英文、又在講預算提示（Claude Code 在上下文附的「USD budget: …」，
+        // 它有時會把對那行字的反應當成回覆寫出來）就不給使用者看
+        if (isBudgetChatter(turn.assistant.text.slice(turn.textStart))) {
+          turn.assistant.text = turn.assistant.text.slice(0, turn.textStart).trimEnd()
+          scheduleEmit(conv, turn)
+        }
+        turn.textStart = undefined
         return
       case 'tool_start': {
         if (!turn || turn.steps.has(signal.id)) return

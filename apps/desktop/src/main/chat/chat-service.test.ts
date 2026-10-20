@@ -50,6 +50,11 @@ const text = (delta: string) => ({
   type: 'stream_event',
   event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: delta } },
 })
+const textStart = () => ({
+  type: 'stream_event',
+  event: { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+})
+const blockStop = () => ({ type: 'stream_event', event: { type: 'content_block_stop', index: 0 } })
 const toolStart = (id: string) => ({
   type: 'stream_event',
   event: {
@@ -449,6 +454,47 @@ describe('ChatService：出錯要說白話', () => {
     expect(CHAT_BUDGET_DEFAULT_USD).toBe(5)
   })
 
+  it('文字與工具交錯：每一段文字之間隔開，不會黏成「…完成。Generate videos.」', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    const child = children[0]
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text('第一段。'))
+    child?.line(blockStop())
+    child?.line(toolStart('t1'))
+    child?.line(blockStop())
+    child?.line(textStart())
+    child?.line(text('第二段。'))
+    child?.line(blockStop())
+    child?.line({ type: 'result', subtype: 'success', is_error: false, result: '第二段。' })
+    expect(last(conv.id, 'assistant')?.text).toBe('第一段。\n\n第二段。')
+  })
+
+  it('Claude 對上下文裡「USD budget」提示的英文碎碎念不顯示給使用者；中文的回覆與別的英文照常', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    const child = children[0]
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text("Ignore the session USD budget note? It's the agent budget. Let's start."))
+    child?.line(blockStop())
+    child?.line(toolStart('t1'))
+    child?.line(blockStop())
+    child?.line(textStart())
+    child?.line(text('我先建專案。'))
+    child?.line(blockStop())
+    child?.line(textStart())
+    child?.line(text('Demo placeholders; content matches. Generate videos.'))
+    child?.line(blockStop())
+    child?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
+    // 預算提示的碎碎念不見了；中文的與其他英文（沒在講預算提示）都留著
+    const shown = last(conv.id, 'assistant')?.text ?? ''
+    expect(shown).not.toContain('budget')
+    expect(shown).toBe('我先建專案。\n\nDemo placeholders; content matches. Generate videos.')
+  })
   it('步數到上限也能繼續；一般失敗不給「繼續」', async () => {
     const { service, children, last } = setup()
     const conv = service.create()

@@ -5,6 +5,10 @@ import { bareToolName } from './tool-labels'
 export type StreamSignal =
   | { kind: 'init'; sessionId: string; mcpConnected: boolean }
   | { kind: 'text'; delta: string }
+  /** 一段新的文字開始（Claude 一輪裡文字與工具呼叫交錯，每一段文字是一個區塊）：畫面上兩段之間要隔開，不能黏在一起。 */
+  | { kind: 'text_start' }
+  /** 某個區塊結束（文字、思考、工具呼叫都有；呼叫端自己知道剛才是不是文字）。 */
+  | { kind: 'block_end' }
   | { kind: 'tool_start'; id: string; tool: string }
   | { kind: 'tool_result'; id: string; ok: boolean; summary: string }
   | { kind: 'auth_failed' }
@@ -73,9 +77,11 @@ export function signalsOf(event: unknown): StreamSignal[] {
       }
       return []
     }
+    if (inner.type === 'content_block_stop') return [{ kind: 'block_end' }]
     // 工具一開始就顯示（參數還在長，不等完整訊息）
     if (inner.type === 'content_block_start' && isRecord(inner.content_block)) {
       const block = inner.content_block
+      if (block.type === 'text') return [{ kind: 'text_start' }]
       if (
         block.type === 'tool_use' &&
         typeof block.id === 'string' &&
@@ -169,4 +175,20 @@ export function createLineParser(onEvent: (event: unknown) => void): (chunk: str
       }
     }
   }
+}
+
+const CJK = /[\u3400-\u9fff\uf900-\ufaff]/u
+const BUDGET_NOTE = /\b(?:usd|session|agent)\s+budget\b|budget\s+note/iu
+/** 一段文字最長這麼長才當成「對預算提示的碎碎念」（長的是真的在回答使用者）。 */
+const CHATTER_MAX_CHARS = 240
+
+/**
+ * Claude 在 `--max-budget-usd` 之下，上下文裡會有一行 Claude Code 自己附的「USD budget: $0/$5; $5 remaining」。
+ * 它有時把對那行字的反應當成回覆寫出來（「Ignore the session USD budget note? It's the agent budget. Let's start.」）：
+ * 整段沒有中文、很短、又在講這個預算提示，就是這種碎碎念，不給使用者看。
+ * 使用者自己用英文聊預算的長回答不受影響（只認短的、沒有中文的、提到 USD／session／agent budget 或 budget note 的）。
+ */
+export function isBudgetChatter(text: string): boolean {
+  const t = text.trim()
+  return t !== '' && t.length <= CHATTER_MAX_CHARS && !CJK.test(t) && BUDGET_NOTE.test(t)
 }

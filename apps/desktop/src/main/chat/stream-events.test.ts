@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createLineParser, signalsOf } from './stream-events'
+import { createLineParser, isBudgetChatter, signalsOf } from './stream-events'
 
 /** `expect.stringContaining` 回傳 any，包成字串型別才不會被 lint 擋。 */
 const contains = (text: string): string => expect.stringContaining(text) as string
@@ -152,5 +152,46 @@ describe('createLineParser', () => {
     push(':2}\n\nnot json\n{"c":3}')
     push('\n')
     expect(seen).toEqual([{ a: 1 }, { b: 2 }, { c: 3 }])
+  })
+})
+
+describe('文字區塊的開始與結束，以及預算提示的碎碎念', () => {
+  const streamEvent = (event: object) => ({ type: 'stream_event', event })
+  it('文字區塊開始、任何區塊結束都有訊號（工具呼叫的開始仍只算工具）', () => {
+    expect(
+      signalsOf(
+        streamEvent({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'text', text: '' },
+        }),
+      ),
+    ).toEqual([{ kind: 'text_start' }])
+    expect(signalsOf(streamEvent({ type: 'content_block_stop', index: 0 }))).toEqual([
+      { kind: 'block_end' },
+    ])
+    expect(
+      signalsOf(
+        streamEvent({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'thinking', thinking: '' },
+        }),
+      ),
+    ).toEqual([])
+  })
+
+  it('isBudgetChatter：短的、沒有中文、在講 USD／session／agent budget 或 budget note 的才算', () => {
+    expect(
+      isBudgetChatter("Ignore the session USD budget note? It's the agent budget. Let's start."),
+    ).toBe(true)
+    expect(isBudgetChatter('USD budget: $0/$5; $5 remaining')).toBe(true)
+    // 有中文：是真的回覆
+    expect(isBudgetChatter('USD budget 是 Claude Code 附的提示')).toBe(false)
+    // 沒在講預算提示
+    expect(isBudgetChatter('Demo placeholders; content matches. Generate videos.')).toBe(false)
+    expect(isBudgetChatter('')).toBe(false)
+    // 太長：是真的在回答（例如使用者用英文問預算）
+    expect(isBudgetChatter(`Here is the USD budget plan. ${'x'.repeat(300)}`)).toBe(false)
   })
 })
