@@ -145,6 +145,12 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     projects.close()
     return {}
   })
+  registry.registerHandler('project.createAt', ({ name, parentDir }) =>
+    library.createNew(name, parentDir),
+  )
+  registry.registerHandler('project.pickFolder', async () => ({
+    dir: (await library.pickFolder()) ?? null,
+  }))
   registry.registerHandler('project.status', () => projects.status())
   registry.registerHandler('project.rename', ({ name }) => projects.rename(name))
   registry.registerHandler('project.list', () => library.list())

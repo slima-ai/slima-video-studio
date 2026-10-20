@@ -1,7 +1,7 @@
 import { projectModifiedAt, readProjectFile } from '@svs/db'
 import { AppError, type ProjectInfo, type ProjectSummary } from '@svs/schema'
-import { existsSync, mkdirSync, readdirSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { isAbsolute, join, resolve } from 'node:path'
 
 import { safeFileName, stamp } from './ensure-project'
 import type { ProjectManager } from './project-manager'
@@ -11,13 +11,25 @@ export interface ProjectLibraryDeps {
   /** 預設的專案資料夾（文件／Slima Video Studio）。 */
   projectsDir: string
   reveal: (path: string) => void
+  /** 跳出選資料夾的視窗；取消回 undefined。沒給（測試）就當作取消。 */
+  pickFolder?: () => Promise<string | undefined>
   now?: () => Date
 }
 
 export interface ProjectLibrary {
   list: () => { folder: string; projects: ProjectSummary[] }
-  createNew: (name?: string) => ProjectInfo
+  /** `parentDir` 只有畫面用的 `project.createAt` 會給；MCP 的 `project.createNew` 永遠放預設資料夾。 */
+  createNew: (name?: string, parentDir?: string) => ProjectInfo
+  pickFolder: () => Promise<string | undefined>
   reveal: (dir?: string) => void
+}
+
+const isDirectory = (path: string): boolean => {
+  try {
+    return statSync(path).isDirectory()
+  } catch {
+    return false
+  }
 }
 
 const invalid = (userMessage: string): AppError =>
@@ -66,16 +78,23 @@ export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
   return {
     list,
 
-    createNew(name) {
+    createNew(name, parentDir) {
       const trimmed = name?.trim() ?? ''
       const title = trimmed === '' ? '我的短片' : trimmed
-      mkdirSync(projectsDir, { recursive: true })
+      if (parentDir === undefined) {
+        mkdirSync(projectsDir, { recursive: true })
+      } else if (!isAbsolute(parentDir) || !isDirectory(parentDir)) {
+        // 指定的位置一定要是已經存在的資料夾（選資料夾的視窗選出來的），不替人建一串不存在的路徑
+        throw invalid('找不到這個資料夾，請重新選一個存放的位置。')
+      }
       const at = deps.now?.() ?? new Date()
       return projects.create(
-        join(projectsDir, `${safeFileName(title, '我的短片')}-${stamp(at)}.svsproj`),
+        join(parentDir ?? projectsDir, `${safeFileName(title, '我的短片')}-${stamp(at)}.svsproj`),
         title,
       )
     },
+
+    pickFolder: async () => (await deps.pickFolder?.()) ?? undefined,
 
     reveal(dir) {
       const target = dir ?? projects.current()?.dir

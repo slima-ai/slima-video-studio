@@ -208,6 +208,18 @@ void app.whenReady().then(() => {
     reveal: (path) => {
       shell.showItemInFolder(path)
     },
+    // 「新專案」的「更改…」：選存放的資料夾
+    pickFolder: async () => {
+      const options: Electron.OpenDialogOptions = {
+        title: '選擇要存放專案的資料夾',
+        properties: ['openDirectory', 'createDirectory'],
+      }
+      const owner = BrowserWindow.getFocusedWindow()
+      const picked = owner
+        ? await dialog.showOpenDialog(owner, options)
+        : await dialog.showOpenDialog(options)
+      return picked.canceled ? undefined : picked.filePaths[0]
+    },
     // 畫布「上傳」：選圖片或影片（可以一次選好幾個）
     pickFiles: async () => {
       const options: Electron.OpenDialogOptions = {

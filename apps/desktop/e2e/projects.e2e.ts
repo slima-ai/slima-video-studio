@@ -21,6 +21,9 @@ test.describe('專案頁', () => {
 
     // 開新專案：回到畫布，是空的
     await page.getByTestId('project-new').click()
+    await expect(page.getByTestId('new-project-dialog')).toBeVisible()
+    await expect(page.getByTestId('new-project-name')).toHaveValue('我的短片')
+    await page.getByTestId('new-project-create').click()
     await expect(page.getByTestId('canvas-empty')).toBeVisible()
     await expect(page.getByTestId('project-name')).toHaveText('我的短片')
 
@@ -61,8 +64,12 @@ test.describe('專案頁', () => {
     // 專案選單：新專案；再打開選單，剛才那個在「最近的專案」，一點就開
     await page.getByTestId('project-menu-button').click()
     await page.getByTestId('menu-new').click()
+    // 只問名字：改成自己的名字，Enter 就建；存放位置是預設的專案資料夾
+    await expect(page.getByTestId('new-project-folder')).toContainText('存在：')
+    await page.getByTestId('new-project-name').fill('雨夜的狗')
+    await page.getByTestId('new-project-name').press('Enter')
     await expect(page.getByTestId('canvas-empty')).toBeVisible()
-    await expect(page.getByTestId('project-name')).toHaveText('我的短片')
+    await expect(page.getByTestId('project-name')).toHaveText('雨夜的狗')
     await page.getByTestId('project-menu-button').click()
     await expect(page.getByTestId('menu-recent')).toHaveText(['雨夜的貓'])
     await page.getByTestId('menu-recent').click()

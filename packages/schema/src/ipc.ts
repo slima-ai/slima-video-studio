@@ -282,6 +282,22 @@ export const ipcContract = {
     request: z.object({}),
     response: ProjectStatusSchema.nullable(),
   },
+  /**
+   * 新專案：名字，加上（可選）放在哪個資料夾；沒給就放在預設的專案資料夾。會先關掉目前的。
+   * 只給畫面用，不開放給 MCP：`project.createNew` 在 MCP 白名單裡，不能讓 AI 把專案建在硬碟任何地方。
+   */
+  'project.createAt': {
+    request: z.object({
+      name: z.string().trim().min(1).max(60),
+      parentDir: z.string().min(1).optional(),
+    }),
+    response: ProjectInfoSchema,
+  },
+  /** 跳出選資料夾的視窗（給「新專案」的「更改…」）；取消回 null。只給畫面用，不開放給 MCP。 */
+  'project.pickFolder': {
+    request: z.object({}),
+    response: z.object({ dir: z.string().nullable() }),
+  },
   /** 改目前專案的名字（專案資料夾的名字不變）。只給畫面用，不開放給 MCP。 */
   'project.rename': {
     request: z.object({ name: z.string().trim().min(1).max(60) }),

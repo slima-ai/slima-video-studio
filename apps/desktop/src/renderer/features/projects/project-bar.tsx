@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { AppView } from '../../components/app-layout'
 import { call, errorText } from '../../lib/svs'
+import { NewProjectDialog } from './new-project-dialog'
 import { clockTime, useProjectStatus } from './use-project-status'
 
 const RECENT_COUNT = 5
@@ -31,6 +32,7 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
   const { status, refresh } = useProjectStatus()
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [recent, setRecent] = useState<ProjectSummary[]>([])
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -119,7 +121,8 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
               setMenuOpen(false)
             }}
             onNew={() => {
-              finishWith(call('project.createNew', {}), true)
+              setMenuOpen(false)
+              setCreating(true)
             }}
             onOpen={(dir) => {
               finishWith(call('project.open', { dir }), true)
@@ -138,6 +141,19 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
           />
         ) : null}
       </div>
+
+      {creating ? (
+        <NewProjectDialog
+          onClose={() => {
+            setCreating(false)
+          }}
+          onCreated={() => {
+            setCreating(false)
+            onNavigate('canvas')
+            refresh()
+          }}
+        />
+      ) : null}
 
       <span className="flex-1" />
 
