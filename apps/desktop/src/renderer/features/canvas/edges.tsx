@@ -32,7 +32,8 @@ function DeleteDot({
     <EdgeLabelRenderer>
       <button
         type="button"
-        aria-label="剪掉這條線"
+        // 名字分開：「剪掉這條線」只有真的剪得掉的線才有，固定的線是另一個名字（找按鈕的人才不會碰到停用的）
+        aria-label={cuttable ? '剪掉這條線' : '這條線是固定的，剪不掉'}
         aria-disabled={cuttable ? undefined : true}
         data-testid={`edge-delete-${id}`}
         data-tip={cuttable ? '剪掉這條線（可以復原）' : FIXED_EDGE_REASON}

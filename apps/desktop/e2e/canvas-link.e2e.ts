@@ -148,9 +148,10 @@ test.describe('畫布：拉線、剪線與刪除', () => {
     await fitAll(page)
     await hoverEdgeMiddle(page, 'main')
     await expect(page.locator('.svs-edge-flow').first()).toHaveAttribute('data-state', 'hover')
-    // 滑過的線和它「相連的線」都會出 ×：全部都是標淡的，原因一樣
-    const cuts = page.getByRole('button', { name: '剪掉這條線' })
+    // 滑過的線和它「相連的線」都會出 ×：固定的線是停用的，名字和剪得掉的分開
+    const cuts = page.getByRole('button', { name: '這條線是固定的，剪不掉' })
     await expect(cuts.first()).toBeVisible()
+    await expect(page.getByRole('button', { name: '剪掉這條線' })).toHaveCount(0)
     for (const cut of await cuts.all()) {
       await expect(cut).toHaveAttribute('aria-disabled', 'true')
       await expect(cut).toHaveAttribute('data-tip', /這條線是固定的/)
