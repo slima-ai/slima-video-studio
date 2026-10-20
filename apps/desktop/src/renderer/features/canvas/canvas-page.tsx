@@ -211,6 +211,27 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const grownScene = useRef<string | undefined>(undefined)
   const latestFlow = useRef(flow)
   latestFlow.current = flow
+  // 剛放下、資料還沒重新讀回來的格子：連按好幾次「新增」時，後面的要避開前面的（畫面上的節點還沒更新）
+  const justPlaced = useRef<{ rect: { x: number; y: number; w: number; h: number }; at: number }[]>(
+    [],
+  )
+  /** 現在畫布上被佔住的格子，加上剛放下、還沒出現在畫面上的。 */
+  const obstaclesNow = useCallback((): CanvasNode[] => {
+    const now = Date.now()
+    justPlaced.current = justPlaced.current.filter((p) => now - p.at < 4000)
+    const pending = justPlaced.current.map((p, index): CanvasNode => ({
+      id: `placed:${String(index)}`,
+      type: 'frame',
+      position: { x: p.rect.x, y: p.rect.y },
+      width: p.rect.w,
+      height: p.rect.h,
+      data: { kind: 'scene', title: '' },
+    }))
+    return [...latestFlow.current.nodes, ...pending]
+  }, [])
+  const rememberPlaced = useCallback((at: XY, size: { w: number; h: number }): void => {
+    justPlaced.current.push({ rect: { x: at.x, y: at.y, ...size }, at: Date.now() })
+  }, [])
   /** 把節點平移到看得見（避開上方列與左側面板）；平移動畫結束時完成，回傳畫面移了多少。 */
   const revealNode = useCallback(
     async (node: CanvasNode): Promise<{ dx: number; dy: number } | undefined> => {
@@ -570,8 +591,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         (kind === 'character' || kind === 'location' || kind === 'oneliner' || kind === 'note')
       ) {
         const size = NODE_SIZE[kind]
-        const free = freeSpot(flow.nodes, size, { x: at.x - size.w / 2, y: at.y - 20 })
+        const free = freeSpot(obstaclesNow(), size, { x: at.x - size.w / 2, y: at.y - 20 })
         spot = { x: snap(free.x), y: snap(free.y) }
+        rememberPlaced(spot, size)
       }
       if (kind === 'group') {
         // 有選取的格子：群組框住它們（選到場框就框住整場）；沒有就放一個空的在這裡
@@ -590,7 +612,16 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         // 下面只留 16，免得壓到下一列鏡頭
         const rect = around
           ? { x: around.x - 16, y: around.y - 44, w: around.w + 32, h: around.h + 36 }
-          : { x: (at?.x ?? 0) - 240, y: (at?.y ?? 0) - 150, w: 480, h: 300 }
+          : (() => {
+              // 沒有選取：放一個空的群組框在這裡；那裡被別的格子佔住就挪到空位（不然框出一堆不相干的格子）
+              const size = { w: 480, h: 300 }
+              const free = freeSpot(obstaclesNow(), size, {
+                x: (at?.x ?? 0) - 240,
+                y: (at?.y ?? 0) - 150,
+              })
+              rememberPlaced({ x: snap(free.x), y: snap(free.y) }, size)
+              return { x: snap(free.x), y: snap(free.y), ...size }
+            })()
         spot = { x: rect.x, y: rect.y }
         box = { width: rect.w, height: rect.h }
       }
@@ -848,14 +879,19 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   }
   // ── 放上圖片或影片：「上傳」選檔，或從檔案總管拖進來 ──
   /** 放在想放的地方；被佔住就挪到最近的空位（不然自動排版的場會被推開）。 */
-  const mediaSpot = useCallback((at: XY): XY => {
-    const size = NODE_SIZE.freeImage
-    const free = freeSpot(latestFlow.current.nodes, size, {
-      x: at.x - size.w / 2,
-      y: at.y - size.h / 2,
-    })
-    return { x: snap(free.x), y: snap(free.y) }
-  }, [])
+  const mediaSpot = useCallback(
+    (at: XY): XY => {
+      const size = NODE_SIZE.freeImage
+      const free = freeSpot(obstaclesNow(), size, {
+        x: at.x - size.w / 2,
+        y: at.y - size.h / 2,
+      })
+      const spot = { x: snap(free.x), y: snap(free.y) }
+      rememberPlaced(spot, size)
+      return spot
+    },
+    [obstaclesNow, rememberPlaced],
+  )
   const reportImport = useCallback(
     (result: CanvasImportResult): void => {
       if (result.added.length > 0) {
@@ -883,14 +919,24 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const importFiles = useCallback(
     (place?: XY, connectTo?: { key: string; port: string }): void => {
       const at = place ?? centerOfView()
+      // 一次選好幾個檔案時，主行程每個檔案各找空位：把現在被佔住的地方一起給它
+      // （要在算第一個檔案的位置之前取，不然第一個檔案會把自己的位置也算成「被佔住」）
+      const avoid = obstaclesNow()
+        .filter((n) => !isGroup(n))
+        .map(rectOf)
+        .filter((r) => r.w > 0 && r.h > 0)
       const spot = mediaSpot(at)
-      call('canvas.importFiles', { ...spot, ...(connectTo ? { connectTo } : {}) })
+      call('canvas.importFiles', {
+        ...spot,
+        ...(connectTo ? { connectTo } : {}),
+        avoid,
+      })
         .then(reportImport)
         .catch((error: unknown) => {
           toast.show({ message: errorText(error), tone: 'danger' })
         })
     },
-    [centerOfView, mediaSpot, reportImport, toast],
+    [centerOfView, mediaSpot, obstaclesNow, reportImport, toast],
   )
   const importDropped = async (files: readonly File[], at: XY): Promise<void> => {
     for (const [index, file] of files.entries()) {

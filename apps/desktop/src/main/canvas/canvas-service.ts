@@ -42,6 +42,7 @@ import { createCanvasRunner } from './canvas-run'
 import { UPLOAD_MODEL } from '../shots/shot-service'
 import { createCanvasCopier } from './canvas-copy'
 import { createFreeLinker } from './canvas-free-link'
+import { findFreeSpot } from './free-spot'
 import { createCanvasLinker, type CanvasLinkerDeps } from './canvas-link'
 import { projectCanvas, type StepInfo } from './projection'
 
@@ -125,6 +126,8 @@ export interface CanvasServiceDeps extends Omit<CanvasAdderDeps, 'freeNodes'>, C
 /** 選檔時一次最多放幾個；同一批從放的位置往右並排（一格寬 220，中間留 20）。 */
 const IMPORT_MAX_FILES = 20
 const IMPORT_STEP = 240
+/** 放上畫布的圖片與影片卡的大小（和畫面上的 NODE_SIZE.freeImage 一致）。 */
+const IMPORT_CARD = { w: 220, h: 190 } as const
 /** 檔名當格子的名字：拿掉副檔名，太長就截斷。 */
 const titleOf = (name: string): string => {
   const base = basename(name, extname(name)).trim()
@@ -474,9 +477,11 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
       broadcast('canvas.changed', { revision })
     },
 
-    async importFiles({ x, y, connectTo }) {
+    async importFiles({ x, y, connectTo, avoid }) {
       const paths = (await deps.pickFiles?.()) ?? []
       const result: CanvasImportResult = { added: [], skipped: [] }
+      // 畫面給了被佔住的地方：每個檔案找最近的空位，放好之後那裡也算佔住（不疊在別的格子或彼此上面）
+      const taken = avoid ? [...avoid] : undefined
       for (const [index, path] of paths.slice(0, IMPORT_MAX_FILES).entries()) {
         const name = basename(path)
         const mime = CANVAS_IMPORT_EXT[extname(path).slice(1).toLowerCase()]
@@ -493,7 +498,9 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
             result.skipped.push({ name, reason: '讀不到這個檔案' })
             continue
           }
-          const at = { x: (x ?? 60) + index * IMPORT_STEP, y: y ?? 60 }
+          const want = { x: (x ?? 60) + index * IMPORT_STEP, y: y ?? 60 }
+          const at = taken ? findFreeSpot(taken, IMPORT_CARD, want) : want
+          taken?.push({ ...at, ...IMPORT_CARD })
           result.added.push(await placeAsset(createReadStream(path), mime, name, at))
         } catch (error) {
           if (error instanceof AppError) throw error

@@ -344,6 +344,21 @@ export const CanvasImportFilesSchema = z.object({
   y: z.number().optional(),
   /** 從「第一張畫面」或「參考圖」的「＋」選檔：放上第一張圖之後直接接到這裡（同一筆復原）。 */
   connectTo: z.object({ key: z.string().min(1), port: z.string().min(1) }).optional(),
+  /**
+   * 畫面上現在被佔住的地方（畫布座標）。一次選好幾個檔案時，每個檔案從 (x, y) 往右排，
+   * 遇到被佔住的地方就挪到最近的空位，不疊在別的格子或彼此上面。沒給就照原本一個接一個排。
+   */
+  avoid: z
+    .array(
+      z.object({
+        x: z.number(),
+        y: z.number(),
+        w: z.number().nonnegative(),
+        h: z.number().nonnegative(),
+      }),
+    )
+    .max(2000)
+    .optional(),
 })
 export type CanvasImportFiles = z.infer<typeof CanvasImportFilesSchema>
 
