@@ -52,7 +52,7 @@ A short test film of 2 shots × 3 seconds cost about US$1.1 in our own run. Esti
 
 ![Settings → 一般: demo mode, appearance and the spending limit per run](docs/images/14-settings-general.png)
 
-The settings page has a row of small tags at the top that jump to each area: **一般** (General), **AI 工具連線** (AI tool connection), **服務金鑰** (Service keys), **使用的模型** (Models in use) and **實驗功能** (Experimental features: things still being tried, which may change at any time).
+The settings page has a row of small tags at the top that jump to each area: **一般** (General), **AI 工具連線** (AI tool connection), **服務金鑰** (Service keys), **模型** (Models) and **實驗功能** (Experimental features: things still being tried, which may change at any time).
 
 ### Projects and saving
 
@@ -98,7 +98,7 @@ _The real settings page of the app, with the main switch on. The picture at the 
 **Connect in one click** (needs v0.2.0 or later; the app must be open):
 
 1. Open the app → **Settings (設定)** and pick **AI 工具連線** (AI tool connection) in the row of tags at the top.
-2. Press **連接** (Connect) on the **Claude Code** card or on the **Claude Desktop** card (the button then reads "重新連接"; the light next to the name changes from "還沒連接" to "已設定"). This also switches on the main switch **允許 AI 工具連線** (Allow AI tools to connect). For Claude Desktop, quit it completely (⌘Q) and open it again; the app backs up Claude Desktop's configuration file before adding one entry and leaves your other servers untouched.
+2. Press **連接** (Connect) on the **Claude Code** card or on the **Claude Desktop** card (the button then reads "重新連接"; the light next to the name changes from "還沒連接" to "已設定"; if the app does not find Claude on this computer, the light says "沒偵測到"). This also switches on the main switch **允許 AI 工具連線** (Allow AI tools to connect). For Claude Desktop, quit it completely (⌘Q) and open it again; the app backs up Claude Desktop's configuration file before adding one entry and leaves your other servers untouched.
 3. Tell your assistant, for example: _"Use the slima-video-studio tools. Call get_capabilities, then load the getting-started guide, and make a 3-shot film from this story: …"_
 
 In **Claude Code**, type `/mcp` to check that `slima-video-studio` is connected (tools of a newly added server only appear in a **new** Claude Code session).
@@ -108,7 +108,7 @@ In **Claude Code**, type `/mcp` to check that `slima-video-studio` is connected 
 - **The 連接 buttons and the command below use a small bridge** that starts with your assistant and reads the app's current port and token from the app's own folder every time. Nothing to copy, and it keeps working after you press "change token". Use this by default; it is also the only way for Claude Desktop, which can only start commands.
 - **The manual `claude mcp add --transport http …` line (Claude Code card → 更多 → "手動連線", shown once the main switch is on) talks to the app directly** and contains the port and the secret token, so it stops working when you change the token or the port. Use it only for an MCP client that cannot start commands but can send an HTTP header.
 
-**If Claude says the connection failed or the tools do not load:** check that the app is open and that **設定 → AI 工具連線 → 允許 AI 工具連線** is switched on, then start a new Claude session. When the app is closed the assistant only sees "connection failed"; the plain-language explanation appears once the app is running.
+**If Claude says the connection failed or the tools do not load:** check that the app is open and that **設定 → AI 工具連線 → 允許 AI 工具連線** is switched on, then open a new conversation in Claude Desktop or Claude Code. When the app is closed the assistant only sees "connection failed"; the plain-language explanation appears once the app is running.
 
 **Connect from the command line (macOS, app installed in `/Applications`)** — the same thing the button does, using the app's own runtime as a small bridge; nothing is installed and no token is copied:
 
