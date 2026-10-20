@@ -38,7 +38,7 @@ export const DEFAULT_STORYBOARD_GUIDE = `1. 一個鏡頭只做一件事
 先定這一場要觀眾感覺什麼，再選鏡頭。
 - size：extreme_wide 交代環境與孤單，wide、full 是人在環境裡，medium 適合對話與動作，close_up 表現情緒，extreme_close_up 整支片一兩次就好。
 - angle：跟著情緒換，不要每一鏡都是 eye_level：high 讓人覺得渺小，low 有力量，over_shoulder 適合對話，side 看橫向的動作，back 跟著背影，dutch 表現不安（少用）。
-- cameraMove：每一場至少有一個帶目的的運鏡：push_in 強調，pan 帶出空間，follow 跟著動作，pull_out 揭露或孤立，handheld 緊張，crane 壯闊；static 留給對話、停頓與情緒落點。同一種運鏡或角度不要連續超過兩鏡。
+- cameraMove：每一場至少有一個帶目的的運鏡：push_in 強調，pan 帶出空間，follow 跟著動作，pull_out 揭露或孤立，handheld 緊張，crane 壯闊；static 留給對話、停頓與情緒落點。同一種運鏡或角度不要連續超過兩鏡。tilt 時主體不要被搖出畫面又搖回來（影片模型容易留下殘影），讓主體留在畫面裡，或搖過風景。
 - 節奏：緊張 2 到 3 秒，一般 4 到 6 秒，揭露與最後一鏡 5 秒以上。
 - 光線：同一場的光線與時段保持一致；暖柔光是安心，冷暗是孤單，強對比是緊張。
 - 鏡頭之間只有直接切，不要寫溶接、淡出。`

@@ -42,6 +42,15 @@ describe('load_guide("cinematography")', () => {
     expect(cinematography).toContain('Keep static for dialogue, a pause, an emotional landing')
   })
 
+  it('tilt 的註記：主體搖出畫面又搖回來容易殘影，要留在畫面裡或搖過風景（影片實測 Kling 3.0 看到的）', () => {
+    expect(cinematography).toContain(
+      'leave a ghost of a subject that a tilt sends out of frame and back',
+    )
+    expect(cinematography).toContain(
+      'keep the subject in frame during a tilt, or tilt across scenery',
+    )
+  })
+
   it('長度不超過現有最長指南的 1.5 倍（每個工作階段載入都要花 token）', () => {
     const longest = Math.max(
       ...GUIDE_TOPICS.filter((t) => t !== 'cinematography' && t !== 'storyboard').map(

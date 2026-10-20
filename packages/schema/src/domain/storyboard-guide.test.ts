@@ -38,6 +38,11 @@ describe('分鏡準則', () => {
     expect(DEFAULT_STORYBOARD_GUIDE).toContain('static 留給對話、停頓與情緒落點')
   })
 
+  it('tilt 的註記：主體不要搖出畫面又搖回來（容易殘影），讓主體留在畫面裡或搖過風景', () => {
+    expect(DEFAULT_STORYBOARD_GUIDE).toContain('tilt 時主體不要被搖出畫面又搖回來')
+    expect(DEFAULT_STORYBOARD_GUIDE).toContain('讓主體留在畫面裡，或搖過風景')
+  })
+
   it('沒自訂（空白）就用預設，有自訂就用自訂', () => {
     expect(resolveStoryboardGuide(undefined)).toBe(DEFAULT_STORYBOARD_GUIDE)
     expect(resolveStoryboardGuide('  \n')).toBe(DEFAULT_STORYBOARD_GUIDE)

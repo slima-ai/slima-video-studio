@@ -80,6 +80,7 @@ Camera move (cameraMove: a preset id, or null)
 - pan: sweeping a space. tilt: height or scale. follow: travelling with the subject.
 - orbit: all sides of a subject; short shots only. handheld: urgency, realism.
 - crane: rising or sinking; arrival, grand reveal, farewell. slow_motion: lingering on a moment.
+Video models can leave a ghost of a subject that a tilt sends out of frame and back: keep the subject in frame during a tilt, or tilt across scenery.
 Never combine two moves. Your own words also work ("slow push toward her face"); they go into the video prompt exactly as written, so keep them short.
 
 Pace (durationSec, 1 to 15, default 3)
