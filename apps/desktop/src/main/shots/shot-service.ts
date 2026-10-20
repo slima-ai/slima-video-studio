@@ -960,9 +960,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     })
     if (s.quick) return fail('整支影片正在生成，等它完成再執行。')
     if (blocked.length > 0) {
-      return fail(
-        '還不能跑：先要有第一張畫面。先做第一張畫面，或選「這個和後面的」連第一張畫面一起做。',
-      )
+      return fail('還不能跑：先要有第一張畫面。先做第一張畫面，或選「整條」。')
     }
     if (entries.length === 0) {
       return skippedBusy > 0
