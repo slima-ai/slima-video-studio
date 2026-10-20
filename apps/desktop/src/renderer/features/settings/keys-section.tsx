@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react'
 import { Button } from '../../components/button'
 import { SettingCard } from '../../components/setting-card'
 import { call, errorText } from '../../lib/svs'
-import { useEscape } from '../../lib/use-escape'
 
 export interface KeysSectionProps {
   keys: KeyStatus[]
@@ -58,10 +57,6 @@ function KeyRow({
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
   const [feedback, setFeedback] = useState<Feedback | undefined>()
-  const [confirmingRemove, setConfirmingRemove] = useState(false)
-  useEscape(confirmingRemove, () => {
-    setConfirmingRemove(false)
-  })
   const configured = status?.configured === true
 
   // 成功的提示過幾秒自己淡出；錯誤要留著讓人看完
@@ -159,7 +154,7 @@ function KeyRow({
             到 {name} 取得金鑰
           </a>
           {configured ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Button
                 variant="secondary"
                 size="sm"
@@ -170,49 +165,23 @@ function KeyRow({
               >
                 測試連線
               </Button>
-              {confirmingRemove ? (
-                <>
-                  <span className="text-sm text-fg-muted">移除後就不能生成了，確定嗎？</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-danger"
-                    data-testid={`key-${id}-remove-confirm`}
-                    disabled={busy}
-                    onClick={() => {
-                      setConfirmingRemove(false)
-                      void run(async () => {
-                        await call('keys.delete', { provider: id })
-                        onChanged()
-                        return { tone: 'ok', text: '已移除這把金鑰。' }
-                      })
-                    }}
-                  >
-                    確定移除
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setConfirmingRemove(false)
-                    }}
-                  >
-                    不移除
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="hover:text-danger"
-                  disabled={busy}
-                  onClick={() => {
-                    setConfirmingRemove(true)
-                  }}
-                >
-                  移除金鑰
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hover:text-danger"
+                data-testid={`key-${id}-remove`}
+                disabled={busy}
+                onClick={() => {
+                  // 不跳確認框（預設簡單）：移除後說明一聲，要用時再貼上
+                  void run(async () => {
+                    await call('keys.delete', { provider: id })
+                    onChanged()
+                    return { tone: 'ok', text: '已移除。要用時再貼上。' }
+                  })
+                }}
+              >
+                移除金鑰
+              </Button>
             </div>
           ) : null}
         </div>

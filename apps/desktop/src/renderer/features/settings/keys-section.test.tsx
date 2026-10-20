@@ -112,33 +112,27 @@ describe('KeysSection', () => {
     })
   })
 
-  it('移除金鑰要先確認；按「不移除」就什麼都不做', () => {
-    const svs = installFakeSvs()
-    renderSection([
-      { provider: 'fal', configured: true, last4: 'abcd' },
-      { provider: 'openrouter', configured: false },
-    ])
-    openMore()
-    fireEvent.click(screen.getByRole('button', { name: '移除金鑰' }))
-    expect(screen.getByText(/確定嗎/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '不移除' }))
-    expect(screen.getByRole('button', { name: '移除金鑰' })).toBeTruthy()
-    expect(svs.payloadsOf('keys.delete')).toHaveLength(0)
-  })
-
-  it('確定移除 → 送到主行程並通知上層', async () => {
+  it('移除金鑰：不跳確認框，直接送到主行程並通知上層，說「已移除。要用時再貼上。」；移除鈕離測試連線有一段距離', async () => {
     const svs = installFakeSvs()
     const { onChanged } = renderSection([
       { provider: 'fal', configured: true, last4: 'abcd' },
       { provider: 'openrouter', configured: false },
     ])
     openMore()
-    fireEvent.click(screen.getByRole('button', { name: '移除金鑰' }))
-    fireEvent.click(screen.getByTestId('key-fal-remove-confirm'))
+    expect(screen.queryByText(/確定嗎/)).toBeNull()
+    // 儲存鈕在卡的上半（貼金鑰那一行），移除鈕在「更多」裡，兩個不在同一個區塊
+    const remove = screen.getByRole('button', { name: '移除金鑰' })
+    const save = within(screen.getByTestId('key-fal')).getByRole('button', { name: '儲存' })
+    expect(remove.closest('form')).toBeNull()
+    expect(save.closest('form')).not.toBeNull()
+    fireEvent.click(remove)
     await waitFor(() => {
       expect(onChanged).toHaveBeenCalledOnce()
     })
     expect(svs.payloadsOf('keys.delete')).toEqual([{ provider: 'fal' }])
+    expect((await screen.findByTestId('key-fal-feedback')).textContent).toBe(
+      '已移除。要用時再貼上。',
+    )
   })
 
   it('這台電腦無法加密保存時：顯示原因並停用輸入', () => {

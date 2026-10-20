@@ -101,11 +101,10 @@ test.describe('第一次使用的引導與設定頁', () => {
     // 明文不會留在畫面上
     expect(await page.content()).not.toContain('SECRETVALUE')
 
-    // 移除金鑰要先確認
+    // 移除金鑰：不跳確認框，直接移除
     // 移除、測試連線收在卡片的「更多」裡
     await page.getByTestId('key-fal').getByTestId('setting-card-more').click()
     await page.getByTestId('key-fal').getByRole('button', { name: '移除金鑰' }).click()
-    await page.getByTestId('key-fal-remove-confirm').click()
     await expect(page.getByTestId('key-fal-status')).toHaveText('尚未設定')
     await page.getByLabel('fal.ai 的服務金鑰').fill('fal-e2e-SECRETVALUE-wxyz')
     await page.getByTestId('key-fal').getByRole('button', { name: '儲存' }).click()
