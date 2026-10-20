@@ -124,7 +124,6 @@ describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段�
     ['未收尾的行內程式碼', `\`${'字'.repeat(big)}`],
     ['未收尾的斜體', `*${'a'.repeat(big)}`],
     ['一堆沒收尾的圖片開頭', '![a](xx '.repeat(big / 8)],
-    ['一堆單獨的星號與底線', '*a **b ~~c `d '.repeat(big / 14)],
     ['一堆括號', `[a](${'('.repeat(big)}`],
     ['一大串沒有換行的字', '字'.repeat(big * 5)],
   ]
@@ -138,4 +137,23 @@ describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段�
       if (!name.includes('一堆沒收尾的圖片')) expect(c.textContent.length).toBeGreaterThan(big / 2)
     })
   }
+
+  it('標記很多的長輸入：時間跟長度成正比（不是 n²）——長度變 4 倍，時間不到 8 倍', () => {
+    // 機器快慢、有沒有量測覆蓋率都會讓絕對時間差很多，所以比的是兩種長度之間的倍數
+    const mixed = (n: number): string => '*a **b ~~c `d [e](f) ![g](h) '.repeat(n)
+    const best = (n: number): number => {
+      let fastest = Infinity
+      for (let run = 0; run < 3; run++) {
+        const start = performance.now()
+        view(mixed(n))
+        fastest = Math.min(fastest, performance.now() - start)
+        cleanup()
+      }
+      return Math.max(fastest, 1)
+    }
+    best(100) // 暖機
+    const small = best(250)
+    const large = best(1000)
+    expect(large / small).toBeLessThan(8)
+  })
 })
