@@ -157,8 +157,8 @@ test.describe('畫布首頁（示範模式）', () => {
     await expect.poll(() => kindCount(page, 'character')).toBe(1)
     await expect(page.getByTestId('toast')).toContainText('已新增角色「新角色」')
     await expect(page.locator('.react-flow__node.selected')).toHaveCount(1)
-    // 專案是這次新增時自動建的，上方列有專案名
-    await expect(page.getByTestId('canvas-topbar')).toContainText('我的短片')
+    // 專案是這次新增時自動建的，最上面的專案列有專案名
+    await expect(page.getByTestId('project-name')).toHaveText('我的短片')
     await page.getByTestId('palette-character').click()
     await expect.poll(() => kindCount(page, 'character')).toBe(2)
     await expect(page.getByTestId('toast')).toContainText('已新增角色「新角色 2」')

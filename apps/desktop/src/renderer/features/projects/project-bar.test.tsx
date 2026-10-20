@@ -49,7 +49,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     expect(screen.queryByTestId('spent')).toBeNull()
   })
 
-  it('狀態問不到也不壞：照樣畫出這一列', async () => {
+  it('狀態問不到也不壞：照樣畫出這一列', () => {
     installFakeSvs()
     render(<ProjectBar onNavigate={vi.fn()} demoMode />)
     expect(screen.getByTestId('project-bar')).toBeTruthy()
@@ -71,7 +71,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     expect(fake.payloadsOf('project.status')).toHaveLength(2)
   })
 
-  it('模式徽章：示範模式／真的 AI／真的 AI 但還沒填金鑰；點了到設定', async () => {
+  it('模式徽章：示範模式／真的 AI／真的 AI 但還沒填金鑰；點了到設定', () => {
     installFakeSvs({ 'project.status': () => status() })
     const go = vi.fn()
     const { rerender } = render(<ProjectBar onNavigate={go} demoMode />)
@@ -161,7 +161,9 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     fireEvent.click(screen.getByTestId('project-menu-button'))
     const recent = await screen.findAllByTestId('menu-recent')
     expect(recent.map((item) => item.textContent)).toEqual(['狗的故事', '鳥的故事'])
-    fireEvent.click(recent[0] as HTMLElement)
+    const [first] = recent
+    if (!first) throw new Error('最近的專案是空的')
+    fireEvent.click(first)
     await waitFor(() => {
       expect(go).toHaveBeenCalledWith('canvas')
     })
