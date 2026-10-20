@@ -77,7 +77,7 @@ test.describe('剪輯與成品', () => {
     const toast = page.getByTestId('toast').filter({ hasText: '已匯出到專案的「匯出」資料夾' })
     await expect(toast).toBeVisible()
     await expect(toast).toContainText('.mp4')
-    const reveal = toast.getByRole('button', { name: /在(Finder|檔案總管)顯示/ })
+    const reveal = toast.getByRole('button', { name: /在 ?(Finder|檔案總管) ?顯示/ })
     await expect(reveal).toBeVisible()
     // 一般提示 5 秒就消失；匯出的提示要讓人來得及看、來得及按
     await page.waitForTimeout(9_000)
@@ -93,7 +93,7 @@ test.describe('剪輯與成品', () => {
     await page.getByTestId('open-cut').click()
     const last = page.getByTestId('final-cut-last-export')
     await expect(last).toContainText(`最近一次匯出：${name}`)
-    await expect(last.getByRole('button', { name: /在(Finder|檔案總管)顯示/ })).toBeVisible()
+    await expect(last.getByRole('button', { name: /在 ?(Finder|檔案總管) ?顯示/ })).toBeVisible()
   })
 
   test('還沒接過成品：「接成成品」「匯出 MP4」按不了，要先按 ▶', async ({ page }) => {
