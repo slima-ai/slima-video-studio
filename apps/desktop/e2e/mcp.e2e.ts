@@ -77,4 +77,56 @@ test.describe('AI 工具連線（MCP）', () => {
     await expect(page.getByTestId('mcp-connect')).toHaveCount(0)
     await expect(fetch(url, { method: 'POST', body: '{}' })).rejects.toThrow()
   })
+
+  test('AI 工具改了鏡頭：App 的視窗收到 canvas.aiChanged（哪些節點新增、刪掉的帶標題）；只讀的工具不會', async ({
+    page,
+    userDataDir,
+  }) => {
+    const port = await freePort()
+    const enabled = await page.evaluate(
+      (p) => window.svs.invoke('settings.update', { mcp: { enabled: true, port: p } }),
+      port,
+    )
+    expect(enabled.ok).toBe(true)
+    const token = readFileSync(join(userDataDir, 'mcp-token'), 'utf8').trim()
+    const client = new Client({ name: 'e2e', version: '1' })
+    // @ts-expect-error SDK 的 Transport 型別與 exactOptionalPropertyTypes 不相容（sessionId 等欄位）
+    const transport: Transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${String(port)}/mcp`),
+      { requestInit: { headers: { Authorization: `Bearer ${token}` } } },
+    )
+    await client.connect(transport)
+    await client.callTool({ name: 'create_project', arguments: { name: 'AI 剛改' } })
+
+    // 視窗這邊把收到的事件記下來
+    await page.evaluate(() => {
+      const w = window as unknown as { __aiEvents: unknown[] }
+      w.__aiEvents = []
+      window.svs.on('canvas.aiChanged', (event) => {
+        w.__aiEvents.push(event)
+      })
+    })
+    const events = (): Promise<
+      { channel: string; added: string[]; removed: { key: string; title: string }[] }[]
+    > => page.evaluate(() => (window as unknown as { __aiEvents: never[] }).__aiEvents)
+
+    const created = await client.callTool({ name: 'create_shot', arguments: {} })
+    const id = /"id":\s*"([^"]+)"/.exec(JSON.stringify(created).replaceAll('\\"', '"'))?.[1]
+    if (!id) throw new Error('create_shot 沒有回鏡頭 id')
+    await expect.poll(async () => (await events()).length).toBe(1)
+    expect((await events())[0]?.channel).toBe('shots.create')
+    expect((await events())[0]?.added).toContain(`shot:${id}`)
+
+    await client.callTool({ name: 'delete_shots', arguments: { shotIds: [id] } })
+    await expect.poll(async () => (await events()).length).toBe(2)
+    expect((await events())[1]?.removed.map((n) => n.key)).toContain(`shot:${id}`)
+    expect((await events())[1]?.removed.find((n) => n.key === `shot:${id}`)?.title).toMatch(
+      /第 \d+ 鏡/,
+    )
+
+    await client.callTool({ name: 'list_shots', arguments: {} })
+    await page.waitForTimeout(300)
+    expect(await events()).toHaveLength(2)
+    await client.close()
+  })
 })
