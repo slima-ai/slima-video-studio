@@ -227,6 +227,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   )
   // 這次生成是從哪個一句話按的（長完時連它一起放進畫面）
   const growSource = useRef<string | undefined>(undefined)
+  // 就地改名的函式在後面才定義：畫布動作（卡片上的雙擊）用 ref 呼叫它
+  const startRenameRef = useRef<(nodeId: string) => void>(undefined)
   const grow = useGrow({
     onFinished: async () => {
       // 長完了：讀最後的資料，再一次把「一句話＋新的那一場」放進畫面。
@@ -984,6 +986,25 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             toast.show({ key: 'final', message: errorText(error), tone: 'danger' })
           })
       },
+      startRename: (nodeId) => {
+        startRenameRef.current?.(nodeId)
+      },
+      saveShotDescription: (shotKey, description) => {
+        const shotId = shotKey.replace(/^shot:/, '')
+        call('shots.update', { shotId, patch: { description } })
+          .then(() => {
+            onChanged()
+            toast.show({
+              key: 'shot-description',
+              message: '已改鏡頭描述：第一張畫面和影片要重跑才會用到',
+              action: { label: '復原', onAction: history.undo },
+            })
+          })
+          .catch((error: unknown) => {
+            onChanged()
+            toast.show({ message: errorText(error), tone: 'danger' })
+          })
+      },
       savePrompt: (shotKey, prompt) => {
         const shotId = shotKey.replace(/^shot:/, '')
         call('shots.update', { shotId, patch: { prompt } })
@@ -1162,6 +1183,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     },
     [rf],
   )
+  startRenameRef.current = startRename
   const commitRename = (target: RenameTarget, title: string): void => {
     setRenaming(undefined)
     call('canvas.rename', { key: target.key, title })
