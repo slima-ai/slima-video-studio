@@ -9,7 +9,7 @@ export const QUALITY_CHOICES: readonly {
   label: string
   hint: string
 }[] = [
-  { value: undefined, label: '預設', hint: '用設定裡選的模型（沒改過就是「平衡」那一級）' },
+  { value: undefined, label: '預設', hint: '用設定裡選的模型（通常是「平衡」）' },
   { value: 'premium', label: '高品質', hint: '畫面最好，比較貴、比較慢' },
   { value: 'balanced', label: '平衡', hint: '畫面、價錢、速度都中等' },
   { value: 'budget', label: '經濟', hint: '先出草稿：便宜、快，滿意的鏡頭再用高品質重做' },
