@@ -62,6 +62,10 @@ export interface CanvasNodeData extends Record<string, unknown> {
   glow?: boolean | undefined
   /** 剛長出來：播一次長出動畫。 */
   born?: boolean | undefined
+  /** AI 工具剛改過這一格：標「AI 剛改」，直到使用者看過或動過。 */
+  aiTouched?: boolean | undefined
+  /** AI 剛改的，正在亮一下。 */
+  aiFlash?: boolean | undefined
   /** 卡片底部一行：「3.2 秒・約 US$0.02・剛剛」。 */
   usageText?: string | undefined
   /** 失敗的圖與影片節點：白話原因。 */

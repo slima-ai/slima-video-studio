@@ -89,6 +89,7 @@ import { GettingStartedDialog } from '../help/getting-started-dialog'
 import { ShortcutsDialog } from './shortcuts-dialog'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
 import { HoverTip } from './hover-tip'
+import { useAiMarks } from './use-ai-marks'
 import { RunPlanConfirm } from './run-confirm-plan'
 import { useCanvas } from './use-canvas'
 import { ANY_ONELINER, useGrow } from './use-grow'
@@ -218,6 +219,43 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const drag = useNodeDrag({ rf, grid: GRID, base: flow.nodes, persist: persistMove })
   // 選取只存在畫面：資料重新載入時，還在的節點維持選取
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  // AI 工具（MCP）剛改過的節點：亮一下、標「AI 剛改」；刪掉的用提示說清楚、可以復原
+  const aiMarks = useAiMarks((message) => {
+    toast.show({
+      key: 'ai-removed',
+      message,
+      action: { label: '復原', onAction: history.undo },
+      ms: 10_000,
+    })
+  })
+  const { seen: aiSeen, prune: aiPrune, rekindle: aiRekindle, fresh: aiFresh } = aiMarks
+  // 使用者選取了、或滑過一下，就算看過
+  useEffect(() => {
+    aiSeen(selected)
+  }, [selected, aiSeen])
+  // 還標著「AI 剛改」的節點之後內容又變了（例如 AI 叫的生成做完）：再亮一次
+  const aiPrints = useRef(new Map<string, string>())
+  useEffect(() => {
+    aiPrune(new Set(graph.nodes.map((n) => n.key)))
+  }, [graph.nodes, aiPrune])
+  useEffect(() => {
+    const changed: string[] = []
+    for (const node of graph.nodes) {
+      if (!aiFresh.has(node.key)) continue
+      const print = JSON.stringify([
+        node.title,
+        node.summary,
+        node.status,
+        node.assetHash,
+        node.version,
+        node.error,
+      ])
+      const old = aiPrints.current.get(node.key)
+      aiPrints.current.set(node.key, print)
+      if (old !== undefined && old !== print) changed.push(node.key)
+    }
+    if (changed.length > 0) aiRekindle(changed)
+  }, [graph.nodes, aiRekindle, aiFresh])
   // 剛新增的節點：選取它、播一次長出動畫、必要時平移到看得見的地方
   const [born, setBorn] = useState<string | undefined>()
   // 一句話生成中陸續長出來的節點（節點與連到它們的線各播一次長出動畫）
@@ -397,19 +435,23 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     () =>
       drag.nodes.map((n) => {
         const picked = selected.has(n.id)
+        const aiTouched = aiMarks.fresh.has(n.id)
+        const aiFlash = aiMarks.flash.has(n.id)
         const fresh = n.id === born || grown.has(n.id)
         const busy =
           n.data.kind === 'oneliner' && (grow.running === n.id || grow.running === ANY_ONELINER)
         const glow = highlight.has(n.id)
-        if (!picked && !fresh && !busy && !glow) return n
+        if (!picked && !fresh && !busy && !glow && !aiTouched) return n
         return {
           ...n,
           ...(picked ? { selected: true } : {}),
-          ...(fresh || busy || glow
+          ...(fresh || busy || glow || aiTouched
             ? {
                 data: {
                   ...n.data,
                   ...(fresh ? { born: true } : {}),
+                  ...(aiTouched ? { aiTouched: true } : {}),
+                  ...(aiFlash ? { aiFlash: true } : {}),
                   ...(busy ? { status: 'running' as const } : {}),
                   ...(glow ? { glow: true } : {}),
                 },
@@ -417,7 +459,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             : {}),
         }
       }),
-    [drag.nodes, selected, born, grown, grow.running, highlight],
+    [drag.nodes, selected, born, grown, grow.running, highlight, aiMarks.fresh, aiMarks.flash],
   )
   const lod = useStore((s): Lod =>
     s.transform[2] >= 0.5 ? 'full' : s.transform[2] >= 0.25 ? 'mid' : 'low',
@@ -1034,6 +1076,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         })
       },
       canAdd: (portId, side) => addableAt(portId, side).length > 0,
+      aiSeen: (nodeId) => {
+        aiSeen([nodeId])
+      },
       focusNode: (nodeId) => {
         const node = rf.getNode(nodeId)
         if (!node) return
@@ -1223,6 +1268,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       rf,
       toast,
       history.undo,
+      aiSeen,
     ],
   )
 
