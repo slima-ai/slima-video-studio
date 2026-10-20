@@ -36,6 +36,7 @@ export const CHANGE_EVENTS: Partial<Record<IpcChannel, readonly DataEvent[]>> = 
   'canvas.rename': ALL,
   'canvas.paste': ALL,
   'canvas.link': ALL,
+  'canvas.relink': ALL,
   'canvas.unlink': ALL,
   'quickstart.run': ALL,
   'quickstart.upgrade': ALL,

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { choicesFor, edgeFor, explainConnection, explainLink, portKind } from './connection-rules'
+import {
+  choicesFor,
+  edgeFor,
+  explainConnection,
+  explainLink,
+  isRewirable,
+  portKind,
+  replacedEdge,
+} from './connection-rules'
 import { makeDemo } from '../../test/canvas-demo'
 
 const graph = makeDemo(4)
@@ -116,5 +124,56 @@ describe('explainLink：現在拉得動的線只有角色→鏡頭、地點→�
         graph,
       ),
     ).toBe('阿鐵已經在這一鏡')
+  })
+})
+
+describe('新線取代舊線、拖端點改接', () => {
+  // 再多一個地點：鏡頭 1 已經接著「舊倉庫」
+  const first = graph.nodes.find((n) => n.id === 'loc:0')
+  if (!first) throw new Error('demo 沒有地點')
+  const withSecond = {
+    ...graph,
+    nodes: [...graph.nodes, { ...first, id: 'loc:1', data: { ...first.data, title: '街角' } }],
+  }
+
+  it('接進單線的地點輸入點：新線取代原本那條（不用先剪線）；改接時不行，要先剪目標上原本的', () => {
+    const connection = link('loc:1', 'loc-out', 'shot:1', 'shot-ref-loc')
+    expect(explainLink(connection, withSecond)).toBe(undefined)
+    expect(explainLink(connection, withSecond, { replace: false })).toBe('這裡已經有地點了')
+    expect(replacedEdge(connection, withSecond)?.source).toBe('loc:0')
+  })
+
+  it('取代只適用地點、第一張畫面；角色可以接很多個、剪輯的槽與圖→影片不取代', () => {
+    expect(replacedEdge({ target: 'shot:1', targetHandle: 'shot-ref-char' }, withSecond)).toBe(
+      undefined,
+    )
+    expect(explainConnection(link('scene:1', 'scene-out', 'cut', 'cut-slot-1'), graph)).toBe(
+      '這一場已經接在剪輯上了',
+    )
+    // 沒有舊線可取代
+    expect(replacedEdge({ target: 'shot:0', targetHandle: 'shot-ref-loc' }, withSecond)).toBe(
+      undefined,
+    )
+  })
+
+  it('完全一樣的線還是「已經接在一起了」', () => {
+    expect(explainLink(link('loc:0', 'loc-out', 'shot:1', 'shot-ref-loc'), withSecond)).toBe(
+      '這兩個已經接在一起了',
+    )
+  })
+
+  it('可以拖端點改接的線：角色、地點、第一張畫面；固定的一串（圖、影片、剪輯）不行', () => {
+    for (const port of ['shot-ref-char', 'shot-ref-loc', 'scene-loc', 'img-first']) {
+      expect(isRewirable(port)).toBe(true)
+    }
+    for (const port of ['img-in', 'vid-in', 'cut-slot-1', 'char-ref', 'scene-story', undefined]) {
+      expect(isRewirable(port)).toBe(false)
+    }
+  })
+
+  it('edgeFor 畫出來的線預設不能改接', () => {
+    expect(
+      edgeFor(link('shot:1', 'shot-out', 'shot:1:image', 'img-in'), graph.nodes).reconnectable,
+    ).toBe(false)
   })
 })

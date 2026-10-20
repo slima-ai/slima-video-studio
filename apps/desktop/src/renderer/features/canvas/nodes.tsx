@@ -451,30 +451,46 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
       >
         <div
           className={cn(
-            'flex h-9 shrink-0 items-center justify-between gap-2 rounded-t-[7px] px-3',
+            'relative flex h-9 shrink-0 items-center justify-between gap-2 rounded-t-[7px] px-3',
             status === 'running' && 'svs-bar-running',
           )}
           style={{ background: 'color-mix(in srgb, var(--c) 14%, transparent)' }}
         >
           <Title id={id} data={data} />
           <span className="lod-mid flex shrink-0 items-center gap-1.5">
-            {status === 'running' && generating ? (
-              <span
-                data-testid="running-badge"
-                className="flex items-center gap-1 rounded-full bg-accent px-2 py-px text-[11px] text-accent-fg"
-              >
-                <Spinner label="生成中" />
-                生成中
-              </span>
-            ) : null}
-            {badge ? (
+            {/* 圖與影片的狀態標記放在內文那一行，不佔標題列（標題要完整顯示鏡頭號） */}
+            {!generating && badge ? (
               <span className="rounded-full bg-accent px-2 py-px text-[11px] text-accent-fg">
                 {badge}
               </span>
             ) : null}
-            {generating || data.kind === 'shot' ? <OpenButton id={id} /> : null}
-            {generating || data.kind === 'shot' ? <PlayButton id={id} data={data} /> : null}
-            <DeleteButton id={id} data={data} selected={selected} />
+            {generating ? (
+              // 圖與影片的標題要放得下「第 12 鏡・第一張畫面」：↗ 和刪除鈕平常收起來，
+              // 滑過、選到或鍵盤停在上面才浮出來（蓋在標題右邊）；▶ 一直都在
+              <span
+                data-testid={`header-tools-${id}`}
+                className={cn(
+                  'absolute right-[42px] top-0 flex h-9 items-center gap-1 pl-4 pr-1 transition-opacity focus-within:opacity-100',
+                  selected
+                    ? 'opacity-100'
+                    : 'pointer-events-none opacity-0 group-hover/card:pointer-events-auto group-hover/card:opacity-100',
+                )}
+                style={{
+                  background:
+                    'linear-gradient(to right, transparent, color-mix(in srgb, var(--c) 14%, var(--surface-raised)) 16px)',
+                }}
+              >
+                <OpenButton id={id} />
+                <DeleteButton id={id} data={data} selected />
+              </span>
+            ) : null}
+            {generating || data.kind === 'shot' ? (
+              <>
+                {data.kind === 'shot' ? <OpenButton id={id} /> : null}
+                <PlayButton id={id} data={data} />
+              </>
+            ) : null}
+            {generating ? null : <DeleteButton id={id} data={data} selected={selected} />}
           </span>
         </div>
         {data.kind === 'shot' ? (
@@ -539,7 +555,23 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
           {data.kind === 'oneliner' ? <OnelinerBody id={id} data={data} /> : null}
           {generating ? (
             <div className="lod-full flex h-4 items-center justify-between gap-2 text-xs text-fg-muted">
-              <span className="truncate">{ghost ? '' : data.summary}</span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                {status === 'running' ? (
+                  <span
+                    data-testid="running-badge"
+                    className="flex shrink-0 items-center gap-1 rounded-full bg-accent px-2 py-px text-[11px] text-accent-fg"
+                  >
+                    <Spinner label="生成中" />
+                    生成中
+                  </span>
+                ) : null}
+                {badge ? (
+                  <span className="shrink-0 rounded-full bg-accent px-2 py-px text-[11px] text-accent-fg">
+                    {badge}
+                  </span>
+                ) : null}
+                <span className="truncate">{ghost ? '' : data.summary}</span>
+              </span>
               {data.kind === 'video' ? <InCutSwitch id={id} on={data.inCut !== false} /> : null}
             </div>
           ) : null}

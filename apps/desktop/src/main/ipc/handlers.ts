@@ -215,6 +215,12 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     })
     return {}
   })
+  registry.registerHandler('canvas.relink', (request) => {
+    history.record('改接一條線', () => {
+      canvas.relink(request)
+    })
+    return {}
+  })
   registry.registerHandler('canvas.unlink', (request) => {
     history.record('剪掉線', () => {
       canvas.unlink(request)

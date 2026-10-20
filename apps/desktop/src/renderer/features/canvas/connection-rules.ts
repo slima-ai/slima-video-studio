@@ -21,6 +21,9 @@ const TARGETS: Readonly<Record<string, readonly string[]>> = {
 /** 輸入點一次只收一條線。 */
 const SINGLE = new Set(['img-in', 'img-first', 'vid-in', 'cut-slot', 'shot-ref-loc', 'scene-loc'])
 
+/** 手動接的單線輸入點：拉一條新線進來，會取代原本那條（地點、第一張畫面），不用先剪線。 */
+const REPLACEABLE = new Set(['img-first', 'shot-ref-loc', 'scene-loc'])
+
 /** 接錯時游標旁的一行白話提示（依輸出點）。 */
 const WRONG_TARGET: Readonly<Record<string, string>> = {
   'story-out': '一句話只能接到場',
@@ -43,6 +46,7 @@ export function explainConnection(
     targetHandle?: string | null | undefined
   },
   graph: Graph,
+  options: { replace?: boolean } = {},
 ): string | undefined {
   const { source, target, sourceHandle, targetHandle } = connection
   if (source === target) return '不能接到自己'
@@ -66,6 +70,8 @@ export function explainConnection(
     return outKind === 'char-out' ? `${from.data.title}已經在這一鏡` : '這兩個已經接在一起了'
   }
   if (SINGLE.has(inKind) && taken.length > 0) {
+    // 新拉的線取代原本那條（改接一條已經存在的線時不行：要先剪掉目標上原本的）
+    if (REPLACEABLE.has(inKind) && options.replace !== false) return undefined
     if (inKind === 'cut-slot') return '這一場已經接在剪輯上了'
     if (inKind === 'img-first') return '這張圖已經有第一張畫面了'
     if (inKind === 'shot-ref-loc' || inKind === 'scene-loc') return '這裡已經有地點了'
@@ -89,8 +95,9 @@ const LINKABLE: ReadonlySet<string> = new Set([
 export function explainLink(
   connection: Parameters<typeof explainConnection>[0],
   graph: Graph,
+  options: { replace?: boolean } = {},
 ): string | undefined {
-  const reason = explainConnection(connection, graph)
+  const reason = explainConnection(connection, graph, options)
   if (reason) return reason
   const from = graph.nodes.find((n) => n.id === connection.source)
   const to = graph.nodes.find((n) => n.id === connection.target)
@@ -100,6 +107,23 @@ export function explainLink(
     ? undefined
     : '這兩個不用手動接，它們會自己連在一起'
 }
+
+/** 新拉的線會取代掉的那條線（接進單線輸入點、而且那裡已經有一條）；沒有就是 undefined。 */
+export function replacedEdge(
+  connection: { target: string; targetHandle?: string | null | undefined },
+  graph: Graph,
+): CanvasEdge | undefined {
+  const into = portOf(
+    graph.nodes.find((n) => n.id === connection.target),
+    connection.targetHandle,
+  )
+  if (!into || !REPLACEABLE.has(portKind(into.id))) return undefined
+  return graph.edges.find((e) => e.target === connection.target && e.targetHandle === into.id)
+}
+
+/** 拖線的一端可以改接的線：目標連接點是這幾種（角色、地點、第一張畫面）。 */
+export const isRewirable = (targetPort: string | null | undefined): boolean =>
+  targetPort === 'shot-ref-char' || REPLACEABLE.has(targetPort ?? '')
 
 /** 這條線畫成主線還是參考線：兩端只要有一端是參考類就是參考線。 */
 export function toneOf(
@@ -136,6 +160,8 @@ export function edgeFor(
     type: tone === 'ref' ? 'ref' : 'flow',
     data: { tone },
     interactionWidth: 20,
+    // 預設不能拖端點改接（固定的那一串）；從資料來的、可以剪的那幾種線在 from-ipc 再打開
+    reconnectable: false,
   }
 }
 
