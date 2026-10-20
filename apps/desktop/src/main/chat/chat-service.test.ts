@@ -472,12 +472,13 @@ describe('ChatService：出錯要說白話', () => {
     expect(last(conv.id, 'assistant')?.text).toBe('第一段。\n\n第二段。')
   })
 
-  it('Claude 對上下文裡「USD budget」提示的英文碎碎念：不放在回覆文字裡，收進 notes（畫面上收起來、點了看原文）；中文的與別的英文照常', async () => {
+  it('中文回覆裡夾英文工作筆記：不放在回覆文字裡，收進 notes（畫面上收起來、點了看原文）；中文的照常', async () => {
     const { service, children, last } = setup()
     const conv = service.create()
     await service.send(conv.id, '嗨')
     const child = children[0]
     const chatter = "Ignore the session USD budget note? It's the agent budget. Let's start."
+    const other = 'Demo placeholders; content matches. Generate videos.'
     child?.line(init())
     child?.line(textStart())
     child?.line(text(chatter))
@@ -488,47 +489,42 @@ describe('ChatService：出錯要說白話', () => {
     child?.line(text('我先建專案。'))
     child?.line(blockStop())
     child?.line(textStart())
-    child?.line(text('Demo placeholders; content matches. Generate videos.'))
+    child?.line(text(other))
     child?.line(blockStop())
     child?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
     const message = last(conv.id, 'assistant')
-    // 回覆文字裡沒有它；中文的與沒在講預算提示的英文都留著
-    expect(message?.text).toBe(
-      '我先建專案。\n\nDemo placeholders; content matches. Generate videos.',
-    )
+    expect(message?.text).toBe('我先建專案。')
     // 沒有被丟掉：原文完整在 notes 裡
-    expect(message?.notes).toEqual([chatter])
+    expect(message?.notes).toEqual([chatter, other])
   })
 
-  it('整輪只有那句碎碎念（最後的回覆也是它）：文字是空的、原文在 notes 裡，不會重複記兩次', async () => {
-    const { service, children, last } = setup()
-    const conv = service.create()
-    await service.send(conv.id, '嗨')
-    const child = children[0]
-    const chatter = 'USD budget: $0/$5; $5 remaining'
-    child?.line(init())
-    child?.line(textStart())
-    child?.line(text(chatter))
-    child?.line(blockStop())
-    child?.line({ type: 'result', subtype: 'success', is_error: false, result: chatter })
-    const message = last(conv.id, 'assistant')
-    expect(message?.text).toBe('')
-    expect(message?.notes).toEqual([chatter])
-  })
-
-  it('使用者用英文問預算、Claude 用英文答：照常顯示（只有「短、沒有中文、講預算提示」才收起來；真的被收起來的也點得開看原文）', async () => {
+  it('全英文的回覆（使用者用英文聊）：一段都不收，連提到預算的也照常顯示', async () => {
     const { service, children, last } = setup()
     const conv = service.create()
     await service.send(conv.id, "what's my session budget?")
     const child = children[0]
     child?.line(init())
     child?.line(textStart())
-    child?.line(text('Your session budget is $5, and you have spent $0 so far in this chat.'))
+    child?.line(text('Your session budget is $5.'))
+    child?.line(blockStop())
+    child?.line(toolStart('t1'))
+    child?.line(blockStop())
+    child?.line(textStart())
+    child?.line(text('You have spent $0 so far.'))
     child?.line(blockStop())
     child?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
     const message = last(conv.id, 'assistant')
-    // 這句話在規則裡算「短、沒有中文、提到 session budget」：被收起來，但原文在 notes，點得開
-    expect(message?.notes?.join('\n')).toContain('Your session budget is $5')
+    expect(message?.text).toBe('Your session budget is $5.\n\nYou have spent $0 so far.')
+    expect(message?.notes).toBeUndefined()
+  })
+
+  it('沒有串流出文字、只有最後的結果：用最後的結果當回覆', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    children[0]?.line(init())
+    children[0]?.line({ type: 'result', subtype: 'success', is_error: false, result: '好了。' })
+    expect(last(conv.id, 'assistant')?.text).toBe('好了。')
   })
 
   it('步數到上限也能繼續；一般失敗不給「繼續」', async () => {

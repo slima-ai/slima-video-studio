@@ -7,8 +7,6 @@ export type StreamSignal =
   | { kind: 'text'; delta: string }
   /** 一段新的文字開始（Claude 一輪裡文字與工具呼叫交錯，每一段文字是一個區塊）：畫面上兩段之間要隔開，不能黏在一起。 */
   | { kind: 'text_start' }
-  /** 某個區塊結束（文字、思考、工具呼叫都有；呼叫端自己知道剛才是不是文字）。 */
-  | { kind: 'block_end' }
   | { kind: 'tool_start'; id: string; tool: string }
   | { kind: 'tool_result'; id: string; ok: boolean; summary: string }
   | { kind: 'auth_failed' }
@@ -77,7 +75,6 @@ export function signalsOf(event: unknown): StreamSignal[] {
       }
       return []
     }
-    if (inner.type === 'content_block_stop') return [{ kind: 'block_end' }]
     // 工具一開始就顯示（參數還在長，不等完整訊息）
     if (inner.type === 'content_block_start' && isRecord(inner.content_block)) {
       const block = inner.content_block
@@ -178,17 +175,25 @@ export function createLineParser(onEvent: (event: unknown) => void): (chunk: str
 }
 
 const CJK = /[\u3400-\u9fff\uf900-\ufaff]/u
-const BUDGET_NOTE = /\b(?:usd|session|agent)\s+budget\b|budget\s+note/iu
-/** 一段文字最長這麼長才當成「對預算提示的碎碎念」（長的是真的在回答使用者）。 */
-const CHATTER_MAX_CHARS = 240
+/** 一段文字最長這麼長才可能是「工作筆記」（長的是真的在回答使用者）。 */
+const NOTE_MAX_CHARS = 240
 
 /**
- * Claude 在 `--max-budget-usd` 之下，上下文裡會有一行 Claude Code 自己附的「USD budget: $0/$5; $5 remaining」。
- * 它有時把對那行字的反應當成回覆寫出來（「Ignore the session USD budget note? It's the agent budget. Let's start.」）：
- * 整段沒有中文、很短、又在講這個預算提示，就是這種碎碎念，不給使用者看。
- * 使用者自己用英文聊預算的長回答不受影響（只認短的、沒有中文的、提到 USD／session／agent budget 或 budget note 的）。
+ * Claude 一輪裡文字與工具交錯，每一段文字是一個區塊；它有時把工作筆記寫成一段英文
+ * （「Ignore the session USD budget note? …」「User explicitly asked; proceed.」）。
+ * 這一輪回覆的**其他段落有中文**、而這一段**很短、沒有中文**時，把它收成「工作筆記」（畫面上收起來、點了看原文）。
+ * 使用者用英文聊、整則回覆都是英文時，一段都不收（不然會把英文使用者的回答收掉）。
+ * 回傳：留在回覆文字裡的（段落之間空一行）與收起來的筆記（原文）。
  */
-export function isBudgetChatter(text: string): boolean {
-  const t = text.trim()
-  return t !== '' && t.length <= CHATTER_MAX_CHARS && !CJK.test(t) && BUDGET_NOTE.test(t)
+export function splitNotes(segments: readonly string[]): { text: string; notes: string[] } {
+  const hasCjk = segments.some((segment) => CJK.test(segment))
+  const kept: string[] = []
+  const notes: string[] = []
+  for (const segment of segments) {
+    const t = segment.trim()
+    if (t === '') continue
+    if (hasCjk && t.length <= NOTE_MAX_CHARS && !CJK.test(t)) notes.push(t)
+    else kept.push(t)
+  }
+  return { text: kept.join('\n\n'), notes }
 }

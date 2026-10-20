@@ -25,7 +25,7 @@ import {
 } from './chat-store'
 import type { ClaudeCheck } from './claude-check'
 import { startClaudeProcess, type ClaudeProcess, type SpawnClaude } from './claude-process'
-import { isBudgetChatter, type StreamSignal } from './stream-events'
+import { splitNotes, type StreamSignal } from './stream-events'
 import { toolDoingLabel, toolLabel } from './tool-labels'
 
 export interface ChatServiceDeps {
@@ -94,8 +94,8 @@ interface Turn {
   /** 已經因為找不到 Claude 那邊的紀錄而改開過新對話了（一輪只做一次）。 */
   fellBack?: boolean
   assistant: ChatPanelMessage
-  /** 現在這一段文字從訊息文字的第幾個字開始（文字進行中才有）。 */
-  textStart?: number | undefined
+  /** 這一輪的每一段文字（Claude 的文字與工具交錯，一段文字一個區塊）；訊息的文字與筆記從它整理出來。 */
+  segments: string[]
   steps: Map<string, ChatStep>
   emitTimer?: NodeJS.Timeout | undefined
   interruptTimer?: NodeJS.Timeout | undefined
@@ -279,13 +279,9 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     const message = turn.assistant
     // 這一輪的改動合成一步復原（做到一半被停止、出錯、行程當掉也一樣：已經做的改動一步就能退）
     turn.endHistory?.()
-    if (outcome.text !== undefined && message.text.trim() === '') {
-      // 這一輪最後的回覆如果就是那種碎碎念，一樣收起來
-      if (isBudgetChatter(outcome.text)) {
-        if (!(message.notes ?? []).includes(outcome.text.trim())) {
-          message.notes = [...(message.notes ?? []), outcome.text.trim()]
-        }
-      } else message.text = outcome.text
+    // 一路上都沒有串流出文字（只有最後的結果）：用最後的回覆
+    if (outcome.text !== undefined && turn.segments.length === 0 && message.text.trim() === '') {
+      message.text = outcome.text
     }
     message.steps = message.steps.map((step) =>
       step.status === 'running'
@@ -330,31 +326,24 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
         return
       case 'text_start':
         if (!turn) return
-        // 一輪裡文字與工具交錯：前一段文字後面要隔開，不能黏在一起（「…完成。Generate videos.」）
-        if (turn.assistant.text !== '' && !turn.assistant.text.endsWith('\n')) {
-          turn.assistant.text += '\n\n'
-        }
-        turn.textStart = turn.assistant.text.length
+        // 一輪裡文字與工具交錯：每一段文字各自一段，之間隔開，不會黏成「…完成。Generate videos.」
+        turn.segments.push('')
         return
       case 'text':
         if (!turn) return
-        turn.assistant.text += signal.delta
-        scheduleEmit(conv, turn)
-        return
-      case 'block_end':
-        if (turn?.textStart === undefined) return
-        // 剛結束的是一段文字：整段只有英文、又在講預算提示（Claude Code 在上下文附的「USD budget: …」，
-        // 它有時會把對那行字的反應當成回覆寫出來）就不給使用者看
+        if (turn.segments.length === 0) turn.segments.push('')
         {
-          const block = turn.assistant.text.slice(turn.textStart)
-          if (isBudgetChatter(block)) {
-            // 收起來而不是丟掉：畫面上一行小字，點了看原文
-            turn.assistant.notes = [...(turn.assistant.notes ?? []), block.trim()]
-            turn.assistant.text = turn.assistant.text.slice(0, turn.textStart).trimEnd()
-            scheduleEmit(conv, turn)
-          }
+          const at = turn.segments.length - 1
+          turn.segments[at] = (turn.segments[at] ?? '') + signal.delta
         }
-        turn.textStart = undefined
+        {
+          // 其他段落有中文、這一段又短又沒有中文的英文工作筆記：收起來（點了看原文），不是丟掉
+          const { text, notes } = splitNotes(turn.segments)
+          turn.assistant.text = text
+          if (notes.length > 0) turn.assistant.notes = notes
+          else delete turn.assistant.notes
+        }
+        scheduleEmit(conv, turn)
         return
       case 'tool_start': {
         if (!turn || turn.steps.has(signal.id)) return
@@ -599,6 +588,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
           state: 'streaming',
         },
         steps: new Map(),
+        segments: [],
         userText: text,
       }
       // 先佔住這一輪（上面），再檢查：檢查要花一點時間，期間不能再送第二則
