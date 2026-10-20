@@ -93,9 +93,15 @@ export function useAiMarks(onRemoved: (message: string) => void): {
     [stopFlash],
   )
 
+  // 畫面上出現過的節點：事件比畫布重新載入早到時，新節點還不在畫面裡，不能當成「不見了」
+  const known = useRef(new Set<string>())
   const prune = useCallback((existing: ReadonlySet<string>): void => {
+    const gone = [...known.current].filter((key) => !existing.has(key))
+    for (const key of existing) known.current.add(key)
+    for (const key of gone) known.current.delete(key)
+    if (gone.length === 0) return
     setFresh((now) => {
-      const next = new Set([...now].filter((key) => existing.has(key)))
+      const next = new Set([...now].filter((key) => !gone.includes(key)))
       return next.size === now.size ? now : next
     })
   }, [])

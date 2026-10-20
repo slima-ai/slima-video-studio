@@ -236,6 +236,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const aiPrints = useRef(new Map<string, string>())
   useEffect(() => {
     aiPrune(new Set(graph.nodes.map((n) => n.key)))
+  }, [graph.nodes, aiPrune])
+  useEffect(() => {
     const changed: string[] = []
     for (const node of graph.nodes) {
       if (!aiFresh.has(node.key)) continue
@@ -252,7 +254,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       if (old !== undefined && old !== print) changed.push(node.key)
     }
     if (changed.length > 0) aiRekindle(changed)
-  }, [graph.nodes, aiPrune, aiRekindle, aiFresh])
+  }, [graph.nodes, aiRekindle, aiFresh])
   // 剛新增的節點：選取它、播一次長出動畫、必要時平移到看得見的地方
   const [born, setBorn] = useState<string | undefined>()
   // 一句話生成中陸續長出來的節點（節點與連到它們的線各播一次長出動畫）
