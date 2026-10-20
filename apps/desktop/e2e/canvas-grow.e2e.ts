@@ -117,6 +117,11 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await expect(confirm).toContainText('這一步只寫分鏡')
     await expect(confirm).toContainText('下一步才生圖片和影片')
     await expect(confirm).toContainText('全部生成')
+    await expect(confirm).toContainText('準確的預估')
+    await expect(confirm).toContainText('旁白與配樂不在這一步')
+    await expect(page.getByTestId('oneliner-sound-note')).toContainText(
+      '只在「一次做完整支」時自動加',
+    )
     await expect(confirm).toContainText('示範模式')
     // 兩個價錢都寫出來：這一步、下一步
     await expect(confirm).toContainText(/約 US\$\d+\.\d\d/)
@@ -127,7 +132,23 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false', {
       timeout: 60_000,
     })
-    await expect(page.getByTestId('toast').filter({ hasText: '分鏡寫好了' })).toBeVisible()
+    const done = page.getByTestId('toast').filter({ hasText: '分鏡寫好了' })
+    await expect(done).toBeVisible()
+    // 分鏡寫好之後，畫面上提到「全部生成」的價錢只有一個來源：右上角那顆；提示不寫數字
+    await expect(done).not.toContainText('US$')
+    await expect(page.getByTestId('run-all')).toContainText(/全部生成（約 US\$\d+\.\d\d/)
+    const prices = await page.evaluate(() => {
+      const found = new Set<string>()
+      for (const el of document.querySelectorAll(
+        '[data-testid="toast"], [data-testid="run-all"]',
+      )) {
+        const text = el.textContent
+        if (!text.includes('全部生成')) continue
+        for (const m of text.matchAll(/US\$\d+\.\d\d/g)) found.add(m[0])
+      }
+      return [...found]
+    })
+    expect(prices).toHaveLength(1)
     await expect.poll(() => kindCount(page, 'scene')).toBe(1)
     expect(await kindCount(page, 'shot')).toBe(3)
     // 圖片、影片、成品都還沒生成

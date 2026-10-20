@@ -241,7 +241,8 @@ describe('GrowConfirm', () => {
     expect(
       screen.getByText(/下一步才生圖片和影片：4 張第一張畫面、4 支影片，約 US\$3\.20/),
     ).toBeTruthy()
-    expect(screen.getByText(/全部生成/)).toBeTruthy()
+    expect(screen.getByText(/全部生成.*準確的預估/)).toBeTruthy()
+    expect(screen.getByText(/旁白與配樂不在這一步/)).toBeTruthy()
     // 不會出現整支的步驟
     expect(screen.queryByText('接成一支完整的片子')).toBeNull()
     expect(screen.getByTestId('run-confirm-ok').textContent).toBe('產生分鏡')

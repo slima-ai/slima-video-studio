@@ -47,9 +47,8 @@ export function useGrow(options: {
   const [finishing, setFinishing] = useState(false)
   const runningRef = useRef(running)
   runningRef.current = running
-  // 正在跑的是哪一步（結束時的提示不同）、以及下一步大概多少錢
+  // 正在跑的是哪一步（結束時的提示不同）
   const stageRef = useRef<GrowStage>('full')
-  const nextUsdRef = useRef<number | undefined>(undefined)
   const onFinished = useRef(options.onFinished)
   onFinished.current = options.onFinished
 
@@ -77,12 +76,10 @@ export function useGrow(options: {
           },
         }
         if (progress.status === 'succeeded' && stageRef.current === 'storyboard') {
-          const next = nextUsdRef.current
           toast.show({
             key: 'grow',
-            message: `分鏡寫好了，圖片和影片還沒生成。看過、改好，再按右上角的「全部生成」${
-              next === undefined ? '' : `（約 US$${next.toFixed(2)}）`
-            }`,
+            message:
+              '分鏡寫好了，圖片和影片還沒生成。看過、改好，再按右上角的「全部生成」，那裡會給你準確的預估',
             action,
             ms: 12_000,
           })
@@ -180,7 +177,6 @@ export function useGrow(options: {
       if (!pending) return
       setRunning(pending.nodeId)
       stageRef.current = pending.stage
-      nextUsdRef.current = pending.nextUsd
       call(
         'quickstart.run',
         request(pending.nodeId, pending.params, pending.variation, replace, pending.stage),

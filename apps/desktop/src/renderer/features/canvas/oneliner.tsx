@@ -170,7 +170,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
           data-testid="oneliner-sound"
         >
           <legend className="sr-only">聲音</legend>
-          <span className={FIELD_LABEL} aria-hidden title="只有「一次做完整支」會用到">
+          <span className={FIELD_LABEL} aria-hidden title="只有「一次做完整支」會自動加">
             聲音
           </span>
           {SOUND_CHOICES.map(({ key, label, hint }) => (
@@ -192,6 +192,14 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
             </label>
           ))}
         </fieldset>
+      ) : null}
+      {picked ? (
+        <p
+          className="lod-full text-[11px] leading-snug text-fg-muted"
+          data-testid="oneliner-sound-note"
+        >
+          聲音只在「一次做完整支」時自動加；先產生分鏡的話，影片生成後到成品面板的「聲音」區加。
+        </p>
       ) : null}
       {growStory && picked ? (
         <div className="nodrag lod-full flex flex-col gap-1.5">
