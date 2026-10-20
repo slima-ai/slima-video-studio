@@ -116,6 +116,11 @@ interface ShotError {
 export interface ShotRunItem {
   shotId: string
   redo?: 'video' | 'all' | undefined
+  /**
+   * 明確要做哪一段（畫布 ▶ 旁的選單）：frame 只做第一張畫面、video 只做影片（要先有第一張畫面）、
+   * all 圖和影片都做。明確指定的不看「需要重跑」、有結果的就是重做。
+   */
+  exact?: 'frame' | 'video' | 'all' | undefined
 }
 
 /** 一個鏡頭這次要做什麼：只補沒有的（apply），或重做影片、整個鏡頭。 */
@@ -896,6 +901,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const { shots } = handle.repos
     const wanted = new Map(items.map((item) => [item.shotId, item]))
     const entries: ShotRunEntry[] = []
+    /** 明確要「只跑影片」、但還沒有第一張畫面的鏡頭（還不能跑）。 */
+    const blocked: number[] = []
     let skippedBusy = 0
     const staleNow = staleOf(s)
     for (const shot of shots.list()) {
@@ -908,6 +915,26 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       const hasFrame = shots.listTakes(shot.id, 'first_frame').some((t) => t.adopted)
       const hasVideo = shots.listTakes(shot.id, 'video').some((t) => t.adopted)
       const stale = staleNow.get(shot.id)
+      if (item.exact) {
+        if (item.exact === 'frame') {
+          entries.push({ shot, mode: 'frame', image: true, video: false, redo: hasFrame })
+        } else if (item.exact === 'video') {
+          if (!hasFrame) {
+            blocked.push(shot.number)
+            continue
+          }
+          entries.push({ shot, mode: 'video', image: false, video: true, redo: hasVideo })
+        } else {
+          entries.push({
+            shot,
+            mode: 'all',
+            image: true,
+            video: true,
+            redo: hasFrame || hasVideo,
+          })
+        }
+        continue
+      }
       // 按在「需要重跑」的節點上就是補跑它（不用再多做一次重做）
       const redo =
         item.redo === 'all' ? !stale?.image : item.redo === 'video' ? !stale?.video : false
@@ -932,6 +959,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       estimateIsLowerBound,
     })
     if (s.quick) return fail('整支影片正在生成，等它完成再執行。')
+    if (blocked.length > 0) {
+      return fail('還不能跑：先要有第一張畫面。先做第一張畫面，或選「整條」。')
+    }
     if (entries.length === 0) {
       return skippedBusy > 0
         ? fail('這些鏡頭都正在生成中。')
@@ -1541,7 +1571,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
 
     async rejoin() {
       const s = need()
-      if (s.quick) throw invalid('整支影片正在生成，等它完成再重新接片。')
+      if (s.quick) throw invalid('整支影片正在生成，等它完成再接成成品。')
       const { handle } = s
       if (handle.repos.shots.list().length === 0) throw invalid('還沒有鏡頭可以接。')
       // 只接「放進成品」的鏡頭
@@ -1567,7 +1597,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       if (!queue || !tool) {
         throw new AppError({
           code: 'internal_error',
-          userMessage: '找不到影片處理工具（FFmpeg），沒辦法接片。',
+          userMessage: '找不到影片處理工具（FFmpeg），沒辦法接成成品。',
         })
       }
       const joined = await createStudioServices({

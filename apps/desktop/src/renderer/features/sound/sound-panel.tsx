@@ -167,7 +167,11 @@ export function SoundPanel() {
       </p>
     )
   } else if (state.final === undefined) {
-    body = <p className="text-sm text-fg-muted">先把鏡頭接成一支影片，再來加聲音。</p>
+    body = (
+      <p className="text-sm text-fg-muted">
+        先把鏡頭接成成品（在畫布的剪輯上按「接成成品」），再來加聲音。
+      </p>
+    )
   } else if (!hasClips) {
     body =
       add.step === 'confirm' ? (

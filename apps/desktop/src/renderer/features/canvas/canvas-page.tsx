@@ -47,6 +47,8 @@ import {
   type Lod,
   type CanvasActions,
   type PortRef,
+  type RunEstimate,
+  type RunScope,
 } from './canvas-actions'
 import { FIT_OPTIONS, NODE_SIZE, type CanvasEdge, type CanvasNode } from './canvas-model'
 import './canvas.css'
@@ -79,6 +81,7 @@ import { AddMenu, CONTEXT_W, ContextMenu, type MenuEntry } from './menus'
 import { PerfOverlay } from './perf-overlay'
 import { NODE_TYPES } from './nodes'
 import { RenameBox, isRenamable, type RenameTarget } from './rename-box'
+import { RunModeMenu } from './run-mode-menu'
 import { SceneLabels } from './scene-labels'
 import { GettingStartedDialog } from '../help/getting-started-dialog'
 import { ShortcutsDialog } from './shortcuts-dialog'
@@ -208,6 +211,27 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const grownScene = useRef<string | undefined>(undefined)
   const latestFlow = useRef(flow)
   latestFlow.current = flow
+  // 剛放下、資料還沒重新讀回來的格子：連按好幾次「新增」時，後面的要避開前面的（畫面上的節點還沒更新）
+  const justPlaced = useRef<{ rect: { x: number; y: number; w: number; h: number }; at: number }[]>(
+    [],
+  )
+  /** 現在畫布上被佔住的格子，加上剛放下、還沒出現在畫面上的。 */
+  const obstaclesNow = useCallback((): CanvasNode[] => {
+    const now = Date.now()
+    justPlaced.current = justPlaced.current.filter((p) => now - p.at < 4000)
+    const pending = justPlaced.current.map((p, index): CanvasNode => ({
+      id: `placed:${String(index)}`,
+      type: 'frame',
+      position: { x: p.rect.x, y: p.rect.y },
+      width: p.rect.w,
+      height: p.rect.h,
+      data: { kind: 'scene', title: '' },
+    }))
+    return [...latestFlow.current.nodes, ...pending]
+  }, [])
+  const rememberPlaced = useCallback((at: XY, size: { w: number; h: number }): void => {
+    justPlaced.current.push({ rect: { x: at.x, y: at.y, ...size }, at: Date.now() })
+  }, [])
   /** 把節點平移到看得見（避開上方列與左側面板）；平移動畫結束時完成，回傳畫面移了多少。 */
   const revealNode = useCallback(
     async (node: CanvasNode): Promise<{ dx: number; dy: number } | undefined> => {
@@ -299,6 +323,29 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     if (pan) void rf.setViewport({ ...viewport, ...pan }, { duration: 300 })
   }, [panelKey, rf])
   const { ask: askRun } = runner
+  // ▶ 滑過與 ▾ 選單看的預估：照目前選的品質等級問後端這一次會跑什麼、大概多少錢（或為什麼還不能跑）
+  const runQuality = runner.quality
+  const estimateRun = useCallback(
+    async (nodeId: string, scope?: RunScope): Promise<RunEstimate | undefined> => {
+      try {
+        const plan = await call('canvas.runPlan', {
+          keys: [nodeId],
+          ...(scope ? { scope } : {}),
+          ...(runQuality ? { quality: runQuality } : {}),
+        })
+        return {
+          usd: plan.estimatedUsd,
+          lowerBound: plan.estimateIsLowerBound,
+          nothing: plan.ok && plan.steps.length === 0,
+          ...(plan.ok ? {} : { issue: plan.issue ?? '現在不能跑。' }),
+        }
+      } catch {
+        return undefined
+      }
+    },
+    [runQuality],
+  )
+  const [runMenu, setRunMenu] = useState<{ nodeId: string; anchor: ConfirmAnchor }>()
   // 展開或收合步驟：下面的列往下讓開或收回來（300ms），只在這段時間給格子加位移動畫
   const [shifting, setShifting] = useState(false)
   const shiftTimer = useRef<number | undefined>(undefined)
@@ -536,7 +583,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         place ??
         (kind === 'oneliner'
           ? ONELINER_HOME
-          : kind === 'note' || kind === 'group'
+          : kind === 'note' || kind === 'group' || kind === 'character' || kind === 'location'
             ? centerOfView()
             : undefined)
       if (
@@ -544,8 +591,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         (kind === 'character' || kind === 'location' || kind === 'oneliner' || kind === 'note')
       ) {
         const size = NODE_SIZE[kind]
-        const free = freeSpot(flow.nodes, size, { x: at.x - size.w / 2, y: at.y - 20 })
+        const free = freeSpot(obstaclesNow(), size, { x: at.x - size.w / 2, y: at.y - 20 })
         spot = { x: snap(free.x), y: snap(free.y) }
+        rememberPlaced(spot, size)
       }
       if (kind === 'group') {
         // 有選取的格子：群組框住它們（選到場框就框住整場）；沒有就放一個空的在這裡
@@ -564,7 +612,16 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         // 下面只留 16，免得壓到下一列鏡頭
         const rect = around
           ? { x: around.x - 16, y: around.y - 44, w: around.w + 32, h: around.h + 36 }
-          : { x: (at?.x ?? 0) - 240, y: (at?.y ?? 0) - 150, w: 480, h: 300 }
+          : (() => {
+              // 沒有選取：放一個空的群組框在這裡；那裡被別的格子佔住就挪到空位（不然框出一堆不相干的格子）
+              const size = { w: 480, h: 300 }
+              const free = freeSpot(obstaclesNow(), size, {
+                x: (at?.x ?? 0) - 240,
+                y: (at?.y ?? 0) - 150,
+              })
+              rememberPlaced({ x: snap(free.x), y: snap(free.y) }, size)
+              return { x: snap(free.x), y: snap(free.y), ...size }
+            })()
         spot = { x: rect.x, y: rect.y }
         box = { width: rect.w, height: rect.h }
       }
@@ -822,14 +879,19 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   }
   // ── 放上圖片或影片：「上傳」選檔，或從檔案總管拖進來 ──
   /** 放在想放的地方；被佔住就挪到最近的空位（不然自動排版的場會被推開）。 */
-  const mediaSpot = useCallback((at: XY): XY => {
-    const size = NODE_SIZE.freeImage
-    const free = freeSpot(latestFlow.current.nodes, size, {
-      x: at.x - size.w / 2,
-      y: at.y - size.h / 2,
-    })
-    return { x: snap(free.x), y: snap(free.y) }
-  }, [])
+  const mediaSpot = useCallback(
+    (at: XY): XY => {
+      const size = NODE_SIZE.freeImage
+      const free = freeSpot(obstaclesNow(), size, {
+        x: at.x - size.w / 2,
+        y: at.y - size.h / 2,
+      })
+      const spot = { x: snap(free.x), y: snap(free.y) }
+      rememberPlaced(spot, size)
+      return spot
+    },
+    [obstaclesNow, rememberPlaced],
+  )
   const reportImport = useCallback(
     (result: CanvasImportResult): void => {
       if (result.added.length > 0) {
@@ -857,14 +919,24 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const importFiles = useCallback(
     (place?: XY, connectTo?: { key: string; port: string }): void => {
       const at = place ?? centerOfView()
+      // 一次選好幾個檔案時，主行程每個檔案各找空位：把現在被佔住的地方一起給它
+      // （要在算第一個檔案的位置之前取，不然第一個檔案會把自己的位置也算成「被佔住」）
+      const avoid = obstaclesNow()
+        .filter((n) => !isGroup(n))
+        .map(rectOf)
+        .filter((r) => r.w > 0 && r.h > 0)
       const spot = mediaSpot(at)
-      call('canvas.importFiles', { ...spot, ...(connectTo ? { connectTo } : {}) })
+      call('canvas.importFiles', {
+        ...spot,
+        ...(connectTo ? { connectTo } : {}),
+        avoid,
+      })
         .then(reportImport)
         .catch((error: unknown) => {
           toast.show({ message: errorText(error), tone: 'danger' })
         })
     },
-    [centerOfView, mediaSpot, reportImport, toast],
+    [centerOfView, mediaSpot, obstaclesNow, reportImport, toast],
   )
   const importDropped = async (files: readonly File[], at: XY): Promise<void> => {
     for (const [index, file] of files.entries()) {
@@ -958,7 +1030,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         onExpanded(next)
       },
       rejoinFinal: () => {
-        toast.show({ key: 'final', message: '重新接片中…' })
+        toast.show({ key: 'final', message: '接成成品中…' })
         call('shots.rejoin', {})
           .then(() => {
             onChanged()
@@ -1083,8 +1155,12 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       openPanel: (nodeId) => {
         setPanel(panelTargetOf(nodeId))
       },
-      run: (nodeId, anchor) => {
-        askRun({ keys: [nodeId] }, anchor)
+      run: (nodeId, anchor, scope) => {
+        askRun({ keys: [nodeId], ...(scope ? { scope } : {}) }, anchor)
+      },
+      runEstimate: (nodeId, scope) => estimateRun(nodeId, scope),
+      openRunMenu: (nodeId, anchor) => {
+        setRunMenu({ nodeId, anchor })
       },
       toggleInCut: (nodeId) => {
         const node = rf.getNode(nodeId)
@@ -1099,8 +1175,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             toast.show({
               key: 'canvas-incut',
               message: on
-                ? `${name}放回成品：接成品時會用到它。`
-                : `${name}不放進成品：接成品時會跳過這一鏡，剪輯的鏡數跟著少一。`,
+                ? `${name}放回成品：接成成品時會用到它。`
+                : `${name}不放進成品：接成成品時會跳過這一鏡，剪輯的鏡數跟著少一。`,
               action: { label: '復原', onAction: history.undo },
             })
           })
@@ -1618,6 +1694,10 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 onConnect={linking.onConnect}
                 onConnectStart={linking.onConnectStart}
                 onConnectEnd={linking.onConnectEnd}
+                onReconnect={linking.onReconnect}
+                onReconnectStart={linking.onReconnectStart}
+                onReconnectEnd={linking.onReconnectEnd}
+                reconnectRadius={14}
                 isValidConnection={linking.isValidConnection}
                 autoPanOnConnect
                 connectionRadius={28}
@@ -1802,6 +1882,21 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                   onQuality={runner.setQuality}
                   onOk={runner.confirm}
                   onCancel={runner.cancel}
+                />
+              ) : null}
+              {runMenu ? (
+                <RunModeMenu
+                  kind={rf.getNode(runMenu.nodeId)?.data.kind === 'video' ? 'video' : 'image'}
+                  anchor={runMenu.anchor}
+                  estimate={(scope) => estimateRun(runMenu.nodeId, scope)}
+                  onPick={(scope) => {
+                    const { nodeId, anchor } = runMenu
+                    setRunMenu(undefined)
+                    askRun({ keys: [nodeId], scope }, anchor)
+                  }}
+                  onClose={() => {
+                    setRunMenu(undefined)
+                  }}
                 />
               ) : null}
               {grow.confirm ? (

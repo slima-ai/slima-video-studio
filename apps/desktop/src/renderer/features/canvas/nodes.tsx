@@ -6,7 +6,13 @@ import { Spinner } from '../../components/skeleton'
 import { useToast } from '../../components/toast'
 import { assetUrl } from '../../lib/asset'
 import { cn } from '../../lib/cn'
-import { useCanvasActions, useConnectedPorts, useLinking, useLod } from './canvas-actions'
+import {
+  useCanvasActions,
+  useConnectedPorts,
+  useLinking,
+  useLod,
+  type RunEstimate,
+} from './canvas-actions'
 import { isRenamable } from './rename-box'
 import { choicesFor } from './connection-rules'
 import { blockedReason, deleteTip } from './delete-plan'
@@ -179,8 +185,9 @@ function DeleteButton({
 
 /** ▶ 執行；生成中換成 ■ 停止。說明用 data-tip（畫布統一顯示，確認面板打開時就收起來）。 */
 function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
-  const { run, stopNode } = useCanvasActions()
+  const { run, runEstimate, openRunMenu, stopNode } = useCanvasActions()
   const status = data.status
+  const [tipText, setTipText] = useState<string>()
   if (status === 'running' || status === 'queued') {
     if (!stopNode) return null
     return (
@@ -199,20 +206,52 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
     )
   }
   if (!run) return null
+  const generating = data.kind === 'image' || data.kind === 'video'
   return (
-    <button
-      type="button"
-      aria-label={status === 'failed' ? '重試' : '執行'}
-      data-tip={runTipOf(data)}
-      data-testid={`run-${id}`}
-      className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
-      onClick={(event) => {
-        run(id, anchorOf(event.currentTarget))
-      }}
-    >
-      {status === 'failed' ? '重試' : '▶'}
-    </button>
+    <span className="flex shrink-0 items-center">
+      <button
+        type="button"
+        aria-label={status === 'failed' ? '重試' : '執行'}
+        data-tip={tipText ? `${runTipOf(data)}・${tipText}` : runTipOf(data)}
+        data-testid={`run-${id}`}
+        className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
+        onPointerEnter={() => {
+          // 滑過就去問這一次大概多少錢，說明上補一句（說明 350 毫秒後才出現，來得及）
+          setTipText(undefined)
+          void runEstimate?.(id).then((estimate) => {
+            if (estimate) setTipText(estimateText(estimate))
+          })
+        }}
+        onClick={(event) => {
+          run(id, anchorOf(event.currentTarget))
+        }}
+      >
+        {status === 'failed' ? '重試' : '▶'}
+      </button>
+      {generating && openRunMenu ? (
+        <button
+          type="button"
+          aria-label="選要跑多少"
+          aria-haspopup="menu"
+          data-tip="只跑這個、這個和後面的、整條"
+          data-testid={`run-mode-${id}`}
+          className="nodrag -ml-1 rounded px-1 py-0.5 text-[10px] text-fg-muted hover:bg-fg/10 hover:text-fg"
+          onClick={(event) => {
+            openRunMenu(id, anchorOf(event.currentTarget))
+          }}
+        >
+          ▾
+        </button>
+      ) : null}
+    </span>
   )
+}
+
+/** 預估的一句話：約多少錢、都生成好了、或為什麼還不能跑。 */
+export function estimateText(estimate: RunEstimate): string {
+  if (estimate.issue) return estimate.issue
+  if (estimate.nothing) return '都已經生成好了'
+  return `預估約 US$${estimate.usd.toFixed(2)}${estimate.lowerBound ? '（至少）' : ''}`
 }
 
 /** 生成中、排隊中：骨架畫面，寫這一步在做什麼、已經幾秒（排隊中說明在等什麼）。 */
@@ -394,7 +433,7 @@ function InCutSwitch({ id, on }: { id: string; on: boolean }) {
       role="switch"
       aria-checked={on}
       aria-label="放進成品"
-      title={on ? '這一鏡會接進成品；關掉就跳過它' : '這一鏡接成品時會跳過；打開才放進去'}
+      title={on ? '這一鏡會接進成品；關掉就跳過它' : '這一鏡接成成品時會跳過；打開才放進去'}
       data-testid={`incut-${id}`}
       className="nodrag lod-full flex shrink-0 items-center gap-1.5 rounded-full text-[11px] text-fg-muted"
       onClick={() => {
@@ -456,30 +495,26 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
       >
         <div
           className={cn(
-            'flex h-9 shrink-0 items-center justify-between gap-2 rounded-t-[7px] px-3',
+            'relative flex h-9 shrink-0 items-center justify-between gap-2 rounded-t-[7px] px-3',
             status === 'running' && 'svs-bar-running',
           )}
           style={{ background: 'color-mix(in srgb, var(--c) 14%, transparent)' }}
         >
           <Title id={id} data={data} />
           <span className="lod-mid flex shrink-0 items-center gap-1.5">
-            {status === 'running' && generating ? (
-              <span
-                data-testid="running-badge"
-                className="flex items-center gap-1 rounded-full bg-accent px-2 py-px text-[11px] text-accent-fg"
-              >
-                <Spinner label="生成中" />
-                生成中
-              </span>
-            ) : null}
-            {badge ? (
+            {/* 圖與影片的狀態標記放在內文那一行，不佔標題列（標題要完整顯示鏡頭號） */}
+            {!generating && badge ? (
               <span className="rounded-full bg-accent px-2 py-px text-[11px] text-accent-fg">
                 {badge}
               </span>
             ) : null}
-            {generating || data.kind === 'shot' ? <OpenButton id={id} /> : null}
-            {generating || data.kind === 'shot' ? <PlayButton id={id} data={data} /> : null}
-            <DeleteButton id={id} data={data} selected={selected} />
+            {generating || data.kind === 'shot' ? (
+              <>
+                {data.kind === 'shot' ? <OpenButton id={id} /> : null}
+                <PlayButton id={id} data={data} />
+              </>
+            ) : null}
+            {generating ? null : <DeleteButton id={id} data={data} selected={selected} />}
           </span>
         </div>
         {data.kind === 'shot' ? (
@@ -544,7 +579,23 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
           {data.kind === 'oneliner' ? <OnelinerBody id={id} data={data} /> : null}
           {generating ? (
             <div className="lod-full flex h-4 items-center justify-between gap-2 text-xs text-fg-muted">
-              <span className="truncate">{ghost ? '' : data.summary}</span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                {status === 'running' ? (
+                  <span
+                    data-testid="running-badge"
+                    className="flex shrink-0 items-center gap-1 rounded-full bg-accent px-2 py-px text-[11px] text-accent-fg"
+                  >
+                    <Spinner label="生成中" />
+                    生成中
+                  </span>
+                ) : null}
+                {badge ? (
+                  <span className="shrink-0 rounded-full bg-accent px-2 py-px text-[11px] text-accent-fg">
+                    {badge}
+                  </span>
+                ) : null}
+                <span className="truncate">{ghost ? '' : data.summary}</span>
+              </span>
               {data.kind === 'video' ? <InCutSwitch id={id} on={data.inCut !== false} /> : null}
             </div>
           ) : null}
@@ -574,6 +625,22 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
           </p>
         ) : null}
       </div>
+      {generating ? (
+        // 圖與影片的標題要放得下「第 12 鏡・第一張畫面」：↗ 和刪除鈕不佔標題列，
+        // 滑過、選到或鍵盤停上去才浮在卡片外面的右上角（一條小工具列）；▶ 一直都在標題列
+        <span
+          data-testid={`header-tools-${id}`}
+          className={cn(
+            'lod-mid absolute -top-[34px] right-1 z-10 flex items-center gap-0.5 rounded-md border border-border bg-surface-raised p-0.5 shadow-card transition-opacity focus-within:pointer-events-auto focus-within:opacity-100',
+            selected
+              ? 'opacity-100'
+              : 'pointer-events-none opacity-0 group-hover/card:pointer-events-auto group-hover/card:opacity-100',
+          )}
+        >
+          <OpenButton id={id} />
+          <DeleteButton id={id} data={data} selected />
+        </span>
+      ) : null}
       {portsOf(data).map((port) => (
         <Port key={port.id} nodeId={id} port={port} />
       ))}
@@ -823,7 +890,7 @@ function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
             {run ? (
               <button
                 type="button"
-                aria-label="全部生成再接片"
+                aria-label="全部生成再接成成品"
                 data-tip="把還沒生成的都生成，再接成一支影片"
                 data-testid="run-cut"
                 className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
@@ -886,7 +953,7 @@ function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
               className="nodrag flex-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-fg/10 disabled:opacity-40"
               onClick={() => rejoinFinal?.()}
             >
-              重新接片
+              接成成品
             </button>
             <button
               type="button"

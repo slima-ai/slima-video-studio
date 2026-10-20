@@ -104,6 +104,9 @@ export function testSettingsDeps(
       link: () => {
         throw new Error('測試用的畫布服務不能拉線')
       },
+      relink: () => {
+        throw new Error('測試用的畫布服務不能改接')
+      },
       unlink: () => {
         throw new Error('測試用的畫布服務不能剪線')
       },

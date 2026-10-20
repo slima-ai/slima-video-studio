@@ -9,10 +9,28 @@ export interface PortRef {
   side: 'in' | 'out'
 }
 
+/** ▶ 旁的選單：只跑這個、這個和後面的、整條（見 CanvasRunRequest.scope）。 */
+export type RunScope = 'this' | 'from-here' | 'chain'
+
+/** ▶ 滑過或選單裡看到的預估：跑這一次大概多少錢、或為什麼還不能跑。 */
+export interface RunEstimate {
+  usd: number
+  /** 有些步驟估不出來，實際可能更多。 */
+  lowerBound: boolean
+  /** 沒有要跑的步驟（都已經生成好了）。 */
+  nothing: boolean
+  /** 還不能跑的原因（「還不能跑：先要有第一張畫面…」）。 */
+  issue?: string
+}
+
 /** 節點卡片裡的按鈕需要叫畫布做的事（由畫布頁提供）。 */
 export interface CanvasActions {
   /** ▶：補跑上游還沒生成的，不重跑已經有結果的；先貼在按鈕旁確認花費。沒提供就不顯示 ▶。 */
-  run?: (nodeId: string, anchor: ConfirmAnchor) => void
+  run?: (nodeId: string, anchor: ConfirmAnchor, scope?: RunScope) => void
+  /** ▶ 滑過時要看的預估（不給 scope 就是 ▶ 本身會做的）。 */
+  runEstimate?: (nodeId: string, scope?: RunScope) => Promise<RunEstimate | undefined>
+  /** ▶ 旁的 ▾：打開「只跑這個／這個和後面的／整條」選單。沒提供就不顯示 ▾。 */
+  openRunMenu?: (nodeId: string, anchor: ConfirmAnchor) => void
   /** 輸出點的「＋」：在這個點旁邊開新增選單。沒提供就不顯示「＋」（M6-7b 才接）。 */
   openAdd?: (from: PortRef, at: { x: number; y: number }) => void
   /** 這個連接點有沒有可以新增的節點（要不要顯示「＋」）；沒提供就照連線規則。 */

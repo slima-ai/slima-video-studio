@@ -41,7 +41,7 @@ test.describe('剪輯與成品', () => {
     }
   })
 
-  test('少放一鏡進成品，按剪輯卡的「重新接片」：成品少一鏡的長度、變成第 2 版', async ({
+  test('少放一鏡進成品，按剪輯卡的「接成成品」：成品少一鏡的長度、變成第 2 版', async ({
     page,
   }) => {
     await generateAndOpenCanvas(page)
@@ -81,7 +81,7 @@ test.describe('剪輯與成品', () => {
     expect(files.data.exports.length).toBe(1)
   })
 
-  test('還沒接過成品：「重新接片」「匯出 MP4」按不了，要先按 ▶', async ({ page }) => {
+  test('還沒接過成品：「接成成品」「匯出 MP4」按不了，要先按 ▶', async ({ page }) => {
     await page.getByRole('button', { name: '畫布', exact: true }).click()
     // 有場才有剪輯：新增一場、一個鏡頭（都還沒生成）
     await page.getByTestId('palette-scene').click()

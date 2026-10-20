@@ -349,6 +349,21 @@ export const CanvasImportFilesSchema = z.object({
   y: z.number().optional(),
   /** 從「第一張畫面」或「參考圖」的「＋」選檔：放上第一張圖之後直接接到這裡（同一筆復原）。 */
   connectTo: z.object({ key: z.string().min(1), port: z.string().min(1) }).optional(),
+  /**
+   * 畫面上現在被佔住的地方（畫布座標）。一次選好幾個檔案時，每個檔案從 (x, y) 往右排，
+   * 遇到被佔住的地方就挪到最近的空位，不疊在別的格子或彼此上面。沒給就照原本一個接一個排。
+   */
+  avoid: z
+    .array(
+      z.object({
+        x: z.number(),
+        y: z.number(),
+        w: z.number().nonnegative(),
+        h: z.number().nonnegative(),
+      }),
+    )
+    .max(2000)
+    .optional(),
 })
 export type CanvasImportFiles = z.infer<typeof CanvasImportFilesSchema>
 
@@ -368,6 +383,10 @@ export const CanvasLinkSchema = z.object({
   target: z.object({ key: z.string().min(1), port: z.string().min(1) }),
 })
 export type CanvasLink = z.infer<typeof CanvasLinkSchema>
+
+/** 改接：把一條線換成另一條（拖線的一端接到別處，或新線取代原本的線）。 */
+export const CanvasRelinkSchema = z.object({ from: CanvasLinkSchema, to: CanvasLinkSchema })
+export type CanvasRelink = z.infer<typeof CanvasRelinkSchema>
 
 /** 刪除節點：鏡頭（連同它的圖與影片）、場、角色、地點；單獨的圖或影片是清掉採用中的版本。 */
 export const CanvasRemoveSchema = z.object({
@@ -420,6 +439,12 @@ export const CanvasRunRequestSchema = z.object({
    * 「經濟」就是「先出草稿」：滿意的鏡頭再用高品質重做。
    */
   quality: ModelTierSchema.optional(),
+  /**
+   * 按在圖或影片節點上時要跑多少（▶ 旁的選單）：只跑這個（this）、這個和後面的（from-here：
+   * 影片接著接成品）、整條（chain：這一鏡的圖、影片，接著接成品）。明確指定的就是要做（已經有的重做、舊的保留）。
+   * 沒給就是原本的 ▶：補跑缺的、不重跑已經有的。
+   */
+  scope: z.enum(['this', 'from-here', 'chain']).optional(),
 })
 export type CanvasRunRequest = z.infer<typeof CanvasRunRequestSchema>
 
