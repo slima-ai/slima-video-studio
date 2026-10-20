@@ -26,8 +26,8 @@ export function reserveSpending(
   const result = ctx.allowance.reserve(reservedUsd)
   if (!result.ok) {
     throw new McpToolError(
-      `「${what}」預估要花 ${usd(estimatedUsd)}（預留 ${usd(reservedUsd)}），但 AI 工具的額度只剩 ${usd(result.remainingUsd)}（額度 ${usd(result.allowanceUsd)}）。` +
-        '要繼續，請使用者到 App 的「設定 → AI 工具連線」把額度調高；這個額度只有人能改，你不能改，也不要想辦法繞過。',
+      `「${what}」預估要花 ${usd(estimatedUsd)}（預留 ${usd(reservedUsd)}），但 AI 工具的總額度只剩 ${usd(result.remainingUsd)}（總額度 ${usd(result.allowanceUsd)}）。` +
+        '要繼續，請使用者到 App 的「設定 → AI 工具連線」，把「AI 工具的總額度」調高；這個額度只有人能改，你不能改，也不要想辦法繞過。',
       'allowance_exceeded',
     )
   }
