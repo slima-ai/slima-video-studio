@@ -6,6 +6,7 @@ import {
   boundsOf,
   chainOf,
   freeSpot,
+  visibleRect,
   membersOf,
   nextSlot,
   panToReveal,
@@ -168,6 +169,79 @@ describe('新節點的空位', () => {
     const spot = freeSpot(nodes, size, want)
     expect(hits(spot)).toBe(false)
     expect(spot).not.toEqual(want)
+  })
+})
+
+describe('新節點只放在看得到的範圍', () => {
+  const { nodes } = makeDemo(2)
+  const size = { w: 220, h: 200 }
+  const margin = { top: 80, left: 260, right: 48, bottom: 72 }
+
+  it('畫面上看得到的那一塊（換成畫布座標，跟著平移與縮放）', () => {
+    expect(visibleRect({ x: 0, y: 0, zoom: 1 }, { width: 1440, height: 868 }, margin)).toEqual({
+      x: 260,
+      y: 80,
+      w: 1132,
+      h: 716,
+    })
+    expect(
+      visibleRect({ x: -100, y: 50, zoom: 0.5 }, { width: 1440, height: 868 }, margin),
+    ).toEqual({
+      x: 720,
+      y: 60,
+      w: 2264,
+      h: 1432,
+    })
+    expect(
+      visibleRect({ x: 0, y: 0, zoom: 1 }, { width: 300, height: 100 }, margin),
+    ).toBeUndefined()
+  })
+
+  it('想放的地方在上方列底下：挪到看得到的最近空位，整個節點都在範圍裡', () => {
+    const within = { x: 260, y: 80, w: 1132, h: 716 }
+    const want = { x: 800, y: 20 }
+    const spot = freeSpot([], size, want, undefined, undefined, within)
+    expect(spot.y).toBeGreaterThanOrEqual(within.y)
+    expect(spot.y + size.h).toBeLessThanOrEqual(within.y + within.h)
+    expect(spot.x).toBe(800)
+    // 不給範圍就照舊放在想放的地方
+    expect(freeSpot([], size, want)).toEqual(want)
+  })
+
+  it('被佔住又靠近邊緣：找到的空位也在範圍裡、不跟節點重疊', () => {
+    const scene = sceneOrder(nodes)[0]
+    if (!scene) throw new Error('沒有場')
+    const all = boundsOf(nodes)
+    if (!all) throw new Error('沒有節點')
+    // 範圍比所有節點的外框再大一圈：裡面一定有空位，但離想放的地方有一段距離
+    const within = { x: all.x - 300, y: all.y - 300, w: all.w + 600, h: all.h + 600 }
+    const spot = freeSpot(
+      nodes,
+      size,
+      { x: scene.position.x + 100, y: scene.position.y + 20 },
+      undefined,
+      undefined,
+      within,
+    )
+    expect(spot.x).toBeGreaterThanOrEqual(within.x)
+    expect(spot.y).toBeGreaterThanOrEqual(within.y)
+    expect(spot.x + size.w).toBeLessThanOrEqual(within.x + within.w)
+    expect(spot.y + size.h).toBeLessThanOrEqual(within.y + within.h)
+    const hit = nodes.some((n) => {
+      const r = rectOf(n)
+      return (
+        spot.x < r.x + r.w && spot.x + size.w > r.x && spot.y < r.y + r.h && spot.y + size.h > r.y
+      )
+    })
+    expect(hit).toBe(false)
+  })
+
+  it('範圍裡放不下（比節點還小）：退回不限範圍，不會找不到位置', () => {
+    const tiny = { x: 0, y: 0, w: 50, h: 50 }
+    expect(freeSpot([], size, { x: 500, y: 500 }, undefined, undefined, tiny)).toEqual({
+      x: 500,
+      y: 500,
+    })
   })
 })
 
