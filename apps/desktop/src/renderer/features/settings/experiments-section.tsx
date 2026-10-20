@@ -1,7 +1,9 @@
 import { CHAT_BUDGET_MAX_USD, CHAT_BUDGET_MIN_USD, type AppSettings } from '@svs/schema'
+import { MessagesSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import { Section } from '../../components/section'
+import { SettingCard } from '../../components/setting-card'
+import { Switch } from '../../components/switch'
 import { call, errorText } from '../../lib/svs'
 
 export interface ExperimentsSectionProps {
@@ -33,50 +35,55 @@ export function ExperimentsSection({ settings, onChanged }: ExperimentsSectionPr
   const [error, setError] = useState<string>()
 
   return (
-    <Section testId="experiments-section" title="實驗功能">
-      <label className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          data-testid="experiment-claude-chat"
-          checked={on}
-          className="mt-1"
-          onChange={(event) => {
-            const next = event.target.checked
-            setOn(next)
-            setError(undefined)
-            call('settings.update', { experiments: { claudeChat: next } })
-              .then(onChanged)
-              .catch((e: unknown) => {
-                setOn(!next)
-                setError(errorText(e))
-              })
-          }}
-        />
-        <span className="text-sm">
-          <span className="font-medium">畫布右下角的 Claude 對話</span>
-          <span className="mt-1 block text-fg-muted">
-            在畫布右邊開一個對話面板，用你電腦上已經登入的 Claude Code
-            幫你改這個專案，你看得到它用了哪些步驟。需要先裝好並登入 Claude Code，也要打開上面的「AI
-            工具連線」。對話會用到你自己的 Claude 用量，花錢的生成步驟照「AI
-            工具連線」的額度擋。這是實驗功能，可能隨時改變。
-          </span>
-        </span>
-      </label>
-      <BudgetField
-        value={settings.experiments.claudeBudgetUsd}
-        onChanged={onChanged}
-        onError={setError}
+    <div className="contents" data-testid="experiments-section">
+      <SettingCard
+        icon={MessagesSquare}
+        title="畫布右下角的 Claude 對話"
+        status={on ? { tone: 'ok', label: '開著' } : { tone: 'off', label: '關著' }}
+        summary="在畫布右邊開一個對話面板，用你自己登入的 Claude Code 直接幫你改專案。"
+        action={
+          <Switch
+            aria-label="畫布右下角的 Claude 對話"
+            data-testid="experiment-claude-chat"
+            checked={on}
+            onChange={(event) => {
+              const next = event.target.checked
+              setOn(next)
+              setError(undefined)
+              call('settings.update', { experiments: { claudeChat: next } })
+                .then(onChanged)
+                .catch((e: unknown) => {
+                  setOn(!next)
+                  setError(errorText(e))
+                })
+            }}
+          />
+        }
+        details={
+          <div className="space-y-3">
+            <p className="text-sm text-fg-muted">
+              需要先裝好並登入 Claude Code，也要打開「AI 工具連線」。對話會用到你自己的 Claude
+              用量；要花服務金鑰的生成（圖片、影片…）受「AI 工具的總額度」和「單次花費上限」限制。
+              這是實驗功能，可能隨時改變。
+            </p>
+            <BudgetField
+              value={settings.experiments.claudeBudgetUsd}
+              onChanged={onChanged}
+              onError={setError}
+            />
+          </div>
+        }
       />
       {error ? (
-        <p role="alert" className="mt-2 text-sm text-danger">
+        <p role="alert" className="text-sm text-danger md:col-span-2">
           {error}
         </p>
       ) : null}
-    </Section>
+    </div>
   )
 }
 
-/** Claude 對話每一段的用量上限（美金，約）。到上限時對話裡會出現「繼續」，不會斷掉。 */
+/** Claude 對話每一段的用量上限（約 US$）。到上限時對話裡會出現「繼續」，不會斷掉。 */
 function BudgetField({
   value,
   onChanged,
@@ -111,9 +118,9 @@ function BudgetField({
       })
   }
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2 pl-7 text-sm">
+    <div className="flex flex-wrap items-center gap-2 text-sm">
       <label htmlFor="experiment-claude-budget" className="text-fg-muted">
-        Claude 對話每一段的用量上限（美金，約）
+        Claude 對話每一段的用量上限（約 US$）
       </label>
       <input
         id="experiment-claude-budget"
@@ -132,7 +139,10 @@ function BudgetField({
         }}
       />
       <span className="text-xs text-fg-muted">
-        到上限時對話裡會出現「繼續」，按了就接著做；留空用預設（US$0.5）。
+        花的是你自己的 Claude 用量，跟「單次花費上限」「AI 工具的總額度」不同。一段＝連續使用，閒置
+        10
+        分鐘或按「繼續」就算新的一段；到上限時對話會停下並出現「繼續」，按了再用同樣的量。留空用預設（約
+        US$0.50）。
       </span>
     </div>
   )

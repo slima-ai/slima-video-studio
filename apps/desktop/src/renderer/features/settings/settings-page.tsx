@@ -45,7 +45,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
   return (
     <Page
       title="設定"
-      hint="外觀與花費、AI 工具連線、服務金鑰、模型"
+      hint="單次花費上限、AI 工具連線、服務金鑰、模型"
       width="narrow"
       testId="settings-page"
       actions={<SettingsTags tags={TAGS} />}
@@ -62,15 +62,13 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
         ) : null}
         {state.status === 'ready' ? (
           <>
-            <SettingGroup id="general" title="一般" hint="外觀、示範模式與花費上限。">
-              <div className="space-y-6 md:col-span-2">
-                <GeneralSection settings={state.data.settings} onChanged={reload} />
-              </div>
+            <SettingGroup id="general" title="一般" hint="示範模式、外觀與單次花費上限。">
+              <GeneralSection settings={state.data.settings} onChanged={reload} />
             </SettingGroup>
             <SettingGroup
               id="connections"
               title="AI 工具連線"
-              hint="讓你自己的 Claude 等 AI 工具連到這個 App；用示範模式不需要金鑰就能玩。"
+              hint="讓你自己的 Claude 等 AI 工具連到這個 App；用示範模式不需要金鑰就能玩；AI 工具花多少由你設定，預設不能花。"
             >
               <ConnectionsArea onChanged={reload} storageAvailable={state.data.storage.available} />
             </SettingGroup>
@@ -106,9 +104,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
               </div>
             </SettingGroup>
             <SettingGroup id="experiments" title="實驗功能" hint="還在試的功能，可能隨時改變。">
-              <div className="md:col-span-2">
-                <ExperimentsSection settings={state.data.settings} onChanged={reload} />
-              </div>
+              <ExperimentsSection settings={state.data.settings} onChanged={reload} />
             </SettingGroup>
           </>
         ) : null}

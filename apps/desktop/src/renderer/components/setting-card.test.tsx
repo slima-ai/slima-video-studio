@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { SettingCard } from './setting-card'
 import { SettingGroup } from './setting-group'
 import { StatusLight } from './status-light'
+import { Switch } from './switch'
 
 afterEach(cleanup)
 
@@ -92,5 +93,41 @@ describe('SettingGroup', () => {
     expect(screen.getByRole('region', { name: '服務金鑰' })).toBe(group)
     expect(screen.getByText('要真的生成才需要填。')).toBeTruthy()
     expect(group.querySelector('section[aria-label="OpenRouter"]')).not.toBeNull()
+  })
+})
+
+describe('SettingCard 的 body 與 Switch', () => {
+  it('body 放一個行內控制項，在一句白話下面', () => {
+    render(
+      <SettingCard
+        icon={Palette}
+        title="花費上限"
+        summary="每次最多花多少。"
+        body={<input aria-label="上限" />}
+      />,
+    )
+    expect(screen.getByLabelText('上限')).toBeTruthy()
+  })
+
+  it('開關底下是真的 checkbox（role=switch）：點一下換狀態、有 aria-label、可以停用', () => {
+    let last = false
+    render(
+      <Switch
+        aria-label="示範模式"
+        data-testid="sw"
+        checked={last}
+        onChange={(event) => {
+          last = event.target.checked
+        }}
+      />,
+    )
+    const input = screen.getByRole<HTMLInputElement>('switch', { name: '示範模式' })
+    expect(input.tagName).toBe('INPUT')
+    expect(input.type).toBe('checkbox')
+    fireEvent.click(input)
+    expect(last).toBe(true)
+    cleanup()
+    render(<Switch aria-label="x" checked={false} disabled onChange={() => undefined} />)
+    expect(screen.getByRole<HTMLInputElement>('switch').disabled).toBe(true)
   })
 })
