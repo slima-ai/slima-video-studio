@@ -50,6 +50,15 @@ export interface RunSoundResult {
   noNarrationBecause?: { dialogueShots: number }
 }
 
+/** 開始加聲音時的通知：只寫真的會做的（沒有台詞就不說旁白）；沒有東西要加就不通知。 */
+export function soundStartNotice(plan: CanvasRunSoundPlan | undefined): CanvasNotice | undefined {
+  const parts = [plan && plan.narrationShots > 0 ? '旁白' : '', plan?.music ? '配樂' : ''].filter(
+    Boolean,
+  )
+  if (parts.length === 0) return undefined
+  return { tone: 'success', message: `成品接好了，正在加${parts.join('與')}…` }
+}
+
 /** 加完聲音之後的一行通知：說實話做了哪些（沒台詞就不會有旁白，要講出來）。 */
 export function soundDoneNotice(result: RunSoundResult): CanvasNotice {
   if (result.problem !== undefined) {

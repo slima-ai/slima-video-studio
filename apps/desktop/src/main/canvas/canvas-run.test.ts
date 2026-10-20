@@ -388,6 +388,11 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
     })
     await h.canvas.run({ keys: [], all: true })
     await settled(h, '配樂加好了；沒有鏡頭有台詞，所以沒有旁白')
+    // 進行中那則也不說旁白（跟結尾同一個判斷）
+    expect(noticesOf(h)).toEqual([
+      '成品接好了，正在加配樂…',
+      '配樂加好了；沒有鏡頭有台詞，所以沒有旁白',
+    ])
     const state = h.sound.state()
     expect(state.music).toBeDefined()
     expect(state.shots.every((s) => s.narration === undefined)).toBe(true)

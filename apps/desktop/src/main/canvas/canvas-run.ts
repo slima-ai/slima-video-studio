@@ -9,7 +9,7 @@ import {
 
 import type { Logger } from '../logger'
 import type { ShotRunItem, ShotService } from '../shots/shot-service'
-import { soundDoneNotice, type RunSound } from './canvas-run-sound'
+import { soundDoneNotice, soundStartNotice, type RunSound } from './canvas-run-sound'
 import { sceneKey, shotKey } from './projection'
 
 export interface CanvasRunnerDeps {
@@ -243,7 +243,8 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
               notify({ tone: 'success', message: '成品接好了' })
               return
             }
-            notify({ tone: 'success', message: '成品接好了，正在加旁白與配樂…' })
+            const started = soundStartNotice(runSound.plan(soundWant))
+            if (started) notify(started)
             notify(soundDoneNotice(await runSound.add(soundWant)))
           })
           .catch((error: unknown) => {
