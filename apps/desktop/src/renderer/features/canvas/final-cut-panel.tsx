@@ -1,10 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '../../components/button'
 import { assetUrl } from '../../lib/asset'
 import { creditsPreferred, setCreditsPreferred } from '../../lib/export-credits'
+import { revealLabel } from '../../lib/reveal-label'
 import { call, errorText } from '../../lib/svs'
 import { SoundPanel } from '../sound/sound-panel'
+
+const fileNameOf = (path: string): string => path.split(/[\\/]/).pop() ?? path
+
+function RevealButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button size="sm" variant="ghost" data-testid="final-cut-reveal" onClick={onClick}>
+      {revealLabel()}
+    </Button>
+  )
+}
 
 /** 成品：預覽接好的完整影片、匯出 MP4、換了版本之後重新接片。 */
 export function FinalCutPanel({
@@ -24,6 +35,31 @@ export function FinalCutPanel({
   // 要了字卡但沒加成功（改匯出了沒有字卡的版本）
   const [creditsMissing, setCreditsMissing] = useState(false)
   const [error, setError] = useState<string | undefined>()
+  // 最近一次匯出的檔名（上次或別處匯出的也算；提示消失、關掉面板再打開之後還找得到）
+  const [lastExport, setLastExport] = useState<string | undefined>()
+
+  useEffect(() => {
+    let alive = true
+    call('files.list', {})
+      .then((snapshot) => {
+        if (alive) setLastExport(snapshot.exports[0]?.name)
+      })
+      .catch(() => undefined)
+    // 在畫布的「剪輯」卡上匯出也算（主程序匯出完會把路徑放在進度裡推過來）
+    const off = window.svs.on('quickstart.progress', (progress) => {
+      if (progress.exportedPath !== undefined) setLastExport(fileNameOf(progress.exportedPath))
+    })
+    return () => {
+      alive = false
+      off()
+    }
+  }, [])
+
+  const reveal = (name: string): void => {
+    call('files.reveal', { exportName: name }).catch((e: unknown) => {
+      setError(errorText(e))
+    })
+  }
 
   const act = (kind: 'export' | 'rejoin'): void => {
     setBusy(kind)
@@ -32,6 +68,7 @@ export function FinalCutPanel({
       kind === 'export'
         ? call('quickstart.export', { credits }).then(({ path, credits: added }) => {
             setExported(path)
+            setLastExport(fileNameOf(path))
             setCreditsMissing(credits && !added)
           })
         : call('shots.rejoin', {})
@@ -112,10 +149,26 @@ export function FinalCutPanel({
         </label>
       ) : null}
       {exported ? (
-        <p className="text-sm text-success" data-testid="final-cut-exported">
-          已匯出到 {exported}
-          {creditsMissing ? '（片尾字卡沒有加成功，匯出的是沒有字卡的版本）' : ''}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-2">
+          <p className="text-sm text-success" data-testid="final-cut-exported">
+            已匯出到 {exported}
+            {creditsMissing ? '（片尾字卡沒有加成功，匯出的是沒有字卡的版本）' : ''}
+          </p>
+          <RevealButton
+            onClick={() => {
+              reveal(fileNameOf(exported))
+            }}
+          />
+        </div>
+      ) : lastExport ? (
+        <div className="flex flex-wrap items-center gap-x-2" data-testid="final-cut-last-export">
+          <p className="text-sm text-fg-muted">最近一次匯出：{lastExport}</p>
+          <RevealButton
+            onClick={() => {
+              reveal(lastExport)
+            }}
+          />
+        </div>
       ) : null}
       {canRejoin && finalVideoHash ? (
         <p className="text-xs text-fg-muted">

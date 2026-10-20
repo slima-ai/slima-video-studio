@@ -39,27 +39,86 @@ describe('RunPlanConfirm', () => {
     expect(dialog.textContent).toContain('已經有結果的不會重跑')
   })
 
-  it('接好片之後會自動加旁白與配樂：列出來並寫約多少錢；加不成就寫原因', () => {
-    const { unmount } = render(
+  it('接好片之後會自動加旁白與配樂：列出來並寫約多少錢；有台詞的鏡頭才念旁白', () => {
+    render(
       <RunPlanConfirm
         plan={plan({
           rejoin: true,
           estimatedUsd: 0.52,
-          sound: { narration: true, music: true, usd: 0.1 },
+          sound: {
+            narration: true,
+            music: true,
+            narrationShots: 3,
+            dialogueShots: 3,
+            usd: 0.1,
+          },
         })}
         anchor={anchor}
         onOk={vi.fn()}
         onCancel={vi.fn()}
       />,
     )
-    expect(screen.getByTestId('run-confirm').textContent).toContain(
-      '接好片之後自動加旁白與配樂（約 US$0.10）',
+    const text = screen.getByTestId('run-confirm').textContent
+    expect(text).toContain('接好片之後自動加旁白與配樂（約 US$0.10）')
+    expect(text).toContain('旁白：3 個鏡頭有台詞，會念出來')
+  })
+
+  it('沒有鏡頭有台詞（示範模式拆出來的鏡頭）：不說自動加旁白，說實話旁白不會念，只加配樂', () => {
+    render(
+      <RunPlanConfirm
+        plan={plan({
+          rejoin: true,
+          sound: {
+            narration: true,
+            music: true,
+            narrationShots: 0,
+            dialogueShots: 0,
+            usd: 0.05,
+          },
+        })}
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
     )
+    const text = screen.getByTestId('run-confirm').textContent
+    expect(text).toContain('接好片之後自動加配樂（約 US$0.05）')
+    expect(text).toContain('旁白：目前沒有鏡頭有台詞，所以不會念')
+    expect(text).not.toContain('自動加旁白')
+  })
+
+  it('有台詞的鏡頭都已經有旁白了；加不成就寫原因', () => {
+    const { unmount } = render(
+      <RunPlanConfirm
+        plan={plan({
+          sound: {
+            narration: true,
+            music: false,
+            narrationShots: 0,
+            dialogueShots: 2,
+            usd: 0,
+          },
+        })}
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    const lines = screen.getByTestId('run-confirm').textContent
+    expect(lines).toContain('旁白：有台詞的鏡頭都已經有旁白了')
+    expect(lines).not.toContain('自動加')
     unmount()
     render(
       <RunPlanConfirm
         plan={plan({
-          sound: { narration: false, music: true, usd: 0, issue: '還沒有可用的配樂模型。' },
+          sound: {
+            narration: false,
+            music: true,
+            narrationShots: 0,
+            dialogueShots: 0,
+            usd: 0,
+            issue: '還沒有可用的配樂模型。',
+          },
         })}
         anchor={anchor}
         onOk={vi.fn()}

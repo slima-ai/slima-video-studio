@@ -68,17 +68,32 @@ test.describe('剪輯與成品', () => {
     await expect(page.getByTestId('cut-footer')).toContainText('成品 v2')
   })
 
-  test('剪輯卡的「匯出 MP4」：存到專案的「匯出」資料夾，提示可以打開資料夾', async ({ page }) => {
+  test('剪輯卡的「匯出 MP4」：存到專案的「匯出」資料夾；提示寫檔名、留超過 10 秒、附「在 Finder 顯示」；成品面板留著「最近一次匯出」', async ({
+    page,
+  }) => {
     await generateAndOpenCanvas(page)
     await centerOn(page, 'cut')
     await page.getByTestId('cut-export').click()
     const toast = page.getByTestId('toast').filter({ hasText: '已匯出到專案的「匯出」資料夾' })
     await expect(toast).toBeVisible()
     await expect(toast).toContainText('.mp4')
-    await expect(toast.getByRole('button', { name: '打開資料夾' })).toBeVisible()
+    const reveal = toast.getByRole('button', { name: /在 ?(Finder|檔案總管) ?顯示/ })
+    await expect(reveal).toBeVisible()
+    // 一般提示 5 秒就消失；匯出的提示要讓人來得及看、來得及按
+    await page.waitForTimeout(9_000)
+    await expect(reveal).toBeVisible()
     const files = await page.evaluate(() => window.svs.invoke('files.list', {}))
     if (!files.ok) throw new Error('讀不到檔案')
     expect(files.data.exports.length).toBe(1)
+    const name = files.data.exports[0]?.name ?? ''
+    expect(await toast.innerText()).toContain(name)
+
+    // 提示消失之後，成品面板還寫著最近一次匯出的檔名和「在 Finder 顯示」
+    await expect(toast).toHaveCount(0, { timeout: 10_000 })
+    await page.getByTestId('open-cut').click()
+    const last = page.getByTestId('final-cut-last-export')
+    await expect(last).toContainText(`最近一次匯出：${name}`)
+    await expect(last.getByRole('button', { name: /在 ?(Finder|檔案總管) ?顯示/ })).toBeVisible()
   })
 
   test('還沒接過成品：「接成成品」「匯出 MP4」按不了，要先按 ▶', async ({ page }) => {

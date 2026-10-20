@@ -75,12 +75,31 @@ function okLabelOf(plan: CanvasRunPlan): string {
   return '重做（產生新的一版，舊的保留）'
 }
 
-/** 生成完之後會自動加的旁白與配樂（照一句話卡片上勾的）。 */
-function soundLine(sound: NonNullable<CanvasRunPlan['sound']>): string {
-  const what = [sound.narration ? '旁白' : '', sound.music ? '配樂' : ''].filter(Boolean).join('與')
-  return sound.issue === undefined
-    ? `接好片之後自動加${what}（約 US$${sound.usd.toFixed(2)}）`
-    : `接好片之後想自動加${what}，但現在加不成：${sound.issue}`
+/**
+ * 生成完之後會自動加的旁白與配樂（照一句話卡片上勾的）。旁白只念有台詞的鏡頭：
+ * 沒有台詞（示範模式拆出來的鏡頭都沒有）就明說不會念，不說「自動加旁白」。
+ */
+function soundLines(sound: NonNullable<CanvasRunPlan['sound']>): string[] {
+  const adds = [sound.narrationShots > 0 ? '旁白' : '', sound.music ? '配樂' : ''].filter(Boolean)
+  if (sound.issue !== undefined) {
+    const what = [sound.narration ? '旁白' : '', sound.music ? '配樂' : ''].filter(Boolean)
+    return [`接好片之後想自動加${what.join('與')}，但現在加不成：${sound.issue}`]
+  }
+  return [
+    ...(adds.length > 0
+      ? [`接好片之後自動加${adds.join('與')}（約 US$${sound.usd.toFixed(2)}）`]
+      : []),
+    ...(sound.narration && sound.narrationShots === 0
+      ? [
+          sound.dialogueShots === 0
+            ? '旁白：目前沒有鏡頭有台詞，所以不會念（有台詞的鏡頭才加旁白）'
+            : '旁白：有台詞的鏡頭都已經有旁白了',
+        ]
+      : []),
+    ...(sound.narrationShots > 0
+      ? [`旁白：${String(sound.narrationShots)} 個鏡頭有台詞，會念出來`]
+      : []),
+  ]
 }
 
 /** 這次會跑的每一步（重做的註明版本），加上用哪個模型、略過幾鏡、示範模式的說明。 */
@@ -103,7 +122,6 @@ export function runLines(plan: CanvasRunPlan): string[] {
           `其他 ${String(plan.joinSkipped)} 段還沒有影片，這次不會接成成品。影片都有了，再按「接成成品」`,
         ]
       : []),
-    ...(plan.sound ? [soundLine(plan.sound)] : []),
     ...(models.length > 0 && plan.shotCount > 0 ? [`用：${models.join('、')}`] : []),
     ...(plan.skippedBusy > 0 ? [`${String(plan.skippedBusy)} 個鏡頭正在生成，先略過`] : []),
     ...(plan.demoMode && plan.shotCount > 0 ? ['示範模式：不會真的花錢，結果是假的'] : []),
@@ -144,6 +162,23 @@ export function RunPlanConfirm({
       />
     )
   }
+  // 旁白與配樂的說明放在步驟清單外面：清單很長時會捲動，這幾行不能被捲到看不見
+  const soundNote = plan.sound ? (
+    <ul className="flex flex-col gap-0.5 text-sm text-fg-muted" data-testid="run-confirm-sound">
+      {soundLines(plan.sound).map((line) => (
+        <li key={line}>{line}</li>
+      ))}
+    </ul>
+  ) : null
+  const qualitySwitch =
+    onQuality && plan.shotCount > 0 ? <QualitySwitch value={quality} onChange={onQuality} /> : null
+  const extra =
+    soundNote || qualitySwitch ? (
+      <>
+        {soundNote}
+        {qualitySwitch}
+      </>
+    ) : undefined
   return (
     <RunConfirm
       anchor={anchor}
@@ -153,9 +188,7 @@ export function RunPlanConfirm({
       lowerBound={plan.estimateIsLowerBound}
       cachedNote={!redo}
       okLabel={okLabelOf(plan)}
-      {...(onQuality && plan.shotCount > 0
-        ? { extra: <QualitySwitch value={quality} onChange={onQuality} /> }
-        : {})}
+      {...(extra ? { extra } : {})}
       onOk={onOk}
       onCancel={onCancel}
     />
