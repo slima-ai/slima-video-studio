@@ -18,6 +18,7 @@ import {
   GROUP_COLOR,
   KIND_COLOR,
   KIND_LABEL,
+  PORT_TYPE_COLOR,
   portsOf,
   type CanvasNode,
   type CanvasNodeData,
@@ -49,7 +50,11 @@ function Port({ nodeId, port }: { nodeId: string; port: PortDef }) {
         id={port.id}
         type={out ? 'source' : 'target'}
         position={out ? Position.Right : Position.Left}
-        style={{ top: port.top }}
+        style={{
+          top: port.top,
+          // 主線的圓點用傳的東西的顏色（故事、畫面描述、圖、影片、成品）；參考一律灰色
+          ...(port.tone === 'main' ? { '--port-c': PORT_TYPE_COLOR[port.type] } : {}),
+        }}
         className={cn('svs-handle', port.tone === 'ref' && 'svs-handle-ref')}
         data-testid={`port-${nodeId}-${port.id}`}
         data-link={link}
@@ -245,6 +250,61 @@ const STATUS_BADGE: Readonly<Partial<Record<NonNullable<CanvasNodeData['status']
   failed: '失敗',
 }
 
+/**
+ * 卡片上一行「吃：… 出：…」：這一格吃哪些東西、做出什麼，每個名字前面的圓點是那種東西的顏色
+ * （和連接點同色）。名字從連接點的定義來，所以和連線一致；已經有線接進來的亮著，還沒接的淡淡的。
+ */
+function IoLine({ id, data, bottom }: { id: string; data: CanvasNodeData; bottom: boolean }) {
+  const connected = useConnectedPorts()
+  const ports = portsOf(data)
+  const eat = ports.filter((port) => port.side === 'in')
+  const out = ports.filter((port) => port.side === 'out')
+  // 影片節點沒有輸出連接點（成品由「放進成品」開關接），但它做出的就是影片
+  if (data.kind === 'video' && out.length === 0) {
+    out.push({ id: 'video-out', side: 'out', tone: 'main', type: 'video', label: '影片', top: 0 })
+  }
+  if (eat.length === 0 && out.length === 0) return null
+  const group = (name: string, list: readonly PortDef[]) =>
+    list.length === 0 ? null : (
+      <span className="flex min-w-0 shrink-0 items-center gap-1" data-testid={`io-${name}`}>
+        <b className="font-semibold">{name}：</b>
+        {list.map((port) => {
+          const linked = connected.has(`${id}|${port.id}`)
+          return (
+            <span
+              key={port.id}
+              data-testid={`io-${port.id}`}
+              data-linked={linked}
+              className={cn(
+                'flex items-center gap-0.5 whitespace-nowrap',
+                !linked && port.side === 'in' && 'opacity-60',
+              )}
+            >
+              <i
+                aria-hidden
+                className="inline-block size-1.5 shrink-0 rounded-full"
+                style={{ background: PORT_TYPE_COLOR[port.type] }}
+              />
+              {port.short ?? port.label}
+            </span>
+          )
+        })}
+      </span>
+    )
+  return (
+    <p
+      data-testid="node-io"
+      className={cn(
+        'lod-full flex shrink-0 items-center gap-x-2 overflow-hidden text-[11px] leading-[15px] text-fg-muted',
+        bottom && 'mt-auto',
+      )}
+    >
+      {group('吃', eat)}
+      {group('出', out)}
+    </p>
+  )
+}
+
 function Title({ id, data }: { id: string; data: CanvasNodeData }) {
   const { focusNode } = useCanvasActions()
   return (
@@ -412,15 +472,6 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                 {badge}
               </span>
             ) : null}
-            {data.kind === 'shot' && data.sceneId === undefined ? (
-              <span
-                data-testid="loose-badge"
-                data-tip="這個鏡頭不屬於任何場，不會接進成品；把它拖進場框，或按畫布上方的「歸進」"
-                className="rounded-full border border-warning px-2 py-px text-[11px] text-warning"
-              >
-                沒歸場
-              </span>
-            ) : null}
             {generating || data.kind === 'shot' ? <OpenButton id={id} /> : null}
             {generating || data.kind === 'shot' ? <PlayButton id={id} data={data} /> : null}
             <DeleteButton id={id} data={data} selected={selected} />
@@ -444,7 +495,19 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
           {data.kind === 'shot' ? (
             <>
               <p className="lod-full line-clamp-2 text-xs leading-snug">{data.summary}</p>
-              <p className="lod-full text-xs text-fg-muted">{data.meta}</p>
+              <p className="lod-full flex items-center gap-1.5 text-xs text-fg-muted">
+                <span className="min-w-0 truncate">{data.meta}</span>
+                {data.sceneId === undefined ? (
+                  <span
+                    data-testid="loose-badge"
+                    data-tip="這個鏡頭不屬於任何場，不會接進成品；把它拖進場框，或按畫布上方的「歸進」"
+                    className="shrink-0 rounded-full border border-warning px-2 py-px text-[11px] text-warning"
+                  >
+                    沒歸場
+                  </span>
+                ) : null}
+              </p>
+              <IoLine id={id} data={data} bottom={false} />
               <div className="lod-full flex flex-wrap gap-1">
                 {(data.tags ?? []).map((tag) => {
                   const locked = data.lockedTags?.[tag]
@@ -493,6 +556,9 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
           ) : null}
           {data.kind === 'note' ? <NoteBody id={id} text={data.summary ?? ''} /> : null}
           {generating || data.thumb || data.videoSrc ? <Thumb data={data} ghost={ghost} /> : null}
+          {data.kind !== 'shot' && data.kind !== 'oneliner' && data.kind !== 'note' ? (
+            <IoLine id={id} data={data} bottom />
+          ) : null}
         </div>
         {generating && data.footer && !ghost ? (
           <p className="lod-full shrink-0 border-t border-border px-3 py-1.5 text-[11px] leading-[15px] text-fg-muted">

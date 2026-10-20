@@ -104,9 +104,9 @@ export const NODE_SIZE: Readonly<
   Record<Exclude<NodeKind, 'scene' | 'cut' | 'group' | 'step'>, { w: number; h: number }>
 > = {
   oneliner: { w: 300, h: 440 },
-  shot: { w: 230, h: 140 },
-  image: { w: 230, h: 230 },
-  video: { w: 230, h: 230 },
+  shot: { w: 230, h: 160 },
+  image: { w: 230, h: 246 },
+  video: { w: 230, h: 246 },
   character: { w: 220, h: 200 },
   location: { w: 220, h: 200 },
   freeImage: { w: 220, h: 190 },
@@ -171,11 +171,27 @@ export const KIND_LABEL: Readonly<Record<NodeKind, string>> = {
   step: '步驟',
 }
 
+/** 連接點傳的東西是什麼（決定圓點與「吃／出」小標的顏色）。 */
+export type PortType = 'story' | 'shot' | 'image' | 'video' | 'ref' | 'cut'
+
+export const PORT_TYPE_COLOR: Readonly<Record<PortType, string>> = {
+  story: '#38bdf8',
+  shot: '#10b981',
+  image: '#8b5cf6',
+  video: '#f43f5e',
+  ref: '#9ca3af',
+  cut: '#14b8a6',
+}
+
 export interface PortDef {
   id: string
   side: 'in' | 'out'
   /** 主線用類型色；參考一律灰色。 */
   tone: EdgeTone
+  /** 傳的是什麼：圓點與「吃／出」小標用這個顏色。 */
+  type: PortType
+  /** 「吃／出」那一行放不下完整名字時用的短名字。 */
+  short?: string
   /** 滑過時顯示的小字。 */
   label: string
   top: number
@@ -187,34 +203,54 @@ export const ROW_PITCH = 256
 export const COL_X = { shot: 0, image: 285, video: 570 } as const
 
 const PORTS: Readonly<Record<Exclude<NodeKind, 'cut'>, readonly PortDef[]>> = {
-  oneliner: [{ id: 'story-out', side: 'out', tone: 'main', label: '故事', top: 96 }],
+  oneliner: [{ id: 'story-out', side: 'out', tone: 'main', type: 'story', label: '故事', top: 96 }],
   scene: [
-    { id: 'scene-story', side: 'in', tone: 'main', label: '故事', top: 28 },
-    { id: 'scene-loc', side: 'in', tone: 'ref', label: '地點', top: 56 },
-    { id: 'scene-out', side: 'out', tone: 'main', label: '這場的片段', top: 28 },
+    { id: 'scene-story', side: 'in', tone: 'main', type: 'story', label: '故事', top: 28 },
+    { id: 'scene-loc', side: 'in', tone: 'ref', type: 'ref', label: '地點', top: 56 },
+    { id: 'scene-out', side: 'out', tone: 'main', type: 'video', label: '這場的片段', top: 28 },
   ],
   shot: [
-    { id: 'shot-ref-char', side: 'in', tone: 'ref', label: '角色', top: 100 },
-    { id: 'shot-ref-loc', side: 'in', tone: 'ref', label: '地點', top: 124 },
-    { id: 'shot-out', side: 'out', tone: 'main', label: '畫面描述', top: 70 },
+    { id: 'shot-ref-char', side: 'in', tone: 'ref', type: 'ref', label: '角色', top: 100 },
+    { id: 'shot-ref-loc', side: 'in', tone: 'ref', type: 'ref', label: '地點', top: 124 },
+    { id: 'shot-out', side: 'out', tone: 'main', type: 'shot', label: '畫面描述', top: 70 },
   ],
   image: [
-    { id: 'img-in', side: 'in', tone: 'main', label: '鏡頭', top: 70 },
-    { id: 'img-first', side: 'in', tone: 'main', label: '第一張畫面', top: 100 },
-    { id: 'img-ref', side: 'in', tone: 'ref', label: '參考', top: 130 },
-    { id: 'img-out', side: 'out', tone: 'main', label: '第一張畫面', top: 70 },
+    { id: 'img-in', side: 'in', tone: 'main', type: 'shot', label: '鏡頭', top: 70 },
+    {
+      id: 'img-first',
+      side: 'in',
+      tone: 'main',
+      type: 'image',
+      label: '第一張畫面',
+      short: '現成圖',
+      top: 100,
+    },
+    { id: 'img-ref', side: 'in', tone: 'ref', type: 'ref', label: '參考', top: 130 },
+    {
+      id: 'img-out',
+      side: 'out',
+      tone: 'main',
+      type: 'image',
+      label: '第一張畫面',
+      short: '圖',
+      top: 70,
+    },
   ],
-  video: [{ id: 'vid-in', side: 'in', tone: 'main', label: '第一張畫面', top: 70 }],
+  video: [{ id: 'vid-in', side: 'in', tone: 'main', type: 'image', label: '第一張畫面', top: 70 }],
   character: [
-    { id: 'char-ref', side: 'in', tone: 'ref', label: '參考圖', top: 70 },
-    { id: 'char-out', side: 'out', tone: 'ref', label: '角色', top: 70 },
+    { id: 'char-ref', side: 'in', tone: 'ref', type: 'ref', label: '參考圖', top: 70 },
+    { id: 'char-out', side: 'out', tone: 'ref', type: 'ref', label: '角色', top: 70 },
   ],
   location: [
-    { id: 'loc-ref', side: 'in', tone: 'ref', label: '參考圖', top: 70 },
-    { id: 'loc-out', side: 'out', tone: 'ref', label: '地點', top: 70 },
+    { id: 'loc-ref', side: 'in', tone: 'ref', type: 'ref', label: '參考圖', top: 70 },
+    { id: 'loc-out', side: 'out', tone: 'ref', type: 'ref', label: '地點', top: 70 },
   ],
-  freeImage: [{ id: 'free-img-out', side: 'out', tone: 'main', label: '圖', top: 70 }],
-  freeVideo: [{ id: 'free-vid-out', side: 'out', tone: 'main', label: '影片', top: 70 }],
+  freeImage: [
+    { id: 'free-img-out', side: 'out', tone: 'main', type: 'image', label: '圖', top: 70 },
+  ],
+  freeVideo: [
+    { id: 'free-vid-out', side: 'out', tone: 'main', type: 'video', label: '影片', top: 70 },
+  ],
   note: [],
   group: [],
   // 步驟的連接點畫在格子上下（StepNode 自己畫），不是左右兩排
@@ -229,10 +265,11 @@ export function portsOf(data: CanvasNodeData): readonly PortDef[] {
       id: slot.id,
       side: 'in',
       tone: 'main',
+      type: 'video',
       label: slot.label,
       top: cutSlotTop(index),
     })),
-    { id: 'cut-out', side: 'out', tone: 'main', label: '成品', top: cutSlotTop(0) },
+    { id: 'cut-out', side: 'out', tone: 'main', type: 'cut', label: '成品', top: cutSlotTop(0) },
   ]
 }
 
