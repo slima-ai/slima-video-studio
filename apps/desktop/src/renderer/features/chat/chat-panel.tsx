@@ -10,8 +10,8 @@ import { PrereqCard } from './prereq-card'
 /** 對話框空的時候給的幾個起手式：點一下填進輸入框，不會自己送出。 */
 const STARTERS = [
   '幫我新增三個鏡頭：清晨的街角、公車進站、主角抬頭看天空',
-  '看一下目前專案有哪些鏡頭，哪裡還缺畫面？',
-  '把第一鏡的描述改得更有電影感',
+  '看一下目前專案有哪些鏡頭，哪些還沒生成圖片或影片？',
+  '把第 1 鏡的描述改得更有電影感',
 ]
 
 /** 輸入框：Enter 送出、Shift+Enter 換行（中文輸入法選字時的 Enter 不算送出）；Claude 做事時變成停止鈕，Esc 也能停。 */
@@ -56,7 +56,7 @@ function Composer() {
             size="icon"
             data-testid="chat-stop"
             aria-label="停止"
-            title="停止這一輪（Esc）"
+            title="停止 Claude 現在做的事（Esc）"
             onClick={stop}
           >
             <Square className="size-4" aria-hidden />
@@ -73,7 +73,8 @@ function Composer() {
         )}
       </div>
       <p className="text-[11px] leading-snug text-fg-muted">
-        用的是你自己登入的 Claude Code，App 不碰你的登入資料。Claude 能做的事限於這個 App 的工具。
+        用的是你自己登入的 Claude Code，App 不碰你的登入資料，對話會用到你自己的 Claude 用量。Claude
+        能做的事限於這個 App 的工具，會花錢的步驟它會先問你。
       </p>
       <StarterFill visible={text === '' && !running} onPick={setText} boxRef={box} />
     </div>
@@ -188,7 +189,7 @@ export function ChatPanel() {
               <div className="flex flex-col items-center gap-2 pt-4 text-center">
                 <Mascot size={56} mood="idle" />
                 <p className="text-sm text-fg-muted">
-                  跟 Claude 說你想做什麼，它會直接改左邊的畫布，你看得到它用了哪些步驟。
+                  跟 Claude 說你想做什麼，它會直接改你現在開著的專案，你看得到它用了哪些步驟。
                 </p>
               </div>
             ) : (

@@ -75,3 +75,65 @@ describe('claudeEnv', () => {
     expect(env).toEqual({ PATH: 'C:\\x', USERPROFILE: 'C:\\u' })
   })
 })
+
+describe('claudeEnv：使用者自己的 Claude 設定與網路環境要放行', () => {
+  it('換過設定資料夾、走 proxy、自簽憑證的人：這幾個變數傳得過去，金鑰還是不傳', () => {
+    const env = claudeEnv(
+      {
+        PATH: '/usr/bin',
+        HOME: '/Users/x',
+        CLAUDE_CONFIG_DIR: '/Users/x/.claude-work',
+        HTTPS_PROXY: 'http://proxy.corp:8080',
+        https_proxy: 'http://proxy.corp:8080',
+        HTTP_PROXY: 'http://proxy.corp:8080',
+        NO_PROXY: 'localhost,127.0.0.1',
+        NODE_EXTRA_CA_CERTS: '/etc/corp-ca.pem',
+        ANTHROPIC_API_KEY: 'sk-ant-secret',
+        OPENROUTER_API_KEY: 'sk-or-secret',
+      },
+      'darwin',
+    )
+    expect(env).toEqual({
+      PATH: '/usr/bin',
+      HOME: '/Users/x',
+      CLAUDE_CONFIG_DIR: '/Users/x/.claude-work',
+      HTTPS_PROXY: 'http://proxy.corp:8080',
+      https_proxy: 'http://proxy.corp:8080',
+      HTTP_PROXY: 'http://proxy.corp:8080',
+      NO_PROXY: 'localhost,127.0.0.1',
+      NODE_EXTRA_CA_CERTS: '/etc/corp-ca.pem',
+    })
+  })
+
+  it('Windows 一樣放行', () => {
+    const env = claudeEnv(
+      {
+        PATH: 'C:\\x',
+        USERPROFILE: 'C:\\u',
+        HTTPS_PROXY: 'http://p:1',
+        CLAUDE_CONFIG_DIR: 'D:\\c',
+      },
+      'win32',
+    )
+    expect(env).toEqual({
+      PATH: 'C:\\x',
+      USERPROFILE: 'C:\\u',
+      HTTPS_PROXY: 'http://p:1',
+      CLAUDE_CONFIG_DIR: 'D:\\c',
+    })
+  })
+})
+
+describe('CHAT_SYSTEM_PROMPT', () => {
+  it('7 行；叫 Claude 先讀指南、花錢先說再做、先看再花錢；估價只提 estimate_cost（拆分）與 plan_sound（聲音）', () => {
+    expect(CHAT_SYSTEM_PROMPT.split('\n')).toHaveLength(7)
+    expect(CHAT_SYSTEM_PROMPT).toContain('load_guide("cinematography")')
+    expect(CHAT_SYSTEM_PROMPT).toContain('view_first_frames')
+    expect(CHAT_SYSTEM_PROMPT).toContain('estimate_cost')
+    expect(CHAT_SYSTEM_PROMPT).toContain('plan_sound')
+    // 預設好用、不多加擋：使用者說了直接做就不再問
+    expect(CHAT_SYSTEM_PROMPT).toContain('他已經說了直接做，就不用再問')
+    expect(CHAT_SYSTEM_PROMPT).toContain('使用者沒明講要的話')
+    expect(CHAT_SYSTEM_PROMPT).not.toMatch(/token|api[-_]?key|sk-/i)
+  })
+})

@@ -56,9 +56,9 @@ export function ExperimentsSection({ settings, onChanged }: ExperimentsSectionPr
           <span className="font-medium">畫布右下角的 Claude 對話</span>
           <span className="mt-1 block text-fg-muted">
             在畫布右邊開一個對話面板，用你電腦上已經登入的 Claude Code
-            幫你改這個專案，你看得到它用了哪些步驟。 需要先裝好並登入 Claude
-            Code，也要打開上面的「AI 工具連線」。對話會用到你自己的 Claude 用量，
-            花錢的生成步驟照「AI 工具連線」的額度擋。這是實驗功能，可能隨時改變。
+            幫你改這個專案，你看得到它用了哪些步驟。需要先裝好並登入 Claude Code，也要打開上面的「AI
+            工具連線」。對話會用到你自己的 Claude 用量，花錢的生成步驟照「AI
+            工具連線」的額度擋。這是實驗功能，可能隨時改變。
           </span>
         </span>
       </label>
