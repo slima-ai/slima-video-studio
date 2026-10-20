@@ -1,6 +1,7 @@
-import { ClipboardPaste, Clapperboard, PenLine, Sparkles } from 'lucide-react'
+import { ClipboardPaste, PenLine, Sparkles } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 
+import { Mascot } from '../../brand/mascot'
 import { Button } from '../../components/button'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
 
@@ -61,7 +62,7 @@ export function StartCards({
       <div className="pointer-events-auto flex flex-col items-center gap-4">
         <div className="flex flex-col items-center gap-1 text-center">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Clapperboard className="size-5 text-accent" aria-hidden />
+            <Mascot size={32} mood="idle" />
             從哪裡開始？
           </h2>
           <p className="text-sm text-fg-muted">

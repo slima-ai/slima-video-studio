@@ -1,6 +1,7 @@
 import { Plus, Square, X } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 
+import { Mascot } from '../../brand/mascot'
 import { Button } from '../../components/button'
 import { useChatDock } from './chat-context'
 import { MessageView } from './message-view'
@@ -184,9 +185,12 @@ export function ChatPanel() {
         <>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3" data-testid="chat-messages">
             {messages.length === 0 ? (
-              <p className="text-sm text-fg-muted">
-                跟 Claude 說你想做什麼，它會直接改左邊的畫布，你看得到它用了哪些步驟。
-              </p>
+              <div className="flex flex-col items-center gap-2 pt-4 text-center">
+                <Mascot size={56} mood="idle" />
+                <p className="text-sm text-fg-muted">
+                  跟 Claude 說你想做什麼，它會直接改左邊的畫布，你看得到它用了哪些步驟。
+                </p>
+              </div>
             ) : (
               messages.map((message) => <MessageView key={message.id} message={message} />)
             )}

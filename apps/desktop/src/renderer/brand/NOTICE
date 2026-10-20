@@ -1,0 +1,19 @@
+Slima brand artwork
+===================
+
+The images in this folder (the wizard-hat slime mascot and any other Slima character artwork)
+are the property of Slima and are All Rights Reserved. They are NOT licensed under the
+Apache License 2.0 that covers the rest of this repository, and the Apache-2.0 license grants
+no right to copy, modify, redistribute or reuse them, nor to use them in a way that suggests
+your own product is made or endorsed by Slima.
+
+You may build and run this software from source with these files in place. If you
+redistribute a modified version of the software, replace the images in this folder with your
+own (same file names and layout) before you do.
+
+這個資料夾裡的圖像（戴巫師帽的史萊姆吉祥物，以及其他 Slima 角色圖）為 Slima 所有，保留一切權利，
+不在本 repo 其餘部分採用的 Apache-2.0 授權範圍內；Apache-2.0 不給你複製、修改、轉散布或另作他用的權利，
+也不得用來暗示你的產品出自 Slima 或經 Slima 認可。
+
+從原始碼建置、執行這個軟體時可以保留這些檔案。若你散布修改過的版本，請先把這個資料夾裡的圖換成你自己的
+（檔名與格子排法相同即可）。
