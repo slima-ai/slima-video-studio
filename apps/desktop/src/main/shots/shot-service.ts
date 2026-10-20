@@ -53,7 +53,8 @@ import { createProjectEngine } from '../project-engine'
 import type { ProjectManager } from '../project-manager'
 import { SHOT_NODE } from '../quickstart/progress-tracker'
 import { createDraftCharacters } from '../quickstart/draft-characters'
-import { sceneKey } from '../canvas/projection'
+import { sceneKey, shotKey } from '../canvas/projection'
+import { isAiCall } from '../history/ai-origin'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
@@ -213,6 +214,13 @@ export interface ShotService {
   finalCut: () => CanvasFinalCut | undefined
   /** 重新接片完成時通知（快速開始用它更新預覽）。 */
   onRejoined: (listener: (videoHash: string) => void) => () => void
+}
+
+/** 這次生成會更新的畫布格子：只生首幀圖是圖那一格，只生影片是影片那一格，整支鏡頭兩格都是。 */
+export function generatedNodeKeys(shotId: string, mode: RegenerateMode): string[] {
+  const image = `${shotKey(shotId)}:image`
+  const video = `${shotKey(shotId)}:video`
+  return mode === 'frame' ? [image] : mode === 'video' ? [video] : [image, video]
 }
 
 const invalid = (userMessage: string): AppError =>
@@ -1108,6 +1116,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   ): Promise<void> {
     const { handle } = s
     const shotId = shot.id
+    // 誰叫的：AI 工具（MCP）進來的呼叫才標「AI 剛改」；使用者自己按 ▶ 的不標。
+    // 這裡還在呼叫的同一串非同步裡，所以現在看得到；等背景做完才問就來不及了
+    const fromAi = isAiCall()
     if (s.quick) throw invalid('整支影片正在生成，等它完成再重新生成單一鏡頭。')
     if (s.regens.has(shotId)) throw invalid('這個鏡頭正在重新生成。')
 
@@ -1175,6 +1186,17 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         s.activity.delete(shotId)
         changed(s)
         releaseIdle(s)
+      })
+      .then(() => {
+        // AI 叫的生成在背景做完了（成功才通知；失敗畫面本來就會顯示錯誤）：告訴畫面哪些格子有新結果
+        if (!fromAi || handle.closed || controller.signal.aborted) return
+        broadcast('canvas.aiChanged', {
+          at: (deps.now?.() ?? new Date()).toISOString(),
+          channel: 'generation.done',
+          changed: generatedNodeKeys(shotId, mode),
+          added: [],
+          removed: [],
+        })
       })
 
     if (!progress.started) {
