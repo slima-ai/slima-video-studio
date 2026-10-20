@@ -30,6 +30,7 @@ export const CHANGE_EVENTS: Partial<Record<IpcChannel, readonly DataEvent[]>> = 
   'outline.edit': ['outline.changed', 'locations.changed'],
   'outline.split': ALL,
   'storyboard.splitScene': ['outline.changed'],
+  'shots.assignScene': ALL,
   'canvas.add': ALL,
   'canvas.remove': ALL,
   'canvas.rename': ALL,

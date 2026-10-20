@@ -481,6 +481,9 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('shots.reorder', ({ orderedIds }) =>
     history.record('調整鏡頭順序', () => shots.reorder(orderedIds)),
   )
+  registry.registerHandler('shots.assignScene', ({ shotIds, sceneId }) =>
+    history.record('把鏡頭歸進場', () => shots.assignScene(shotIds, sceneId)),
+  )
   registry.registerHandler('storyboard.splitCheck', ({ sceneId }) => storyboard.splitCheck(sceneId))
   registry.registerHandler('storyboard.splitScene', async ({ sceneId }) => {
     try {

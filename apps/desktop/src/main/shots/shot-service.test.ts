@@ -414,6 +414,54 @@ describe('鏡頭表：新增、刪除、排序與更多欄位', () => {
     expect(() => h.shots.create({ sceneId: 'nope' })).toThrow('找不到這個場')
   })
 
+  it('新增鏡頭沒指定場：專案沒有場就先建一個；有場就放前一個鏡頭的場、再不然最後一個場——鏡頭不會沒有場', () => {
+    const h = setup()
+    const scenes = () => h.outline.get().acts.flatMap((act) => act.scenes)
+    // 專案裡一個場都沒有：連幕帶場先建好，鏡頭放進去
+    expect(scenes()).toHaveLength(0)
+    const first = h.shots.create({})
+    expect(scenes()).toHaveLength(1)
+    expect(first.sceneId).toBe(scenes()[0]?.id)
+    // 再新增：進同一個場，不會每次多建一個
+    expect(h.shots.create({}).sceneId).toBe(first.sceneId)
+    expect(scenes()).toHaveLength(1)
+    // 加第二個場：沒指定放最後一個場；指定 afterShotId 跟著那個鏡頭的場；明確指定場照指定
+    const act = h.outline.get().acts[0]
+    if (!act) throw new Error('沒有幕')
+    h.outline.edit({ op: 'addScene', actId: act.id })
+    const [one, two] = scenes()
+    if (!one || !two) throw new Error('場不夠')
+    expect(h.shots.create({}).sceneId).toBe(two.id)
+    expect(h.shots.create({ afterShotId: first.id }).sceneId).toBe(one.id)
+    expect(h.shots.create({ sceneId: one.id }).sceneId).toBe(one.id)
+    expect(h.shots.list().shots.every((shot) => shot.sceneId !== undefined)).toBe(true)
+  })
+
+  it('歸進場：刪掉場之後留下沒歸場的鏡頭，一鍵歸進最後一個場；一個場都沒有就先建一個', () => {
+    const h = setup()
+    const a = h.shots.create({})
+    const b = h.shots.create({})
+    const scenes = () => h.outline.get().acts.flatMap((act) => act.scenes)
+    const old = a.sceneId
+    if (old === undefined) throw new Error('鏡頭沒有場')
+    h.outline.edit({ op: 'deleteScene', sceneId: old })
+    expect(h.shots.list().shots.map((s) => s.sceneId)).toEqual([undefined, undefined])
+    expect(scenes()).toHaveLength(0)
+    // 一個場都沒有：先建一個，兩個鏡頭一起歸進去
+    const snapshot = h.shots.assignScene([a.id, b.id])
+    expect(scenes()).toHaveLength(1)
+    expect(snapshot.shots.map((s) => s.sceneId)).toEqual([scenes()[0]?.id, scenes()[0]?.id])
+    // 已經有場：沒指定就放最後一個場，不再多建
+    h.outline.edit({ op: 'addScene', actId: h.outline.get().acts[0]?.id ?? '' })
+    const [, second] = scenes()
+    h.outline.edit({ op: 'deleteScene', sceneId: scenes()[0]?.id ?? '' })
+    expect(h.shots.list().shots.every((s) => s.sceneId === undefined)).toBe(true)
+    expect(h.shots.assignScene([a.id]).shots.find((s) => s.id === a.id)?.sceneId).toBe(second?.id)
+    expect(scenes()).toHaveLength(1)
+    expect(() => h.shots.assignScene(['nope'])).toThrow('找不到這個鏡頭')
+    expect(() => h.shots.assignScene([a.id], 'nope')).toThrow('找不到這個場')
+  })
+
   it('排序：必須包含所有鏡頭；排完重新編號', () => {
     const { h, a, b, c } = withShots()
     const snapshot = h.shots.reorder([b.id, c.id, a.id])

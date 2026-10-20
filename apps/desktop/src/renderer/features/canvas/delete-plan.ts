@@ -117,7 +117,9 @@ export function planDelete(
     )
   }
   for (const scene of scenes) {
-    parts.push(`已刪除「${nameOf(scene)}」這一場；裡面的鏡頭留著，只是不屬於任何場`)
+    parts.push(
+      `已刪除「${nameOf(scene)}」這一場；裡面的鏡頭留著，但不屬於任何場（畫布上方可以一鍵歸進別的場）`,
+    )
   }
   for (const location of locations) {
     parts.push(`已刪除地點「${location.data.title}」；指到它的場和鏡頭已清空地點`)
