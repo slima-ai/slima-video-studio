@@ -13,6 +13,15 @@ describe('ModelsSection', () => {
     expect(screen.getByTestId('models-empty').textContent).toContain('示範模式')
   })
 
+  it('有一段等級說明：高品質、平衡、經濟各一句（價錢與速度）', () => {
+    installFakeSvs()
+    render(<ModelsSection models={MODELS} selected={{}} onChanged={vi.fn()} onGoToKeys={vi.fn()} />)
+    const legend = screen.getByTestId('tier-legend').textContent
+    expect(legend).toContain('高品質＝畫面最好、比較貴比較慢')
+    expect(legend).toContain('平衡＝畫面、價錢、速度都中等')
+    expect(legend).toContain('經濟＝便宜、快')
+  })
+
   it('沒有任何模型 → 「去填金鑰」會通知上層', () => {
     installFakeSvs()
     const onGoToKeys = vi.fn()
@@ -51,7 +60,7 @@ describe('ModelsSection', () => {
     expect(nano.getByText('估算')).toBeTruthy()
     expect(nano.getByText('每張約 US$0.08')).toBeTruthy()
     const seedream = within(second)
-    expect(seedream.getByText('經濟實惠')).toBeTruthy()
+    expect(seedream.getByText('經濟')).toBeTruthy()
     expect(seedream.queryByText('估算')).toBeNull()
   })
 

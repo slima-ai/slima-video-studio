@@ -180,7 +180,7 @@ test.describe('畫布上的詳情面板（示範模式）', () => {
     await expect(page.getByTestId('shot-version-2')).toHaveCount(0)
   })
 
-  test('剪輯的 ↗ 開成品面板：接片後可以預覽與匯出', async ({ page }) => {
+  test('剪輯的 ↗ 開成品面板：接成成品後可以預覽與匯出', async ({ page }) => {
     await generateAndOpenCanvas(page)
     await centerOn(page, 'cut')
     await page.getByTestId('open-cut').click()
@@ -196,6 +196,6 @@ test.describe('畫布上的詳情面板（示範模式）', () => {
     await page.getByTestId('final-cut-export').click()
     await expect(page.getByTestId('final-cut-exported')).toContainText('已匯出到')
     await page.getByTestId('final-cut-rejoin').click()
-    await expect(page.getByTestId('final-cut-rejoin')).toHaveText('重新接片', { timeout: 30_000 })
+    await expect(page.getByTestId('final-cut-rejoin')).toHaveText('接成成品', { timeout: 30_000 })
   })
 })

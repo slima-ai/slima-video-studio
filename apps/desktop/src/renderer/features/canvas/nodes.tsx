@@ -433,7 +433,7 @@ function InCutSwitch({ id, on }: { id: string; on: boolean }) {
       role="switch"
       aria-checked={on}
       aria-label="放進成品"
-      title={on ? '這一鏡會接進成品；關掉就跳過它' : '這一鏡接成品時會跳過；打開才放進去'}
+      title={on ? '這一鏡會接進成品；關掉就跳過它' : '這一鏡接成成品時會跳過；打開才放進去'}
       data-testid={`incut-${id}`}
       className="nodrag lod-full flex shrink-0 items-center gap-1.5 rounded-full text-[11px] text-fg-muted"
       onClick={() => {
@@ -506,26 +506,6 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
             {!generating && badge ? (
               <span className="rounded-full bg-accent px-2 py-px text-[11px] text-accent-fg">
                 {badge}
-              </span>
-            ) : null}
-            {generating ? (
-              // 圖與影片的標題要放得下「第 12 鏡・第一張畫面」：↗ 和刪除鈕平常收起來，
-              // 滑過、選到或鍵盤停在上面才浮出來（蓋在標題右邊）；▶ 一直都在
-              <span
-                data-testid={`header-tools-${id}`}
-                className={cn(
-                  'absolute right-[58px] top-0 flex h-9 items-center gap-1 pl-4 pr-1 transition-opacity focus-within:opacity-100',
-                  selected
-                    ? 'opacity-100'
-                    : 'pointer-events-none opacity-0 group-hover/card:pointer-events-auto group-hover/card:opacity-100',
-                )}
-                style={{
-                  background:
-                    'linear-gradient(to right, transparent, color-mix(in srgb, var(--c) 14%, var(--surface-raised)) 16px)',
-                }}
-              >
-                <OpenButton id={id} />
-                <DeleteButton id={id} data={data} selected />
               </span>
             ) : null}
             {generating || data.kind === 'shot' ? (
@@ -645,6 +625,22 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
           </p>
         ) : null}
       </div>
+      {generating ? (
+        // 圖與影片的標題要放得下「第 12 鏡・第一張畫面」：↗ 和刪除鈕不佔標題列，
+        // 滑過、選到或鍵盤停上去才浮在卡片外面的右上角（一條小工具列）；▶ 一直都在標題列
+        <span
+          data-testid={`header-tools-${id}`}
+          className={cn(
+            'lod-mid absolute -top-[34px] right-1 z-10 flex items-center gap-0.5 rounded-md border border-border bg-surface-raised p-0.5 shadow-card transition-opacity focus-within:pointer-events-auto focus-within:opacity-100',
+            selected
+              ? 'opacity-100'
+              : 'pointer-events-none opacity-0 group-hover/card:pointer-events-auto group-hover/card:opacity-100',
+          )}
+        >
+          <OpenButton id={id} />
+          <DeleteButton id={id} data={data} selected />
+        </span>
+      ) : null}
       {portsOf(data).map((port) => (
         <Port key={port.id} nodeId={id} port={port} />
       ))}
@@ -894,7 +890,7 @@ function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
             {run ? (
               <button
                 type="button"
-                aria-label="全部生成再接片"
+                aria-label="全部生成再接成成品"
                 data-tip="把還沒生成的都生成，再接成一支影片"
                 data-testid="run-cut"
                 className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
@@ -957,7 +953,7 @@ function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
               className="nodrag flex-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-fg/10 disabled:opacity-40"
               onClick={() => rejoinFinal?.()}
             >
-              重新接片
+              接成成品
             </button>
             <button
               type="button"
