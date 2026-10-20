@@ -478,6 +478,11 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     needSound().removeClip(clipId)
     return {}
   })
+  registry.registerHandler('sound.remove', ({ kind, shotId }) => ({
+    removed: history.record(kind === 'music' ? '刪除配樂' : '刪除旁白', () =>
+      needSound().removeSound({ kind, shotId }),
+    ),
+  }))
   registry.registerHandler('sound.mix', () => needSound().mix())
   registry.registerHandler('sound.analyze', () => needSound().analyze())
   registry.registerHandler('sound.updateSettings', (patch) => needSound().updateSettings(patch))

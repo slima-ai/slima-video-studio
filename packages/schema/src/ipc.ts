@@ -803,6 +803,14 @@ export const ipcContract = {
     request: z.object({ clipId: IdSchema }),
     response: z.object({}),
   },
+  /**
+   * 刪掉旁白或配樂（畫面上的刪除鈕）：這一類的全部版本一起刪（畫面上只看得到採用中的那一個）。
+   * 旁白不給 shotId 是全部鏡頭的旁白；鏡頭的台詞不受影響。記進復原歷史，一步就能整個找回來。
+   */
+  'sound.remove': {
+    request: z.object({ kind: z.enum(['narration', 'music']), shotId: IdSchema.optional() }),
+    response: z.object({ removed: z.number().int().min(0) }),
+  },
   /** 量最新成品的聲音：響度、峰值、每鏡音量、安靜的段落與白話警示（不花錢）。 */
   'sound.analyze': {
     request: z.object({}),

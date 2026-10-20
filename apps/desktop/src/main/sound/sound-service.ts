@@ -68,6 +68,11 @@ export interface SoundService {
   updateClip: (clipId: string, patch: SoundClipPatchInput) => SoundClip
   adoptClip: (clipId: string) => SoundClip
   removeClip: (clipId: string) => void
+  /**
+   * 畫面上的「刪除旁白／配樂」：這一類的全部版本一起刪，回傳刪了幾個版本。
+   * 旁白不給 shotId 是全部鏡頭的；鏡頭的台詞不動。刪完成品的聲音會變成「過期」，由畫面重混。
+   */
+  removeSound: (input: { kind: 'narration' | 'music'; shotId?: string | undefined }) => number
   updateSettings: (patch: SoundSettingsPatch) => SoundSettings
   /**
    * 一次加上旁白與配樂並混音（快速開始完成後用）：念每個「有台詞、還沒有旁白」的鏡頭，再生一首配樂，最後混進成品。
@@ -591,6 +596,16 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       const handle = need()
       handle.repos.sound.removeClip(clipId)
       changed(handle)
+    },
+
+    removeSound(input) {
+      const handle = need()
+      const removed = handle.repos.sound.removeAll({
+        kind: input.kind,
+        ...(input.shotId === undefined ? {} : { shotId: input.shotId }),
+      })
+      changed(handle)
+      return removed
     },
 
     updateSettings(patch) {

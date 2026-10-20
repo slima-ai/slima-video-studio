@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '../../components/button'
 import { call, errorText } from '../../lib/svs'
 import { useAutoMix } from './use-auto-mix'
+import { useRemoveSound } from './use-remove-sound'
 import { useSound } from './use-sound'
 
 const usd = (n: number): string => `US$${n < 0.1 ? n.toFixed(4) : n.toFixed(2)}`
@@ -95,6 +96,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
     enabled: state?.final !== undefined,
     onDone: reload,
   })
+  const removeSound = useRemoveSound({ reload, scheduleMix: schedule, onError: setError })
   const view = state?.shots.find((s) => s.shotId === shotId)
   const nativeMuted = view?.nativeMuted
   if (pending && pending.base !== nativeMuted) {
@@ -225,17 +227,37 @@ export function ShotSound({ shotId }: { shotId: string }) {
           <p className="text-sm text-fg-muted" role="status" data-testid="shot-sound-running">
             正在念…
           </p>
-        ) : dialogue !== '' ? (
-          <Button
-            size="sm"
-            data-testid="shot-sound-narrate"
-            disabled={dialogueDirty}
-            title={dialogueDirty ? '先儲存台詞' : undefined}
-            onClick={askNarration}
-          >
-            {narration ? '重新念' : '念出這句台詞'}
-          </Button>
-        ) : null}
+        ) : (
+          <div className="flex gap-2">
+            {dialogue !== '' ? (
+              <Button
+                size="sm"
+                data-testid="shot-sound-narrate"
+                disabled={dialogueDirty}
+                title={dialogueDirty ? '先儲存台詞' : undefined}
+                onClick={askNarration}
+              >
+                {narration ? '重新念' : '念出這句台詞'}
+              </Button>
+            ) : null}
+            {narration ? (
+              <Button
+                size="sm"
+                data-testid="shot-sound-narration-delete"
+                title="刪掉這一鏡的旁白（台詞還在，可以再念）。可以復原"
+                onClick={() => {
+                  setError(undefined)
+                  removeSound(
+                    { kind: 'narration', shotId },
+                    '已刪除這一鏡的旁白，台詞還在，可以再念。',
+                  )
+                }}
+              >
+                刪除旁白
+              </Button>
+            ) : null}
+          </div>
+        )}
         {mixing ? (
           <p className="text-xs text-fg-muted" role="status" data-testid="shot-sound-mixing">
             混音中…

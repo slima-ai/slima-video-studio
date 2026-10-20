@@ -2,6 +2,8 @@ import type { SoundState } from '@svs/schema'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ToastProvider } from '../../components/toast'
+import { HistoryProvider } from '../../lib/history'
 import { appError, installFakeSvs } from '../../test/fake-svs'
 import { ShotSound } from './shot-sound'
 import { SoundTimeline } from './sound-timeline'
@@ -55,6 +57,54 @@ const state = (extra: Partial<SoundState> = {}): SoundState => ({
   models: { tts: 'mock/tts', music: 'mock/music' },
   final: { version: 1, hasSound: false, soundStale: false },
   ...extra,
+})
+
+describe('ShotSound：刪除這一鏡的旁白', () => {
+  const renderShot = (shotId: string) =>
+    render(
+      <ToastProvider>
+        <HistoryProvider enabled>
+          <ShotSound shotId={shotId} />
+        </HistoryProvider>
+      </ToastProvider>,
+    )
+
+  it('有旁白才有「刪除旁白」：只刪這一鏡（帶 shotId），提示說台詞還在並附「復原」；台詞框的內容不動', async () => {
+    const removes: unknown[] = []
+    installFakeSvs({
+      'sound.get': () => state(),
+      'sound.remove': (p: unknown) => {
+        removes.push(p)
+        return { removed: 1 }
+      },
+    })
+    renderShot('s1')
+    fireEvent.click(await screen.findByTestId('shot-sound-narration-delete'))
+    await waitFor(() => {
+      expect(removes).toEqual([{ kind: 'narration', shotId: 's1' }])
+    })
+    expect(await screen.findByText(/已刪除這一鏡的旁白，台詞還在，可以再念/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '復原' })).toBeTruthy()
+    expect(screen.getByTestId<HTMLTextAreaElement>('shot-sound-dialogue').value).toBe('一句話')
+
+    cleanup()
+    installFakeSvs({ 'sound.get': () => state() })
+    renderShot('s2')
+    await screen.findByTestId('shot-sound-no-dialogue')
+    expect(screen.queryByTestId('shot-sound-narration-delete')).toBeNull()
+  })
+
+  it('刪除失敗：顯示白話錯誤', async () => {
+    installFakeSvs({
+      'sound.get': () => state(),
+      'sound.remove': () => {
+        throw appError('現在沒辦法刪除旁白。')
+      },
+    })
+    renderShot('s1')
+    fireEvent.click(await screen.findByTestId('shot-sound-narration-delete'))
+    expect((await screen.findByTestId('shot-sound-error')).textContent).toContain('沒辦法刪除旁白')
+  })
 })
 
 describe('ShotSound：一個鏡頭的聲音', () => {

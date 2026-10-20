@@ -135,4 +135,100 @@ test.describe('成品的聲音（示範模式）', () => {
     await expect(page.getByTestId('timeline-native-1')).toHaveAttribute('data-muted', 'true')
     await page.screenshot({ path: testInfo.outputPath('sound-timeline.png') })
   })
+
+  test('刪除旁白與配樂：直接刪、提示說台詞還在並附復原；成品自動重混；按復原整個找回來', async ({
+    page,
+  }, testInfo) => {
+    await generateAndOpenCanvas(page)
+    const shots = await page.evaluate(() => window.svs.invoke('shots.list', {}))
+    if (!shots.ok) throw new Error(shots.error.userMessage)
+    const first = shots.data.shots[0]
+    if (!first) throw new Error('沒有鏡頭')
+    // 示範模式拆出來的鏡頭沒有台詞：先寫一句，旁白才有東西念
+    const written = await page.evaluate(
+      (shotId) =>
+        window.svs.invoke('shots.update', { shotId, patch: { dialogue: '黑藤爬滿了斷橋。' } }),
+      first.id,
+    )
+    if (!written.ok) throw new Error(written.error.userMessage)
+
+    await page.getByTestId('palette-close').click()
+    await centerOn(page, 'cut')
+    await page.getByTestId('open-cut').click()
+    await expect(page.getByTestId('final-cut-panel')).toBeVisible()
+    const panel = page.getByTestId('sound-panel')
+    await panel.scrollIntoViewIfNeeded()
+    await page.getByTestId('sound-add').click()
+    await page.getByTestId('sound-add-go').click()
+    await expect(page.getByTestId('sound-mixer')).toBeVisible({ timeout: 60_000 })
+
+    const soundOf = async () => {
+      const result = await page.evaluate(() => window.svs.invoke('sound.get', {}))
+      if (!result.ok) throw new Error(result.error.userMessage)
+      return result.data
+    }
+    const narrated = async (): Promise<number> =>
+      (await soundOf()).shots.filter((s) => s.narration !== undefined).length
+    const dialogueOf = async (): Promise<string | undefined> => {
+      const list = await page.evaluate(() => window.svs.invoke('shots.list', {}))
+      return list.ok ? list.data.shots.find((s) => s.id === first.id)?.dialogue : undefined
+    }
+    expect(await narrated()).toBe(1)
+    expect((await soundOf()).music).toBeDefined()
+    await panel.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: testInfo.outputPath('delete-before.png') })
+
+    // 刪旁白：不跳確認框，提示說台詞還在；成品自動重混（還有配樂，所以還是有聲音）；台詞沒動
+    await page.getByTestId('sound-narration-delete').click()
+    const toast = page.getByTestId('toast')
+    await expect(toast).toContainText('已刪除 1 句旁白，台詞還在，可以再念')
+    await expect.poll(narrated).toBe(0)
+    expect(await dialogueOf()).toBe('黑藤爬滿了斷橋。')
+    await expect(page.getByTestId('sound-no-narration')).toBeVisible()
+    await page.screenshot({ path: testInfo.outputPath('delete-narration.png') })
+    await expect
+      .poll(async () => (await soundOf()).final?.soundStale, { timeout: 60_000 })
+      .toBe(false)
+    expect((await soundOf()).final?.hasSound).toBe(true)
+
+    // 復原：旁白回來，成品跟著重混回有旁白的樣子
+    await page.getByTestId('toast-action').click()
+    await expect.poll(narrated, { timeout: 30_000 }).toBe(1)
+    await expect
+      .poll(async () => (await soundOf()).final?.soundStale, { timeout: 60_000 })
+      .toBe(false)
+    await expect(page.getByTestId('sound-summary')).toContainText('1 個鏡頭有旁白')
+
+    // 刪配樂，再刪旁白：聲音都沒了，成品回到沒有聲音的版本；復原一次，旁白回來
+    await page.getByTestId('sound-music-delete').click()
+    await expect(page.getByTestId('toast')).toContainText('已刪除配樂')
+    await expect.poll(async () => (await soundOf()).music, { timeout: 30_000 }).toBeUndefined()
+    await expect(page.getByTestId('sound-music-delete')).toHaveCount(0)
+    await page.getByTestId('sound-narration-delete').click()
+    await expect.poll(narrated, { timeout: 30_000 }).toBe(0)
+    await expect
+      .poll(async () => (await soundOf()).final?.hasSound, { timeout: 60_000 })
+      .toBe(false)
+    expect(await dialogueOf()).toBe('黑藤爬滿了斷橋。')
+    await page.getByTestId('toast-action').click()
+    await expect.poll(narrated, { timeout: 30_000 }).toBe(1)
+    await expect.poll(async () => (await soundOf()).final?.hasSound, { timeout: 60_000 }).toBe(true)
+    await panel.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: testInfo.outputPath('delete-after-undo.png') })
+
+    // 一個鏡頭的聲音區也有「刪除旁白」：只刪這一鏡的，復原找回來
+    await page.keyboard.press('Escape')
+    await centerOn(page, `shot:${first.id}`)
+    await page.getByTestId(`open-shot:${first.id}`).click()
+    await expect(page.getByTestId('shot-panel')).toBeVisible()
+    await page.getByTestId('shot-sound').scrollIntoViewIfNeeded()
+    await expect(page.getByTestId('shot-sound-narration')).toBeVisible()
+    await page.getByTestId('shot-sound-narration-delete').click()
+    await expect(page.getByTestId('toast')).toContainText('已刪除這一鏡的旁白，台詞還在')
+    await expect(page.getByTestId('shot-sound-narration')).toHaveCount(0)
+    await expect(page.getByTestId('shot-sound-dialogue')).toHaveValue('黑藤爬滿了斷橋。')
+    await page.screenshot({ path: testInfo.outputPath('delete-shot-narration.png') })
+    await page.getByTestId('toast-action').click()
+    await expect(page.getByTestId('shot-sound-narration')).toBeVisible({ timeout: 30_000 })
+  })
 })
