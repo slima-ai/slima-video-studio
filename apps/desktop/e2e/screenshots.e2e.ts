@@ -521,7 +521,8 @@ async function createProject(page: Page, name: string): Promise<void> {
  */
 test.describe('README 用的圖', () => {
   test('10 首頁、11 空白畫布的三種開始方式', async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 1600, height: 1000 })
+    // 這兩張的內容不高，視窗矮一點，圖裡就不會有一大片空白
+    await page.setViewportSize({ width: 1600, height: 600 })
     await chooseTheme(page, THEMES[1])
     await page.getByRole('button', { name: '畫布', exact: true }).click()
     await createProject(page, '雨夜的貓')
@@ -536,6 +537,7 @@ test.describe('README 用的圖', () => {
     await page.getByTestId('home-current').getByRole('button').first().click()
     await page.getByRole('button', { name: '畫布', exact: true }).click()
     await expect(page.getByTestId('canvas-empty')).toBeVisible()
+    await page.setViewportSize({ width: 1600, height: 760 })
     await viewportSettled(page)
     await shoot(page, testInfo, '11-canvas-start.png')
   })
