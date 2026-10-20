@@ -259,6 +259,7 @@ export function testSettingsDeps(
     history: {
       record: (_label, run) => run(),
       begin: () => () => undefined,
+      beginAiTurn: () => () => undefined,
       clear: () => undefined,
       state: () => ({ canUndo: false, canRedo: false }),
       undo: () => ({ applied: false, state: { canUndo: false, canRedo: false } }),

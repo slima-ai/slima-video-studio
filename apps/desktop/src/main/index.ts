@@ -340,6 +340,8 @@ void app.whenReady().then(() => {
     packaged: app.isPackaged,
     bridge: bridgeCommand(process.execPath, join(__dirname, 'mcp-stdio-bridge.js'), userData),
     workDir: join(userData, 'claude-chat', 'work'),
+    // Claude 一輪的改動合成一步復原
+    history: studio.history,
     // 對話紀錄放在目前專案的 chat/；專案換了（含另存為、Claude 自己建新專案）就換一批對話
     project: {
       dir: () => projects?.current()?.dir,

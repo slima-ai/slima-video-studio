@@ -34,6 +34,15 @@ async function useFreeMcpPort(page: Page): Promise<void> {
   }, port)
 }
 
+/** 目前專案的復原還能退幾步。 */
+async function undoCount(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const r = await window.svs.invoke('history.state', {})
+    if (!r.ok) throw new Error(r.error.userMessage)
+    return r.data.undoCount ?? 0
+  })
+}
+
 /** 打開面板、（AI 工具連線沒開就一鍵打開）、等到輸入框出現。 */
 async function openChat(page: Page): Promise<void> {
   await page.getByRole('button', { name: '畫布', exact: true }).click()
@@ -234,9 +243,7 @@ test.describe('Claude 對話（假的 claude）', () => {
     expect(readFileSync(join(copy, 'chat', files[0] ?? ''), 'utf8')).toContain('你還記得嗎')
   })
 
-  test('Claude 用 MCP 改的東西能復原：工具列的復原按鈕與 ⌘Z 都有用，一個工具呼叫一步', async ({
-    page,
-  }) => {
+  test('Claude 一輪的改動合成一步復原：建 2 個鏡頭，按一次復原（或 ⌘Z）全退', async ({ page }) => {
     await useFreeMcpPort(page)
     await openChat(page)
     const input = page.getByTestId('chat-input')
@@ -248,11 +255,91 @@ test.describe('Claude 對話（假的 claude）', () => {
       { timeout: 30_000 },
     )
     await expect.poll(() => kindCount(page, 'shot'), { timeout: 15_000 }).toBe(2)
-    await page.getByRole('button', { name: /復原/ }).first().click()
-    await expect.poll(() => kindCount(page, 'shot')).toBe(1)
+    expect(await undoCount(page)).toBe(1)
     await page.mouse.click(600, 600)
     await page.keyboard.press('ControlOrMeta+z')
     await expect.poll(() => kindCount(page, 'shot')).toBe(0)
+    // 重做：整輪一起回來
+    await page.keyboard.press('ControlOrMeta+Shift+z')
+    await expect.poll(() => kindCount(page, 'shot')).toBe(2)
+  })
+
+  test('一輪做到一半被停止：已經做的改動也是一步就能退', async ({ page }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('做一半就停')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-stop')).toBeVisible({ timeout: 30_000 })
+    await expect.poll(() => kindCount(page, 'shot'), { timeout: 15_000 }).toBe(1)
+    await page.getByTestId('chat-stop').click()
+    await expect(page.getByTestId('chat-stopped')).toBeVisible()
+    expect(await undoCount(page)).toBe(1)
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(0)
+  })
+
+  test('Claude 還在做的時候使用者自己動手：他的操作自己一步，復原只退他最後做的那一步；Claude 那一步不被併進去', async ({
+    page,
+  }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('做一半就停')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-stop')).toBeVisible({ timeout: 30_000 })
+    await expect.poll(() => kindCount(page, 'shot'), { timeout: 15_000 }).toBe(1)
+    // Claude 還在等（沒收尾）：使用者自己加了一個鏡頭
+    await page.evaluate(async () => {
+      const r = await window.svs.invoke('canvas.add', { kind: 'shot' })
+      if (!r.ok) throw new Error(r.error.userMessage)
+    })
+    await expect.poll(() => kindCount(page, 'shot')).toBe(2)
+    expect(await undoCount(page)).toBe(2)
+    // 復原：只退使用者自己加的那個，Claude 做的那個還在
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(1)
+    await expect(page.getByTestId('chat-stop')).toBeVisible()
+  })
+
+  test('Claude 還在做、最上面一步是它的：按復原先不動，說「Claude 正在改」；它做完或被停止之後才能退整輪', async ({
+    page,
+  }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('做一半就停')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-stop')).toBeVisible({ timeout: 30_000 })
+    await expect.poll(() => kindCount(page, 'shot'), { timeout: 15_000 }).toBe(1)
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect(page.getByText('Claude 正在改這個專案')).toBeVisible()
+    // 什麼都沒退
+    expect(await kindCount(page, 'shot')).toBe(1)
+    expect(await undoCount(page)).toBe(1)
+    // 按停止之後就能退
+    await page.getByTestId('chat-stop').click()
+    await expect(page.getByTestId('chat-stopped')).toBeVisible()
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(0)
+  })
+
+  test('使用者自己的操作照舊：一個動作一步，按一次復原只退一個', async ({ page }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    // 使用者自己加兩個鏡頭（跟畫布按鈕走同一條路）：兩步
+    const addShot = (): Promise<void> =>
+      page.evaluate(async () => {
+        const r = await window.svs.invoke('canvas.add', { kind: 'shot' })
+        if (!r.ok) throw new Error(r.error.userMessage)
+      })
+    await addShot()
+    await addShot()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(2)
+    expect(await undoCount(page)).toBe(2)
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(1)
+    expect(await undoCount(page)).toBe(1)
   })
 
   test('行程當掉：說明連線中斷（不貼原始錯誤），再講一句會接著上次的對話', async ({ page }) => {

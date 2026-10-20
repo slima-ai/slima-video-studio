@@ -147,7 +147,12 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
   }
   if (message.type !== 'user') return
   const text = String(message.message?.content ?? '')
-  if (text.includes('很久')) {
+  if (text.includes('很久') || text.includes('做一半')) {
+    // 做一半：先建專案、加一個鏡頭，再接著一個要做很久的工作
+    if (text.includes('做一半')) {
+      await useTool('create_project', { name: 'Claude 建的短片' })
+      await useTool('create_shot', {})
+    }
     // 一個要做很久的工作：等使用者按停止
     out({
       type: 'stream_event',
