@@ -62,6 +62,8 @@ export interface CanvasNodeData extends Record<string, unknown> {
   glow?: boolean | undefined
   /** 剛長出來：播一次長出動畫。 */
   born?: boolean | undefined
+  /** 鏡頭的旁白台詞：卡片上寫「旁白：…」，雙擊可以改。 */
+  dialogue?: string | undefined
   /** 卡片底部一行：「3.2 秒・約 US$0.02・剛剛」。 */
   usageText?: string | undefined
   /** 失敗的圖與影片節點：白話原因。 */
@@ -104,7 +106,7 @@ export const NODE_SIZE: Readonly<
   Record<Exclude<NodeKind, 'scene' | 'cut' | 'group' | 'step'>, { w: number; h: number }>
 > = {
   oneliner: { w: 300, h: 440 },
-  shot: { w: 230, h: 160 },
+  shot: { w: 230, h: 188 },
   image: { w: 230, h: 246 },
   video: { w: 230, h: 246 },
   character: { w: 220, h: 200 },

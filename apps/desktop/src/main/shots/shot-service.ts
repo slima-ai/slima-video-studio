@@ -631,6 +631,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     durationSec: item.durationSec,
     characters: item.characters.map((name) => ({ name })),
     ...(item.mood ? { mood: item.mood } : {}),
+    // 一句話勾了旁白時，拆鏡寫的旁白台詞
+    ...(item.dialogue ? { dialogue: item.dialogue } : {}),
   })
 
   /**

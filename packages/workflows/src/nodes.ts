@@ -106,6 +106,8 @@ export const ShotItemSchema = z.object({
   locationId: z.string().optional(),
   /** 使用者手動改過的 Prompt；有填就直接用它，不再由描述組出來。 */
   promptOverride: z.string().optional(),
+  /** 這一鏡的旁白台詞（拆鏡時一句話勾了「旁白」才會寫）；不進圖片與影片的 Prompt。 */
+  dialogue: z.string().optional(),
 })
 export type ShotItem = z.infer<typeof ShotItemSchema>
 
@@ -116,6 +118,7 @@ const LlmShotSchema = ShotItemSchema.omit({
   promptOverride: true,
   cameraMove: true,
   locationId: true,
+  dialogue: true,
 }).extend({
   /** 只能從運鏡預設清單裡選（或 null 代表沒特別要求）。 */
   cameraMove: z.enum(CAMERA_MOVE_IDS).nullable().default(null),
@@ -124,6 +127,29 @@ const LlmBreakdownSchema = z.object({
   title: z.string(),
   shots: z.array(LlmShotSchema).min(1).max(12),
 })
+/** 要旁白時：每一鏡多一句台詞（旁白念的字）。 */
+const LlmBreakdownWithNarrationSchema = z.object({
+  title: z.string(),
+  shots: z
+    .array(LlmShotSchema.extend({ dialogue: z.string().min(1) }))
+    .min(1)
+    .max(12),
+})
+
+/** 旁白一秒大約念幾個字（中文），用來限制每鏡台詞的長度。 */
+const NARRATION_CHARS_PER_SEC = 4
+
+/** 模型寫的台詞（有要旁白才有）照每鏡秒數的上限截短；沒有就不帶這個欄位。 */
+function dialogueOf(shot: object, durationSec: number): { dialogue?: string } {
+  const raw = 'dialogue' in shot ? shot.dialogue : undefined
+  return typeof raw === 'string'
+    ? { dialogue: raw.trim().slice(0, narrationMaxChars(durationSec)) }
+    : {}
+}
+
+/** 每一鏡的旁白最多幾個字：配合每鏡秒數，念得完。 */
+export const narrationMaxChars = (durationSec: number): number =>
+  Math.max(6, Math.round(durationSec * NARRATION_CHARS_PER_SEC))
 
 function assetOf(output: GenerationOutput, kind: 'image' | 'video'): AssetRef {
   if (output.kind !== 'assets') {
@@ -160,7 +186,7 @@ const needModel = (modelId: string | undefined, what: string): string => {
 
 export const breakdownNode = defineNode({
   type: NODE_TYPES.breakdown,
-  version: 4,
+  version: 5,
   inputs: {},
   outputs: { shots: 'json', title: 'text' },
   params: z.object({
@@ -174,11 +200,13 @@ export const breakdownNode = defineNode({
     knownCharacters: z.array(z.string().min(1)).default([]),
     /** 分鏡準則（見 DEFAULT_STORYBOARD_GUIDE）；空字串表示不附。 */
     guide: z.string().default(''),
+    /** 一句話勾了「旁白」：每一鏡另外寫一句短的旁白台詞（不勾就不寫台詞）。 */
+    narration: z.boolean().default(false),
   }),
   estimateCost: ({ params, modelId, estimate }) =>
     estimate(needModel(modelId, '文字'), {
       inputTokens: Math.ceil((params.story.length + params.guide.length) * 1.5) + 500,
-      outputTokens: params.shotCount * 150 + 50,
+      outputTokens: params.shotCount * (params.narration ? 200 : 150) + 50,
     }),
   run: async ({ params, modelId, signal, nodeRunId, services, reportCost }) => {
     const studio = getStudio(services)
@@ -190,7 +218,10 @@ export const breakdownNode = defineNode({
         seed: params.variation,
         system:
           '你是短片的分鏡助手。把使用者的故事拆成幾個連續的鏡頭，每個鏡頭是一段約幾秒的畫面。' +
-          '用白話描述畫面裡看得到的人事物與動作，不要寫對白，不要寫抽象的感受。同一個角色在不同鏡頭裡用同一個名字。' +
+          '用白話描述畫面裡看得到的人事物與動作，不要寫抽象的感受。同一個角色在不同鏡頭裡用同一個名字。' +
+          (params.narration
+            ? `description 只寫畫面，不要寫對白。另外每個鏡頭都要有 dialogue：一句給旁白念的短句（中文，白話，不加引號、括號與動作說明），配合這一鏡的情節；每鏡 ${String(params.durationSec)} 秒，dialogue 最多 ${String(narrationMaxChars(params.durationSec))} 個字，要念得完。`
+            : '不要寫對白。') +
           (params.knownCharacters.length > 0
             ? `已經建好的角色有：${params.knownCharacters.join('、')}。故事裡出現這些角色時，characters 欄位一定要用一模一樣的名字。`
             : '') +
@@ -205,11 +236,13 @@ export const breakdownNode = defineNode({
           },
         ],
       },
-      LlmBreakdownSchema,
+      params.narration ? LlmBreakdownWithNarrationSchema : LlmBreakdownSchema,
       { signal, nodeRunId },
     )
     const shots: ShotItem[] = result.data.shots.slice(0, params.shotCount).map((shot, i) => ({
       ...shot,
+      // 台詞照每鏡秒數的上限截短（模型寫太長念不完）
+      ...dialogueOf(shot, params.durationSec),
       number: i + 1,
       durationSec: params.durationSec,
     }))

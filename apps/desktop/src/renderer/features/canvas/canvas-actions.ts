@@ -45,6 +45,8 @@ export interface CanvasActions {
   startRename?: (nodeId: string) => void
   /** 雙擊鏡頭的描述改完：存回鏡頭（只存起來，圖與影片要重跑才會用到）。沒提供就不能就地改。 */
   saveShotDescription?: (shotKey: string, description: string) => void
+  /** 雙擊鏡頭的旁白改完：存回鏡頭（空字串就是不念）。沒提供就不能就地改。 */
+  saveShotDialogue?: (shotKey: string, dialogue: string) => void
   toggleInCut: (nodeId: string) => void
   /**
    * 一句話節點的「先產生分鏡」（stage = storyboard，只用文字模型）與「一次做完整支」（stage = full）：

@@ -1104,6 +1104,22 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             toast.show({ message: errorText(error), tone: 'danger' })
           })
       },
+      saveShotDialogue: (shotKey, dialogue) => {
+        const shotId = shotKey.replace(/^shot:/, '')
+        call('shots.update', { shotId, patch: { dialogue } })
+          .then(() => {
+            onChanged()
+            toast.show({
+              key: 'shot-dialogue',
+              message: dialogue === '' ? '已清掉這一鏡的旁白' : '已改這一鏡的旁白',
+              action: { label: '復原', onAction: history.undo },
+            })
+          })
+          .catch((error: unknown) => {
+            onChanged()
+            toast.show({ message: errorText(error), tone: 'danger' })
+          })
+      },
       savePrompt: (shotKey, prompt) => {
         const shotId = shotKey.replace(/^shot:/, '')
         call('shots.update', { shotId, patch: { prompt } })

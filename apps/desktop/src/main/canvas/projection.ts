@@ -90,7 +90,7 @@ const STEP_TITLES = { prompt: '整理 Prompt', refs: '挑參考圖', model: '送
 
 // ── 自動排版（尺寸與間距和畫面上的節點卡片一致，見 uiux-spec §3、§12） ──
 const SIZE = {
-  shot: { w: 230, h: 160 },
+  shot: { w: 230, h: 188 },
   image: { w: 230, h: 246 },
   video: { w: 230, h: 246 },
 } as const
@@ -264,6 +264,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
         title: `第 ${String(shot.number)} 鏡`,
         ...(stepInfo ? { expanded: true } : {}),
         summary: shot.description,
+        ...(shot.dialogue.trim() === '' ? {} : { dialogue: shot.dialogue }),
         meta: `${SHOT_SIZE_LABELS[shot.size]}・${SHOT_ANGLE_LABELS[shot.angle]}・${String(shot.durationSec)} 秒`,
         tags,
         ...(Object.keys(lockedTags).length > 0 ? { lockedTags } : {}),

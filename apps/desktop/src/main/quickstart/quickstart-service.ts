@@ -203,6 +203,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
           projects.current()?.repos.sound.getSettings().nativeAudio ??
           DEFAULT_SOUND_SETTINGS.nativeAudio,
         storyboardGuide: resolveStoryboardGuide(settings.get().storyboardGuide),
+        narration: request.sound?.narration === true,
       })
       const estimate = estimateWorkflowCost(flow, registry, {
         priceLookup: (id, usage) => models.estimate(id, usage),
@@ -290,6 +291,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
         ...(editModel ? { editModel } : {}),
         knownCharacters: handle.repos.characters.list().map((c) => c.name),
         storyboardGuide: resolveStoryboardGuide(settings.get().storyboardGuide),
+        narration: request.sound?.narration === true,
       })
       const engine = createProjectEngine(handle, {
         registry,
