@@ -92,6 +92,7 @@ import { ShortcutsDialog } from './shortcuts-dialog'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
 import { HoverTip } from './hover-tip'
 import { useChatDock } from '../chat/chat-context'
+import { useAiFollow } from './use-ai-follow'
 import { useAiMarks } from './use-ai-marks'
 import { RunPlanConfirm } from './run-confirm-plan'
 import { useCanvas } from './use-canvas'
@@ -352,6 +353,20 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const panelOpen =
     panel !== undefined &&
     (!('shotId' in panel) || shotsSnapshot.shots.some((s) => s.id === panel.shotId))
+  // 「跟著 AI」：AI 在改東西時，畫面平順地移到正在改的地方（使用者自己在動畫布時不搶）；右邊的面板開著就讓開它
+  const followMargin = useMemo(
+    () =>
+      panelOpen
+        ? { ...REVEAL_MARGIN, right: FLOAT_PANEL.width + FLOAT_PANEL.inset * 2 + 24 }
+        : REVEAL_MARGIN,
+    [panelOpen],
+  )
+  const aiFollow = useAiFollow({
+    latest: aiMarks.latest,
+    nodes: flow.nodes,
+    container: containerRef,
+    margin: followMargin,
+  })
   // 面板開著時選了另一格（有面板的）：面板跟著換成那一格
   useEffect(() => {
     if (selected.size !== 1) return
@@ -1862,6 +1877,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 <DragOverlay guides={drag.guides} dropTarget={drag.dropTarget} />
                 <ZoomControls
                   right={panelOpen ? FLOAT_PANEL.width + FLOAT_PANEL.inset * 2 : FLOAT_PANEL.inset}
+                  {...(aiMarks.latest
+                    ? { aiFollow: { on: aiFollow.follow, onChange: aiFollow.setFollow } }
+                    : {})}
                 />
               </ReactFlow>
               <NodePalette
