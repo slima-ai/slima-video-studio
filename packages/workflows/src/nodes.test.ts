@@ -1,6 +1,7 @@
 import {
   AppError,
   CAMERA_MOVES,
+  DEFAULT_STORYBOARD_GUIDE,
   type AssetRef,
   type GenerationOutput,
   type GenerationRequest,
@@ -311,6 +312,29 @@ describe('節點：拆鏡', () => {
     const { studio } = fakeStudio([])
     await expect(runNode(breakdownNode, { params, studio })).rejects.toThrow(/還沒有選文字模型/)
     expect(() => breakdownNode.params.parse({ story: '' })).toThrow(/請先寫下你的故事/)
+  })
+
+  it('預設分鏡準則（含鏡頭語言那一條）整份算進預估：每個字 1.5 個 token 的輸入', () => {
+    const estimate = vi.fn(() => 0.05)
+    const run = (guide: string): void => {
+      breakdownNode.estimateCost?.({
+        params: breakdownNode.params.parse({ ...params, guide }),
+        inputs: {},
+        modelId: 'm',
+        estimate,
+      })
+    }
+    run('')
+    run(DEFAULT_STORYBOARD_GUIDE)
+    const [[, without], [, withGuide]] = estimate.mock.calls as unknown as [
+      [string, { inputTokens: number }],
+      [string, { inputTokens: number }],
+    ]
+    expect(withGuide.inputTokens - without.inputTokens).toBe(
+      Math.ceil((params.story.length + DEFAULT_STORYBOARD_GUIDE.length) * 1.5) -
+        Math.ceil(params.story.length * 1.5),
+    )
+    expect(DEFAULT_STORYBOARD_GUIDE).toContain('size、angle、cameraMove')
   })
 
   it('預估花費依故事長度與鏡頭數呼叫價格查詢', () => {

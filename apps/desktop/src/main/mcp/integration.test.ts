@@ -430,7 +430,13 @@ describe('工具', () => {
       spending: { allowanceUsd: 0, committedUsd: 0, remainingUsd: 0 },
     })
     expect(data.tools).toContain('create_project')
-    expect(data.guides).toEqual(['getting-started', 'storyboard', 'spending', 'sound'])
+    expect(data.guides).toEqual([
+      'getting-started',
+      'storyboard',
+      'cinematography',
+      'spending',
+      'sound',
+    ])
   })
 
   it('load_guide spending：說的是設定頁卡片現在的名字「AI 工具的總額度」與「已用的歸零」', async () => {

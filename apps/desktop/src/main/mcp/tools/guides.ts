@@ -1,7 +1,13 @@
 import { resolveStoryboardGuide } from '@svs/schema'
 
 /** `load_guide` 的主題。內容寫在這裡（隨 App 版本更新），不寫進伺服器的 instructions（每個工作階段都要付的長度）。 */
-export const GUIDE_TOPICS = ['getting-started', 'storyboard', 'spending', 'sound'] as const
+export const GUIDE_TOPICS = [
+  'getting-started',
+  'storyboard',
+  'cinematography',
+  'spending',
+  'sound',
+] as const
 export type GuideTopic = (typeof GUIDE_TOPICS)[number]
 
 const GETTING_STARTED = `# Making a video with Slima Video Studio
@@ -14,7 +20,7 @@ Order of work (call get_capabilities for the tools that exist right now):
 3. Look and models: configure_project (art style, frame shape), list_models, set_models. In real mode the models decide the cost.
 4. Story: split_story_into_scenes(story) turns the text into acts and scenes (and draft characters and locations). get_outline shows them; edit_outline fixes them.
 5. Characters: list_characters (the story step creates drafts), create_character / update_character, set_character_anchor (the fixed look text; suggest_character_anchor drafts it), then generate_character_images → wait_for_generation → view_character_images (you can SEE the pictures) → pick_character_image → lock_character. A locked character's look is sent unchanged with every shot that includes it.
-6. Shots: load_guide("storyboard") first, then split_scene_into_shots(sceneId) for each scene. list_shots / get_shot to review, update_shot / create_shot / delete_shots / reorder_shots to improve. undo / redo work like the app's own.
+6. Shots: load_guide("storyboard") and load_guide("cinematography") first, then split_scene_into_shots(sceneId) for each scene. list_shots / get_shot to review, update_shot / create_shot / delete_shots / reorder_shots to improve. undo / redo work like the app's own.
 7. Pictures then video (look before you spend on video): generate_first_frames → wait_for_generation → view_first_frames (you can SEE them; fix a wrong shot with update_shot, then regenerate_shot what="first_frame") → generate_videos → wait_for_generation → view_video_stills (check for extra limbs/faces, a changed character, flicker; redo with regenerate_shot what="video"; adopt_version goes back to an older version) → assemble_film → view_video_stills with finalCut=true → export_film.
 8. Sound (after the videos exist; load_guide("sound") first): get_sound → plan_sound → generate_narration per shot (it reads the shot's dialogue) and generate_music → adjust_sound_clip / set_sound_settings → mix_sound (REQUIRED after any change made after assemble_film: adjusted clips, new narration or music, settings) → analyze_sound → export_film. Narration uses the voice chosen in Settings unless you pass a voiceId from list_models. You cannot hear it, so check the numbers and warnings in get_sound.
 9. Before a step that costs money, estimate_cost tells you what it would cost and whether the allowance covers it: split_story_into_scenes, split_scene_into_shots, generate_first_frames, generate_videos (the same numbers the app shows in its own "generate all" confirmation). For sound, plan_sound shows the estimate (free). Tell the user the price in one line before you start. The app also checks the cost itself when you start a step and refuses, saying the estimate, if the allowance is too small (load_guide("spending")).
@@ -45,9 +51,64 @@ What the film's sound is made of
 Order: videos first (the film's length and each shot's real length come from them), then narration, then music, then adjust. assemble_film mixes whatever sound exists at that moment; if you change the sound after assembling, call mix_sound, then analyze_sound to check it, then export_film. Narration and music cost money: plan_sound gives the estimate, the spending allowance applies (load_guide("spending")), pass maxCostUsd if you want a hard limit.
 `
 
+const CINEMATOGRAPHY = `# Cinematography: size, angle, camera move, pace and light
+
+Read this before split_scene_into_shots and whenever you create or edit shots. The storyboard guide covers how shots fit together; this covers what each choice does. Decide what the viewer should feel first, then choose the shot.
+
+Rules
+1. One shot, one idea: one action, one camera move.
+2. Neighbouring shots must differ: change size by a step or more, or change angle. Never the same size three times running.
+3. Choose the camera move on purpose for every shot. Each scene needs at least one move with a purpose: push_in to stress something, pan to open up the space, follow to travel with an action. Do not repeat the same move, or the same angle, in more than two shots in a row. Keep static for dialogue, a pause, an emotional landing.
+4. Video models fail more on big, fast motion and on close-ups of a moving character. Save those for the one or two shots that need them; a slow push_in, pan or follow on a wide shot is safe.
+5. Describe what should be seen, never what to avoid.
+
+Size (size)
+- extreme_wide: the place, its scale, a lone character. Opens or closes a scene.
+- wide: a character inside their surroundings. full: the whole body, walking, gestures.
+- medium: waist up, everyday talk and action.
+- close_up: a face or key object; feelings, reactions.
+- extreme_close_up: one tiny detail; once or twice in a film.
+
+Angle (angle)
+- eye_level: neutral default. high: small, exposed. low: strong, imposing.
+- overhead: map-like, rare. over_shoulder: two people talking. side: motion across the frame.
+- back: following someone, or hiding the face. dutch: unease; sparingly.
+
+Camera move (cameraMove: a preset id, or null)
+- static: calm, watching; for dialogue, a pause, an emotional landing.
+- push_in: focus, closeness, dread. pull_out: reveal, or leaving someone alone.
+- pan: sweeping a space. tilt: height or scale. follow: travelling with the subject.
+- orbit: all sides of a subject; short shots only. handheld: urgency, realism.
+- crane: rising or sinking; arrival, grand reveal, farewell. slow_motion: lingering on a moment.
+Never combine two moves. Your own words also work ("slow push toward her face"); they go into the video prompt exactly as written, so keep them short.
+
+Pace (durationSec, 1 to 15, default 3)
+- 2 to 3 s is quick and tense, 4 to 6 s natural, 7 s or more for a reveal, a quiet beat or the last image.
+- Shape a scene: set up, build, peak, release. Put a quieter shot beside the peak; let the last shot run longest.
+
+Light (lighting, timeOfDay, mood)
+- Say where light comes from and how hard: soft window light, hard noon sun, backlight, one lamp in the dark, flat overcast.
+- Keep light and time of day constant within a scene.
+- Warm and soft: comfort. Cool and dim: loneliness. Strong contrast: tension. Backlight at dawn or dusk: reveal.
+
+Cuts only
+The app joins shots with straight cuts. There is no dissolve, fade or wipe, so do not write them into descriptions. To smooth a cut, echo a shape, colour or direction across it, cut mid-action, or let narration or music run over it.
+
+Feeling to shot
+Starting points, not laws:
+- Lonely: extreme_wide or wide, subject small in a corner; high or eye_level; a very slow pull_out, or static; 4 to 6 s; cold, dim, one light.
+- Warm, trusting: medium then close_up; eye_level (over_shoulder for two people); slow push_in, or static on the words; 3 to 5 s; soft warm light.
+- Tense: alternate close_up and wide; dutch, low or back; handheld, push_in as something closes in; 2 to 3 s; hard light, strong contrast.
+- Reveal, awe: close_up reaction then extreme_wide (or reverse); low or overhead; pull_out, crane or tilt; hold the reveal 5 s or more after a small, short shot; backlight.
+- Calm ending: wide or medium, steady; eye_level; slow pull_out, or static on the last image; one slow_motion detail; last shot 5 s or more; softer light.
+
+Check each scene: sizes vary, at least one move has a purpose, no move or angle repeats more than twice in a row, neighbours differ, light is consistent, no shot does two things.
+`
+
 /** 使用者自己改過的分鏡準則（設定頁）優先，沒改就是內建的。 */
 export function guideText(topic: GuideTopic, customStoryboardGuide: string): string {
   if (topic === 'getting-started') return GETTING_STARTED
+  if (topic === 'cinematography') return CINEMATOGRAPHY
   if (topic === 'spending') return SPENDING
   if (topic === 'sound') return SOUND
   return `# Storyboard guide (set by the user in Settings; this is what the app's own AI storyboard step uses)\n\n${resolveStoryboardGuide(customStoryboardGuide)}\n`

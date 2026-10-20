@@ -6,7 +6,7 @@ AI 把故事拆成鏡頭時，會連同一份「分鏡準則」一起交給文�
 - **沒改過的話：** 設定檔裡的 `storyboardGuide` 是空字串，用程式內建的預設（`packages/schema/src/domain/storyboard-guide.ts` 的 `DEFAULT_STORYBOARD_GUIDE`）。之後預設更新，沒自訂過的人會跟著用到新版。
 - **改過的話：** 存的是你的文字（上限 4000 字）。如果你把內容改回跟預設一模一樣再儲存，會自動存成「用預設」。
 - **不加額外步驟：** 沒有確認視窗、沒有開關；拆鏡時一律帶著這份準則。把內容清空再儲存，等於恢復預設。
-- **費用：** 準則每次拆鏡會多送約 1,000 個 token 的輸入，花費預估已經把它算進去。
+- **費用：** 準則每次拆鏡會多送約 1,700 個 token 的輸入（現在 1,311 個字，第 9 條「鏡頭語言」約佔 500 字；token 數是照字數估的，不是量的），花費預估已經把它算進去（預估用「字數 × 1.5」算輸入 token）。
 
 ## 預設內容怎麼來的
 
@@ -19,10 +19,13 @@ AI 把故事拆成鏡頭時，會連同一份「分鏡準則」一起交給文�
 | 3 相鄰兩鏡要有明顯差別                 | 換鏡時機位至少換約 30 度，且景別也要變，否則像跳接                                                       | Learn About Film〈Continuity〉；Yale Film Analysis〈Editing〉<https://filmanalysis.yale.edu/editing/>                                                                                                                                                                                    |
 | 4 節奏有高低                           | 剪接頻率與鏡頭長短影響緊張與平靜；節奏要有變化才有張力；鏡頭內的運動也算節奏                             | Lightworks〈Rhythm and Pace〉<https://lwks.com/blog/rhythm-and-pace-crafting-the-tempo-of-film>；Film Daft〈What is Pacing in Film〉<https://filmdaft.com/what-is-pacing-in-film-definition-examples/>                                                                                   |
 | 5 鏡頭之間要接得上                     | 動作剪接（在動作中途切）、視線對接（角色看向畫面外、下一鏡給看到的東西）、180 度軸線規則與行進方向一致   | Learn About Film〈Continuity〉；Adobe〈What is the 180-degree rule〉<https://www.adobe.com/sg/creativecloud/video/discover/what-is-the-180-degree-rule.html>；Salisbury University〈The Grammar of Television and Film〉<https://faculty.salisbury.edu/~axsharma/mywebs/efp/gramtv.html> |
-| 6 運鏡要有理由                         | 運鏡類別與各自的用途；一次只選一個主要運鏡                                                               | Runway〈AI video prompting guide〉                                                                                                                                                                                                                                                       |
+| 6 運鏡要有目的                         | 運鏡類別與各自的用途；一次只選一個主要運鏡                                                               | Runway〈AI video prompting guide〉                                                                                                                                                                                                                                                       |
 | 7 每個畫面都要看得懂                   | 分鏡的目的是讓人預先看出問題、畫面要清楚好讀；圖生影片要先講清楚主體與要保持不變的部分                   | StudioBinder〈Storyboard rules〉<https://studiobinder.com/blog/storyboard-rules>；Runway〈AI video prompting guide〉                                                                                                                                                                     |
+| 9 鏡頭語言                             | 景別、角度、運鏡各自的用途與對到 App 欄位的 id、節奏長短、光線一致；接片只有直接切（App 沒有溶接、淡出） | 我們自己用拍片通識寫的，沒有對照任何一份來源的句子；同一份內容的完整版是 MCP 的 `load_guide("cinematography")`（`apps/desktop/src/main/mcp/tools/guides.ts`），這裡是給 App 自己的拆鏡模型用的精簡版                                                                                     |
 
 ## 沒查到、沒驗證的部分
+
+- 條目 9「鏡頭語言」是用拍片通識寫的、對到 App 的欄位 id。真的文字模型比較過兩輪（3 個故事、每輪前後各 6 次拆鏡，只比欄位分布，沒有人看畫面）：第一版寫了「沒有理由就用 static」，模型 static 從 44% 升到 64%、種類變少，是反方向，所以改成「每一場至少一個帶目的的運鏡、同一種運鏡或角度不連續超過兩鏡、static 留給對話與停頓」（條目 6 的「沒有理由就不要動」同時拿掉）；第二版 static 降到 17%、運鏡平均每次 5.8 種（原 3.5）、角度 4.3 種（原 3.2）、景別沒退步。**這只代表欄位分布變多樣，不代表畫面更好看**；也要留意動得太多、影片模型失敗率可能升高，還沒有生成影片驗證。數據在 HQ `staff/handoffs/2026-10-21-studio1-cinematography-compare.md`。
 
 - 條目 8 裡「角色在大景別裡通常比近距離特寫更穩定」是我們自己做影片實驗的經驗（角色被拉近或做大動作時，模型容易替它加上不存在的部位），不是網路資料；其他角色或模型不一定一樣。
 - 「首尾幀」的使用建議（首幀要構圖清楚）是常見說法，我沒有找到可靠的官方說明，所以準則裡只寫了「首幀要是構圖清楚、可以直接畫出來的畫面」，沒有寫更細的規則。
