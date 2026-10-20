@@ -25,7 +25,7 @@ const LABELS: Readonly<Record<string, string>> = {
   edit_outline: '修改大綱',
   split_story_into_scenes: '把故事拆成場',
   split_scene_into_shots: '把場拆成鏡頭',
-  estimate_cost: '估算拆分的花費',
+  estimate_cost: '估算這一步的花費',
   list_shots: '查看鏡頭清單',
   get_shot: '查看鏡頭',
   create_shot: '建立鏡頭',

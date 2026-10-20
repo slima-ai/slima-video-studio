@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { bridgeCommand } from '../mcp/connect'
+import { ESTIMATE_COST_ACTIONS } from '../mcp/tools/story'
 import { buildClaudeArgs, CHAT_SYSTEM_PROMPT, claudeEnv } from './claude-args'
 
 const bridge = bridgeCommand('/Applications/App/Electron', '/app/mcp-stdio-bridge.js', '/user/data')
@@ -125,7 +126,7 @@ describe('claudeEnv：使用者自己的 Claude 設定與網路環境要放行',
 })
 
 describe('CHAT_SYSTEM_PROMPT', () => {
-  it('7 行；叫 Claude 先讀指南、花錢先說再做、先看再花錢；估價只提 estimate_cost（拆分）與 plan_sound（聲音）', () => {
+  it('7 行；叫 Claude 先讀指南、花錢先說再做、先看再花錢；估價用 estimate_cost（拆分、首幀、影片）與 plan_sound（聲音）', () => {
     expect(CHAT_SYSTEM_PROMPT.split('\n')).toHaveLength(7)
     expect(CHAT_SYSTEM_PROMPT).toContain('load_guide("cinematography")')
     expect(CHAT_SYSTEM_PROMPT).toContain('view_first_frames')
@@ -135,5 +136,24 @@ describe('CHAT_SYSTEM_PROMPT', () => {
     expect(CHAT_SYSTEM_PROMPT).toContain('他已經說了直接做，就不用再問')
     expect(CHAT_SYSTEM_PROMPT).toContain('使用者沒明講要的話')
     expect(CHAT_SYSTEM_PROMPT).not.toMatch(/token|api[-_]?key|sk-/i)
+  })
+
+  it('寫到 estimate_cost 的那句：提到的動作名稱都是工具真的接受的值（工具改名了，提示不會再對不上）', () => {
+    const line = CHAT_SYSTEM_PROMPT.split('\n').find((l) => l.includes('estimate_cost'))
+    expect(line).toBeDefined()
+    // estimate_cost（…）括號裡的 snake_case 名字
+    const inside = /estimate_cost（([^）]*)）/.exec(line ?? '')?.[1] ?? ''
+    const names = inside.match(/[a-z]+(?:_[a-z]+)+/g) ?? []
+    expect(names.length).toBeGreaterThan(0)
+    for (const name of names) {
+      expect(ESTIMATE_COST_ACTIONS as readonly string[], name).toContain(name)
+    }
+    // 首幀與影片現在也問得到價錢；不再說「沒有事前估價的工具」
+    expect(names).toContain('generate_first_frames')
+    expect(names).toContain('generate_videos')
+    expect(CHAT_SYSTEM_PROMPT).not.toContain('沒有事前估價')
+    // §26：沒明講才問、說了直接做就不再問
+    expect(line).toContain('他已經說了直接做，就不用再問')
+    expect(line).toContain('示範模式不花錢，可以直接做')
   })
 })

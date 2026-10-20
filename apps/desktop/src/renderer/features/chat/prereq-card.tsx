@@ -37,7 +37,7 @@ export function PrereqCard({
         <>
           <h3 className="font-semibold">Claude 對話現在是關著的</h3>
           <p className="text-fg-muted">
-            這是實驗功能。到「設定」→「實驗功能」，勾選「畫布右下角的 Claude 對話」就能用。
+            這是實驗功能。到「設定」→「實驗功能」，打開「畫布右下角的 Claude 對話」就能用。
           </p>
         </>
       ) : prereq.state === 'mcp_off' ? (
@@ -45,8 +45,9 @@ export function PrereqCard({
           <h3 className="font-semibold">先打開「AI 工具連線」</h3>
           <p className="text-fg-muted">
             Claude 是透過 App 的「AI 工具連線」直接改你的專案。打開之後，它只能用 App 提供的工具。
-            會花錢的步驟（生成圖片、影片…）受「AI 工具可以花多少」的額度限制，預設是 US$0——
-            示範模式不花錢；要在真實模式讓 Claude 生成，請到設定調高額度。
+            會花錢的步驟（生成圖片、影片…）受「AI 工具的總額度」限制，預設是 US$0——
+            示範模式不花錢；要在真實模式讓 Claude 生成，請到「設定 → AI 工具連線」調高「AI
+            工具的總額度」。
           </p>
           <Button variant="primary" size="sm" disabled={busy} onClick={enableMcp}>
             打開 AI 工具連線

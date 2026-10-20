@@ -25,7 +25,7 @@ interface RpcRequest {
 }
 
 const NOT_RUNNING =
-  'Slima Video Studio 沒有開著，或沒有允許 AI 工具連線。請打開 App，到「設定 → AI 工具連線」勾選「允許 AI 工具連線」。'
+  'Slima Video Studio 沒有開著，或沒有允許 AI 工具連線。請打開 App，到「設定 → AI 工具連線」打開「允許 AI 工具連線」。'
 
 /** 連得上、但等不到回應（App 還在做，或卡住、中途關掉）：不是設定問題，不要叫人去勾設定。 */
 const NO_REPLY =

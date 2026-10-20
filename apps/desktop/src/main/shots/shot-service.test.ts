@@ -289,7 +289,7 @@ describe('shots.regenerate', { timeout: 30_000 }, () => {
     if (!target) throw new Error('沒有鏡頭')
 
     settings.update({ budget: { perRunLimitUsd: 0.0001 } })
-    await expect(shots.regenerate(target.id, 'all')).rejects.toThrow(/超過單次執行的上限/)
+    await expect(shots.regenerate(target.id, 'all')).rejects.toThrow(/超過「單次花費上限」/)
     expect(shots.list().shots[0]?.videos).toHaveLength(1)
 
     settings.update({ budget: { perRunLimitUsd: 5 } })
@@ -577,7 +577,7 @@ describe('shots.batchCheck / generateBatch', { timeout: 30_000 }, () => {
     settings.update({ budget: { perRunLimitUsd: 0.0001 } })
     const over = shots.batchCheck({ shotIds: all.map((s) => s.id), skipGenerated: false })
     expect(over.ok).toBe(false)
-    expect(over.issue).toMatch(/超過單次執行的上限/)
+    expect(over.issue).toMatch(/超過「單次花費上限」/)
   })
 
   it('批次生成：每個鏡頭各自開始，完成後都有新版本；已生成過的依選項略過', async () => {

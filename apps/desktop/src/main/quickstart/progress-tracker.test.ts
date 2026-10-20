@@ -176,7 +176,7 @@ describe('ProgressTracker', () => {
       limitUsd: 1,
       projectedUsd: 2,
     })
-    expect(s?.error?.userMessage).toContain('超過單次執行的上限')
+    expect(s?.error?.userMessage).toContain('超過「單次花費上限」')
   })
 
   it('fail() 與 patch()', () => {

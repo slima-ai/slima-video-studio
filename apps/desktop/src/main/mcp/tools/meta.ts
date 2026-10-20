@@ -33,7 +33,7 @@ export function registerMetaTools(ctx: ToolContext): void {
           ...ctx.allowance.status(),
           note: settings.demoMode
             ? 'Demo mode: nothing you do spends real money.'
-            : 'Real mode: tools that call an AI model are checked against this allowance. Only the user can change it (app Settings → AI tools).',
+            : 'Real mode: tools that call an AI model are checked against this allowance. Only the user can change it (the card 「AI 工具的總額度」 under 設定 → AI 工具連線).',
         },
         tools: [...ctx.toolNames],
         guides: [...GUIDE_TOPICS],

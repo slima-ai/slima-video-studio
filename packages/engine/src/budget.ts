@@ -73,10 +73,13 @@ export function checkBudget(args: {
 const usd = (n: number): string => `US$${n.toFixed(2)}`
 
 export function budgetExceededError(exceeded: BudgetExceeded): AppError {
-  const what = exceeded.scope === 'run' ? '單次執行' : '專案'
+  // 單次的上限在設定頁叫「單次花費上限」（設定 → 一般），訊息用同一個名字，使用者才找得到要調的那一張卡
+  const over = exceeded.scope === 'run' ? '「單次花費上限」' : '專案的上限'
+  const where =
+    exceeded.scope === 'run' ? '到「設定 → 一般」調高「單次花費上限」' : '到設定調高上限'
   return new AppError({
     code: 'budget_exceeded',
-    userMessage: `預估花費 ${usd(exceeded.projectedUsd)}，超過${what}的上限 ${usd(exceeded.limitUsd)}。到設定調高上限後可以從中斷的地方繼續（已完成的步驟不會重跑、不會再收費）。`,
+    userMessage: `預估花費 ${usd(exceeded.projectedUsd)}，超過${over} ${usd(exceeded.limitUsd)}。${where}後可以從中斷的地方繼續（已完成的步驟不會重跑、不會再收費）。`,
   })
 }
 

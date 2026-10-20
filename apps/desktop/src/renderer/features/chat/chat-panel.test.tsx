@@ -164,6 +164,23 @@ describe('Claude 對話面板：還不能開始時的說明卡', () => {
     expect(screen.queryByTestId('chat-input')).toBeNull()
   })
 
+  it('mcp_off 的說明用設定頁現在的名字：「AI 工具的總額度」「設定 → AI 工具連線」，沒有舊字「可以花多少」', async () => {
+    setup({ prereq: { state: 'mcp_off' } })
+    await openPanel()
+    const text = (await screen.findByTestId('chat-prereq')).textContent
+    expect(text).toContain('受「AI 工具的總額度」限制')
+    expect(text).toContain('「設定 → AI 工具連線」調高「AI 工具的總額度」')
+    expect(text).not.toContain('可以花多少')
+  })
+
+  it('disabled 的說明講「打開」開關，不講「勾選」', async () => {
+    setup({ prereq: { state: 'disabled' } })
+    await openPanel()
+    const text = (await screen.findByTestId('chat-prereq')).textContent
+    expect(text).toContain('「設定」→「實驗功能」，打開「畫布右下角的 Claude 對話」')
+    expect(text).not.toContain('勾選')
+  })
+
   it('沒登入：「我登入好了」重新檢查；這一次通過就出現輸入框', async () => {
     let state: ChatPrereq = { state: 'not_logged_in', version: '2.1.304' }
     const fake = installFakeSvs({
