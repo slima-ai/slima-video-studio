@@ -9,9 +9,9 @@ export const QUALITY_CHOICES: readonly {
   label: string
   hint: string
 }[] = [
-  { value: undefined, label: '預設', hint: '用設定裡選的模型' },
-  { value: 'premium', label: '高品質', hint: '畫面最好，比較貴' },
-  { value: 'balanced', label: '平衡', hint: '畫面和價錢都中等' },
+  { value: undefined, label: '預設', hint: '用設定裡選的模型（沒改過就是「平衡」那一級）' },
+  { value: 'premium', label: '高品質', hint: '畫面最好，比較貴、比較慢' },
+  { value: 'balanced', label: '平衡', hint: '畫面、價錢、速度都中等' },
   { value: 'budget', label: '經濟', hint: '先出草稿：便宜、快，滿意的鏡頭再用高品質重做' },
 ]
 
@@ -23,35 +23,43 @@ export function QualitySwitch({
   value: ModelTier | undefined
   onChange: (next: ModelTier | undefined) => void
 }) {
+  const chosen = QUALITY_CHOICES.find((choice) => choice.value === value)
   return (
-    <div
-      role="radiogroup"
-      aria-label="品質"
-      data-testid="quality-switch"
-      className="flex rounded-lg border border-border bg-surface p-0.5 text-xs"
-    >
-      {QUALITY_CHOICES.map((choice) => {
-        const on = choice.value === value
-        return (
-          <button
-            key={choice.label}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            title={choice.hint}
-            data-testid={`quality-${choice.value ?? 'default'}`}
-            className={cn(
-              'flex-1 rounded-md px-2 py-1 transition-colors',
-              on ? 'bg-accent text-accent-fg' : 'text-fg-muted hover:bg-fg/5',
-            )}
-            onClick={() => {
-              onChange(choice.value)
-            }}
-          >
-            {choice.label}
-          </button>
-        )
-      })}
+    <div className="flex flex-col gap-1">
+      <div
+        role="radiogroup"
+        aria-label="品質"
+        data-testid="quality-switch"
+        className="flex rounded-lg border border-border bg-surface p-0.5 text-xs"
+      >
+        {QUALITY_CHOICES.map((choice) => {
+          const on = choice.value === value
+          return (
+            <button
+              key={choice.label}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              title={choice.hint}
+              data-testid={`quality-${choice.value ?? 'default'}`}
+              className={cn(
+                'flex-1 rounded-md px-2 py-1 transition-colors',
+                on ? 'bg-accent text-accent-fg' : 'text-fg-muted hover:bg-fg/5',
+              )}
+              onClick={() => {
+                onChange(choice.value)
+              }}
+            >
+              {choice.label}
+            </button>
+          )
+        })}
+      </div>
+      {chosen ? (
+        <p data-testid="quality-hint" className="text-xs leading-snug text-fg-muted">
+          {chosen.label}：{chosen.hint}
+        </p>
+      ) : null}
     </div>
   )
 }

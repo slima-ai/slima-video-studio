@@ -212,7 +212,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
             log.warn(`畫布接片失敗：${String(error)}`)
             notify({
               tone: 'danger',
-              message: isAppError(error) ? error.userMessage : '接片失敗了，請再試一次。',
+              message: isAppError(error) ? error.userMessage : '接成成品失敗了，請再試一次。',
             })
           })
       }

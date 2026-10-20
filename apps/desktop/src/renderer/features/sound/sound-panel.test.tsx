@@ -56,10 +56,10 @@ const state = (extra: Partial<SoundState> = {}): SoundState => ({
 })
 
 describe('SoundPanel：加聲音', () => {
-  it('還沒有成品：只說先接片', async () => {
+  it('還沒有成品：只說先接成成品', async () => {
     installFakeSvs({ 'sound.get': () => state({ final: undefined }) })
     render(<SoundPanel />)
-    expect(await screen.findByText(/先把鏡頭接成一支影片/)).toBeTruthy()
+    expect(await screen.findByText(/先把鏡頭接成成品/)).toBeTruthy()
     expect(screen.queryByTestId('sound-add')).toBeNull()
   })
 

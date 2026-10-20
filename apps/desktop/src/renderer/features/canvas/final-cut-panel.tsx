@@ -85,12 +85,12 @@ export function FinalCutPanel({
             variant={finalVideoHash ? 'secondary' : 'primary'}
             data-testid="final-cut-rejoin"
             disabled={busy !== undefined}
-            title="把每個鏡頭目前使用的影片重新接成一支"
+            title="把每個鏡頭目前使用的影片接成成品（在本機處理、免費）"
             onClick={() => {
               act('rejoin')
             }}
           >
-            {busy === 'rejoin' ? '接片中…' : finalVideoHash ? '重新接片' : '把鏡頭接成一支影片'}
+            {busy === 'rejoin' ? '接成成品中…' : '接成成品'}
           </Button>
         ) : null}
       </div>
@@ -119,7 +119,7 @@ export function FinalCutPanel({
       ) : null}
       {canRejoin && finalVideoHash ? (
         <p className="text-xs text-fg-muted">
-          換了鏡頭的版本或重新生成之後，按「重新接片」更新上面的完整影片。
+          換了鏡頭的版本或重新生成之後，按「接成成品」更新上面的完整影片。
         </p>
       ) : null}
       {error ? (

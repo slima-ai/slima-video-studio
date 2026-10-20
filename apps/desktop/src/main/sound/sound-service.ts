@@ -705,7 +705,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       if (!latest) throw invalid('還沒有接好的成品，先把鏡頭接成一支影片。')
       const baseHash = latest.baseAssetHash ?? latest.assetHash
       const meta = handle.assets.getMeta(baseHash)
-      if (!meta) throw invalid('找不到接好的影片，請重新接片。')
+      if (!meta) throw invalid('找不到接好的影片，請再按一次「接成成品」。')
       const base: AssetRef = {
         hash: meta.hash,
         kind: 'video',

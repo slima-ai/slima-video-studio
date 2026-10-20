@@ -116,6 +116,18 @@ test.describe('節點標題完整、帶鏡頭號', () => {
       await expect(title).toHaveText(node.data.title)
       const clipped = await title.evaluate((el) => el.scrollWidth > el.clientWidth)
       expect(clipped, `${node.data.title} 被截斷`).toBe(false)
+      // 滑過、選到時浮出的 ↗ 與刪除鈕在卡片外面的右上角，不蓋住標題
+      if (node.data.kind !== 'shot') {
+        const card = page.getByTestId(`node-${node.id}`)
+        await card.hover({ position: { x: 100, y: 120 } })
+        const tools = page.getByTestId(`header-tools-${node.id}`)
+        await expect(tools).toBeVisible()
+        await expect(tools).toHaveCSS('opacity', '1')
+        const [toolBox, titleBox] = await Promise.all([tools.boundingBox(), title.boundingBox()])
+        if (!toolBox || !titleBox) throw new Error('找不到工具列或標題')
+        expect(toolBox.y + toolBox.height).toBeLessThanOrEqual(titleBox.y)
+        expect(await title.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(false)
+      }
     }
     // 「需要重跑」在內文那一行
     const imageCard = page.getByTestId(`node-${first.id}:image`)
