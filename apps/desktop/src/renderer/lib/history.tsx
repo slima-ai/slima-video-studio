@@ -94,15 +94,25 @@ export function HistoryProvider({ enabled, children }: HistoryProviderProps) {
           const other = direction === 'undo' ? 'redo' : 'undo'
           // 這一步的內容後來又被改過，沒動：按了不能毫無回應，說清楚為什麼、再按一次會怎樣
           if (result.skipped === 'all') {
-            const next = direction === 'undo' ? result.state.undoLabel : result.state.redoLabel
-            const verb = direction === 'undo' ? '復原' : '重做'
-            toast.show({
-              key: 'history',
-              message:
-                next === AI_TURN_UNDO_LABEL
-                  ? `這一步後來又被 Claude 改過，先略過；再按一次會${direction === 'undo' ? '退回' : '重做'} Claude 那一輪。`
-                  : `這一步的內容後來又被改過，先略過；再按一次會${verb}更${direction === 'undo' ? '早' : '後'}的一步。`,
-            })
+            const skippedText = '這一步的內容後來又被改過，先略過。'
+            let message: string
+            if (direction === 'undo') {
+              const next = result.state.undoLabel
+              message = !result.state.canUndo
+                ? skippedText
+                : next === AI_TURN_UNDO_LABEL
+                  ? '這一步後來又被 Claude 改過，先略過；再按一次會退回 Claude 那一輪。'
+                  : `${skippedText}再按一次會復原更早的一步。`
+            } else {
+              // 重做：後面沒有更後的一步了，就只說略過，不說再按會怎樣
+              const next = result.state.redoLabel
+              message = !result.state.canRedo
+                ? skippedText
+                : next === AI_TURN_UNDO_LABEL
+                  ? `${skippedText}再按一次會重做 Claude 那一輪。`
+                  : `${skippedText}再按一次會重做更後的一步。`
+            }
+            toast.show({ key: 'history', message })
             return
           }
           toast.show({

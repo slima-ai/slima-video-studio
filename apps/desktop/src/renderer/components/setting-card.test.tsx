@@ -22,6 +22,15 @@ describe('StatusLight', () => {
 })
 
 describe('SettingCard', () => {
+  it('一句白話可以在任何字之間折行：不帶 keep-all，窄的時候前面的英文字不會單獨佔一行', () => {
+    render(
+      <SettingCard icon={Palette} title="分鏡準則" summary="AI 把故事拆成鏡頭時會參考這份做法" />,
+    )
+    const className = screen.getByTestId('setting-card-summary').className
+    expect(className).not.toContain('wrap-zh')
+    expect(className).toContain('break-words')
+  })
+
   it('標題、狀態燈、一句白話、一個動作；整張卡是有名字的區塊，不是可以點的按鈕', () => {
     render(
       <SettingCard

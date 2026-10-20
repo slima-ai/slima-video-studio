@@ -65,7 +65,13 @@ export function SettingCard({
             <h3 className="text-sm font-semibold">{title}</h3>
             {status ? <StatusLight {...status} /> : null}
           </div>
-          <p className="wrap-zh mt-1 text-sm text-fg-muted">{summary}</p>
+          {/* 不用 wrap-zh（keep-all）：長長一段中文不能斷，窄的時候前面的「AI」會單獨佔一行 */}
+          <p
+            className="mt-1 break-words text-pretty text-sm text-fg-muted"
+            data-testid="setting-card-summary"
+          >
+            {summary}
+          </p>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>

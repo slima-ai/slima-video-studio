@@ -48,6 +48,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
       width="narrow"
       testId="settings-page"
       actions={<SettingsTags tags={TAGS} />}
+      shrinkActions
     >
       <div className="space-y-8">
         {state.status === 'loading' ? <SkeletonCards count={2} testId="settings-loading" /> : null}

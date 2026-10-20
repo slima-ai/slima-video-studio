@@ -165,6 +165,98 @@ describe('HistoryProvider', () => {
     )
   })
 
+  const CTRL_SHIFT_Z = { key: 'z', ctrlKey: true, shiftKey: true }
+
+  it('重做時這一步後來又被改過、整步沒動：按了要有提示，後面還有更後的一步就說再按會重做它', async () => {
+    installFakeSvs({
+      'history.state': () => CAN_UNDO,
+      'history.redo': () => ({
+        applied: true,
+        label: '改名',
+        skipped: 'all',
+        state: { canUndo: true, canRedo: true, redoLabel: '新增一幕' },
+      }),
+    })
+    render(<Page />)
+    await screen.findByTestId('history-undo')
+    press(CTRL_SHIFT_Z)
+    const text = (await screen.findByTestId('toast')).textContent
+    expect(text).toBe('這一步的內容後來又被改過，先略過。再按一次會重做更後的一步。')
+    expect(text).not.toContain('已重做')
+  })
+
+  it('重做時整步沒動、後面沒有更後的一步了：只說略過，不說再按會怎樣', async () => {
+    installFakeSvs({
+      'history.state': () => CAN_UNDO,
+      'history.redo': () => ({
+        applied: true,
+        label: '改名',
+        skipped: 'all',
+        state: { canUndo: true, canRedo: false },
+      }),
+    })
+    render(<Page />)
+    await screen.findByTestId('history-undo')
+    press(CTRL_SHIFT_Z)
+    expect((await screen.findByTestId('toast')).textContent).toBe(
+      '這一步的內容後來又被改過，先略過。',
+    )
+  })
+
+  it('重做時整步沒動、更後的一步是 Claude 那一輪：說再按會重做 Claude 那一輪', async () => {
+    installFakeSvs({
+      'history.state': () => CAN_UNDO,
+      'history.redo': () => ({
+        applied: true,
+        label: '改名',
+        skipped: 'all',
+        state: { canUndo: true, canRedo: true, redoLabel: AI_TURN_UNDO_LABEL },
+      }),
+    })
+    render(<Page />)
+    await screen.findByTestId('history-undo')
+    press(CTRL_SHIFT_Z)
+    expect((await screen.findByTestId('toast')).textContent).toBe(
+      '這一步的內容後來又被改過，先略過。再按一次會重做 Claude 那一輪。',
+    )
+  })
+
+  it('重做只動了一部分：說「已重做」，另外說有些內容後來又被改過沒動', async () => {
+    installFakeSvs({
+      'history.state': () => CAN_UNDO,
+      'history.redo': () => ({
+        applied: true,
+        label: '改場',
+        skipped: 'some',
+        state: CAN_UNDO,
+      }),
+    })
+    render(<Page />)
+    await screen.findByTestId('history-undo')
+    press(CTRL_SHIFT_Z)
+    expect((await screen.findByTestId('toast')).textContent).toContain(
+      '已重做：改場（有些內容後來又被改過，沒動）',
+    )
+  })
+
+  it('復原整步沒動、底下已經沒有更早的一步：只說略過，不說再按會復原更早的一步', async () => {
+    installFakeSvs({
+      'history.state': () => CAN_UNDO,
+      'history.undo': () => ({
+        applied: true,
+        label: '改名',
+        skipped: 'all',
+        state: { canUndo: false, canRedo: true },
+      }),
+    })
+    render(<Page />)
+    await screen.findByTestId('history-undo')
+    press(CTRL_Z)
+    expect((await screen.findByTestId('toast')).textContent).toBe(
+      '這一步的內容後來又被改過，先略過。',
+    )
+  })
+
   it('只動了一部分：照常說「已復原」，另外說有些內容後來又被改過沒動', async () => {
     installFakeSvs({
       'history.state': () => CAN_UNDO,
