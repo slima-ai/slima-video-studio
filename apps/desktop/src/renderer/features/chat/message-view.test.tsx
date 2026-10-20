@@ -28,8 +28,11 @@ describe('MessageView 的換行', () => {
     )
     for (const el of [
       screen.getByText('幫我把「Claude 建的短片」改名'),
-      screen.getByText('已經建好專案「Claude 建的短片」，加了兩個鏡頭。'),
+      screen
+        .getByText('已經建好專案「Claude 建的短片」，加了兩個鏡頭。')
+        .closest('[data-testid="md"]'),
     ]) {
+      if (!el) throw new Error('找不到訊息文字')
       // wrap-zh 帶 word-break: keep-all，中文句子只在空白與標點才折，會在奇怪的地方斷
       expect(el.className).not.toContain('wrap-zh')
       expect(el.className).toContain('break-words')

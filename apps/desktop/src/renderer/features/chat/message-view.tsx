@@ -3,6 +3,7 @@ import { Check, Loader2, X } from 'lucide-react'
 
 import { Mascot, type MascotMood } from '../../brand/mascot'
 import { cn } from '../../lib/cn'
+import { Markdown } from './markdown'
 
 /** Claude 這次用過的工具：一行一個，進行中轉圈、做完打勾、失敗打叉；滑過看結果摘要。 */
 function StepRow({ step }: { step: ChatStep }) {
@@ -59,9 +60,7 @@ export function MessageView({ message }: { message: ChatPanelMessage }) {
             ))}
           </ul>
         ) : null}
-        {message.text !== '' ? (
-          <p className="break-words whitespace-pre-wrap text-sm">{message.text}</p>
-        ) : null}
+        {message.text !== '' ? <Markdown text={message.text} /> : null}
         {waiting ? (
           <p className="flex items-center gap-1.5 text-xs text-fg-muted" role="status">
             <Loader2 className="size-3 animate-spin" aria-hidden />

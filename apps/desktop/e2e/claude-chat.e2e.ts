@@ -144,6 +144,30 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(page.getByTestId('chat-message-assistant').last()).toContainText('我記得')
   })
 
+  test('Claude 回 Markdown：表格、粗體、清單照樣子顯示；裡面夾的 HTML 只是字，不會執行', async ({
+    page,
+  }, testInfo) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('給我一個表格')
+    await input.press('Enter')
+    const reply = page.getByTestId('chat-message-assistant').last()
+    await expect(reply.getByTestId('md-table')).toBeVisible({ timeout: 30_000 })
+    await expect(reply.locator('th')).toHaveText(['#', '景別', '秒數'])
+    await expect(reply.locator('td strong')).toHaveText('大遠景')
+    await expect(reply.locator('li')).toHaveCount(2)
+    await expect(reply.locator('code')).toHaveText('角色卡')
+    // 沒有原始標記留在畫面上
+    await expect(reply).not.toContainText('|---|')
+    await expect(reply).not.toContainText('**')
+    // HTML 只是字：沒有 img，頁面標題沒被改
+    await expect(reply.locator('img')).toHaveCount(0)
+    await expect(reply).toContainText('<img src=x onerror=')
+    expect(await page.title()).not.toBe('pwned')
+    await page.getByTestId('chat-drawer').screenshot({ path: testInfo.outputPath('markdown.png') })
+  })
+
   test('行程當掉：說明連線中斷（不貼原始錯誤），再講一句會接著上次的對話', async ({ page }) => {
     await useFreeMcpPort(page)
     await openChat(page)
