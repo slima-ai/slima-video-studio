@@ -22,8 +22,11 @@ function scrollParentOf(el: HTMLElement): HTMLElement | undefined {
   return undefined
 }
 
-/** 區的頂端離視窗上緣不到這麼多像素，就算「已經捲進這一區」（標題列 56px，再留一點）。 */
-const ENTER_PX = 96
+/**
+ * 區的頂端捲進視窗上面這一段（視窗高度的 35%，至少標題列下 96px）就算「已經捲進這一區」。
+ * 用固定的小數字不行：頁面捲到底、最後幾區的頂端碰不到上緣時，亮的會停在上一區。
+ */
+const enterLine = (): number => Math.max(96, window.innerHeight * 0.35)
 /** 按標籤後，這麼久之內不讓捲動事件改亮的標籤（平滑捲動大約這麼久）。 */
 const SCROLL_LOCK_MS = 900
 
@@ -33,12 +36,13 @@ const SCROLL_LOCK_MS = 900
  */
 export function currentTag(tags: readonly SettingsTag[]): string | undefined {
   let current = tags[0]?.id
+  const line = enterLine()
   let last: HTMLElement | null = null
   for (const tag of tags) {
     const el = document.getElementById(tag.id)
     if (!el) continue
     last = el
-    if (el.getBoundingClientRect().top <= ENTER_PX) current = tag.id
+    if (el.getBoundingClientRect().top <= line) current = tag.id
   }
   if (last) {
     const scroller = scrollParentOf(last)

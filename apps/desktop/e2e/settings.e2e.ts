@@ -273,6 +273,9 @@ test.describe('第一次使用的引導與設定頁', () => {
         )
         .toBeGreaterThan(40)
       await expect.poll(lit).toEqual([`settings-tag-${id}`])
+      // 平滑捲動結束、鎖放掉之後還是它（頁面捲到底、這一區頂端碰不到上緣時，亮的不能退回上一區）
+      await page.waitForTimeout(1200)
+      expect(await lit()).toEqual([`settings-tag-${id}`])
     }
   })
 })
