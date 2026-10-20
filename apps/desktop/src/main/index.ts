@@ -21,6 +21,7 @@ import {
 import { createMcpController, type McpController } from './mcp/controller'
 import { createIpcRegistry } from './ipc/registry'
 import { restoreLastProject } from './last-project'
+import { createRecentStore, trackRecentProjects } from './recent-projects'
 import { createLogger, type Logger } from './logger'
 import { locateTools } from './bundled-tools'
 import { type Broadcast, type ProjectRuntime } from './runtime/project-runtime'
@@ -31,7 +32,7 @@ import { appMenuTemplate } from './app-menu'
 import { createMockFrameRenderer } from './mock-frame'
 import { renderCardWithElectron } from './credits/render-card-electron'
 import { createStudioApp } from './studio-app'
-import { openrouterBaseUrlOverride } from './test-overrides'
+import { openrouterBaseUrlOverride, startsOnHome } from './test-overrides'
 import { isInternalUrl, isSafeExternalUrl } from './navigation'
 import { QUIET_COMMAND_LINE_SWITCHES, quietWindowsEnabled } from './quiet-windows'
 import { APP_TITLE, createWindowOptions } from './window'
@@ -195,7 +196,9 @@ void app.whenReady().then(() => {
     process.env.SVS_PROJECTS_DIR && testMode
       ? process.env.SVS_PROJECTS_DIR
       : join(app.getPath('documents'), 'Slima Video Studio')
+  const recent = createRecentStore(join(userData, 'recent-projects.json'), log)
   const studio = createStudioApp({
+    recent,
     projects,
     keys,
     settings,
@@ -208,12 +211,15 @@ void app.whenReady().then(() => {
     reveal: (path) => {
       shell.showItemInFolder(path)
     },
-    // 「新專案」的「更改…」：選存放的資料夾
-    pickFolder: async () => {
-      const options: Electron.OpenDialogOptions = {
-        title: '選擇要存放專案的資料夾',
-        properties: ['openDirectory', 'createDirectory'],
-      }
+    // 「新專案」的「更改…」選存放的資料夾；「開啟舊專案…」選專案本身的資料夾
+    pickFolder: async (purpose) => {
+      const options: Electron.OpenDialogOptions =
+        purpose === 'save'
+          ? { title: '選擇要存放專案的資料夾', properties: ['openDirectory', 'createDirectory'] }
+          : {
+              title: '選擇要打開的專案（名字以 .svsproj 結尾的資料夾）',
+              properties: ['openDirectory'],
+            }
       const owner = BrowserWindow.getFocusedWindow()
       const picked = owner
         ? await dialog.showOpenDialog(owner, options)
@@ -278,6 +284,7 @@ void app.whenReady().then(() => {
     demoMode: () => settings.get().demoMode,
   })
   restoreLastProject(join(userData, 'last-project.json'), projects, log)
+  trackRecentProjects(recent, projects)
   const mcp = createMcpController({
     registry,
     settings,
@@ -302,6 +309,7 @@ void app.whenReady().then(() => {
   runtime = studio.runtime
   slimaService = slima
   registerAllHandlers(registry, {
+    startOnHome: startsOnHome(process.env, app.isPackaged),
     info: {
       name: APP_TITLE,
       version: app.getVersion(),

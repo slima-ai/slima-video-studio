@@ -69,6 +69,8 @@ export interface HandlerDeps {
   locations: LocationService
   history: HistoryService
   library: ProjectLibrary
+  /** 沒有專案可以接時，開 App 先到首頁；false 是測試用的（見 `startsOnHome`）。預設 true。 */
+  startOnHome?: boolean
   /** 效能自測的示範專案；沒給（例如單元測試）就說明這裡不能用。 */
   demo?: DemoSeeder
   now?: () => number
@@ -150,6 +152,16 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   )
   registry.registerHandler('project.pickFolder', async () => ({
     dir: (await library.pickFolder()) ?? null,
+  }))
+  registry.registerHandler('project.recent', () => ({ projects: library.recent() }))
+  registry.registerHandler('project.openRecent', ({ dir }) => library.openRecent(dir))
+  registry.registerHandler('project.forgetRecent', ({ dir }) => {
+    library.forgetRecent(dir)
+    return {}
+  })
+  registry.registerHandler('project.pickAndOpen', () => library.pickAndOpen())
+  registry.registerHandler('app.startView', () => ({
+    view: !projects.current() && deps.startOnHome !== false ? 'home' : 'canvas',
   }))
   registry.registerHandler('project.status', () => projects.status())
   registry.registerHandler('project.rename', ({ name }) => projects.rename(name))

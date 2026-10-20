@@ -18,12 +18,13 @@ const status = (extra: Partial<ProjectStatus> = {}): ProjectStatus => ({
   ...extra,
 })
 
-const summary = (name: string, current = false) => ({
+const summary = (name: string, extra: { current?: boolean; missing?: boolean } = {}) => ({
   dir: `/tmp/${name}.svsproj`,
   name,
-  createdAt: at(9, 0),
+  lastOpenedAt: at(10, 0),
   updatedAt: at(10, 0),
-  current,
+  current: extra.current ?? false,
+  missing: extra.missing ?? false,
 })
 
 describe('ProjectBar：每頁最上面的專案列', () => {
@@ -138,9 +139,13 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     const go = vi.fn()
     const fake = installFakeSvs({
       'project.status': () => status(),
-      'project.list': () => ({
-        folder: '/tmp',
-        projects: [summary('貓的故事', true), summary('狗的故事'), summary('鳥的故事')],
+      'project.recent': () => ({
+        projects: [
+          summary('貓的故事', { current: true }),
+          summary('狗的故事'),
+          summary('搬走的', { missing: true }),
+          summary('鳥的故事'),
+        ],
       }),
       'project.createAt': () => ({
         id: 'p2',
@@ -148,7 +153,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
         dir: '/tmp/new.svsproj',
         aspectRatio: '16:9',
       }),
-      'project.open': (payload: { dir: string }) => ({
+      'project.openRecent': (payload: { dir: string }) => ({
         id: 'p3',
         name: '狗的故事',
         dir: payload.dir,
@@ -167,7 +172,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     await waitFor(() => {
       expect(go).toHaveBeenCalledWith('canvas')
     })
-    expect(fake.payloadsOf('project.open')).toEqual([{ dir: '/tmp/狗的故事.svsproj' }])
+    expect(fake.payloadsOf('project.openRecent')).toEqual([{ dir: '/tmp/狗的故事.svsproj' }])
     expect(screen.queryByTestId('project-menu')).toBeNull()
 
     // 新專案：先跳出問名字的視窗，建好才回到畫布
@@ -192,7 +197,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
   it('專案選單：Esc 收起；沒有專案時沒有「改名」「在資料夾中顯示」', async () => {
     installFakeSvs({
       'project.status': () => null,
-      'project.list': () => ({ folder: '/tmp', projects: [] }),
+      'project.recent': () => ({ projects: [] }),
     })
     render(<ProjectBar onNavigate={vi.fn()} demoMode />)
     fireEvent.click(screen.getByTestId('project-menu-button'))
@@ -201,5 +206,68 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     expect(screen.queryByTestId('menu-reveal')).toBeNull()
     fireEvent.keyDown(menu, { key: 'Escape' })
     expect(screen.queryByTestId('project-menu')).toBeNull()
+  })
+
+  it('專案選單：最近的專案不含找不到的；「首頁」回首頁', async () => {
+    const go = vi.fn()
+    installFakeSvs({
+      'project.status': () => status(),
+      'project.recent': () => ({
+        projects: [summary('貓的故事', { current: true }), summary('搬走的', { missing: true })],
+      }),
+    })
+    render(<ProjectBar onNavigate={go} demoMode />)
+    await screen.findByText('貓的故事')
+    fireEvent.click(screen.getByTestId('project-menu-button'))
+    await screen.findByTestId('project-menu')
+    expect(screen.queryByTestId('menu-recent')).toBeNull()
+    fireEvent.click(screen.getByTestId('menu-home'))
+    expect(go).toHaveBeenCalledWith('home')
+  })
+
+  it('專案選單：開啟舊專案…——選到就進畫布；在選資料夾的視窗按取消就留在原地；選錯顯示原因', async () => {
+    const go = vi.fn()
+    let picked: { id: string; name: string; dir: string; aspectRatio: '16:9' } | null = {
+      id: 'p9',
+      name: '舊的',
+      dir: '/old.svsproj',
+      aspectRatio: '16:9',
+    }
+    let fail = false
+    installFakeSvs({
+      'project.status': () => status(),
+      'project.recent': () => ({ projects: [] }),
+      'project.pickAndOpen': () => {
+        if (fail) throw appError('這個資料夾不是 Slima Video Studio 的專案。')
+        return picked
+      },
+    })
+    render(<ProjectBar onNavigate={go} demoMode />)
+    await screen.findByText('貓的故事')
+    const open = async (): Promise<void> => {
+      fireEvent.click(screen.getByTestId('project-menu-button'))
+      fireEvent.click(await screen.findByTestId('menu-open-old'))
+    }
+
+    picked = null
+    await open()
+    await waitFor(() => {
+      expect(screen.queryByTestId('project-menu')).toBeNull()
+    })
+    expect(go).not.toHaveBeenCalled()
+
+    picked = { id: 'p9', name: '舊的', dir: '/old.svsproj', aspectRatio: '16:9' }
+    await open()
+    await waitFor(() => {
+      expect(go).toHaveBeenCalledWith('canvas')
+    })
+
+    go.mockClear()
+    fail = true
+    await open()
+    expect((await screen.findByTestId('project-bar-error')).textContent).toBe(
+      '這個資料夾不是 Slima Video Studio 的專案。',
+    )
+    expect(go).not.toHaveBeenCalled()
   })
 })

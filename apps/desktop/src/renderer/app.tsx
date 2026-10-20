@@ -6,6 +6,7 @@ import { ToastProvider } from './components/toast'
 import { CharactersPage } from './features/characters/characters-page'
 import { CanvasPage } from './features/canvas/canvas-page'
 import { FilesPage } from './features/files/files-page'
+import { HomePage } from './features/projects/home-page'
 import { ProjectBar } from './features/projects/project-bar'
 import { ProjectsPage } from './features/projects/projects-page'
 import { RecordsPage } from './features/records/records-page'
@@ -20,11 +21,27 @@ import { useAppData } from './features/settings/use-app-data'
 import { SlimaImportPage } from './features/slima/import-page'
 import { useSlimaStatus } from './features/slima/use-slima-status'
 import { HistoryProvider } from './lib/history'
+import { call } from './lib/svs'
 import { applyTheme } from './lib/theme'
 
 export function App() {
   const { state, reload } = useAppData()
-  const [view, setView] = useState<AppView>('canvas')
+  // 開 App 先到哪一頁：沒有專案可以接就是首頁，否則畫布。問到之前是 undefined（不畫，免得閃一下畫布）
+  const [view, setView] = useState<AppView>()
+  useEffect(() => {
+    let alive = true
+    call('app.startView', {})
+      .then(({ view: first }) => {
+        if (alive) setView((now) => now ?? first)
+      })
+      // 問不到就照老樣子進畫布
+      .catch(() => {
+        if (alive) setView((now) => now ?? 'canvas')
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
   const openSettings = useCallback(() => {
     setView('settings')
   }, [])
@@ -36,7 +53,7 @@ export function App() {
     if (theme) applyTheme(theme)
   }, [theme])
 
-  if (state.status === 'loading') {
+  if (state.status === 'loading' || view === undefined) {
     return (
       <p className="flex items-center gap-2 p-6 text-fg-muted">
         <Spinner label="載入中" />
@@ -69,7 +86,9 @@ export function App() {
             />
           }
         >
-          {view === 'settings' ? (
+          {view === 'home' ? (
+            <HomePage onNavigate={setView} />
+          ) : view === 'settings' ? (
             <SettingsPage state={state} reload={reload} />
           ) : view === 'characters' ? (
             <CharactersPage />

@@ -132,6 +132,7 @@ export function installFakeSvs(handlers: Partial<Record<IpcChannel, Handler>> = 
     }),
     'canvas.get': () => ({ nodes: [], edges: [] }),
     'canvas.viewport': () => ({}),
+    'app.startView': () => ({ view: 'canvas' }),
     'project.current': () => ({
       id: 'p1',
       name: '測試專案',
