@@ -583,7 +583,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         place ??
         (kind === 'oneliner'
           ? ONELINER_HOME
-          : kind === 'note' || kind === 'group'
+          : kind === 'note' || kind === 'group' || kind === 'character' || kind === 'location'
             ? centerOfView()
             : undefined)
       if (
