@@ -522,6 +522,10 @@ test.describe('畫布上的一句話（示範模式）', () => {
 
   test('鏡頭卡上的旁白雙擊就能改：改完存起來、可以復原；清空就是不念', async ({ page }) => {
     await storyboardThenGenerateAll(page, { narration: true, music: false })
+    // 先等背景自動加旁白做完：它的提示會蓋掉「已改這一鏡的旁白」
+    await expect(page.getByTestId('toast').filter({ hasText: '旁白加好了' })).toBeVisible({
+      timeout: 60_000,
+    })
     const card = page.getByTestId('shot-dialogue').first()
     await card.dblclick()
     const input = page.getByTestId('shot-dialogue-edit')
