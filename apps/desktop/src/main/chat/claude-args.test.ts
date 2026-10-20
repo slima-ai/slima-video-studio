@@ -132,8 +132,8 @@ describe('CHAT_SYSTEM_PROMPT', () => {
     expect(CHAT_SYSTEM_PROMPT).toContain('view_first_frames')
     expect(CHAT_SYSTEM_PROMPT).toContain('estimate_cost')
     expect(CHAT_SYSTEM_PROMPT).toContain('plan_sound')
-    // 預設好用、不多加擋：使用者說了直接做就不再問
-    expect(CHAT_SYSTEM_PROMPT).toContain('他已經說了直接做，就不用再問')
+    // 預設好用、不多加擋：小事（US$1 以下、講明了）直接做；細節在下一項測試
+    expect(CHAT_SYSTEM_PROMPT).toContain('直接做，做完一句話報實際花費')
     expect(CHAT_SYSTEM_PROMPT).toContain('使用者沒明講要的話')
     expect(CHAT_SYSTEM_PROMPT).not.toMatch(/token|api[-_]?key|sk-/i)
   })
@@ -141,6 +141,8 @@ describe('CHAT_SYSTEM_PROMPT', () => {
   it('叫它不要把工作筆記和系統附的用量提示（USD budget）說出來', () => {
     const line = CHAT_SYSTEM_PROMPT.split('\n')[1] ?? ''
     expect(line).toContain('不要把工作筆記說出來')
+    // 使用者用中文講，就用繁體中文回，即使工具回傳的是英文（實測曾整段回英文）
+    expect(line).toContain('使用者用中文講，就用繁體中文回，即使工具回傳的是英文也一樣')
     expect(line).toContain('USD budget')
   })
 
@@ -158,8 +160,16 @@ describe('CHAT_SYSTEM_PROMPT', () => {
     expect(names).toContain('generate_first_frames')
     expect(names).toContain('generate_videos')
     expect(CHAT_SYSTEM_PROMPT).not.toContain('沒有事前估價')
-    // §26：沒明講才問、說了直接做就不再問
-    expect(line).toContain('他已經說了直接做，就不用再問')
+    // 門檻 US$1：小事不囉嗦（講明了、US$1 以下直接做並報實際花費），大筆的才先問；含糊就問、不猜
+    expect(line).toContain(
+      '估價在 US$1 以下、而且使用者講明了要做哪一個：直接做，做完一句話報實際花費',
+    )
+    expect(line).toContain(
+      '估價超過 US$1，或一次做很多鏡（例如「全部生成」）：先用一句話報價、等他說好再做',
+    )
+    expect(line).toContain('問一個短問題，不要猜')
     expect(line).toContain('示範模式不花錢，可以直接做')
+    // 舊的「說了直接做就不用再問」不留：現在超過門檻一定先報價
+    expect(line).not.toContain('他已經說了直接做，就不用再問')
   })
 })
