@@ -175,6 +175,21 @@ export const ProjectSummarySchema = z.object({
 })
 export type ProjectSummary = z.infer<typeof ProjectSummarySchema>
 
+/** 「最近的專案」清單的一列：記住的是路徑與最後開啟時間，名字與修改時間是現在從資料夾讀的。 */
+export const RecentProjectSchema = z.object({
+  dir: z.string(),
+  name: z.string(),
+  /** 最後一次開啟的時間；只在預設資料夾裡、從沒在這裡開過的專案是 null。 */
+  lastOpenedAt: z.string().nullable(),
+  /** 最後一次寫入的時間；資料夾不見了是 null。 */
+  updatedAt: z.string().nullable(),
+  /** 現在開著的就是它。 */
+  current: z.boolean(),
+  /** 路徑已經不在（被搬走或刪掉）；清單上標「找不到」，可以從清單移除。 */
+  missing: z.boolean(),
+})
+export type RecentProject = z.infer<typeof RecentProjectSchema>
+
 /** 上方專案列要的：現在開著的專案，與它最後一次寫入的時間、花了多少。 */
 export const ProjectStatusSchema = z.object({
   name: z.string(),
@@ -297,6 +312,31 @@ export const ipcContract = {
   'project.pickFolder': {
     request: z.object({}),
     response: z.object({ dir: z.string().nullable() }),
+  },
+  /** 最近的專案（最多 10 個，包含放在預設資料夾以外的）。只給畫面用，不開放給 MCP。 */
+  'project.recent': {
+    request: z.object({}),
+    response: z.object({ projects: z.array(RecentProjectSchema) }),
+  },
+  /** 打開「最近的專案」清單裡的一個（只接受清單裡的路徑）。只給畫面用，不開放給 MCP。 */
+  'project.openRecent': {
+    request: z.object({ dir: z.string().min(1) }),
+    response: ProjectInfoSchema,
+  },
+  /** 把一個（找不到的）專案從「最近的專案」清單移掉；不動硬碟上的東西。只給畫面用，不開放給 MCP。 */
+  'project.forgetRecent': {
+    request: z.object({ dir: z.string().min(1) }),
+    response: z.object({}),
+  },
+  /** 跳出選資料夾的視窗，選一個舊專案打開；取消回 null，選的不是專案就說明。只給畫面用，不開放給 MCP。 */
+  'project.pickAndOpen': {
+    request: z.object({}),
+    response: ProjectInfoSchema.nullable(),
+  },
+  /** 開 App 時先到哪一頁：沒有專案可以接就到首頁，否則畫布。只給畫面用，不開放給 MCP。 */
+  'app.startView': {
+    request: z.object({}),
+    response: z.object({ view: z.enum(['home', 'canvas']) }),
   },
   /** 改目前專案的名字（專案資料夾的名字不變）。只給畫面用，不開放給 MCP。 */
   'project.rename': {

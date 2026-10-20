@@ -1,18 +1,21 @@
 import { projectModifiedAt, readProjectFile } from '@svs/db'
-import { AppError, type ProjectInfo, type ProjectSummary } from '@svs/schema'
+import { AppError, type ProjectInfo, type ProjectSummary, type RecentProject } from '@svs/schema'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
-import { isAbsolute, join, resolve } from 'node:path'
+import { basename, isAbsolute, join, resolve } from 'node:path'
 
 import { safeFileName, stamp } from './ensure-project'
 import type { ProjectManager } from './project-manager'
+import { RECENT_LIMIT, type RecentStore } from './recent-projects'
 
 export interface ProjectLibraryDeps {
   projects: ProjectManager
   /** 預設的專案資料夾（文件／Slima Video Studio）。 */
   projectsDir: string
   reveal: (path: string) => void
-  /** 跳出選資料夾的視窗；取消回 undefined。沒給（測試）就當作取消。 */
-  pickFolder?: () => Promise<string | undefined>
+  /** 跳出選資料夾的視窗（save：選新專案要存哪；open：選一個舊專案）；取消回 undefined。沒給（測試）就當作取消。 */
+  pickFolder?: (purpose: 'save' | 'open') => Promise<string | undefined>
+  /** 最近開過的專案；沒給（測試）就只看專案資料夾裡的。 */
+  recent?: RecentStore
   now?: () => Date
 }
 
@@ -21,6 +24,13 @@ export interface ProjectLibrary {
   /** `parentDir` 只有畫面用的 `project.createAt` 會給；MCP 的 `project.createNew` 永遠放預設資料夾。 */
   createNew: (name?: string, parentDir?: string) => ProjectInfo
   pickFolder: () => Promise<string | undefined>
+  /** 最近的專案（最多 10 個）：記住的加上專案資料夾裡的，找不到的標出來。 */
+  recent: () => RecentProject[]
+  /** 打開最近的專案清單裡的一個；只接受清單裡的路徑。 */
+  openRecent: (dir: string) => ProjectInfo
+  forgetRecent: (dir: string) => void
+  /** 選一個舊專案的資料夾並打開；取消回 null。 */
+  pickAndOpen: () => Promise<ProjectInfo | null>
   reveal: (dir?: string) => void
 }
 
@@ -75,6 +85,42 @@ export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
     return { folder: projectsDir, projects: found }
   }
 
+  /** 記住的專案（最近開過的）＋專案資料夾裡的，依最後開啟或修改的時間，最新在前，最多 10 個。 */
+  const recent = (): RecentProject[] => {
+    const currentDir = projects.current()?.dir
+    const isCurrent = (dir: string): boolean =>
+      currentDir !== undefined && resolve(dir) === resolve(currentDir)
+    const rows = new Map<string, RecentProject>()
+    for (const entry of deps.recent?.list() ?? []) {
+      const summary = summaryOf(entry.dir, currentDir)
+      rows.set(resolve(entry.dir), {
+        dir: entry.dir,
+        name: summary?.name ?? basename(entry.dir).replace(/\.svsproj$/, ''),
+        lastOpenedAt: entry.lastOpenedAt,
+        updatedAt: summary?.updatedAt ?? null,
+        current: isCurrent(entry.dir),
+        // 資料夾還在但讀不出專案（壞掉）也當作找不到
+        missing: summary === undefined,
+      })
+    }
+    for (const summary of list().projects) {
+      if (rows.has(resolve(summary.dir))) continue
+      rows.set(resolve(summary.dir), {
+        dir: summary.dir,
+        name: summary.name,
+        lastOpenedAt: null,
+        updatedAt: summary.updatedAt,
+        current: summary.current,
+        missing: false,
+      })
+    }
+    return [...rows.values()]
+      .sort((a, b) =>
+        (b.lastOpenedAt ?? b.updatedAt ?? '').localeCompare(a.lastOpenedAt ?? a.updatedAt ?? ''),
+      )
+      .slice(0, RECENT_LIMIT)
+  }
+
   return {
     list,
 
@@ -94,7 +140,33 @@ export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
       )
     },
 
-    pickFolder: async () => (await deps.pickFolder?.()) ?? undefined,
+    pickFolder: async () => (await deps.pickFolder?.('save')) ?? undefined,
+
+    recent,
+
+    openRecent(dir) {
+      const entry = recent().find((p) => resolve(p.dir) === resolve(dir))
+      if (!entry) throw invalid('找不到這個專案。')
+      if (entry.missing) throw invalid('這個專案找不到了，可能被移走或刪掉了。')
+      return projects.open(entry.dir)
+    },
+
+    forgetRecent(dir) {
+      deps.recent?.forget(dir)
+    },
+
+    async pickAndOpen() {
+      const dir = await deps.pickFolder?.('open')
+      if (dir === undefined) return null
+      try {
+        readProjectFile(dir)
+      } catch {
+        throw invalid(
+          '這個資料夾不是 Slima Video Studio 的專案（裡面沒有 project.json）。要選專案本身的資料夾（名字以 .svsproj 結尾）。',
+        )
+      }
+      return projects.open(dir)
+    },
 
     reveal(dir) {
       const target = dir ?? projects.current()?.dir

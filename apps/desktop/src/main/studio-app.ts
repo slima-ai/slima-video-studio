@@ -1,5 +1,6 @@
 import { createDemoSeeder, type DemoSeeder } from './perf/demo-seed'
 import { createProjectLibrary, type ProjectLibrary } from './project-library'
+import type { RecentStore } from './recent-projects'
 import { ModelRegistry, loadBuiltinModelCards } from '@svs/providers'
 import type { MediaTools } from '@svs/media'
 
@@ -45,7 +46,9 @@ export interface StudioAppOptions {
   /** 在檔案總管（Finder）裡顯示檔案；沒給就什麼都不做（測試用）。 */
   reveal?: (path: string) => void
   /** 「新專案」的選資料夾視窗；沒給就當作取消（測試用）。 */
-  pickFolder?: () => Promise<string | undefined>
+  pickFolder?: (purpose: 'save' | 'open') => Promise<string | undefined>
+  /** 最近開過的專案（首頁與專案選單）；沒給就只看專案資料夾。 */
+  recent?: RecentStore
   /** 畫布「上傳」的選檔視窗；沒給就當作取消（測試用）。 */
   pickFiles?: () => Promise<string[]>
   /** 找 FFmpeg；沒給就到系統找。 */
@@ -251,6 +254,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     projectsDir: options.projectsDir,
     reveal: options.reveal ?? (() => undefined),
     ...(options.pickFolder ? { pickFolder: options.pickFolder } : {}),
+    ...(options.recent ? { recent: options.recent } : {}),
   })
   return {
     models,

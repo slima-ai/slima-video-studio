@@ -111,4 +111,26 @@ describe('App', () => {
       expect(screen.getByTestId('keys-section')).toBeTruthy()
     })
   })
+
+  it('開 App 沒有專案可以接：先到首頁（不是畫布）；從首頁「先不建專案」進畫布', async () => {
+    installFakeSvs({ 'app.startView': () => ({ view: 'home' }) })
+    render(<App />)
+    expect(await screen.findByTestId('home-page')).toBeTruthy()
+    expect(screen.queryByTestId('canvas-root')).toBeNull()
+    // 首頁沒有生成佇列，導覽也沒有哪一頁被標成目前所在
+    expect(screen.queryByTestId('layout-queue')).toBeNull()
+    expect(screen.getByRole('button', { name: '畫布' }).getAttribute('aria-current')).toBeNull()
+    fireEvent.click(screen.getByTestId('home-skip'))
+    expect(await screen.findByTestId('canvas-root')).toBeTruthy()
+  })
+
+  it('問不到先到哪一頁：照老樣子進畫布', async () => {
+    installFakeSvs({
+      'app.startView': () => {
+        throw appError('壞了')
+      },
+    })
+    render(<App />)
+    expect(await screen.findByTestId('canvas-root')).toBeTruthy()
+  })
 })

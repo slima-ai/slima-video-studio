@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createProjectLibrary } from './project-library'
 import { ProjectManager } from './project-manager'
+import { createRecentStore } from './recent-projects'
 
 const dirs: string[] = []
 const managers: ProjectManager[] = []
@@ -100,5 +101,96 @@ describe('專案清單', () => {
     expect(() => {
       library.reveal('/etc')
     }).toThrow('找不到這個專案')
+  })
+
+  describe('最近的專案', () => {
+    const withRecent = (picked?: string) => {
+      const root = mkdtempSync(join(tmpdir(), 'svs-library-recent-'))
+      dirs.push(root)
+      const projects = new ProjectManager('test')
+      managers.push(projects)
+      let clock = Date.parse('2026-10-13T08:00:00Z')
+      const recent = createRecentStore(join(root, 'recent.json'), { warn: vi.fn() })
+      const library = createProjectLibrary({
+        projects,
+        projectsDir: join(root, 'projects'),
+        reveal: vi.fn(),
+        pickFolder: () => Promise.resolve(picked),
+        recent,
+        now: () => new Date((clock += 1000)),
+      })
+      return { root, projects, library, recent }
+    }
+
+    it('記住的（含放在別處的）加上專案資料夾裡的；最近開的在前；現在開著的標出來', () => {
+      const { library, projects, root, recent } = withRecent()
+      const inFolder = library.createNew('資料夾裡的')
+      const elsewhere = join(root, '別處')
+      mkdirSync(elsewhere)
+      const away = library.createNew('別處的', elsewhere)
+      recent.add(away.dir, new Date('2099-01-01T00:00:00Z'))
+      const rows = library.recent()
+      expect(rows.map((r) => [r.name, r.current, r.missing])).toEqual([
+        ['別處的', true, false],
+        ['資料夾裡的', false, false],
+      ])
+      expect(rows[0]?.lastOpenedAt).toBe('2099-01-01T00:00:00.000Z')
+      expect(rows[1]?.lastOpenedAt).toBeNull()
+      expect(projects.info()?.dir).toBe(away.dir)
+      expect(inFolder.name).toBe('資料夾裡的')
+    })
+
+    it('路徑不在了：標「找不到」、名字用資料夾名；不能打開；可以從清單移除；不影響其他', () => {
+      const { library, projects, root, recent } = withRecent()
+      const keep = library.createNew('還在的')
+      const gone = join(root, '搬走了.svsproj')
+      recent.add(gone, new Date('2099-01-01T00:00:00Z'))
+      const missing = library.recent().find((r) => r.dir === gone)
+      expect(missing).toMatchObject({ name: '搬走了', missing: true, updatedAt: null })
+      expect(() => library.openRecent(gone)).toThrow('找不到了')
+      expect(projects.info()?.dir).toBe(keep.dir)
+      library.forgetRecent(gone)
+      expect(library.recent().map((r) => r.dir)).toEqual([keep.dir])
+    })
+
+    it('打開最近的專案：只接受清單裡的路徑', () => {
+      const { library, projects, root } = withRecent()
+      const a = library.createNew('甲')
+      library.createNew('乙')
+      expect(library.openRecent(a.dir).name).toBe('甲')
+      expect(projects.info()?.name).toBe('甲')
+      expect(() => library.openRecent(join(root, '清單外'))).toThrow('找不到這個專案')
+      expect(() => library.openRecent('/etc')).toThrow('找不到這個專案')
+    })
+
+    it('開啟舊專案：選到專案資料夾就打開；取消回 null；選到不是專案的資料夾說明原因', async () => {
+      const first = withRecent()
+      const made = first.library.createNew('舊的')
+      first.projects.close()
+      const choose = (dir: string | undefined) => {
+        const root = mkdtempSync(join(tmpdir(), 'svs-library-pick2-'))
+        dirs.push(root)
+        const projects = new ProjectManager('test')
+        managers.push(projects)
+        return {
+          projects,
+          library: createProjectLibrary({
+            projects,
+            projectsDir: join(root, 'projects'),
+            reveal: vi.fn(),
+            pickFolder: () => Promise.resolve(dir),
+          }),
+        }
+      }
+      const ok = choose(made.dir)
+      expect((await ok.library.pickAndOpen())?.name).toBe('舊的')
+      expect(ok.projects.info()?.dir).toBe(made.dir)
+      expect(await choose(undefined).library.pickAndOpen()).toBeNull()
+      const notProject = mkdtempSync(join(tmpdir(), 'svs-library-notproj-'))
+      dirs.push(notProject)
+      await expect(choose(notProject).library.pickAndOpen()).rejects.toThrow(
+        '不是 Slima Video Studio 的專案',
+      )
+    })
   })
 })

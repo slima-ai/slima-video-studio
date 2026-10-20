@@ -21,3 +21,15 @@ export function openrouterBaseUrlOverride(
   if (!LOOPBACK_HOSTS.has(url.hostname)) return undefined
   return raw.replace(/\/+$/, '')
 }
+
+/**
+ * 開 App 沒有專案可以接時，要不要先到首頁。正式使用一律要；測試用 `SVS_DISABLE_HOME=1` 跳過
+ * （讓 e2e 一開 App 就是空畫布，不必每支都先點過首頁）。只有非打包版才吃這個變數：
+ * 打包版就算環境裡設了也無效。
+ */
+export function startsOnHome(
+  env: Readonly<Record<string, string | undefined>>,
+  packaged: boolean,
+): boolean {
+  return packaged || env.SVS_DISABLE_HOME !== '1'
+}

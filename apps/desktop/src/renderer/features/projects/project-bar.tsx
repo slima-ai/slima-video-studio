@@ -1,9 +1,10 @@
-import type { ProjectSummary } from '@svs/schema'
-import { ChevronDown, Clapperboard, FolderOpen, FolderPlus, Pencil } from 'lucide-react'
+import type { RecentProject } from '@svs/schema'
+import { ChevronDown, Clapperboard, FolderOpen, FolderPlus, House, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import type { AppView } from '../../components/app-layout'
 import { call, errorText } from '../../lib/svs'
+import { pickAndOpenProject } from './home-page'
 import { NewProjectDialog } from './new-project-dialog'
 import { clockTime, useProjectStatus } from './use-project-status'
 
@@ -33,7 +34,7 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [recent, setRecent] = useState<ProjectSummary[]>([])
+  const [recent, setRecent] = useState<RecentProject[]>([])
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
 
@@ -44,9 +45,10 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
     setBusy(true)
     setError(undefined)
     work
-      .then(() => {
+      .then((result) => {
         setMenuOpen(false)
-        if (thenCanvas) onNavigate('canvas')
+        // false ＝ 使用者在選資料夾的視窗按了取消：不跳到畫布
+        if (thenCanvas && result !== false) onNavigate('canvas')
         refresh()
       })
       .catch((e: unknown) => {
@@ -99,9 +101,9 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
           className={barButton}
           onClick={() => {
             if (!menuOpen) {
-              call('project.list', {})
-                .then((library) => {
-                  setRecent(library.projects.filter((p) => !p.current).slice(0, RECENT_COUNT))
+              call('project.recent', {})
+                .then(({ projects }) => {
+                  setRecent(projects.filter((p) => !p.current && !p.missing).slice(0, RECENT_COUNT))
                 })
                 .catch(() => {
                   setRecent([])
@@ -125,7 +127,14 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
               setCreating(true)
             }}
             onOpen={(dir) => {
-              finishWith(call('project.open', { dir }), true)
+              finishWith(call('project.openRecent', { dir }), true)
+            }}
+            onOpenOld={() => {
+              finishWith(pickAndOpenProject(), true)
+            }}
+            onHome={() => {
+              setMenuOpen(false)
+              onNavigate('home')
             }}
             onAll={() => {
               setMenuOpen(false)
@@ -267,16 +276,20 @@ function ProjectMenu({
   onClose,
   onNew,
   onOpen,
+  onOpenOld,
+  onHome,
   onAll,
   onRename,
   onReveal,
 }: {
   busy: boolean
   hasProject: boolean
-  recent: ProjectSummary[]
+  recent: RecentProject[]
   onClose: () => void
   onNew: () => void
   onOpen: (dir: string) => void
+  onOpenOld: () => void
+  onHome: () => void
   onAll: () => void
   onRename: () => void
   onReveal: () => void
@@ -322,6 +335,17 @@ function ProjectMenu({
         <FolderPlus className="size-4" aria-hidden />
         新專案
       </button>
+      <button
+        type="button"
+        role="menuitem"
+        data-testid="menu-open-old"
+        className={menuItem}
+        disabled={busy}
+        onClick={onOpenOld}
+      >
+        <FolderOpen className="size-4" aria-hidden />
+        開啟舊專案…
+      </button>
       {recent.length > 0 ? (
         <>
           <p className="px-2.5 pb-0.5 pt-2 text-xs text-fg-muted">最近的專案</p>
@@ -343,6 +367,16 @@ function ProjectMenu({
         </>
       ) : null}
       <div className="my-1 border-t border-border" />
+      <button
+        type="button"
+        role="menuitem"
+        data-testid="menu-home"
+        className={menuItem}
+        onClick={onHome}
+      >
+        <House className="size-4" aria-hidden />
+        首頁
+      </button>
       <button
         type="button"
         role="menuitem"

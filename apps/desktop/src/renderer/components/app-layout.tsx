@@ -17,6 +17,7 @@ import { Button } from './button'
 import { PANEL_WIDTHS, PanelHostContext, type PanelHost, type PanelWidth } from './side-panel'
 
 export type AppView =
+  | 'home'
   | 'canvas'
   | 'outline'
   | 'storyboard'
@@ -126,8 +127,8 @@ export function AppLayout({
     }),
     [panelElement],
   )
-  // 設定頁用不到生成佇列，不佔畫面
-  const showQueue = view !== 'settings'
+  // 設定頁、首頁用不到生成佇列，不佔畫面
+  const showQueue = view !== 'settings' && view !== 'home'
   return (
     <PanelHostContext.Provider value={host}>
       <div className="flex h-full flex-col" data-testid="app-layout">

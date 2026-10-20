@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { openrouterBaseUrlOverride } from './test-overrides'
+import { openrouterBaseUrlOverride, startsOnHome } from './test-overrides'
 
 const env = (value: string | undefined) => ({ SVS_OPENROUTER_BASE_URL: value })
 
@@ -39,5 +39,21 @@ describe('openrouterBaseUrlOverride', () => {
     for (const bad of ['file:///etc/passwd', 'ftp://127.0.0.1', 'not a url', '127.0.0.1:5000']) {
       expect(openrouterBaseUrlOverride(env(bad), false), bad).toBeUndefined()
     }
+  })
+})
+
+describe('startsOnHome', () => {
+  it('沒設變數：先到首頁', () => {
+    expect(startsOnHome({}, false)).toBe(true)
+    expect(startsOnHome({ SVS_DISABLE_HOME: '' }, false)).toBe(true)
+    expect(startsOnHome({ SVS_DISABLE_HOME: '0' }, false)).toBe(true)
+  })
+
+  it('非打包版設 SVS_DISABLE_HOME=1：跳過首頁', () => {
+    expect(startsOnHome({ SVS_DISABLE_HOME: '1' }, false)).toBe(false)
+  })
+
+  it('打包版就算設了也無效：一樣先到首頁', () => {
+    expect(startsOnHome({ SVS_DISABLE_HOME: '1' }, true)).toBe(true)
   })
 })

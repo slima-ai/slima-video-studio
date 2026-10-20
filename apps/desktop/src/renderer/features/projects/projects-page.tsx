@@ -7,6 +7,7 @@ import { Button } from '../../components/button'
 import { EmptyState } from '../../components/empty-state'
 import { Page } from '../../components/page'
 import { call, errorText } from '../../lib/svs'
+import { pickAndOpenProject } from './home-page'
 import { NewProjectDialog } from './new-project-dialog'
 import { timeAgo } from '../../lib/usage'
 
@@ -69,18 +70,43 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
       width="narrow"
       testId="projects-page"
       actions={
-        <Button
-          variant="primary"
-          size="sm"
-          data-testid="project-new"
-          disabled={busy}
-          onClick={() => {
-            setCreating(true)
-          }}
-        >
-          <Plus className="size-4" />
-          開新專案
-        </Button>
+        <>
+          <Button
+            variant="secondary"
+            size="sm"
+            data-testid="project-open-old"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true)
+              setError(undefined)
+              pickAndOpenProject()
+                .then((opened) => {
+                  if (opened) onNavigate('canvas')
+                })
+                .catch((e: unknown) => {
+                  setError(errorText(e))
+                })
+                .finally(() => {
+                  setBusy(false)
+                })
+            }}
+          >
+            <FolderOpen className="size-4" />
+            開啟舊專案…
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            data-testid="project-new"
+            disabled={busy}
+            onClick={() => {
+              setCreating(true)
+            }}
+          >
+            <Plus className="size-4" />
+            開新專案
+          </Button>
+        </>
       }
     >
       <div className="space-y-6">

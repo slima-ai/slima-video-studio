@@ -54,6 +54,10 @@ export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedAp
       SVS_PROVIDER_MODE: 'mock',
       SVS_USER_DATA: userDataDir,
       SVS_DISABLE_ONBOARDING: '1',
+      // 開 App 沒有專案可以接時，正式使用會先到「首頁」；測試預設跳過它，一開 App 就是空畫布
+      // （不必每支 e2e 都先點過首頁）。只有非打包版才吃這個變數，打包版就算設了也無效。
+      // 要測首頁的測試用 `test.use({ appEnv: { SVS_DISABLE_HOME: '' } })` 關掉它。
+      SVS_DISABLE_HOME: '1',
       // 自動建立的專案放在測試專用的資料夾，不碰使用者的「文件」
       SVS_PROJECTS_DIR: join(userDataDir, 'projects'),
       // Slima 一律連假的 slima-mcp 伺服器，CI 不連正式環境
