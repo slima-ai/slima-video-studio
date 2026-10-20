@@ -11,6 +11,9 @@ Slima and are All Rights Reserved. The Apache-2.0 license grants no right to use
 (see Section 6 of the license). You may not use them in a way that suggests your own product is
 made or endorsed by Slima.
 
+The images under apps/desktop/src/renderer/brand/ (the wizard-hat slime mascot shown in the app)
+are Slima artwork and are not licensed under Apache-2.0; see the NOTICE file in that folder.
+
 Third-party software
 --------------------
 This product includes third-party software under their own licenses. See THIRD-PARTY-NOTICES.md.
