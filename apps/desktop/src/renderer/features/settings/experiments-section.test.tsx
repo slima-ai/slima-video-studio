@@ -66,3 +66,48 @@ describe('ExperimentsSection：Claude 對話開關', () => {
     expect(box.checked).toBe(false)
   })
 })
+
+describe('ExperimentsSection：Claude 對話每一段的用量上限', () => {
+  it('填一個數字、離開輸入框就存（只送 experiments.claudeBudgetUsd）；留空＝用預設', async () => {
+    const fake = installFakeSvs({ 'app.getInfo': info(true), 'settings.update': () => ({}) })
+    const onChanged = vi.fn()
+    render(<ExperimentsSection settings={withFlag()} onChanged={onChanged} />)
+    const input = await screen.findByTestId<HTMLInputElement>('experiment-claude-budget')
+    fireEvent.change(input, { target: { value: '1.5' } })
+    fireEvent.blur(input)
+    await waitFor(() => {
+      expect(fake.calls.find((c) => c.channel === 'settings.update')?.payload).toEqual({
+        experiments: { claudeBudgetUsd: 1.5 },
+      })
+    })
+    cleanup()
+    const again = installFakeSvs({ 'app.getInfo': info(true), 'settings.update': () => ({}) })
+    render(
+      <ExperimentsSection
+        settings={{ ...SETTINGS, experiments: { claudeBudgetUsd: 2 } }}
+        onChanged={onChanged}
+      />,
+    )
+    const filled = await screen.findByTestId<HTMLInputElement>('experiment-claude-budget')
+    expect(filled.value).toBe('2')
+    fireEvent.change(filled, { target: { value: '' } })
+    fireEvent.blur(filled)
+    await waitFor(() => {
+      expect(again.calls.find((c) => c.channel === 'settings.update')?.payload).toEqual({
+        experiments: { claudeBudgetUsd: null },
+      })
+    })
+  })
+
+  it('不是數字或超出範圍：說明範圍、不送出', async () => {
+    const fake = installFakeSvs({ 'app.getInfo': info(true), 'settings.update': () => ({}) })
+    render(<ExperimentsSection settings={withFlag()} onChanged={vi.fn()} />)
+    const input = await screen.findByTestId<HTMLInputElement>('experiment-claude-budget')
+    for (const bad of ['abc', '0', '999']) {
+      fireEvent.change(input, { target: { value: bad } })
+      fireEvent.blur(input)
+      expect((await screen.findByRole('alert')).textContent).toContain('之間')
+    }
+    expect(fake.calls.filter((c) => c.channel === 'settings.update')).toHaveLength(0)
+  })
+})

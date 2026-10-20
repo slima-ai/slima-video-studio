@@ -144,6 +144,23 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(page.getByTestId('chat-message-assistant').last()).toContainText('我記得')
   })
 
+  test('用量到上限：出現「繼續」，按了用新行程接回同一個對話做完；對話沒有斷', async ({ page }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('做很多事，用量會用完')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-error')).toContainText('用量到上限')
+    await expect(page.getByTestId('chat-continue')).toBeVisible()
+    await page.getByTestId('chat-continue').click()
+    await expect(page.getByTestId('chat-message-assistant').last()).toContainText(
+      '接著做完了（接回同一個對話）',
+    )
+    // 做完之後按鈕不見；對話還是同一個
+    await expect(page.getByTestId('chat-continue')).toHaveCount(0)
+    await expect(page.getByTestId('chat-message-user')).toHaveCount(2)
+  })
+
   test('Claude 回 Markdown：表格、粗體、清單照樣子顯示；裡面夾的 HTML 只是字，不會執行', async ({
     page,
   }, testInfo) => {

@@ -109,6 +109,12 @@ describe('applyPatch', () => {
     expect(applyPatch(on, { experiments: { claudeChat: undefined } }).experiments).toEqual({
       claudeChat: true,
     })
+    // 用量上限：設了就存，null 改回預設
+    const budget = applyPatch(on, { experiments: { claudeBudgetUsd: 1.5 } })
+    expect(budget.experiments).toEqual({ claudeChat: true, claudeBudgetUsd: 1.5 })
+    expect(applyPatch(budget, { experiments: { claudeBudgetUsd: null } }).experiments).toEqual({
+      claudeChat: true,
+    })
     expect(applyPatch(on, { demoMode: true }).experiments).toEqual({ claudeChat: true })
     expect(applyPatch(on, { experiments: { claudeChat: false } }).experiments).toEqual({
       claudeChat: false,

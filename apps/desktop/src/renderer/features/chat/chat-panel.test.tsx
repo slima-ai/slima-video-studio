@@ -323,4 +323,30 @@ describe('Claude 對話面板：講話與串流', () => {
     })
     expect(screen.getByTestId('chat-error').textContent).toBe('和 Claude 的連線中斷了。')
   })
+
+  it('用量到上限：最後一則出現「繼續」，按了送出接著做的話；不是最後一則、一般失敗、進行中都沒有', async () => {
+    const fake = setup({ conversations: [conversation()] })
+    await openPanel()
+    await screen.findByTestId('chat-input')
+    const emit = (m: ChatPanelMessage): void => {
+      act(() => {
+        fake.emit('chat.event', { type: 'message', conversationId: ID, message: m })
+      })
+    }
+    // 一般失敗：沒有繼續
+    emit(message({ id: 'a', state: 'error', error: '連線中斷了。' }))
+    expect(screen.queryByTestId('chat-continue')).toBeNull()
+    // 用量到上限：有
+    emit(message({ id: 'b', state: 'error', error: '這一段用量到上限了。', resumable: true }))
+    fireEvent.click(screen.getByTestId('chat-continue'))
+    await waitFor(() => {
+      expect(fake.calls.find((c) => c.channel === 'chat.send')?.payload).toEqual({
+        conversationId: ID,
+        text: '請接著剛才的做下去。',
+      })
+    })
+    // 後面又有新的一則：舊的那則不再有按鈕
+    emit(message({ id: 'c', state: 'streaming' }))
+    expect(screen.queryByTestId('chat-continue')).toBeNull()
+  })
 })

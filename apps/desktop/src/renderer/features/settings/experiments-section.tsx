@@ -1,4 +1,4 @@
-import type { AppSettings } from '@svs/schema'
+import { CHAT_BUDGET_MAX_USD, CHAT_BUDGET_MIN_USD, type AppSettings } from '@svs/schema'
 import { useEffect, useState } from 'react'
 
 import { Section } from '../../components/section'
@@ -62,11 +62,78 @@ export function ExperimentsSection({ settings, onChanged }: ExperimentsSectionPr
           </span>
         </span>
       </label>
+      <BudgetField
+        value={settings.experiments.claudeBudgetUsd}
+        onChanged={onChanged}
+        onError={setError}
+      />
       {error ? (
         <p role="alert" className="mt-2 text-sm text-danger">
           {error}
         </p>
       ) : null}
     </Section>
+  )
+}
+
+/** Claude 對話每一段的用量上限（美金，約）。到上限時對話裡會出現「繼續」，不會斷掉。 */
+function BudgetField({
+  value,
+  onChanged,
+  onError,
+}: {
+  value: number | undefined
+  onChanged: () => void
+  onError: (message: string | undefined) => void
+}) {
+  const [text, setText] = useState(value === undefined ? '' : String(value))
+  useEffect(() => {
+    setText(value === undefined ? '' : String(value))
+  }, [value])
+  const save = (): void => {
+    onError(undefined)
+    const trimmed = text.trim()
+    const next = trimmed === '' ? undefined : Number(trimmed)
+    if (
+      next !== undefined &&
+      (!Number.isFinite(next) || next < CHAT_BUDGET_MIN_USD || next > CHAT_BUDGET_MAX_USD)
+    ) {
+      onError(
+        `每一段的用量上限要在 US$${String(CHAT_BUDGET_MIN_USD)} 到 US$${String(CHAT_BUDGET_MAX_USD)} 之間。`,
+      )
+      return
+    }
+    if (next === value) return
+    call('settings.update', { experiments: { claudeBudgetUsd: next ?? null } })
+      .then(onChanged)
+      .catch((e: unknown) => {
+        onError(errorText(e))
+      })
+  }
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 pl-7 text-sm">
+      <label htmlFor="experiment-claude-budget" className="text-fg-muted">
+        Claude 對話每一段的用量上限（美金，約）
+      </label>
+      <input
+        id="experiment-claude-budget"
+        data-testid="experiment-claude-budget"
+        type="text"
+        inputMode="decimal"
+        value={text}
+        placeholder="0.5"
+        className="w-20 rounded-md border border-border bg-surface px-2 py-1"
+        onChange={(event) => {
+          setText(event.target.value)
+        }}
+        onBlur={save}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') save()
+        }}
+      />
+      <span className="text-xs text-fg-muted">
+        到上限時對話裡會出現「繼續」，按了就接著做；留空用預設（US$0.5）。
+      </span>
+    </div>
   )
 }

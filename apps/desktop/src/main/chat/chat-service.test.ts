@@ -89,6 +89,8 @@ function setup(
     mcpEnabled?: boolean
     check?: ClaudeCheck
     interruptGraceMs?: number
+    claudeBudgetUsd?: number
+    idleMs?: number
   } = {},
 ) {
   const children: FakeChild[] = []
@@ -106,7 +108,12 @@ function setup(
   const deps: ChatServiceDeps = {
     settings: {
       get: () => ({
-        experiments: options.claudeChat === undefined ? {} : { claudeChat: options.claudeChat },
+        experiments: {
+          ...(options.claudeChat === undefined ? {} : { claudeChat: options.claudeChat }),
+          ...(options.claudeBudgetUsd === undefined
+            ? {}
+            : { claudeBudgetUsd: options.claudeBudgetUsd }),
+        },
         mcp: { enabled: options.mcpEnabled ?? true, port: 47821, allowanceUsd: 0 },
       }),
     },
@@ -126,6 +133,7 @@ function setup(
     ...(options.interruptGraceMs === undefined
       ? {}
       : { interruptGraceMs: options.interruptGraceMs }),
+    ...(options.idleMs === undefined ? {} : { idleMs: options.idleMs }),
   }
   const service = createChatService(deps)
   const last = (
@@ -367,6 +375,70 @@ describe('ChatService：出錯要說白話', () => {
       state: 'error',
       error: contains('用量到上限'),
     })
+  })
+
+  it('用量到上限：這則可以「繼續」；再送一則會關掉舊行程、用 --resume 開新的（新的用量額度），上限照設定', async () => {
+    const { service, children, calls, last } = setup({ claudeBudgetUsd: 2 })
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    expect(calls[0]?.args[calls[0].args.indexOf('--max-budget-usd') + 1]).toBe('2')
+    children[0]?.line(init())
+    children[0]?.line({ type: 'result', subtype: 'error_max_budget_usd', is_error: true })
+    expect(last(conv.id, 'assistant')).toMatchObject({ state: 'error', resumable: true })
+    await service.send(conv.id, '請接著剛才的做下去。')
+    // 舊行程被關掉、新行程用 --resume 接回同一個 session
+    expect(children[0]?.killed).toContain('SIGTERM')
+    expect(children).toHaveLength(2)
+    expect(calls[1]?.args).toContain('--resume')
+    expect(calls[1]?.args).not.toContain('--session-id')
+    // 新行程收到那句話
+    expect(children[1]?.written).toHaveLength(1)
+    // 舊行程晚一點才退出，不會把新的這一輪當成當掉
+    children[0]?.emit('exit', 0, null)
+    expect(last(conv.id, 'assistant')?.state).toBe('streaming')
+  })
+
+  it('步數到上限也能繼續；一般失敗不給「繼續」', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    children[0]?.line(init())
+    children[0]?.line({ type: 'result', subtype: 'error_max_turns', is_error: true })
+    expect(last(conv.id, 'assistant')).toMatchObject({ state: 'error', resumable: true })
+    await service.send(conv.id, '再來')
+    children[1]?.line(init())
+    children[1]?.line({ type: 'result', subtype: 'error_during_execution', is_error: true })
+    expect(last(conv.id, 'assistant')?.state).toBe('error')
+    expect(last(conv.id, 'assistant')?.resumable).toBeUndefined()
+  })
+
+  it('閒置夠久就關掉行程，之後講話用 --resume 接回；還在做事或剛講完話時不關', async () => {
+    vi.useFakeTimers()
+    try {
+      const { service, children, calls } = setup({ idleMs: 1000 })
+      const conv = service.create()
+      await service.send(conv.id, '嗨')
+      children[0]?.line(init())
+      // 還在做事：過再久也不關
+      vi.advanceTimersByTime(5000)
+      expect(children[0]?.killed).toEqual([])
+      children[0]?.line(success('好'))
+      // 做完後倒數；沒到時間不關
+      vi.advanceTimersByTime(900)
+      expect(children[0]?.killed).toEqual([])
+      vi.advanceTimersByTime(200)
+      expect(children[0]?.killed).toEqual(['SIGTERM'])
+      await vi.runAllTimersAsync()
+      // 再講話：新行程、--resume、同一個對話
+      await service.send(conv.id, '再來')
+      expect(children).toHaveLength(2)
+      expect(calls[1]?.args).toContain('--resume')
+      // 講話的當下倒數取消：不會在做事中途被關
+      vi.advanceTimersByTime(5000)
+      expect(children[1]?.killed).toEqual([])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('找不到、版本太舊、沒登入：不啟動行程、說明原因，而且之後修好了還能再送', async () => {

@@ -54,6 +54,8 @@ export const ChatPanelMessageSchema = z.object({
   state: z.enum(['streaming', 'done', 'stopped', 'error']).optional(),
   /** state 是 error 時的白話說明。 */
   error: z.string().optional(),
+  /** 因為用量或步數到上限而停下來：可以按「繼續」，用新的行程接著做（畫面才顯示那顆按鈕）。 */
+  resumable: z.boolean().optional(),
 })
 export type ChatPanelMessage = z.infer<typeof ChatPanelMessageSchema>
 

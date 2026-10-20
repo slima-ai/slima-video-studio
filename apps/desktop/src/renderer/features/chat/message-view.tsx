@@ -2,6 +2,7 @@ import type { ChatPanelMessage, ChatStep } from '@svs/schema'
 import { Check, Loader2, X } from 'lucide-react'
 
 import { Mascot, type MascotMood } from '../../brand/mascot'
+import { Button } from '../../components/button'
 import { cn } from '../../lib/cn'
 import { Markdown } from './markdown'
 
@@ -37,7 +38,14 @@ const MOOD: Record<NonNullable<ChatPanelMessage['state']>, MascotMood> = {
 }
 
 /** 對話裡的一則訊息：使用者的話靠右；Claude 的回覆靠左，上面是它做的步驟，下面是文字。 */
-export function MessageView({ message }: { message: ChatPanelMessage }) {
+export function MessageView({
+  message,
+  onContinue,
+}: {
+  message: ChatPanelMessage
+  /** 這則因為用量到上限停下來、而且是最後一則時，給「繼續」按鈕用。 */
+  onContinue?: () => void
+}) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end" data-testid="chat-message-user">
@@ -76,6 +84,11 @@ export function MessageView({ message }: { message: ChatPanelMessage }) {
           <p role="alert" className="text-sm text-danger" data-testid="chat-error">
             {message.error ?? 'Claude 這次沒有做完，請再試一次。'}
           </p>
+        ) : null}
+        {message.state === 'error' && message.resumable === true && onContinue ? (
+          <Button size="sm" variant="primary" data-testid="chat-continue" onClick={onContinue}>
+            繼續
+          </Button>
         ) : null}
       </div>
     </div>
