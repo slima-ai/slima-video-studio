@@ -248,7 +248,7 @@ export function registerSoundTools(ctx: ToolContext): void {
     name: 'remove_sound_clip',
     title: 'Delete a narration or music version',
     description:
-      'Delete one narration or music version (clip id). It cannot be brought back (generate again to get a new one). Free.',
+      'Delete one narration or music version (clip id); if it was the version in use, the next newest version of it takes over. The user can undo it (Cmd/Ctrl+Z, or the undo tool), like any other change you make. Free.',
     input: { clipId: z.string().min(1) },
     hints: { readOnly: false, destructive: true },
     run: async ({ clipId }) => {

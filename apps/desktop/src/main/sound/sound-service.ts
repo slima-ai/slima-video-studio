@@ -68,6 +68,8 @@ export interface SoundService {
   updateClip: (clipId: string, patch: SoundClipPatchInput) => SoundClip
   adoptClip: (clipId: string) => SoundClip
   removeClip: (clipId: string) => void
+  /** 這個片段是旁白還是配樂（找不到是 undefined）；刪除要記進復原歷史時用它取名字。 */
+  kindOf: (clipId: string) => 'narration' | 'music' | 'sfx' | undefined
   /**
    * 畫面上的「刪除旁白／配樂」：這一類的全部版本一起刪，回傳刪了幾個版本。
    * 旁白不給 shotId 是全部鏡頭的；鏡頭的台詞不動。刪完成品的聲音會變成「過期」，由畫面重混。
@@ -590,6 +592,10 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       const clip = handle.repos.sound.adoptClip(clipId)
       changed(handle)
       return clip
+    },
+
+    kindOf(clipId) {
+      return need().repos.sound.getClip(clipId)?.kind
     },
 
     removeClip(clipId) {

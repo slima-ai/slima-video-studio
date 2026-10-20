@@ -164,6 +164,44 @@ describe('聲音工具（示範模式）', () => {
     expect(dataOf(Sound, await r.call('get_sound')).music).toBeNull()
   })
 
+  it('Claude 刪了旁白或配樂：⌘Z（App 自己的復原）會整個回來；Claude 一輪裡刪的和改的一起退回', async () => {
+    const r = await start()
+    const [first] = await withShots(r)
+    const narration = dataOf(Made, await r.call('generate_narration', { shotId: first })).clip
+    const music = dataOf(Made, await r.call('generate_music', {})).clip
+    const sound = async () => dataOf(Sound, await r.call('get_sound'))
+    // 前面的生成不是這個測試要看的；從現在起才算「這一步」
+    r.h.history.clear()
+
+    // 單獨刪旁白：復原回來（同一個片段、仍是採用中、台詞沒動）；再重做又刪掉
+    await r.call('remove_sound_clip', { clipId: narration.id })
+    expect((await sound()).shots[0]?.narration).toBeNull()
+    expect(r.h.history.state()).toMatchObject({ canUndo: true, undoLabel: '刪除旁白' })
+    expect(r.h.history.undo()).toMatchObject({ applied: true, label: '刪除旁白' })
+    const back = await sound()
+    expect(back.shots[0]?.narration).toMatchObject({ id: narration.id, adopted: true })
+    expect(back.shots[0]?.dialogue).toBe('小饅頭，你要去哪裡？')
+    expect(r.h.history.redo().applied).toBe(true)
+    expect((await sound()).shots[0]?.narration).toBeNull()
+    r.h.history.undo()
+
+    // 右下角 Claude 對話的一輪：刪旁白、刪配樂、改台詞併成一步，⌘Z 一次全部退回
+    const end = r.h.history.beginAiTurn('Claude 這一輪')
+    await r.call('remove_sound_clip', { clipId: narration.id })
+    await r.call('remove_sound_clip', { clipId: music.id })
+    await r.call('update_shot', { shotId: first, dialogue: '改過的台詞。' })
+    end()
+    const after = await sound()
+    expect(after.shots[0]?.narration).toBeNull()
+    expect(after.music).toBeNull()
+    expect(after.shots[0]?.dialogue).toBe('改過的台詞。')
+    expect(r.h.history.undo().applied).toBe(true)
+    const undone = await sound()
+    expect(undone.shots[0]?.narration?.id).toBe(narration.id)
+    expect(undone.music?.id).toBe(music.id)
+    expect(undone.shots[0]?.dialogue).toBe('小饅頭，你要去哪裡？')
+  })
+
   it('混音：還沒接片就混 → 白話錯誤；接片（自動混入現有聲音）→ 改了聲音 → mix_sound 多一個成品版本 → 匯出', async () => {
     const r = await start()
     const [first] = await withShots(r)
