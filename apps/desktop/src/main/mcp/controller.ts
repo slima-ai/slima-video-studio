@@ -70,6 +70,7 @@ export function createMcpController(deps: McpControllerDeps): McpController {
   let http: McpHttp | undefined
   let runningPort: number | undefined
   let error: string | undefined
+  let lastSeen: { at: string; client?: string } | undefined
 
   const stop = async (): Promise<void> => {
     const current = http
@@ -89,6 +90,7 @@ export function createMcpController(deps: McpControllerDeps): McpController {
         ? {}
         : { url: `http://127.0.0.1:${String(runningPort)}/mcp`, token: tokens.get() }),
       ...(error === undefined ? {} : { error }),
+      ...(lastSeen === undefined ? {} : { lastSeen }),
       allowanceUsd,
       committedUsd,
     }
@@ -113,6 +115,14 @@ export function createMcpController(deps: McpControllerDeps): McpController {
         token: tokens.get,
         log,
         redactor,
+        // AI 工具是無狀態地一個請求一個請求來的：「最近有人連進來」就看最後一個請求；名字只有 initialize 才有，沒帶就沿用上一個
+        onRequest: ({ client }) => {
+          const name = client ?? lastSeen?.client
+          lastSeen = {
+            at: new Date().toISOString(),
+            ...(name === undefined ? {} : { client: name }),
+          }
+        },
         createMcpServer: () =>
           createMcpServer({ caller, settings, allowance, redactor, viewer, info: deps.info }),
       })

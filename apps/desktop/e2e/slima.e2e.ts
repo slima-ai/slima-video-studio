@@ -22,7 +22,7 @@ test.describe('Slima 連線（假伺服器）', () => {
       await page1.waitForLoadState('domcontentloaded')
       await page1.getByRole('button', { name: '設定' }).click()
       await expect(page1.getByTestId('slima-status')).toHaveText('尚未連線')
-      await expect(page1.getByTestId('slima-disconnect')).toHaveCount(0)
+      await expect(page1.getByTestId('diagram-slima-status')).toHaveText('尚未連線')
 
       await page1.getByTestId('slima-token').fill(FAKE_TOKEN)
       await page1.getByTestId('slima-connect').click()
@@ -45,6 +45,7 @@ test.describe('Slima 連線（假伺服器）', () => {
         timeout: 30_000,
       })
 
+      await page2.getByTestId('slima-section').getByTestId('setting-card-more').click()
       await page2.getByTestId('slima-disconnect').click()
       await expect(page2.getByTestId('slima-status')).toHaveText('尚未連線')
       await expect(page2.getByTestId('slima-books')).toHaveCount(0)
@@ -60,13 +61,14 @@ test.describe('Slima 連線（假伺服器）', () => {
     await page.getByRole('button', { name: '設定' }).click()
     await page.getByTestId('slima-token').fill('slima_wrong_token_9999')
     await page.getByTestId('slima-connect').click()
-    await expect(page.getByTestId('slima-status')).toContainText('Token', { timeout: 30_000 })
-    await expect(page.getByTestId('slima-status')).toHaveAttribute('data-state', 'error')
+    await expect(page.getByTestId('slima-message')).toContainText('Token', { timeout: 30_000 })
+    await expect(page.getByTestId('slima-status')).toHaveAttribute('data-tone', 'error')
+    await expect(page.getByTestId('slima-status')).toHaveText('連不上')
     await expect(page.getByTestId('slima-book')).toHaveCount(0)
 
     await page.getByTestId('slima-token').fill(FAKE_TOKEN)
     await page.getByTestId('slima-connect').click()
-    await expect(page.getByTestId('slima-status')).toHaveAttribute('data-state', 'ready', {
+    await expect(page.getByTestId('slima-status')).toHaveAttribute('data-tone', 'ok', {
       timeout: 30_000,
     })
     await expect(page.getByTestId('slima-book')).toHaveCount(3)
@@ -79,7 +81,7 @@ test.describe('從 Slima 匯入（假伺服器、示範模式）', () => {
     await page.getByRole('button', { name: '設定' }).click()
     await page.getByTestId('slima-token').fill(FAKE_TOKEN)
     await page.getByTestId('slima-connect').click()
-    await expect(page.getByTestId('slima-status')).toHaveAttribute('data-state', 'ready', {
+    await expect(page.getByTestId('slima-status')).toHaveAttribute('data-tone', 'ok', {
       timeout: 30_000,
     })
 
@@ -116,7 +118,7 @@ test.describe('從 Slima 匯入（假伺服器、示範模式）', () => {
     await page.getByRole('button', { name: '設定' }).click()
     await page.getByTestId('slima-token').fill(FAKE_TOKEN)
     await page.getByTestId('slima-connect').click()
-    await expect(page.getByTestId('slima-status')).toHaveAttribute('data-state', 'ready', {
+    await expect(page.getByTestId('slima-status')).toHaveAttribute('data-tone', 'ok', {
       timeout: 30_000,
     })
 

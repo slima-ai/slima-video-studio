@@ -31,14 +31,19 @@ test.describe('AI 工具連線（MCP）', () => {
     await expect(page.getByTestId('mcp-enabled')).not.toBeChecked()
     await expect(page.getByTestId('mcp-allowance')).toHaveValue('0')
     await expect(page.getByTestId('mcp-connect')).toHaveCount(0)
+    await expect(page.getByTestId('diagram-app-status')).toHaveText('已關閉')
     await page.screenshot({ path: testInfo.outputPath('mcp-off.png') })
 
-    // 先換一個不會跟別的程式撞的埠，再打開
+    // 先換一個不會跟別的程式撞的埠（收在「允許 AI 工具連線」那張卡的「更多」裡），再打開
     const port = await freePort()
+    await section.getByTestId('setting-card-more').click()
     await page.getByTestId('mcp-port').fill(String(port))
     await section.getByRole('button', { name: '儲存' }).first().click()
     await expect(page.getByTestId('mcp-port')).toHaveValue(String(port))
     await page.getByTestId('mcp-enabled').check()
+    await expect(page.getByTestId('diagram-app-status')).toHaveText('開放中')
+    // 手動連線的指令在 Claude Code 卡的「更多」裡
+    await page.getByTestId('connect-code').getByTestId('setting-card-more').click()
     await expect(page.getByTestId('mcp-connect')).toBeVisible()
     const shown = (await page.getByTestId('mcp-command').textContent()) ?? ''
     expect(shown).toContain(`http://127.0.0.1:${String(port)}/mcp`)
@@ -64,6 +69,10 @@ test.describe('AI 工具連線（MCP）', () => {
     })
     expect(JSON.stringify(created)).toContain('黑藤裂谷')
     expect(JSON.stringify(created)).not.toContain(token)
+    // 連線示意圖：App 這一端說最近有 AI 工具連進來（設定頁每幾秒重讀一次狀態）
+    await expect(page.getByTestId('diagram-app')).toContainText('最近有 AI 工具連進來', {
+      timeout: 15_000,
+    })
 
     // App 的視窗：專案頁看得到它是現在開著的專案（不用重開 App）
     await page.getByRole('button', { name: '專案', exact: true }).click()
@@ -74,6 +83,7 @@ test.describe('AI 工具連線（MCP）', () => {
     // 關掉：連線立刻中斷
     await page.getByRole('button', { name: '設定' }).click()
     await page.getByTestId('mcp-enabled').uncheck()
+    await expect(page.getByTestId('diagram-app-status')).toHaveText('已關閉')
     await expect(page.getByTestId('mcp-connect')).toHaveCount(0)
     await expect(fetch(url, { method: 'POST', body: '{}' })).rejects.toThrow()
   })
