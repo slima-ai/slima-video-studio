@@ -55,6 +55,18 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
       target: { key: 'shot:nope', port: 'shot-ref-char' },
     },
   ],
+  'canvas.relink': [
+    {
+      from: {
+        source: { key: 'character:nope', port: 'char-out' },
+        target: { key: 'shot:nope', port: 'shot-ref-char' },
+      },
+      to: {
+        source: { key: 'character:nope', port: 'char-out' },
+        target: { key: 'shot:nope2', port: 'shot-ref-char' },
+      },
+    },
+  ],
   'canvas.unlink': [
     {
       source: { key: 'character:nope', port: 'char-out' },

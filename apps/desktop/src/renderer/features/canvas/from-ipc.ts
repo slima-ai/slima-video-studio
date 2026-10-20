@@ -11,7 +11,7 @@ import {
   type Graph,
   type NodeKind,
 } from './canvas-model'
-import { edgeFor } from './connection-rules'
+import { edgeFor, isRewirable } from './connection-rules'
 
 /** 主行程的節點種類 → 畫面上的種類（舊的「上傳素材」種類畫成圖片卡）。 */
 const KIND: Readonly<Record<CanvasNodeKind, NodeKind>> = {
@@ -197,7 +197,13 @@ export function toFlowGraph(graph: CanvasGraph): Graph {
     // 資料關係（角色、地點接到鏡頭或場）與獨立圖片接出去的線才能剪；
     // 鏡頭→圖→影片、場→剪輯是固定的一串
     const cuttable = e.free ? e.sourcePort === 'free-img-out' : e.kind === 'reference'
-    return cuttable ? { ...edge, data: { tone: edge.data?.tone ?? 'ref', cuttable: true } } : edge
+    if (!cuttable) return edge
+    return {
+      ...edge,
+      data: { tone: edge.data?.tone ?? 'ref', cuttable: true },
+      // 角色、地點、獨立圖片接到第一張畫面的線：拖兩端的點可以改接到別處
+      reconnectable: isRewirable(e.targetPort),
+    }
   })
   return { nodes, edges }
 }

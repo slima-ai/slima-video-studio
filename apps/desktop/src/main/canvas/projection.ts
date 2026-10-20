@@ -312,7 +312,12 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
           ...(kind === 'video' ? { inCut: shot.inCut } : {}),
         }
       }
-      nodes.push(derived('image', takeImage, '第一張畫面'), derived('video', takeVideo, '影片'))
+      // 圖和影片的標題帶鏡頭號（「第 1 鏡・第一張畫面」）：一次長出十幾個節點時才分得出誰是誰
+      const shotTitle = `第 ${String(shot.number)} 鏡`
+      nodes.push(
+        derived('image', takeImage, `${shotTitle}・第一張畫面`),
+        derived('video', takeVideo, `${shotTitle}・影片`),
+      )
       if (stepInfo) {
         // 鏡頭 → 整理 Prompt → 挑參考圖 → 送出模型 → 圖：鏡頭和圖之間的線改走這三格
         let y = at.y + STEP_TOP

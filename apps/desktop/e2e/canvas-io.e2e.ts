@@ -69,3 +69,74 @@ test.describe('畫布節點上的「吃／出」', () => {
     expect(clipped).toBe(false)
   })
 })
+
+test.describe('節點標題完整、帶鏡頭號', () => {
+  test('圖與影片的標題是「第 N 鏡・第一張畫面」「第 N 鏡・影片」；每個鏡頭、圖、影片的標題都沒有被截斷，標記（需要重跑、生成中）也不擠掉標題', async ({
+    page,
+  }) => {
+    await generateAndOpenCanvas(page)
+    const nodes = await canvasNodes(page)
+    const shots = nodes.filter((n) => n.data.kind === 'shot')
+    expect(shots.length).toBeGreaterThan(0)
+    for (const [index, shot] of shots.entries()) {
+      const number = shot.data.title.replace(/\D/g, '')
+      expect(nodes.find((n) => n.id === `${shot.id}:image`)?.data.title).toBe(
+        `第 ${number} 鏡・第一張畫面`,
+      )
+      expect(nodes.find((n) => n.id === `${shot.id}:video`)?.data.title).toBe(
+        `第 ${number} 鏡・影片`,
+      )
+      expect(index + 1).toBe(Number(number))
+    }
+
+    // 改一鏡的描述：這一鏡的圖和影片標「需要重跑」，標題還是完整的
+    const first = shots[0]
+    if (!first) throw new Error('沒有鏡頭')
+    const edited = await page.evaluate(
+      (id) =>
+        window.svs.invoke('shots.update', {
+          shotId: id.replace(/^shot:/, ''),
+          patch: { description: '改過的描述，圖與影片要重跑' },
+        }),
+      first.id,
+    )
+    if (!edited.ok) throw new Error(edited.error.userMessage)
+    await expect
+      .poll(
+        async () =>
+          (await canvasNodes(page)).find((n) => n.id === `${first.id}:image`)?.data.status,
+      )
+      .toBe('stale')
+
+    for (const node of (await canvasNodes(page)).filter((n) =>
+      ['shot', 'image', 'video'].includes(n.data.kind),
+    )) {
+      await centerOn(page, node.id)
+      const title = page.getByTestId(`node-${node.id}`).locator('b span.truncate').first()
+      await expect(title).toHaveText(node.data.title)
+      const clipped = await title.evaluate((el) => el.scrollWidth > el.clientWidth)
+      expect(clipped, `${node.data.title} 被截斷`).toBe(false)
+    }
+    // 「需要重跑」在內文那一行
+    const imageCard = page.getByTestId(`node-${first.id}:image`)
+    await centerOn(page, `${first.id}:image`)
+    await expect(imageCard).toContainText('需要重跑')
+  })
+
+  test('兩位數的鏡頭號也放得下：第 12 鏡的圖、影片標題完整', async ({ page }) => {
+    await generateAndOpenCanvas(page)
+    for (let i = 0; i < 9; i += 1) {
+      const made = await page.evaluate(() => window.svs.invoke('shots.create', {}))
+      if (!made.ok) throw new Error(made.error.userMessage)
+    }
+    await expect.poll(() => kindCount(page, 'shot')).toBe(12)
+    const last = (await canvasNodes(page)).find((n) => n.data.title === '第 12 鏡')
+    if (!last) throw new Error('沒有第 12 鏡')
+    for (const id of [last.id, `${last.id}:image`, `${last.id}:video`]) {
+      await centerOn(page, id)
+      const title = page.getByTestId(`node-${id}`).locator('b span.truncate').first()
+      await expect(title).toContainText('第 12 鏡')
+      expect(await title.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(false)
+    }
+  })
+})

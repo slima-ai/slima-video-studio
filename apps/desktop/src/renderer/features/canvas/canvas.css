@@ -571,3 +571,21 @@
   pointer-events: none;
   opacity: 0;
 }
+
+/* ── 拖線的端點改接 ──
+ * 可以改接的線（角色、地點、第一張畫面）滑過或選到時，兩端各浮出一個小圓圈：抓住它拖到別的點。 */
+.react-flow__edgeupdater {
+  cursor: crosshair;
+  fill: transparent;
+  stroke: transparent;
+  transition:
+    fill 150ms,
+    stroke 150ms;
+}
+.react-flow__edge:hover .react-flow__edgeupdater,
+.react-flow__edge.selected .react-flow__edgeupdater,
+.react-flow__edgeupdater:hover {
+  fill: color-mix(in srgb, var(--accent) 18%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+}

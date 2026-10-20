@@ -592,6 +592,49 @@ describe('canvas.link／unlink／remove：拉線、剪線與刪除', () => {
     expect(repos.outline.listScenes()[0]?.locationId).toBeUndefined()
   })
 
+  it('改接：角色換到另一個鏡頭；地點換成別的地點（鏡頭、場）——舊的拿掉、新的接上、畫布的線跟著換', () => {
+    const { canvas, repos, hero, loc, loc2, scene, shot, other, edgeKinds } = world()
+    canvas.link(charLink(hero.id, shot.id))
+    canvas.relink({ from: charLink(hero.id, shot.id), to: charLink(hero.id, other.id) })
+    expect(repos.shots.get(shot.id)?.characters).toEqual([])
+    expect(repos.shots.get(other.id)?.characters.map((c) => c.name)).toEqual(['阿鐵'])
+    expect(edgeKinds()).toContain(`character:${hero.id}->shot:${other.id}`)
+    expect(edgeKinds()).not.toContain(`character:${hero.id}->shot:${shot.id}`)
+
+    canvas.link(locLink(loc.id, `shot:${shot.id}`, 'shot-ref-loc'))
+    canvas.relink({
+      from: locLink(loc.id, `shot:${shot.id}`, 'shot-ref-loc'),
+      to: locLink(loc2.id, `shot:${shot.id}`, 'shot-ref-loc'),
+    })
+    expect(repos.shots.get(shot.id)?.locationId).toBe(loc2.id)
+
+    canvas.link(locLink(loc.id, `scene:${scene.id}`, 'scene-loc'))
+    canvas.relink({
+      from: locLink(loc.id, `scene:${scene.id}`, 'scene-loc'),
+      to: locLink(loc2.id, `scene:${scene.id}`, 'scene-loc'),
+    })
+    expect(repos.outline.listScenes()[0]?.locationId).toBe(loc2.id)
+  })
+
+  it('改接接不上：原本的線接回去，資料一點都沒變，丟白話錯誤', () => {
+    const { canvas, repos, hero, loc, shot } = world()
+    canvas.link(locLink(loc.id, `shot:${shot.id}`, 'shot-ref-loc'))
+    canvas.link(charLink(hero.id, shot.id))
+    // 地點接到角色的連接點：接不起來
+    expect(() => {
+      canvas.relink({
+        from: locLink(loc.id, `shot:${shot.id}`, 'shot-ref-loc'),
+        to: locLink(loc.id, `shot:${shot.id}`, 'shot-ref-char'),
+      })
+    }).toThrow()
+    expect(repos.shots.get(shot.id)?.locationId).toBe(loc.id)
+    // 角色換到一個不存在的鏡頭
+    expect(() => {
+      canvas.relink({ from: charLink(hero.id, shot.id), to: charLink(hero.id, 'nope') })
+    }).toThrow('找不到這個鏡頭')
+    expect(repos.shots.get(shot.id)?.characters.map((c) => c.name)).toEqual(['阿鐵'])
+  })
+
   it('接不起來的線與找不到的東西：丟白話錯誤，什麼都不改', () => {
     const { canvas, repos, hero, shot } = world()
     expect(() => {

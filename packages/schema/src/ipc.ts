@@ -24,6 +24,7 @@ import {
   CanvasAddResultSchema,
   CanvasAddSchema,
   CanvasLinkSchema,
+  CanvasRelinkSchema,
   CanvasRemoveResultSchema,
   CanvasRemoveSchema,
   CanvasGetSchema,
@@ -423,6 +424,14 @@ export const ipcContract = {
    */
   'canvas.link': {
     request: CanvasLinkSchema,
+    response: z.object({}),
+  },
+  /**
+   * 改接：把一條線換成另一條（拖線的一端接到別處，或新線取代原本的線），算同一筆復原。
+   * 新的接不上就把原本的接回去，什麼都不會變（丟白話錯誤）。
+   */
+  'canvas.relink': {
+    request: CanvasRelinkSchema,
     response: z.object({}),
   },
   /** 剪線：反過來把關係拿掉（鏡頭少一個出場角色、場或鏡頭不再指到地點）。可以復原。 */

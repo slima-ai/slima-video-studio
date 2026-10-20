@@ -10,6 +10,7 @@ import {
   type CanvasImportMime,
   type CanvasImportResult,
   type CanvasLink,
+  type CanvasRelink,
   type CanvasMove,
   type CanvasPaste,
   type CanvasPasteResult,
@@ -60,6 +61,11 @@ export interface CanvasService {
   link: (request: CanvasLink) => void
   /** 剪線：把上面那種關係拿掉。要記進復原歷史。 */
   unlink: (request: CanvasLink) => void
+  /**
+   * 改接：把 from 這條線換成 to（拖線的一端接到別處，或新線取代原本的線）。
+   * 新的接不上就把原本的接回去再丟錯，資料不變。要記進復原歷史，兩個動作算同一筆。
+   */
+  relink: (request: CanvasRelink) => void
   /**
    * 刪除鏡頭（連同圖與影片）、場、角色、地點，並清掉它們存下來的位置。
    * 要記進復原歷史（角色不在歷史涵蓋的資料表裡，刪了不能復原）。
@@ -375,6 +381,26 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
       if (!freeLinker.unlink(request)) linker.unlink(request)
       revision += 1
       broadcast('canvas.changed', { revision })
+    },
+
+    relink({ from, to }) {
+      const linkOne = (link: CanvasLink): void => {
+        if (!freeLinker.link(link)) linker.link(link)
+      }
+      const unlinkOne = (link: CanvasLink): void => {
+        if (!freeLinker.unlink(link)) linker.unlink(link)
+      }
+      unlinkOne(from)
+      try {
+        linkOne(to)
+      } catch (error) {
+        // 新的接不上：把原本的接回去，整件事沒有發生過
+        linkOne(from)
+        throw error
+      } finally {
+        revision += 1
+        broadcast('canvas.changed', { revision })
+      }
     },
 
     tidy() {

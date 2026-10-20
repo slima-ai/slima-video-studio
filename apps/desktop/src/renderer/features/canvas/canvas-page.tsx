@@ -1618,6 +1618,10 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 onConnect={linking.onConnect}
                 onConnectStart={linking.onConnectStart}
                 onConnectEnd={linking.onConnectEnd}
+                onReconnect={linking.onReconnect}
+                onReconnectStart={linking.onReconnectStart}
+                onReconnectEnd={linking.onReconnectEnd}
+                reconnectRadius={14}
                 isValidConnection={linking.isValidConnection}
                 autoPanOnConnect
                 connectionRadius={28}

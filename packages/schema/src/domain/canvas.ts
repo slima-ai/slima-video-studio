@@ -364,6 +364,10 @@ export const CanvasLinkSchema = z.object({
 })
 export type CanvasLink = z.infer<typeof CanvasLinkSchema>
 
+/** 改接：把一條線換成另一條（拖線的一端接到別處，或新線取代原本的線）。 */
+export const CanvasRelinkSchema = z.object({ from: CanvasLinkSchema, to: CanvasLinkSchema })
+export type CanvasRelink = z.infer<typeof CanvasRelinkSchema>
+
 /** 刪除節點：鏡頭（連同它的圖與影片）、場、角色、地點；單獨的圖或影片是清掉採用中的版本。 */
 export const CanvasRemoveSchema = z.object({
   keys: z.array(z.string().min(1)).min(1).max(500),
