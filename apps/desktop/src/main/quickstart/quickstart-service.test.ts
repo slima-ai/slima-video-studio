@@ -1,6 +1,6 @@
 import { encodePng } from '@svs/providers'
 import { DEFAULT_STORYBOARD_GUIDE, type QuickStartRequest } from '@svs/schema'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -240,6 +240,29 @@ describe('QuickStartService.export：畫片尾字卡不能把匯出卡住', () =
     const out = await service.export()
     expect(out.credits).toBe(true)
     expect(existsSync(out.path)).toBe(true)
+  })
+
+  it('同一秒匯出兩次（先有字卡、再取消字卡）：兩個檔案各是各的，後面的不會蓋掉前面的', async () => {
+    const { service } = await runToFinish({ renderCreditsCard: solidCard })
+    // 檔名的時間戳只到秒：時間定住，兩次匯出就在「同一秒」
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-10-20T04:50:06Z'))
+      const withCard = await service.export({ credits: true })
+      const plain = await service.export({ credits: false })
+      const third = await service.export({ credits: false })
+      expect(withCard.credits).toBe(true)
+      expect(plain.credits).toBe(false)
+      expect(new Set([withCard.path, plain.path, third.path]).size).toBe(3)
+      for (const out of [withCard, plain, third]) expect(existsSync(out.path)).toBe(true)
+      // 字卡版比原版長 3 秒，檔案大小不同：第一個檔案沒有被第二個蓋掉
+      expect(statSync(withCard.path).size).not.toBe(statSync(plain.path).size)
+      expect(withCard.path).toMatch(/-20261020-045006\.mp4$/)
+      expect(plain.path).toMatch(/-20261020-045006-2\.mp4$/)
+      expect(third.path).toMatch(/-20261020-045006-3\.mp4$/)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('離屏視窗一直畫不出來（例如新視窗不載入）：超過上限就改匯出沒有字卡的版本，credits=false，並放掉視窗', async () => {
