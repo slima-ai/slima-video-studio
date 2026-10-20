@@ -89,6 +89,7 @@ import { GettingStartedDialog } from '../help/getting-started-dialog'
 import { ShortcutsDialog } from './shortcuts-dialog'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
 import { HoverTip } from './hover-tip'
+import { useChatDock } from '../chat/chat-context'
 import { useAiMarks } from './use-ai-marks'
 import { RunPlanConfirm } from './run-confirm-plan'
 import { useCanvas } from './use-canvas'
@@ -220,14 +221,19 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   // 選取只存在畫面：資料重新載入時，還在的節點維持選取
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   // AI 工具（MCP）剛改過的節點：亮一下、標「AI 剛改」；刪掉的用提示說清楚、可以復原
-  const aiMarks = useAiMarks((message) => {
-    toast.show({
-      key: 'ai-removed',
-      message,
-      action: { label: '復原', onAction: history.undo },
-      ms: 10_000,
-    })
-  })
+  const chatDock = useChatDock()
+  const chatBusy = chatDock.active?.running === true
+  const aiMarks = useAiMarks(
+    (message) => {
+      toast.show({
+        key: 'ai-removed',
+        message,
+        action: { label: '復原', onAction: history.undo },
+        ms: 10_000,
+      })
+    },
+    () => chatBusy,
+  )
   const { seen: aiSeen, prune: aiPrune, rekindle: aiRekindle, fresh: aiFresh } = aiMarks
   // 使用者選取了、或滑過一下，就算看過
   useEffect(() => {

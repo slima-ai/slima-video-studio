@@ -94,6 +94,8 @@ function setup(
     idleMs?: number
     /** 目前專案資料夾（有給才會存紀錄）。 */
     projectDir?: string
+    /** 要不要接復原紀錄（記下 begin／結束的順序）。 */
+    withHistory?: boolean
     /** 同一個專案資料夾在別的「App 啟動」裡：共用 tmp 目錄用。 */
   } = {},
 ) {
@@ -117,6 +119,7 @@ function setup(
       for (const listener of project.listeners) listener()
     },
   }
+  const historyLog: string[] = []
   const deps: ChatServiceDeps = {
     settings: {
       get: () => ({
@@ -132,6 +135,21 @@ function setup(
     packaged: options.packaged ?? false,
     bridge: bridgeCommand('/exe', '/bridge.js', '/user'),
     workDir,
+    ...(options.withHistory === true
+      ? {
+          history: {
+            begin: (label: string) => {
+              historyLog.push(`begin:${label}`)
+              let done = false
+              return () => {
+                if (done) return
+                done = true
+                historyLog.push('end')
+              }
+            },
+          },
+        }
+      : {}),
     ...(options.projectDir === undefined
       ? {}
       : {
@@ -184,7 +202,7 @@ function setup(
           }
         ).message
       : undefined
-  return { service, children, calls, events, deps, last, project }
+  return { service, children, calls, events, deps, last, project, historyLog }
 }
 
 describe('ChatService：開對話、送一則、一路串流', () => {
@@ -726,5 +744,76 @@ describe('ChatService：對話紀錄存在專案資料夾的 chat/', () => {
       '原本專案裡的對話',
       '回：原本專案裡的對話',
     ])
+  })
+})
+
+describe('ChatService：Claude 一輪的改動合成一步復原', () => {
+  it('開始做事時開始記、這一輪結束（做完）就收尾——一輪一筆', async () => {
+    const { service, children, historyLog } = setup({ withHistory: true })
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    expect(historyLog).toEqual(['begin:Claude 這一輪的改動'])
+    children[0]?.line(init())
+    children[0]?.line(success('好'))
+    expect(historyLog).toEqual(['begin:Claude 這一輪的改動', 'end'])
+    await service.send(conv.id, '再來')
+    children[0]?.line(success('好 2'))
+    expect(historyLog).toEqual([
+      'begin:Claude 這一輪的改動',
+      'end',
+      'begin:Claude 這一輪的改動',
+      'end',
+    ])
+  })
+
+  it('做到一半被停止、出錯、行程當掉：一樣收尾（已經做的改動才能一步退）', async () => {
+    // 停止
+    const a = setup({ withHistory: true })
+    const c1 = a.service.create()
+    await a.service.send(c1.id, '做很久')
+    a.service.stop(c1.id)
+    a.children[0]?.line({
+      type: 'result',
+      subtype: 'error_during_execution',
+      is_error: true,
+      terminal_reason: 'aborted_streaming',
+    })
+    expect(a.historyLog.at(-1)).toBe('end')
+    // 出錯
+    const b = setup({ withHistory: true })
+    const c2 = b.service.create()
+    await b.service.send(c2.id, '做')
+    b.children[0]?.line({ type: 'result', subtype: 'error_during_execution', is_error: true })
+    expect(b.historyLog.at(-1)).toBe('end')
+    // 行程當掉
+    const c = setup({ withHistory: true })
+    const c3 = c.service.create()
+    await c.service.send(c3.id, '做')
+    c.children[0]?.emit('exit', 1, null)
+    expect(c.historyLog).toEqual(['begin:Claude 這一輪的改動', 'end'])
+  })
+
+  it('檢查沒過（沒裝／沒登入）根本沒開始做事：不開始記', async () => {
+    const { service, historyLog } = setup({
+      withHistory: true,
+      check: { state: 'not_installed' },
+    })
+    const conv = service.create()
+    await expect(service.send(conv.id, '嗨')).rejects.toBeTruthy()
+    expect(historyLog).toEqual([])
+  })
+
+  it('這一輪做到一半換了專案（Claude 建了新專案）：舊專案收尾、新專案接著記', async () => {
+    const dir1 = mkdtempSync(join(tmpdir(), 'svs-chat-h1-'))
+    const dir2 = mkdtempSync(join(tmpdir(), 'svs-chat-h2-'))
+    dirs.push(dir1, dir2)
+    const s = setup({ withHistory: true, projectDir: dir1 })
+    const conv = s.service.create()
+    await s.service.send(conv.id, '建一個新專案')
+    s.project.switchTo(dir2)
+    expect(s.historyLog).toEqual(['begin:Claude 這一輪的改動', 'end', 'begin:Claude 這一輪的改動'])
+    s.children[0]?.line(init())
+    s.children[0]?.line(success('好'))
+    expect(s.historyLog.at(-1)).toBe('end')
   })
 })

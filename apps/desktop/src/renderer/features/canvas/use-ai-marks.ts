@@ -13,7 +13,11 @@ const FLASH_MS = 2200
  * - 刪掉的東西交給 `onRemoved`（畫面用提示說「AI 刪了第 3 鏡，可以復原」）。
  * 已經標著的節點之後內容又變了（例如 AI 叫的生成做完了），畫布頁用 `rekindle` 再亮一次。
  */
-export function useAiMarks(onRemoved: (message: string) => void): {
+export function useAiMarks(
+  onRemoved: (message: string) => void,
+  /** 這個當下是不是右下角 Claude 對話正在做事（那一輪的改動合成一步復原，提示要這樣說）。 */
+  inChatTurn: () => boolean = () => false,
+): {
   fresh: ReadonlySet<string>
   flash: ReadonlySet<string>
   seen: (keys: Iterable<string>) => void
@@ -30,6 +34,8 @@ export function useAiMarks(onRemoved: (message: string) => void): {
   const timers = useRef(new Map<string, number>())
   const removedRef = useRef(onRemoved)
   removedRef.current = onRemoved
+  const turnRef = useRef(inChatTurn)
+  turnRef.current = inChatTurn
 
   const stopFlash = useCallback((key: string): void => {
     window.clearTimeout(timers.current.get(key))
@@ -66,7 +72,7 @@ export function useAiMarks(onRemoved: (message: string) => void): {
         setFresh((now) => new Set([...now, ...keys]))
         kindle(keys)
       }
-      const message = removedMessage(event.removed)
+      const message = removedMessage(event.removed, turnRef.current())
       if (message !== undefined) removedRef.current(message)
     })
     return () => {

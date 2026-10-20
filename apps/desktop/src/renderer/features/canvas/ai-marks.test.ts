@@ -37,6 +37,12 @@ describe('removedMessage：AI 刪了東西的提示', () => {
     ).toBe('AI 刪了第 3 鏡，可以復原')
   })
 
+  it('Claude 對話正在做事時，復原是整輪一起退，提示要這樣說', () => {
+    expect(removedMessage([{ key: 'shot:a', title: '第 3 鏡', kind: 'shot' }], true)).toBe(
+      'AI 刪了第 3 鏡，可以復原（會連 Claude 這一輪的其他改動一起退回）',
+    )
+  })
+
   it('角色、便條等加上種類；超過三個寫總數', () => {
     expect(removedMessage([{ key: 'character:c', title: '阿鐵', kind: 'character' }])).toBe(
       'AI 刪了角色「阿鐵」，可以復原',

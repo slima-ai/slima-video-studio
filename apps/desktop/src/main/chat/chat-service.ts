@@ -51,6 +51,8 @@ export interface ChatServiceDeps {
   interruptGraceMs?: number
   /** 對話閒置這麼久（毫秒）就把它的 claude 行程關掉；下次講話再用 --resume 接上。 */
   idleMs?: number
+  /** 復原紀錄：Claude 一輪裡改的全部東西合成一步，按一次復原就退回這一輪開始之前。沒給就一個工具呼叫一步。 */
+  history?: { begin: (label: string) => () => void }
   /** 目前開著的專案：對話紀錄存在它的 `chat/`。沒給就只放記憶體。 */
   project?: {
     dir: () => string | undefined
@@ -78,6 +80,8 @@ const CHECK_TTL_MS = 60_000
 /** Claude 自己的用量上限：一個對話行程最多這麼多美金（保守值；訂閱使用者這只是用量的參考）。 */
 const DEFAULT_MAX_BUDGET_USD = 0.5
 /** 閒置多久關掉行程：十個對話就是十個常駐的 claude，沒在用的不該一直佔著。 */
+/** 一輪的復原名稱（復原按鈕旁、「已復原：…」的提示會用）。 */
+export const CHAT_UNDO_LABEL = 'Claude 這一輪的改動'
 const DEFAULT_IDLE_MS = 10 * 60_000
 /** 改開新對話時帶過去的舊內容最多這麼多字（取最後面的）。 */
 const SEED_MAX_CHARS = 6000
@@ -85,6 +89,8 @@ const SEED_MAX_CHARS = 6000
 interface Turn {
   /** 使用者這一則的原文（找不到舊對話要改開新的時，要重送）。 */
   userText: string
+  /** 這一輪的復原紀錄收尾（把這一輪的改動記成一步）。 */
+  endHistory?: (() => void) | undefined
   /** 已經因為找不到 Claude 那邊的紀錄而改開過新對話了（一輪只做一次）。 */
   fellBack?: boolean
   assistant: ChatPanelMessage
@@ -269,6 +275,8 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     if (turn.emitTimer) clearTimeout(turn.emitTimer)
     if (turn.interruptTimer) clearTimeout(turn.interruptTimer)
     const message = turn.assistant
+    // 這一輪的改動合成一步復原（做到一半被停止、出錯、行程當掉也一樣：已經做的改動一步就能退）
+    turn.endHistory?.()
     if (outcome.text !== undefined && message.text.trim() === '') message.text = outcome.text
     message.steps = message.steps.map((step) =>
       step.status === 'running'
@@ -454,6 +462,13 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
   // 然後通知畫面重讀對話清單
   const unsubscribeProject = deps.project?.onChange(() => {
     const dir = currentDir()
+    // 這一輪做到一半換了專案（Claude 建了新專案）：舊專案那邊收尾，新專案從現在開始記這一輪
+    for (const conv of conversations.values()) {
+      const { turn } = conv
+      if (!turn?.endHistory) continue
+      turn.endHistory()
+      turn.endHistory = deps.history?.begin(CHAT_UNDO_LABEL)
+    }
     if (dir) {
       for (const conv of conversations.values()) {
         if (!conv.turn || conv.dir === dir) continue
@@ -590,6 +605,8 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       emitMessage(conv, turn.assistant)
       emitConversation(conv)
       persist(conv, [user])
+      // 檢查通過、要開始做事了：從現在開始把這一輪的改動記成一步
+      turn.endHistory = deps.history?.begin(CHAT_UNDO_LABEL)
       try {
         ensureProcess(conv, check.path).send(text)
       } catch (error) {
