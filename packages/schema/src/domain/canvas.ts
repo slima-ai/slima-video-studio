@@ -168,6 +168,8 @@ export const CanvasNodeSchema = z.object({
       durationMs: z.number().nonnegative().optional(),
       costUsd: z.number().nonnegative().optional(),
       costEstimated: z.boolean().optional(),
+      /** 圖被自動裁掉黑邊。 */
+      letterboxTrimmed: z.boolean().optional(),
       createdAt: z.string(),
     })
     .optional(),

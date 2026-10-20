@@ -70,6 +70,8 @@ export interface CanvasNodeData extends Record<string, unknown> {
   aiFlash?: boolean | undefined
   /** 卡片底部一行：「3.2 秒・約 US$0.02・剛剛」。 */
   usageText?: string | undefined
+  /** 滑過底部那一行時的說明（例如首幀被自動裁掉黑邊）。 */
+  usageNote?: string | undefined
   /** 失敗的圖與影片節點：白話原因。 */
   error?: string | undefined
   /** 一句話節點的設定。 */

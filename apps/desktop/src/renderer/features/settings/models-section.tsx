@@ -94,8 +94,12 @@ function OptionContent({ model, recommended }: { model: ModelOption; recommended
 
 /** 走哪一家：同一個模型好幾家都有時，會自動選便宜的那家。 */
 export function channelText(model: ModelOption): string {
-  if (model.otherChannels.length === 0) return `透過 ${model.providerName}`
-  return `透過 ${model.providerName}（${model.otherChannels.join('、')} 也有，會自動走比較便宜的那家）`
+  // 英文名字（OpenRouter、fal.ai）跟中文之間留一個空格；中文名字（示範）直接接，不然「透過 示範」中間多一格
+  const via = /^[A-Za-z0-9]/u.test(model.providerName)
+    ? `透過 ${model.providerName}`
+    : `透過${model.providerName}`
+  if (model.otherChannels.length === 0) return via
+  return `${via}（${model.otherChannels.join('、')} 也有，會自動走比較便宜的那家）`
 }
 
 /** 沒選時挑預設的順序（跟主行程 SettingsService.resolveModel 一樣）：平衡、高品質、經濟。 */

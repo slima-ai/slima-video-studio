@@ -41,6 +41,8 @@ export const ImageRequestSchema = z.object({
   /** 圖片編輯的參考圖（素材雜湊），依模型的 referenceLimits 截斷。 */
   referenceAssets: z.array(ContentHashSchema).default([]),
   count: z.number().int().min(1).max(8).default(1),
+  /** 首幀圖：模型自己畫的黑邊（上下或左右兩條）在存進素材庫之前自動裁掉（見 apps/desktop 的 letterbox-driver）。 */
+  trimLetterbox: z.boolean().optional(),
 })
 export type ImageRequest = z.infer<typeof ImageRequestSchema>
 
@@ -102,6 +104,8 @@ export const AssetRefSchema = z.object({
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
   durationSec: z.number().nonnegative().optional(),
+  /** 這張圖被自動裁掉黑邊（畫質可能比較差）。 */
+  letterboxTrimmed: z.boolean().optional(),
 })
 export type AssetRef = z.infer<typeof AssetRefSchema>
 

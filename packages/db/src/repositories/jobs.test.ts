@@ -103,4 +103,34 @@ describe('JobsRepository', () => {
     expect(usage.size).toBe(2)
     expect(repos.jobs.usageByAsset([]).size).toBe(0)
   })
+
+  it('usageByAsset：任務輸出標了 letterboxTrimmed（首幀自動裁掉黑邊）就帶出來，沒標的沒有', () => {
+    const { repos } = newProject()
+    const A = 'a'.repeat(64)
+    const B = 'b'.repeat(64)
+    repos.jobs.put(
+      job('j1', {
+        status: 'succeeded',
+        output: { kind: 'assets', assets: [{ kind: 'image', hash: A, letterboxTrimmed: true }] },
+        costUsd: 0.14,
+        updatedAt: '2026-10-12T07:36:52.200Z',
+      }),
+    )
+    repos.jobs.put(
+      job('j2', {
+        status: 'succeeded',
+        output: { kind: 'assets', assets: [{ kind: 'image', hash: B }] },
+        costUsd: 0.14,
+        updatedAt: '2026-10-12T07:36:52.200Z',
+      }),
+    )
+    const usage = repos.jobs.usageByAsset([A, B])
+    expect(usage.get(A)).toEqual({
+      durationMs: 3200,
+      costUsd: 0.14,
+      costEstimated: false,
+      letterboxTrimmed: true,
+    })
+    expect(usage.get(B)).toEqual({ durationMs: 3200, costUsd: 0.14, costEstimated: false })
+  })
 })

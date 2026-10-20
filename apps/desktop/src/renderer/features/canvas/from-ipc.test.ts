@@ -1,7 +1,7 @@
 import type { CanvasGraph } from '@svs/schema'
 import { describe, expect, it } from 'vitest'
 
-import { toFlowGraph } from './from-ipc'
+import { LETTERBOX_NOTE, toFlowGraph } from './from-ipc'
 
 const HASH = 'a'.repeat(64)
 
@@ -214,5 +214,42 @@ describe('toFlowGraph', () => {
     expect(cuttable('shot-ref-char')).toBe(true)
     expect(cuttable('img-in')).toBe(false)
     expect(cuttable('cut-slot-1')).toBe(false)
+  })
+})
+
+describe('首幀自動裁掉黑邊的提示', () => {
+  const image = (letterboxTrimmed: boolean): CanvasGraph => ({
+    nodes: [
+      {
+        key: 'shot:a:image',
+        kind: 'image',
+        x: 0,
+        y: 0,
+        auto: true,
+        title: '第一張畫面',
+        status: 'done',
+        assetHash: HASH,
+        version: 1,
+        usage: {
+          durationMs: 3200,
+          costUsd: 0.14,
+          createdAt: new Date().toISOString(),
+          ...(letterboxTrimmed ? { letterboxTrimmed: true } : {}),
+        },
+      },
+    ],
+    edges: [],
+  })
+
+  it('裁過：卡片底部多「已自動裁掉黑邊」，滑過有完整說明（畫質可能較差、可以重新生成）；沒裁過就沒有', () => {
+    const trimmed = toFlowGraph(image(true)).nodes[0]?.data
+    expect(trimmed?.usageText).toContain('已自動裁掉黑邊')
+    expect(trimmed?.usageText).toContain('US$0.14')
+    expect(trimmed?.usageNote).toBe(LETTERBOX_NOTE)
+    expect(LETTERBOX_NOTE).toContain('畫質可能較差')
+    expect(LETTERBOX_NOTE).toContain('重新生成')
+    const plain = toFlowGraph(image(false)).nodes[0]?.data
+    expect(plain?.usageText).not.toContain('裁掉黑邊')
+    expect(plain?.usageNote).toBeUndefined()
   })
 })

@@ -575,6 +575,14 @@
   right: calc(384px + 28px);
 }
 
+/* 右邊的 Claude 對話面板（380px）開著時，提示也往左讓開，不蓋住對話的輸入欄與送出鈕 */
+:root[data-chat-drawer='open'] .svs-toast-region {
+  right: calc(380px + 16px);
+}
+:root[data-chat-drawer='open'][data-canvas-panel='open'] .svs-toast-region {
+  right: calc(380px + 384px + 28px);
+}
+
 /* 展開或收合步驟：下面的列往下讓開、收回來（只在這段時間有位移動畫，平常拖移要跟手） */
 .svs-canvas[data-shifting='true'] .react-flow__node {
   transition: transform 300ms ease-in-out;

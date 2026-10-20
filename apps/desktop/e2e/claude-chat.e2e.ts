@@ -163,12 +163,63 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(page.getByTestId('chat-error')).toContainText('用量到上限')
     await expect(page.getByTestId('chat-continue')).toBeVisible()
     await page.getByTestId('chat-continue').click()
-    await expect(page.getByTestId('chat-message-assistant').last()).toContainText(
-      '接著做完了（接回同一個對話）',
-    )
+    const reply = page.getByTestId('chat-message-assistant').last()
+    await expect(reply).toContainText('只續做被打斷的那一句「做很多事，用量會用完」')
+    await expect(reply).toContainText('接回同一個對話')
+    // 只做被打斷那一句的事：一個步驟；沒有去做上一輪預告的影片、配樂、匯出
+    await expect(reply.getByTestId('chat-step')).toHaveCount(1)
+    await expect(reply).not.toContainText('影片')
+    await expect(reply).not.toContainText('匯出')
+    // 送出的話是「剛才那句「…」被用量上限打斷…不要做那句以外的事」，不是「接著剛才的做下去」
+    const sent = page.getByTestId('chat-message-user').last()
+    await expect(sent).toContainText('剛才那句「做很多事，用量會用完」被用量上限打斷')
+    await expect(sent).toContainText('不要做那句以外的事')
+    await expect(sent).not.toContainText('接著剛才')
     // 做完之後按鈕不見；對話還是同一個
     await expect(page.getByTestId('chat-continue')).toHaveCount(0)
     await expect(page.getByTestId('chat-message-user')).toHaveCount(2)
+  })
+
+  test('面板開著：空白畫布的三張開始卡都在面板左邊看得到（會換行，不被切掉）；提示往左讓開，不蓋住輸入欄與送出鈕', async ({
+    page,
+  }, testInfo) => {
+    // 筆電常見的寬度：面板（380）一開，畫布只剩不到 850，三張卡排不下一行
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await useFreeMcpPort(page)
+    await openChat(page)
+    await expect(page.getByTestId('canvas-empty')).toBeVisible()
+    const drawer = await page.getByTestId('chat-drawer').boundingBox()
+    if (!drawer) throw new Error('沒有面板')
+    // 面板滑出的動畫播完（寬度是 380）
+    await expect
+      .poll(async () => (await page.getByTestId('chat-drawer').boundingBox())?.width)
+      .toBe(380)
+    const left = (await page.getByTestId('chat-drawer').boundingBox())?.x ?? 0
+    // 三張卡（一步一步來、貼一段故事、一句話）每一張都完整在面板左邊
+    for (const id of ['empty-manual', 'empty-paste-go', 'empty-add-oneliner']) {
+      const card = page.getByTestId(id)
+      await card.scrollIntoViewIfNeeded()
+      const box = await card.boundingBox()
+      expect(box, id).not.toBeNull()
+      expect((box?.x ?? 0) + (box?.width ?? 0), `${id} 不被面板切掉`).toBeLessThanOrEqual(left + 1)
+      expect(box?.x ?? -1, `${id} 不被左邊切掉`).toBeGreaterThanOrEqual(0)
+    }
+    // 提示：沒東西可以復原，按 ⌘Z 會跳「沒有可以復原的動作」；它不能蓋在面板上
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z')
+    const toast = page.getByTestId('toast').first()
+    await expect(toast).toBeVisible()
+    await expect
+      .poll(async () => {
+        const box = await toast.boundingBox()
+        return (box?.x ?? 0) + (box?.width ?? 0)
+      })
+      .toBeLessThanOrEqual(left + 1)
+    await page.screenshot({ path: testInfo.outputPath('chat-open-empty-canvas.png') })
+    // 面板收起來之後，提示回到右下角
+    await page.getByRole('button', { name: '收起 Claude 對話' }).click()
+    await expect
+      .poll(async () => page.evaluate(() => document.documentElement.dataset.chatDrawer))
+      .toBeUndefined()
   })
 
   test('Claude 回 Markdown：表格、粗體、清單照樣子顯示；裡面夾的 HTML 只是字，不會執行', async ({

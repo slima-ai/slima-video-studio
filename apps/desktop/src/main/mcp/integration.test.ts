@@ -417,6 +417,38 @@ describe('工具', () => {
     expect(instructions.length).toBeLessThan(1500)
   })
 
+  it('設定頁的位置寫對：金鑰在「服務金鑰」、示範模式在「一般」，「AI 工具連線」不是貼金鑰的地方（Claude 曾經指錯路）', async () => {
+    const client = await connect(env)
+    expect(client.getInstructions() ?? '').toContain('設定 → 服務金鑰')
+    const guide = dataOf(
+      GuideSchema,
+      await client.callTool({ name: 'load_guide', arguments: { topic: 'spending' } }),
+    ).text
+    expect(guide).toContain('設定 → 服務金鑰')
+    expect(guide).toContain('示範模式')
+    expect(guide).toContain('設定 → 一般')
+    expect(guide).toContain('NOT where keys go')
+    const caps = JSON.stringify(
+      dataOf(
+        CapabilitiesSchema,
+        await client.callTool({ name: 'get_capabilities', arguments: {} }),
+      ),
+    )
+    expect(caps).toContain('設定 → 服務金鑰')
+    const { tools } = await client.listTools()
+    expect(tools.find((t) => t.name === 'list_models')?.description).toContain('設定 → 服務金鑰')
+  })
+
+  it('delete_shots 的說明講實話：復原連圖、影片版本、聲音一起回來，不再說「可能回不來」', async () => {
+    const client = await connect(env)
+    const { tools } = await client.listTools()
+    const description = tools.find((t) => t.name === 'delete_shots')?.description ?? ''
+    expect(description).toContain(
+      'brings the shots back together with their pictures, video versions and sound',
+    )
+    expect(description).not.toContain('may not come back')
+  })
+
   it('get_capabilities：模式、目前專案、額度、工具與指南', async () => {
     const client = await connect(env)
     const data = dataOf(

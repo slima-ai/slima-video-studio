@@ -597,6 +597,23 @@ export const imageEditNode = defineNode({
 export const REFERENCE_PROMPT_SUFFIX =
   '。參考圖是設定圖：出場角色的臉、髮型、服裝、配色，以及場景的佈置與色調，必須和參考圖完全一致，不要重新設計。'
 
+/**
+ * 首幀圖的 Prompt 後面一律補的描述：要滿版、單一連續的畫面。圖片模型看到「電影質感」會自己畫上 2.4:1 的黑條，
+ * 描述兩個東西（臉在上、網在下）時會畫成上下兩格拼貼；都會讓圖生影片的頭一兩秒帶著黑條或拼貼接縫。
+ * 只改送出的文字（節點版本不變，既有的圖與快取不受影響）。
+ */
+export const frameFillSuffix = (aspectRatio: string): string =>
+  `。${aspectRatio} 滿版畫面，內容鋪滿整個畫面、邊到邊，上下沒有黑色橫條；單一連續畫面，不是拼貼、分格或上下兩格。`
+
+/** 把 `frameFillSuffix` 從 Prompt 後面拿掉（生成紀錄顯示與重用 Prompt 時用；沒有就原樣回傳）。 */
+export function withoutFrameFillSuffix(prompt: string): string {
+  for (const aspectRatio of AspectRatioSchema.options) {
+    const suffix = frameFillSuffix(aspectRatio)
+    if (prompt.endsWith(suffix)) return prompt.slice(0, -suffix.length)
+  }
+  return prompt
+}
+
 export const imageNode = defineNode({
   type: NODE_TYPES.image,
   version: 3,
@@ -619,13 +636,15 @@ export const imageNode = defineNode({
       {
         capability: editing ? 'edit' : 't2i',
         modelId: model,
-        prompt: editing
-          ? `${String(inputs.prompt)}${REFERENCE_PROMPT_SUFFIX}`
-          : String(inputs.prompt),
+        prompt:
+          (editing ? `${String(inputs.prompt)}${REFERENCE_PROMPT_SUFFIX}` : String(inputs.prompt)) +
+          frameFillSuffix(params.aspectRatio),
         aspectRatio: params.aspectRatio,
         seed: params.variation,
         referenceAssets: editing ? refs.map((ref) => ref.hash) : [],
         count: 1,
+        // 模型自己畫的黑邊在存進素材庫之前就裁掉（在任務佇列裡做，生成中的狀態才會一直到裁完為止）
+        trimLetterbox: true,
       },
       { signal, nodeRunId },
     )

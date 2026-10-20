@@ -41,9 +41,9 @@ test.describe('專案頁', () => {
   test('每一頁最上面的專案列：名字、已自動儲存的時間、模式、花費；點名字改名；選單一點就到最近的專案', async ({
     page,
   }) => {
-    // 還沒有專案：寫「未命名專案」，沒有存檔狀態
+    // 還沒有專案：寫「還沒有專案」，沒有存檔狀態
     await expect(page.getByTestId('project-bar')).toBeVisible()
-    await expect(page.getByTestId('project-name')).toHaveText('未命名專案')
+    await expect(page.getByTestId('project-name')).toHaveText('還沒有專案')
     await expect(page.getByTestId('save-status')).toHaveCount(0)
     await expect(page.getByTestId('mode-badge')).toBeVisible()
 
@@ -166,7 +166,7 @@ test.describe('首頁（不帶 SVS_DISABLE_HOME、不跳過引導：真正的第
     await expect(page.getByTestId('home-open')).toBeVisible()
     await expect(page.getByTestId('home-recent-empty')).toBeVisible()
     // 最上面的專案列在首頁也在：還沒有專案
-    await expect(page.getByTestId('project-name')).toHaveText('未命名專案')
+    await expect(page.getByTestId('project-name')).toHaveText('還沒有專案')
     // 左邊導覽的每一顆都直接寫著名字（不用滑過才知道「專案」「檔案」各是什麼）
     for (const label of [
       '畫布',

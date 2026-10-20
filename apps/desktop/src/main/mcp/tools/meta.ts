@@ -32,7 +32,7 @@ export function registerMetaTools(ctx: ToolContext): void {
         spending: {
           ...ctx.allowance.status(),
           note: settings.demoMode
-            ? 'Demo mode: nothing you do spends real money.'
+            ? 'Demo mode: nothing you do spends real money. To use real AI the user pastes a service key under 設定 → 服務金鑰 and switches off 示範模式 under 設定 → 一般 (not under 設定 → AI 工具連線); you cannot do either.'
             : 'Real mode: tools that call an AI model are checked against this allowance. Only the user can change it (the card 「AI 工具的總額度」 under 設定 → AI 工具連線).',
         },
         tools: [...ctx.toolNames],

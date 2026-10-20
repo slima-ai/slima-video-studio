@@ -131,7 +131,7 @@ export function registerShotTools(ctx: ToolContext): void {
     name: 'delete_shots',
     title: 'Delete shots',
     description:
-      'Delete shots and every picture/video generated for them (money already spent is not refunded), then renumber the rest. Undo is available with the undo tool for the shot list, but generated media may not come back; be careful.',
+      'Delete shots and every picture/video generated for them, then renumber the rest. Deleting can be undone: the undo tool (or the user pressing undo) brings the shots back together with their pictures, video versions and sound, so there is no need to treat a delete as irreversible. Money already spent is not refunded, and regenerating media after a delete would cost again.',
     input: { shotIds: z.array(z.string().min(1)).min(1).max(100) },
     hints: { readOnly: false, destructive: true },
     run: async ({ shotIds }) => {

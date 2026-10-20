@@ -23,6 +23,8 @@ export const TakeViewSchema = z.object({
   costUsd: z.number().nonnegative().optional(),
   /** 花費是估算的（供應商沒有回報實際金額）。 */
   costEstimated: z.boolean().optional(),
+  /** 這張首幀圖被自動裁掉黑邊（模型畫的黑條），畫質可能比較差，可以重新生成。 */
+  letterboxTrimmed: z.boolean().optional(),
 })
 export type TakeView = z.infer<typeof TakeViewSchema>
 

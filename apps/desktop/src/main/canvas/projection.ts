@@ -74,7 +74,10 @@ export interface CanvasSource {
   /** 正在生成的鏡頭做到哪一步、最近一次失敗的原因（只存在記憶體裡，資料庫沒有）。 */
   live?: ReadonlyMap<string, ShotLive>
   /** 採用中的版本花了多久、多少錢（依素材雜湊）。 */
-  usage?: ReadonlyMap<string, { durationMs?: number; costUsd?: number; costEstimated?: boolean }>
+  usage?: ReadonlyMap<
+    string,
+    { durationMs?: number; costUsd?: number; costEstimated?: boolean; letterboxTrimmed?: boolean }
+  >
   /** 模型 id → 給人看的名字（例如 mock/image →「示範圖片」）；查不到就顯示 id。 */
   modelNames?: ReadonlyMap<string, string>
   /** 圖或影片需要重跑的鏡頭（生成之後上游改過）。 */

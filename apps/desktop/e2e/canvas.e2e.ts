@@ -18,8 +18,8 @@ test.describe('畫布首頁（示範模式）', () => {
     expect(root?.width).toBeCloseTo(main?.width ?? -1, 0)
     expect(root?.height).toBeCloseTo(main?.height ?? -1, 0)
     await expect(page.getByTestId('canvas-empty')).toBeVisible()
-    // 還沒有專案名稱時寫「未命名專案」
-    await expect(page.getByTestId('project-name')).toHaveText('未命名專案')
+    // 還沒有專案時寫「還沒有專案」
+    await expect(page.getByTestId('project-name')).toHaveText('還沒有專案')
     // 空畫布中央就能先寫故事，按「新增一句話」就帶著故事放到畫布上
     await page.getByTestId('empty-story').fill('一隻貓在下雨的夜晚找到溫暖的家')
     await page.getByRole('button', { name: '新增一句話' }).click()

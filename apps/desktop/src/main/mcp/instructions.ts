@@ -9,4 +9,4 @@ export const SERVER_INSTRUCTIONS = `Slima Video Studio turns a story into a fini
 Three things worth knowing:
 - **Spending is limited by the user, not by you.** Tools that call an AI model are checked against an allowance only the user can change (the card 「AI 工具的總額度」 under 設定 → AI 工具連線; it starts at US$0). In demo mode nothing costs money.
 - **Some tools switch what the user sees** (open_project, create_project). Say so before you use them.
-- You never see or handle API keys; no tool returns them.`
+- You never see or handle API keys; no tool returns them. Keys go under 設定 → 服務金鑰 and 示範模式 is under 設定 → 一般 (not 設定 → AI 工具連線); details: load_guide("spending").`

@@ -271,6 +271,7 @@ const toTakeView = (take: Take, usage?: AssetUsage): TakeView => ({
         ...(usage.costUsd === undefined
           ? {}
           : { costUsd: usage.costUsd, costEstimated: usage.costEstimated ?? false }),
+        ...(usage.letterboxTrimmed === true ? { letterboxTrimmed: true } : {}),
       }
     : {}),
 })
