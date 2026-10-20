@@ -20,7 +20,6 @@ import {
   type CanvasMove,
   type CanvasViewport,
 } from '@svs/schema'
-import { Clapperboard } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -72,7 +71,10 @@ import {
   rectOf,
   sceneAt,
 } from './geometry'
+import { StartCards } from './canvas-start'
 import { GrowConfirm } from './grow-confirm'
+import { LooseBanner } from './loose-banner'
+import { SplitConfirm, useStorySplit } from './story-split'
 import { AddMenu, CONTEXT_W, ContextMenu, type MenuEntry } from './menus'
 import { PerfOverlay } from './perf-overlay'
 import { NODE_TYPES } from './nodes'
@@ -516,7 +518,13 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     })
   }, [flowPointOf])
   const addNode = useCallback(
-    (kind: CanvasAddKind, place?: XY, from?: PortRef, story?: string): void => {
+    (
+      kind: CanvasAddKind,
+      place?: XY,
+      from?: PortRef,
+      story?: string,
+      after?: { open?: boolean; message?: string },
+    ): void => {
       // 鏡頭放進游標所在的場；角色與地點放在想放的位置，被佔住就挪到最近的空位
       const sceneKey = kind === 'shot' && place ? sceneAt(flow.nodes, place)?.id : undefined
       let spot: XY | undefined
@@ -571,12 +579,16 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           }
           pendingReveal.current = result.key
           onChanged()
+          // 從空白畫布「自己一步一步來」加的第一個鏡頭：直接打開它的面板
+          if (after?.open === true) setPanel(panelTargetOf(result.key))
           // 新增的都能用 Cmd/Ctrl+Z 收回
           toast.show({
             key: 'canvas-add',
             message:
-              kind === 'character' ? `已新增角色「${result.title}」` : `已新增${result.title}`,
+              after?.message ??
+              (kind === 'character' ? `已新增角色「${result.title}」` : `已新增${result.title}`),
             action: { label: '復原', onAction: history.undo },
+            ...(after?.message === undefined ? {} : { ms: 10_000 }),
           })
         })
         .catch((error: unknown) => {
@@ -585,6 +597,45 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     },
     [flow.nodes, selected, centerOfView, history.undo, onChanged, toast],
   )
+  // ── 貼一段故事拆分鏡（空白畫布的入口之一） ──
+  const split = useStorySplit({ onChanged })
+
+  // ── 沒歸場的鏡頭：畫布上方提醒，一鍵看到它們、或歸進最後一個場 ──
+  const loose = useMemo(
+    () => flow.nodes.filter((n) => n.data.kind === 'shot' && n.data.sceneId === undefined),
+    [flow.nodes],
+  )
+  const lastScene = useMemo(
+    () => flow.nodes.filter((n) => n.data.kind === 'scene').at(-1),
+    [flow.nodes],
+  )
+  const sceneNameOf = (scene: CanvasNode): string => scene.data.title
+  const showLoose = useCallback((): void => {
+    void rf.fitView({
+      nodes: loose.map((n) => ({ id: n.id })),
+      maxZoom: 1,
+      padding: FIT_OPTIONS.padding,
+      duration: 300,
+    })
+  }, [rf, loose])
+  const assignLoose = useCallback((): void => {
+    const shotIds = loose.map((n) => n.id.replace(/^shot:/, ''))
+    const where = lastScene === undefined ? '新的場' : `「${lastScene.data.title}」`
+    call('shots.assignScene', { shotIds })
+      .then(() => {
+        onChanged()
+        toast.show({
+          key: 'canvas-assign',
+          message: `已把 ${String(shotIds.length)} 個鏡頭歸進${where}，它們會接進成品`,
+          action: { label: '復原', onAction: history.undo },
+          ms: 10_000,
+        })
+      })
+      .catch((error: unknown) => {
+        toast.show({ message: errorText(error), tone: 'danger' })
+      })
+  }, [loose, lastScene, onChanged, toast, history.undo])
+
   /** Tab 或 / 開的選單：選單在畫面上方中間，新節點放在畫面正中央。 */
   const openMenuAtCenter = useCallback((): void => {
     const rect = containerRef.current?.getBoundingClientRect()
@@ -1460,7 +1511,6 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   }, [rf, openMenuAtCenter])
 
   const empty = graph.nodes.length === 0
-  const [emptyStory, setEmptyStory] = useState('')
   return (
     <CanvasActionsContext.Provider value={actions}>
       <ConnectedPortsContext.Provider value={connectedPorts}>
@@ -1714,45 +1764,33 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 <GrowConfirm pending={grow.confirm} onOk={grow.run} onCancel={grow.cancelConfirm} />
               ) : null}
               {empty ? (
-                // 空畫布：正中央就是起點。先寫故事（也可以不寫），按「新增一句話」就在這裡放一個一句話
-                <div
-                  data-testid="canvas-empty"
-                  className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
-                >
-                  <form
-                    className="pointer-events-auto flex w-[440px] flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-6 shadow-panel"
-                    onSubmit={(event) => {
-                      event.preventDefault()
-                      // 放在內容的左邊（自動排版的場從它右邊長出來），畫面會平移過去
-                      addNode('oneliner', undefined, undefined, emptyStory.trim())
-                    }}
-                  >
-                    <h2 className="flex items-center gap-2 text-lg font-semibold">
-                      <Clapperboard className="size-5 text-accent" aria-hidden />
-                      寫下你想拍的故事
-                    </h2>
-                    <p className="text-sm text-fg-muted">
-                      一句話或一段都可以。按「新增一句話」，再選畫風和鏡頭數，就能生成整支短片；鏡頭、圖和影片都會長在這張畫布上。
-                    </p>
-                    <label className="flex flex-col gap-1 text-sm font-medium">
-                      故事
-                      <textarea
-                        data-testid="empty-story"
-                        rows={3}
-                        value={emptyStory}
-                        maxLength={2000}
-                        placeholder="例如：一隻貓在下雨的夜晚找到溫暖的家"
-                        onChange={(event) => {
-                          setEmptyStory(event.target.value)
-                        }}
-                        className="resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm font-normal placeholder:text-fg-subtle"
-                      />
-                    </label>
-                    <Button type="submit" variant="primary" data-testid="empty-add-oneliner">
-                      新增一句話
-                    </Button>
-                  </form>
-                </div>
+                // 空畫布：三種起點（手動、貼故事拆分鏡、一句話），不只「一句話」一條路
+                <StartCards
+                  busy={split.busy}
+                  onManual={() => {
+                    addNode('shot', undefined, undefined, undefined, {
+                      open: true,
+                      message:
+                        '已加上第一個鏡頭（放在新的場裡）。在右邊面板寫畫面描述，寫好按 ▶ 生成',
+                    })
+                  }}
+                  onSplit={split.start}
+                  onOneliner={(story) => {
+                    // 放在內容的左邊（自動排版的場從它右邊長出來），畫面會平移過去
+                    addNode('oneliner', undefined, undefined, story)
+                  }}
+                />
+              ) : null}
+              {split.pending ? (
+                <SplitConfirm pending={split.pending} onOk={split.run} onCancel={split.cancel} />
+              ) : null}
+              {loose.length > 0 ? (
+                <LooseBanner
+                  count={loose.length}
+                  sceneName={lastScene === undefined ? undefined : sceneNameOf(lastScene)}
+                  onShow={showLoose}
+                  onAssign={assignLoose}
+                />
               ) : null}
             </div>
           </LodContext.Provider>

@@ -412,6 +412,15 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                 {badge}
               </span>
             ) : null}
+            {data.kind === 'shot' && data.sceneId === undefined ? (
+              <span
+                data-testid="loose-badge"
+                data-tip="這個鏡頭不屬於任何場，不會接進成品；把它拖進場框，或按畫布上方的「歸進」"
+                className="rounded-full border border-warning px-2 py-px text-[11px] text-warning"
+              >
+                沒歸場
+              </span>
+            ) : null}
             {generating || data.kind === 'shot' ? <OpenButton id={id} /> : null}
             {generating || data.kind === 'shot' ? <PlayButton id={id} data={data} /> : null}
             <DeleteButton id={id} data={data} selected={selected} />

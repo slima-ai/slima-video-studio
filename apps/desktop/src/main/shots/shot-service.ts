@@ -159,7 +159,7 @@ export interface ShotService {
   /** 依傳入的順序重新排列所有鏡頭，並重新編號。 */
   reorder: (orderedIds: readonly string[]) => ShotsSnapshot
   /** 把一批鏡頭放進同一個場（只廣播一次）。 */
-  assignScene: (shotIds: readonly string[], sceneId: string) => ShotsSnapshot
+  assignScene: (shotIds: readonly string[], sceneId?: string) => ShotsSnapshot
   /** 把一個鏡頭移到另一個場的最後面，鏡號依場的順序重排。 */
   moveToScene: (shotId: string, sceneId: string) => ShotsSnapshot
   /** 某個場目前有幾個鏡頭、其中幾個已經生成過畫面或影片。 */
@@ -312,6 +312,12 @@ interface Session {
  * 鏡頭與版本：把快速開始的結果存進專案資料庫，讓使用者逐鏡修改、重新生成、
  * 切換版本，最後重新接片。每個專案各有一份狀態；換專案時取消進行中的重新生成。
  */
+/** 專案裡一個場都沒有時，替新增的鏡頭先建一個場（沒有幕就連幕一起建），回傳場的 id。 */
+function newScene(outline: ProjectHandle['repos']['outline']): string {
+  const act = outline.listActs().at(-1) ?? outline.addAct({ title: `第 ${String(1)} 幕` })
+  return outline.addScene(act.id, { title: '新的場' }).id
+}
+
 export function createShotService(deps: ShotServiceDeps): ShotService {
   const { projects, runtime, settings, settingsService, models, broadcast, log } = deps
   const tools = deps.tools ?? findTools
@@ -1219,9 +1225,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       if (afterShotId && !before.some((x) => x.id === afterShotId)) {
         throw invalid('找不到這個鏡頭。')
       }
+      // 每個鏡頭都要有場（沒有場的鏡頭畫布上沒有框、不會接進成品）：沒指定就放在前一個鏡頭的場，
+      // 再沒有就放最後一個場，專案裡一個場都沒有就先建一個。畫布、分鏡表、MCP 的新增鏡頭都走這裡
+      const afterScene = before.find((x) => x.id === afterShotId)?.sceneId
+      const inScene = sceneId ?? afterScene ?? outline.listScenes().at(-1)?.id ?? newScene(outline)
       const created = shots.create({
         description: '新的鏡頭',
-        ...(sceneId ? { sceneId } : {}),
+        sceneId: inScene,
       })
       if (afterShotId) {
         const ids = before.map((x) => x.id)
@@ -1303,8 +1313,14 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     assignScene(shotIds, sceneId) {
       const s = need()
       const { shots, outline } = s.handle.repos
-      if (!outline.listScenes().some((x) => x.id === sceneId)) throw invalid('找不到這個場。')
-      for (const id of shotIds) shots.update(id, { sceneId })
+      if (s.quick) throw invalid('整支影片正在生成，等它完成再調整。')
+      // 沒指定場：放最後一個場，一個場都沒有就先建一個（畫布上「沒歸場的鏡頭」一鍵歸進場用）
+      const target = sceneId ?? outline.listScenes().at(-1)?.id ?? newScene(outline)
+      if (!outline.listScenes().some((x) => x.id === target)) throw invalid('找不到這個場。')
+      for (const id of shotIds) {
+        if (!shots.get(id)) throw invalid('找不到這個鏡頭。')
+      }
+      for (const id of shotIds) shots.update(id, { sceneId: target })
       changed(s)
       return snapshot()
     },

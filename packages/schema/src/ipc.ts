@@ -642,6 +642,11 @@ export const ipcContract = {
     request: z.object({ orderedIds: z.array(IdSchema) }),
     response: ShotsSnapshotSchema,
   },
+  /** 把幾個鏡頭歸進一個場（沒給場就放最後一個場，一個場都沒有就先建一個）。畫布上「沒歸場的鏡頭」用。 */
+  'shots.assignScene': {
+    request: z.object({ shotIds: z.array(IdSchema).min(1), sceneId: IdSchema.optional() }),
+    response: ShotsSnapshotSchema,
+  },
   /** 讓 AI 替某個場拆鏡頭之前的檢查與預估花費。 */
   'storyboard.splitCheck': {
     request: z.object({ sceneId: IdSchema }),

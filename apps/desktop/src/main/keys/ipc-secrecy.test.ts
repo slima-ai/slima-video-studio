@@ -108,6 +108,7 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'shots.create': [{}],
   'shots.delete': [{ shotIds: ['s1'] }],
   'shots.reorder': [{ orderedIds: ['s1'] }],
+  'shots.assignScene': [{ shotIds: ['s1'] }],
   'shots.batchCheck': [{ shotIds: ['s1'], skipGenerated: true }],
   'shots.generateBatch': [{ shotIds: ['s1'], skipGenerated: true }],
   'storyboard.splitCheck': [{ sceneId: 'sc1' }],
