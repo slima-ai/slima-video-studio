@@ -119,7 +119,7 @@ export function ChatPanel() {
   const end = useRef<HTMLDivElement>(null)
   // 有新內容就捲到最底
   useEffect(() => {
-    end.current?.scrollIntoView?.({ block: 'end' })
+    end.current?.scrollIntoView({ block: 'end' })
   }, [messages])
   return (
     <section

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 
 import { Button } from '../../components/button'
 import { SkeletonCards } from '../../components/skeleton'
+import { ExperimentsSection } from './experiments-section'
 import { GeneralSection } from './general-section'
 import { KeysSection } from './keys-section'
 import { McpSection } from './mcp-section'
@@ -74,6 +75,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
             <McpSection onChanged={reload} />
             <SlimaSection storageAvailable={state.data.storage.available} />
             <GeneralSection settings={state.data.settings} onChanged={reload} />
+            <ExperimentsSection settings={state.data.settings} onChanged={reload} />
           </>
         ) : null}
       </div>

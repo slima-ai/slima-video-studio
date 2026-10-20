@@ -173,7 +173,7 @@ export function AppLayout({
             />
           </nav>
 
-          <div className="relative flex min-w-0 flex-1">
+          <div className="relative flex min-w-0 flex-1 overflow-clip">
             {/* 面板打開時中央一次讓出位置（只重排一次）；面板自己用 translateX 滑入，動畫過程不會重排 */}
             <main
               data-testid="layout-main"

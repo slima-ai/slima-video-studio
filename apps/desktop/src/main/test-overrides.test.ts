@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { openrouterBaseUrlOverride, startsOnHome } from './test-overrides'
+import { claudeBinOverride, openrouterBaseUrlOverride, startsOnHome } from './test-overrides'
 
 const env = (value: string | undefined) => ({ SVS_OPENROUTER_BASE_URL: value })
 
@@ -55,5 +55,22 @@ describe('startsOnHome', () => {
 
   it('打包版就算設了也無效：一樣先到首頁', () => {
     expect(startsOnHome({ SVS_DISABLE_HOME: '1' }, true)).toBe(true)
+  })
+})
+
+describe('claudeBinOverride', () => {
+  it('沒設變數：不覆寫（照常找這台電腦的 claude）', () => {
+    expect(claudeBinOverride({}, false)).toBeUndefined()
+    expect(claudeBinOverride({ SVS_CLAUDE_BIN: '' }, false)).toBeUndefined()
+  })
+
+  it('非打包版設了：用那支執行檔', () => {
+    expect(claudeBinOverride({ SVS_CLAUDE_BIN: '/tmp/fake-claude' }, false)).toBe(
+      '/tmp/fake-claude',
+    )
+  })
+
+  it('打包版就算設了也無效：不然別人能用環境變數讓 App 執行任意程式', () => {
+    expect(claudeBinOverride({ SVS_CLAUDE_BIN: '/tmp/fake-claude' }, true)).toBeUndefined()
   })
 })
