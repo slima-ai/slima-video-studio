@@ -234,6 +234,27 @@ test.describe('Claude 對話（假的 claude）', () => {
     expect(readFileSync(join(copy, 'chat', files[0] ?? ''), 'utf8')).toContain('你還記得嗎')
   })
 
+  test('Claude 用 MCP 改的東西能復原：工具列的復原按鈕與 ⌘Z 都有用，一個工具呼叫一步', async ({
+    page,
+  }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('幫我建一個專案，加兩個鏡頭')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-message-assistant').last()).toHaveAttribute(
+      'data-state',
+      'done',
+      { timeout: 30_000 },
+    )
+    await expect.poll(() => kindCount(page, 'shot'), { timeout: 15_000 }).toBe(2)
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(1)
+    await page.mouse.click(600, 600)
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect.poll(() => kindCount(page, 'shot')).toBe(0)
+  })
+
   test('行程當掉：說明連線中斷（不貼原始錯誤），再講一句會接著上次的對話', async ({ page }) => {
     await useFreeMcpPort(page)
     await openChat(page)
