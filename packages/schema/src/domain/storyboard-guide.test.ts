@@ -38,6 +38,13 @@ describe('分鏡準則', () => {
     expect(DEFAULT_STORYBOARD_GUIDE).toContain('static 留給對話、停頓與情緒落點')
   })
 
+  it('第 7 條：用前景、背景、遠近說位置；不要把畫面切成上下或左右兩塊描述（圖片模型會畫成兩格拼貼）', () => {
+    expect(DEFAULT_STORYBOARD_GUIDE).toContain('用前景、背景、遠近來說位置')
+    expect(DEFAULT_STORYBOARD_GUIDE).toContain('不要把畫面切成上下或左右兩塊來描述')
+    // 舊的說法（「在畫面的哪個位置」）會讓拆鏡模型寫出「臉在畫面上半部」
+    expect(DEFAULT_STORYBOARD_GUIDE).not.toContain('在畫面的哪個位置')
+  })
+
   it('沒自訂（空白）就用預設，有自訂就用自訂', () => {
     expect(resolveStoryboardGuide(undefined)).toBe(DEFAULT_STORYBOARD_GUIDE)
     expect(resolveStoryboardGuide('  \n')).toBe(DEFAULT_STORYBOARD_GUIDE)

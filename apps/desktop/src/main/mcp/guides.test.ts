@@ -42,6 +42,14 @@ describe('load_guide("cinematography")', () => {
     expect(cinematography).toContain('Keep static for dialogue, a pause, an emotional landing')
   })
 
+  it('描述一個構圖：用前景、背景、遠近說位置，不要把畫面切成上下或左右兩塊（圖片模型會畫成兩格拼貼）', () => {
+    expect(cinematography).toContain('Describe one composition')
+    expect(cinematography).toContain(
+      'never by splitting the frame into top and bottom or left and right parts',
+    )
+    expect(cinematography).toContain('two-panel collage')
+  })
+
   it('長度不超過現有最長指南的 1.5 倍（每個工作階段載入都要花 token）', () => {
     const longest = Math.max(
       ...GUIDE_TOPICS.filter((t) => t !== 'cinematography' && t !== 'storyboard').map(
