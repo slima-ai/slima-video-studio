@@ -4,11 +4,9 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Mascot } from '../../brand/mascot'
 import { Button } from '../../components/button'
 import { useChatDock } from './chat-context'
+import { continueText } from './continue-text'
 import { MessageView } from './message-view'
 import { PrereqCard } from './prereq-card'
-
-/** 按「繼續」時送出的話：Claude 用 --resume 接回同一個對話，看得到剛才做到哪。 */
-const CONTINUE_TEXT = '請接著剛才的做下去。'
 
 /** 對話框空的時候給的幾個起手式：點一下填進輸入框，不會自己送出。 */
 const STARTERS = [
@@ -212,7 +210,7 @@ export function ChatPanel() {
                   key={message.id}
                   message={message}
                   {...(index === messages.length - 1 && !running
-                    ? { onContinue: () => void send(CONTINUE_TEXT) }
+                    ? { onContinue: () => void send(continueText(messages, index)) }
                     : {})}
                 />
               ))

@@ -3,7 +3,7 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { ChatEvent, ChatPanelMessage } from '@svs/schema'
+import { CHAT_BUDGET_DEFAULT_USD, type ChatEvent, type ChatPanelMessage } from '@svs/schema'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { bridgeCommand } from '../mcp/connect'
@@ -439,6 +439,14 @@ describe('ChatService：出錯要說白話', () => {
     // 舊行程晚一點才退出，不會把新的這一輪當成當掉
     children[0]?.emit('exit', 0, null)
     expect(last(conv.id, 'assistant')?.state).toBe('streaming')
+  })
+
+  it('沒設定時每一段的用量上限預設 US$5（不是 US$0.5：讀指南、呼叫幾個工具的一輪就會超過）', async () => {
+    const { service, calls } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    expect(calls[0]?.args[calls[0].args.indexOf('--max-budget-usd') + 1]).toBe('5')
+    expect(CHAT_BUDGET_DEFAULT_USD).toBe(5)
   })
 
   it('步數到上限也能繼續；一般失敗不給「繼續」', async () => {

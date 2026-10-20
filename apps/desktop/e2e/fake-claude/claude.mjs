@@ -181,22 +181,24 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
     return
   }
   if (text.includes('壞掉')) process.exit(1)
+  if (text.startsWith('剛才那句「')) {
+    // 按「繼續」：只續做被打斷的那一句（引用在「」裡），不做上一輪預告的其他事
+    const quote = /^剛才那句「([\s\S]*)」被用量上限打斷。/u.exec(text)?.[1] ?? ''
+    await useTool('create_shot', {})
+    const reply = `只續做被打斷的那一句「${quote}」：補了一個鏡頭（${flag('--resume') === undefined ? '新的對話' : '接回同一個對話'}）。`
+    say(reply)
+    finish(reply)
+    return
+  }
   if (text.includes('用量')) {
-    // 這個行程的用量用完了：沒做完就停
-    say('做到一半…')
+    // 這個行程的用量用完了：沒做完就停；停之前照真的 Claude 的習慣預告了後面的事（影片、配樂、匯出）
+    say('做到一半…接下來我會生成影片、配樂、接成成品再匯出。')
     out({
       type: 'result',
       subtype: 'error_max_budget_usd',
       is_error: true,
       session_id: sessionId,
     })
-    return
-  }
-  if (text.includes('接著剛才')) {
-    // 新的行程用 --resume 接回同一個對話
-    const reply = `接著做完了（${flag('--resume') === undefined ? '新的對話' : '接回同一個對話'}）。`
-    say(reply)
-    finish(reply)
     return
   }
   if (text.includes('表格')) {
