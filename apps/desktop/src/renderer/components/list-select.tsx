@@ -48,6 +48,32 @@ export function SimpleSelect({
  * 自訂下拉選單：選項可以放徽章、價格等排版，深色主題下不會跳出系統的白色選單。
  * 鍵盤：↑↓ 移動、Home/End、Enter/空白選取、Esc 或 Tab 關閉。
  */
+/** 選單最高幾像素（18rem）。 */
+const LIST_MAX_PX = 288
+/**
+ * 視窗最上面被蓋住的高度：最上面的專案列（40）＋畫布或頁面自己的上方列（56）＋留白。
+ * 往上展開的選單不能伸進這一段，不然最上面幾個選項被蓋住、點不到。
+ */
+export const TOP_INSET_PX = 104
+/** 視窗最下面被蓋住的高度：生成佇列的標題列＋留白。 */
+export const BOTTOM_INSET_PX = 48
+
+/**
+ * 選單往上還是往下展開、最高多少：下方放得下就往下；放不下就挑空間比較大的那一邊，
+ * 而且最高不超過那一邊的空間（高度不夠時選單自己捲動，不會被上方列或佇列蓋住）。
+ */
+export function listPlacement(
+  rect: { top: number; bottom: number } | undefined,
+  viewportHeight: number,
+): { up: boolean; maxHeight: number } {
+  if (!rect) return { up: false, maxHeight: LIST_MAX_PX }
+  const below = viewportHeight - rect.bottom - BOTTOM_INSET_PX
+  const above = rect.top - TOP_INSET_PX
+  const up = below < LIST_MAX_PX && above > below
+  const room = up ? above : below
+  return { up, maxHeight: Math.max(96, Math.min(LIST_MAX_PX, room)) }
+}
+
 export function ListSelect({
   value,
   options,
@@ -62,14 +88,15 @@ export function ListSelect({
   const rootRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [openUp, setOpenUp] = useState(false)
+  const [maxHeight, setMaxHeight] = useState(LIST_MAX_PX)
   const selectedIndex = options.findIndex((o) => o.value === value)
   const [active, setActive] = useState(Math.max(selectedIndex, 0))
   const selected = options[selectedIndex]
 
   const show = (): void => {
-    const rect = rootRef.current?.getBoundingClientRect()
-    // 下方放不下（選單最高約 18rem）又有位置往上，就往上展開
-    setOpenUp(rect !== undefined && window.innerHeight - rect.bottom < 300 && rect.top > 300)
+    const place = listPlacement(rootRef.current?.getBoundingClientRect(), window.innerHeight)
+    setOpenUp(place.up)
+    setMaxHeight(place.maxHeight)
     setActive(Math.max(selectedIndex, 0))
     setOpen(true)
   }
@@ -178,8 +205,9 @@ export function ListSelect({
           id={listId}
           role="listbox"
           data-testid={testId ? `${testId}-list` : undefined}
+          style={{ maxHeight }}
           className={cn(
-            'absolute z-20 max-h-72 w-full animate-fade-in overflow-auto overscroll-contain rounded-md border border-fg-muted/40 bg-surface-raised p-1 shadow-[0_12px_32px_rgb(0_0_0/0.45)]',
+            'absolute z-20 w-full animate-fade-in overflow-auto overscroll-contain rounded-md border border-fg-muted/40 bg-surface-raised p-1 shadow-[0_12px_32px_rgb(0_0_0/0.45)]',
             openUp ? 'bottom-full mb-1' : 'top-full mt-1',
           )}
         >
