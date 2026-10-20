@@ -34,6 +34,65 @@ async function pickShots(ctx: ToolContext, shotIds?: readonly string[]) {
   return chosen
 }
 
+/** 這一批要送給 App 自己的檢查（預估、花費上限、哪些鏡頭會被略過）的請求；開始生成與預估價錢用同一份。 */
+function batchRequest(
+  stage: z.infer<typeof ShotBatchStageSchema>,
+  shotIds: readonly string[],
+  redo: boolean,
+  draft: boolean,
+) {
+  return {
+    shotIds: [...shotIds],
+    skipGenerated: !redo,
+    stage,
+    ...(draft ? { draft: true } : {}),
+  }
+}
+
+/** 白話說明為什麼現在不能開始這一批。 */
+const cannotStart = (check: { issue?: string | undefined; skippedGenerated: number }): string => {
+  const hint = check.skippedGenerated > 0 ? '（要再做一個新版本：redo 設成 true，舊版會保留）' : ''
+  return `${check.issue ?? '現在不能開始生成。'}${hint}`
+}
+
+/**
+ * 只問「首幀圖或影片這一批要多少錢」，什麼都不開始、不預留（estimate_cost 用）。
+ * 數字就是 App 自己「全部生成」確認視窗用的那一份（shots.batchCheck），所以 AI 說的價錢跟畫面上的一致。
+ */
+export async function estimateBatch(
+  ctx: ToolContext,
+  stage: z.infer<typeof ShotBatchStageSchema>,
+  shotIds: readonly string[] | undefined,
+  redo: boolean,
+  draft: boolean,
+) {
+  const shots = await pickShots(ctx, shotIds)
+  const check = await ctx.caller.call(
+    'shots.batchCheck',
+    batchRequest(
+      stage,
+      shots.map((s) => s.id),
+      redo,
+      draft,
+    ),
+  )
+  const allowance = ctx.allowance.status()
+  const wouldReserveUsd = check.demoMode ? 0 : check.estimatedUsd * GENERATION_RESERVE_FACTOR
+  return {
+    possible: check.ok,
+    ...(check.ok ? {} : { issue: cannotStart(check) }),
+    demoMode: check.demoMode,
+    estimatedUsd: check.estimatedUsd,
+    wouldReserveUsd,
+    allowance,
+    fits: check.demoMode || wouldReserveUsd <= allowance.remainingUsd,
+    shotCount: check.ok ? shots.length - check.skippedGenerated - check.skippedNoFrame : 0,
+    skippedAlreadyDone: check.skippedGenerated,
+    skippedNoFirstFrame: check.skippedNoFrame,
+    model: stage === 'frame' ? (check.models.image ?? null) : (check.models.video ?? null),
+  }
+}
+
 /** 先過 App 自己的檢查與預估、再預留額度、最後才真的開始生成。 */
 async function startBatch(
   ctx: ToolContext,
@@ -43,18 +102,9 @@ async function startBatch(
   redo: boolean,
   draft: boolean,
 ) {
-  const request = {
-    shotIds: [...shotIds],
-    skipGenerated: !redo,
-    stage,
-    ...(draft ? { draft: true } : {}),
-  }
+  const request = batchRequest(stage, shotIds, redo, draft)
   const check = await ctx.caller.call('shots.batchCheck', request)
-  if (!check.ok) {
-    const hint =
-      check.skippedGenerated > 0 ? '（要再做一個新版本：redo 設成 true，舊版會保留）' : ''
-    throw new McpToolError(`${check.issue ?? '現在不能開始生成。'}${hint}`, 'cannot_generate')
-  }
+  if (!check.ok) throw new McpToolError(cannotStart(check), 'cannot_generate')
   const reserved = reserveSpending(ctx, what, check.estimatedUsd, GENERATION_RESERVE_FACTOR)
   const result = await ctx.caller.call('shots.generateBatch', request)
   return {
@@ -76,7 +126,7 @@ export function registerFilmTools(ctx: ToolContext): void {
     name: 'generate_first_frames',
     title: 'Generate the first-frame pictures',
     description:
-      'Generate the first-frame picture of each shot (the picture the video will start from), WITHOUT making any video yet, so you can look at them (view_first_frames) and fix problems before paying for video. Default: every shot that is in the cut and has no first frame yet; redo=true makes a NEW version for shots that already have one (the old one is kept; use adopt_version to go back). Runs in the background: this returns at once; call wait_for_generation. Calls the image model: counts against the spending allowance: the app checks the estimate itself and refuses, saying the estimate, if the allowance is too small (estimate_cost does not cover this step; see load_guide("spending")); free in demo mode.',
+      'Generate the first-frame picture of each shot (the picture the video will start from), WITHOUT making any video yet, so you can look at them (view_first_frames) and fix problems before paying for video. Default: every shot that is in the cut and has no first frame yet; redo=true makes a NEW version for shots that already have one (the old one is kept; use adopt_version to go back). Runs in the background: this returns at once; call wait_for_generation. Calls the image model: counts against the spending allowance: the app checks the estimate itself and refuses, saying the estimate, if the allowance is too small (estimate_cost action generate_first_frames tells you the price first; see load_guide("spending")); free in demo mode.',
     input: {
       shotIds: z
         .array(z.string().min(1))
@@ -107,7 +157,7 @@ export function registerFilmTools(ctx: ToolContext): void {
     name: 'generate_videos',
     title: 'Generate the videos',
     description:
-      'Generate the video of each shot from its ADOPTED first-frame picture (shots without a first frame are skipped; make them with generate_first_frames first). Default: every shot in the cut that has no video yet; redo=true makes a NEW video version for shots that already have one. Runs in the background: call wait_for_generation (it can take minutes). Calls the video model, the expensive step: it counts against the spending allowance: the app checks the estimate itself and refuses, saying the estimate, if the allowance is too small (estimate_cost does not cover this step; see load_guide("spending")); free in demo mode.',
+      'Generate the video of each shot from its ADOPTED first-frame picture (shots without a first frame are skipped; make them with generate_first_frames first). Default: every shot in the cut that has no video yet; redo=true makes a NEW video version for shots that already have one. Runs in the background: call wait_for_generation (it can take minutes). Calls the video model, the expensive step: it counts against the spending allowance: the app checks the estimate itself and refuses, saying the estimate, if the allowance is too small (estimate_cost action generate_videos tells you the price first; see load_guide("spending")); free in demo mode.',
     input: {
       shotIds: z
         .array(z.string().min(1))

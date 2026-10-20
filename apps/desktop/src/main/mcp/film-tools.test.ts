@@ -281,6 +281,99 @@ describe('影片線的花錢步驟（真實模式、假的 OpenRouter）', () =>
     expect(r.controller.allowance.status().committedUsd).toBe(committedBefore)
   })
 
+  const Estimate = z.looseObject({
+    possible: z.boolean(),
+    issue: z.string().optional(),
+    demoMode: z.boolean(),
+    estimatedUsd: z.number(),
+    wouldReserveUsd: z.number(),
+    fits: z.boolean(),
+    shotCount: z.number(),
+    allowance: z.looseObject({ remainingUsd: z.number() }),
+  })
+
+  it('estimate_cost 估首幀圖：跟開始做的時候回報的預估一樣；什麼都不預留、不送請求；額度不夠 fits=false', async () => {
+    const { r, fake } = await startReal()
+    r.h.settings.update({ mcp: { allowanceUsd: 5 } }) // 先要有額度才拆得出鏡頭（文字步驟也算錢）
+    await withShots(r)
+    // 再加兩個鏡頭，才分得出「全部」跟「只問其中幾個」
+    await r.call('create_shot')
+    await r.call('create_shot')
+    const ids = dataOf(ShotList, await r.call('list_shots')).shots.map((s) => s.id)
+    expect(ids.length).toBeGreaterThanOrEqual(3)
+    const requestsBefore = noJobs(fake).length
+    const committedBefore = r.controller.allowance.status().committedUsd
+    r.h.settings.update({ mcp: { allowanceUsd: 0 } })
+    const poor = dataOf(
+      Estimate,
+      await r.call('estimate_cost', { action: 'generate_first_frames' }),
+    )
+    expect(poor).toMatchObject({
+      possible: true,
+      demoMode: false,
+      shotCount: ids.length,
+      fits: false,
+    })
+    expect(poor.estimatedUsd).toBeGreaterThan(0)
+    expect(poor.wouldReserveUsd).toBeCloseTo(poor.estimatedUsd * 1.25)
+    // 只問不做：沒有預留、沒有任何請求送出
+    expect(r.controller.allowance.status().committedUsd).toBe(committedBefore)
+    expect(noJobs(fake)).toHaveLength(requestsBefore)
+
+    r.h.settings.update({ mcp: { allowanceUsd: 5 } })
+    const rich = dataOf(
+      Estimate,
+      await r.call('estimate_cost', { action: 'generate_first_frames' }),
+    )
+    expect(rich.fits).toBe(true)
+    expect(rich.estimatedUsd).toBeCloseTo(poor.estimatedUsd)
+    // 只問兩個鏡頭就是兩個鏡頭的價錢
+    const two = dataOf(
+      Estimate,
+      await r.call('estimate_cost', { action: 'generate_first_frames', shotIds: ids.slice(0, 2) }),
+    )
+    expect(two.shotCount).toBe(2)
+    expect(two.estimatedUsd).toBeCloseTo((poor.estimatedUsd * 2) / ids.length)
+    // 真的開始做：App 回報的預估就是剛才問到的
+    const started = dataOf(
+      z.looseObject({ spending: z.looseObject({ estimatedUsd: z.number() }) }),
+      await r.call('generate_first_frames'),
+    )
+    expect(started.spending.estimatedUsd).toBeCloseTo(poor.estimatedUsd)
+  })
+
+  it('estimate_cost 估影片：還沒有首幀就說不能做；首幀好了之後，價錢等於 App 畫面「全部生成」的預估', async () => {
+    const { r } = await startReal()
+    r.h.settings.update({ mcp: { allowanceUsd: 20 } })
+    const ids = await withShots(r)
+    const early = dataOf(Estimate, await r.call('estimate_cost', { action: 'generate_videos' }))
+    expect(early.possible).toBe(false)
+    expect(early.issue).toContain('請先生成首幀圖')
+    expect(early.fits).toBe(true) // 說不能做是 possible=false 的事，不是額度的事
+
+    await r.call('generate_first_frames')
+    await waitDone(r)
+    const videos = dataOf(Estimate, await r.call('estimate_cost', { action: 'generate_videos' }))
+    expect(videos).toMatchObject({ possible: true, shotCount: ids.length })
+    expect(videos.estimatedUsd).toBeGreaterThan(0)
+    expect(videos.wouldReserveUsd).toBeCloseTo(videos.estimatedUsd * 1.25)
+    // 首幀都好了，「全部生成」剩下的就是影片：畫面上確認視窗寫的金額（約 US$…）跟 AI 問到的一樣
+    const plan = r.h.canvas.runPlan({ keys: [], all: true })
+    expect(plan.estimatedUsd).toBeCloseTo(videos.estimatedUsd)
+    // 已經有影片的預設不重做；redo 才算新版本的價錢
+    const redoFrames = dataOf(
+      Estimate,
+      await r.call('estimate_cost', { action: 'generate_first_frames', redo: true }),
+    )
+    expect(redoFrames).toMatchObject({ possible: true, shotCount: ids.length })
+    const again = dataOf(
+      Estimate,
+      await r.call('estimate_cost', { action: 'generate_first_frames' }),
+    )
+    expect(again.possible).toBe(false)
+    expect(again.issue).toContain('redo')
+  })
+
   it('人調高額度後開始做首幀圖：預留的是預估 × 1.25；回傳不含金鑰與 token', async () => {
     const { r } = await startReal()
     r.h.settings.update({ mcp: { allowanceUsd: 5 } })
