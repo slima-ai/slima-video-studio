@@ -54,7 +54,7 @@ import './canvas.css'
 import { DRAG_MIME, NodePalette, TopBar, ZoomControls } from './chrome'
 import { choicesFor, type AddChoice } from './connection-rules'
 import { nodeEntries, paneEntries, type ContextEntry } from './context-menu'
-import { DeleteConfirm, planDelete, type DeletePlan } from './delete-confirm'
+import { DELETE_TOAST_MS, FIXED_EDGE_REASON, planDelete, type DeletePlan } from './delete-plan'
 import { DetailPanel, keyOfTarget, panelTargetOf, type PanelTarget } from './detail-panel'
 import { useFitAll } from './fit-all'
 import { FLOAT_PANEL } from './floating-panel'
@@ -376,6 +376,12 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
     })
   }, [])
 
+  // 點到的線（React Flow 的線是我們自己給的，選取要自己記）：高亮、按 Delete 剪掉；選了格子就放掉
+  const [pickedEdge, setPickedEdge] = useState<string>()
+  useEffect(() => {
+    if (selected.size > 0) setPickedEdge(undefined)
+  }, [selected])
+
   // 相連的節點被選取時連線變亮、上游執行中時有流動動畫
   const edges = useMemo(() => {
     const running = new Set(flow.nodes.filter((n) => n.data.status === 'running').map((n) => n.id))
@@ -391,6 +397,7 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
       return [
         {
           ...edge,
+          ...(pickedEdge === edge.id ? { selected: true } : {}),
           data: {
             tone,
             hot,
@@ -401,7 +408,7 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
         },
       ]
     })
-  }, [flow, selected, grown, highlight])
+  }, [flow, selected, grown, highlight, pickedEdge])
 
   // 有接線的連接點：沒接線的平常藏起來（F：懸空的點不要露出來）
   const connectedPorts = useMemo(
@@ -624,22 +631,19 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
       })
   }, [animateRows, fitAll, history.undo, onRefresh, toast])
 
-  // ── 刪除（會刪資料的先確認；便條、群組直接刪，可以復原） ──
-  const [deleting, setDeleting] = useState<DeletePlan>()
+  // ── 刪除：不跳確認框，直接刪、提示寫清楚後果並附「復原」（資料表的列、版本、聲音都能整個找回來，
+  //    圖和影片檔本來就不會被刪） ──
   const removeNow = useCallback(
     (plan: DeletePlan): void => {
       call('canvas.remove', { keys: plan.keys })
-        .then((result) => {
+        .then(() => {
           setSelected(new Set())
           onChanged()
-          // 只清掉鏡頭的圖或影片：說清楚版本還在
-          const clearsOnly = plan.keys.every((key) => /^shot:[^:]+:(image|video)$/.test(key))
           toast.show({
             key: 'canvas-delete',
-            message: clearsOnly
-              ? '已清掉採用中的版本（版本還在生成紀錄裡）'
-              : `已刪除 ${String(result.removed)} 格`,
-            ...(plan.undoable ? { action: { label: '復原', onAction: history.undo } } : {}),
+            message: plan.message,
+            action: { label: '復原', onAction: history.undo },
+            ms: DELETE_TOAST_MS,
           })
         })
         .catch((error: unknown) => {
@@ -651,14 +655,22 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
   const requestDelete = useCallback(
     (ids?: ReadonlySet<string>): void => {
       const { plan, reason } = planDelete(flow.nodes, ids ?? selected)
-      if (plan?.freeOnly === true) removeNow(plan)
-      else if (plan) setDeleting(plan)
+      if (plan) removeNow(plan)
       else if (reason) toast.show({ message: reason })
     },
     [flow.nodes, selected, toast, removeNow],
   )
   const requestDeleteRef = useRef(requestDelete)
   requestDeleteRef.current = requestDelete
+  // 選到線按 Delete：剪得掉的剪掉（一步復原），固定的線說明原因
+  const pickedEdgeRef = useRef(pickedEdge)
+  pickedEdgeRef.current = pickedEdge
+  const edgeKeyRef = useRef<(edges: { id: string; cuttable: boolean }[]) => void>(() => undefined)
+  edgeKeyRef.current = (edges) => {
+    const cuttable = edges.filter((e) => e.cuttable)
+    if (cuttable.length === 0) toast.show({ message: FIXED_EDGE_REASON })
+    for (const edge of cuttable) linking.unlinkEdge(edge.id)
+  }
 
   // ── 複製、貼上（uiux-spec §12.10）：鏡頭接在原鏡頭後面、場整場複製到最後、角色與地點加「副本」、
   //    圖與影片貼成獨立的格子、自由格子原樣複製；整批一步復原 ──
@@ -739,12 +751,6 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
   )
   const copyRef = useRef({ copyNodes, pasteNodes })
   copyRef.current = { copyNodes, pasteNodes }
-  const confirmDelete = (): void => {
-    const plan = deleting
-    setDeleting(undefined)
-    if (plan) removeNow(plan)
-  }
-
   const onPickAdd = (choice: AddChoice): void => {
     const menu = addMenu
     setAddMenu(undefined)
@@ -991,6 +997,10 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
           .catch((error: unknown) => {
             toast.show({ message: errorText(error), tone: 'danger' })
           })
+      },
+      deleteNode: (nodeId) => {
+        // 卡片上的刪除鈕：這一格在多選裡就是刪整個選取（跟右鍵、Delete 鍵一致）
+        requestDelete(selected.has(nodeId) && selected.size > 1 ? selected : new Set([nodeId]))
       },
       openPanel: (nodeId) => {
         setPanel(panelTargetOf(nodeId))
@@ -1326,6 +1336,8 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
         ...(entry.hint ? { hint: entry.hint } : {}),
         ...(entry.danger ? { danger: true } : {}),
         ...(entry.separated ? { separated: true } : {}),
+        ...(entry.disabled === true ? { disabled: true } : {}),
+        ...(entry.why === undefined ? {} : { why: entry.why }),
         onSelect: () => {
           doEntry(entry, at, targets)
         },
@@ -1417,6 +1429,13 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
         !event.ctrlKey
       ) {
         event.preventDefault()
+        // 只選到線（沒選到格子）：Delete 就是剪線；固定的線說明為什麼剪不掉
+        const edge = rf.getEdges().find((e) => e.id === pickedEdgeRef.current)
+        if (edge && !rf.getNodes().some((n) => n.selected === true)) {
+          setPickedEdge(undefined)
+          edgeKeyRef.current([{ id: edge.id, cuttable: edge.data?.cuttable === true }])
+          return
+        }
         requestDeleteRef.current()
         return
       }
@@ -1490,7 +1509,13 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
                   const [first] = picked
                   if (first) openMenu(event, nodeEntries(first, picked), picked)
                 }}
-                onPaneClick={closePanel}
+                onEdgeClick={(_, edge) => {
+                  setPickedEdge(edge.id)
+                }}
+                onPaneClick={() => {
+                  setPickedEdge(undefined)
+                  closePanel()
+                }}
                 onPaneContextMenu={(event) => {
                   openMenu(event, paneEntries(canPaste), [])
                 }}
@@ -1690,15 +1715,6 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
               ) : null}
               {grow.confirm ? (
                 <GrowConfirm pending={grow.confirm} onOk={grow.run} onCancel={grow.cancelConfirm} />
-              ) : null}
-              {deleting ? (
-                <DeleteConfirm
-                  plan={deleting}
-                  onOk={confirmDelete}
-                  onCancel={() => {
-                    setDeleting(undefined)
-                  }}
-                />
               ) : null}
               {empty ? (
                 // 空畫布：正中央就是起點。先寫故事（也可以不寫），按「新增一句話」就在這裡放一個一句話

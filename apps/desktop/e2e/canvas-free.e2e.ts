@@ -66,7 +66,7 @@ test.describe('畫布：便條與自訂群組', () => {
     await page.keyboard.press('Delete')
     await expect(page.getByTestId('delete-confirm')).toHaveCount(0)
     await expect.poll(async () => (await freeOf(page, 'note')).length).toBe(0)
-    await expect(page.getByTestId('toast').filter({ hasText: '已刪除 1 格' })).toBeVisible()
+    await expect(page.getByTestId('toast').filter({ hasText: '已刪除便條' })).toBeVisible()
   })
 
   test('選兩個鏡頭按 Ctrl+G：群組框住它們；拖群組的標題列，裡面的格子一起動；一步復原', async ({

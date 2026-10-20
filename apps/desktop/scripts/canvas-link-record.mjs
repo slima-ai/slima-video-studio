@@ -100,7 +100,7 @@ await page.mouse.click(t.x, t.y)
 await pause(600)
 await page.keyboard.press('Delete')
 await pause(1800)
-await clickAt(page.getByTestId('delete-confirm-ok'))
+// 刪除不再跳確認框：提示（附「復原」）直接出現
 await pause(2000)
 await clickAt(page.getByTestId('toast-action'))
 await pause(1800)

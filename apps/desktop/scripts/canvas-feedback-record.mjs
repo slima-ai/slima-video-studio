@@ -103,7 +103,7 @@ await pause(1000)
 await clickAt(page.getByTestId(`rf__node-${hero.id}`))
 await page.keyboard.press('Backspace')
 await pause(2500)
-await clickAt(page.getByTestId('delete-confirm-ok'))
+// 刪除不再跳確認框：提示（附「復原」）直接出現
 await pause(1800)
 await clickAt(page.getByTestId('undo'))
 await pause(2500)

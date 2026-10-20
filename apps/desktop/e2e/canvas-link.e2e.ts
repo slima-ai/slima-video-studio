@@ -142,16 +142,24 @@ test.describe('畫布：拉線、剪線與刪除', () => {
     await expect.poll(() => tagsOf(page, shot)).toEqual(['新角色'])
   })
 
-  test('固定的線（鏡頭→圖→影片）沒有「×」', async ({ page }) => {
+  test('固定的線（鏡頭→圖→影片）的「×」標淡、不能剪，滑過寫原因', async ({ page }) => {
     await generateAndOpenCanvas(page)
     await expect.poll(() => kindCount(page, 'shot')).toBe(3)
     await fitAll(page)
     await hoverEdgeMiddle(page, 'main')
     await expect(page.locator('.svs-edge-flow').first()).toHaveAttribute('data-state', 'hover')
-    await expect(page.getByRole('button', { name: '剪掉這條線' })).toHaveCount(0)
+    // 滑過的線和它「相連的線」都會出 ×：全部都是標淡的，原因一樣
+    const cuts = page.getByRole('button', { name: '剪掉這條線' })
+    await expect(cuts.first()).toBeVisible()
+    for (const cut of await cuts.all()) {
+      await expect(cut).toHaveAttribute('aria-disabled', 'true')
+      await expect(cut).toHaveAttribute('data-tip', /這條線是固定的/)
+    }
   })
 
-  test('刪除鏡頭：先確認，連同圖與影片一起消失、鏡號重排；Cmd/Ctrl+Z 復原', async ({ page }) => {
+  test('刪除鏡頭：直接刪、提示寫後果；連同圖與影片一起消失、鏡號重排；Cmd/Ctrl+Z 復原', async ({
+    page,
+  }) => {
     await generateAndOpenCanvas(page)
     await expect.poll(() => kindCount(page, 'shot')).toBe(3)
     await fitAll(page)
@@ -159,15 +167,10 @@ test.describe('畫布：拉線、剪線與刪除', () => {
     if (!first) throw new Error('沒有鏡頭')
     await page.getByTestId(`rf__node-${first.id}`).click({ position: { x: 60, y: 16 } })
     await page.keyboard.press('Delete')
-    const dialog = page.getByTestId('delete-confirm')
-    await expect(dialog).toContainText('連同它們的圖和影片版本')
-    // 取消：什麼都沒刪
-    await dialog.getByRole('button', { name: '取消' }).click()
-    expect(await kindCount(page, 'shot')).toBe(3)
-
-    await page.keyboard.press('Delete')
-    await page.getByTestId('delete-confirm-ok').click()
     await expect.poll(() => kindCount(page, 'shot')).toBe(2)
+    await expect(page.getByTestId('delete-confirm')).toHaveCount(0)
+    await expect(page.getByTestId('toast')).toContainText('連同它的圖和影片版本')
+    await expect(page.getByTestId('toast-action')).toHaveText('復原')
     expect(await kindCount(page, 'image')).toBe(2)
     expect(await kindCount(page, 'video')).toBe(2)
     const titles = (await canvasNodes(page))
@@ -190,9 +193,7 @@ test.describe('畫布：拉線、剪線與刪除', () => {
     await expect.poll(() => tagsOf(page, shot)).toEqual(['新角色'])
     await page.getByTestId(`rf__node-${hero}`).click({ position: { x: 60, y: 16 } })
     await page.keyboard.press('Backspace')
-    await expect(page.getByTestId('delete-confirm')).toContainText('出場的鏡頭會拿掉這個角色')
-    await expect(page.getByTestId('delete-confirm')).toContainText('可以按「復原」')
-    await page.getByTestId('delete-confirm-ok').click()
+    await expect(page.getByTestId('toast')).toContainText('出場的鏡頭已拿掉這個角色')
     await expect.poll(() => kindCount(page, 'character')).toBe(0)
     await expect.poll(() => tagsOf(page, shot)).toEqual([])
     await page.getByTestId('undo').click()
@@ -207,7 +208,7 @@ test.describe('畫布：拉線、剪線與刪除', () => {
     await page.getByTestId(`rf__node-${video}`).click({ position: { x: 60, y: 16 } })
     await page.keyboard.press('Delete')
     await expect(
-      page.getByTestId('toast').filter({ hasText: '已清掉採用中的版本（版本還在生成紀錄裡）' }),
+      page.getByTestId('toast').filter({ hasText: '採用中的版本，版本還在生成紀錄裡' }),
     ).toBeVisible()
     await expect(page.getByTestId('delete-confirm')).toHaveCount(0)
     expect(await kindCount(page, 'video')).toBe(3)

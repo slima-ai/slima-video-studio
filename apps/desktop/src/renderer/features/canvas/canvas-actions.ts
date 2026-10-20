@@ -17,6 +17,8 @@ export interface CanvasActions {
   openAdd?: (from: PortRef, at: { x: number; y: number }) => void
   /** 這個連接點有沒有可以新增的節點（要不要顯示「＋」）；沒提供就照連線規則。 */
   canAdd?: (portId: string, side: 'in' | 'out') => boolean
+  /** 卡片上的刪除鈕：刪這一格（在多選裡就刪整個選取）；刪完提示附「復原」。沒提供就不顯示刪除鈕。 */
+  deleteNode?: (nodeId: string) => void
   /** 打開鏡頭（含它的圖與影片）或剪輯的詳情面板。沒提供就不顯示開啟鈕。 */
   openPanel?: (nodeId: string) => void
   /** 雙擊標題：置中並縮放到 100%。 */

@@ -1,4 +1,5 @@
 import type { CanvasNode } from './canvas-model'
+import { blockedReason } from './delete-plan'
 import { isRenamable } from './rename-box'
 import { isRunnable } from './use-run'
 
@@ -26,23 +27,13 @@ export interface ContextEntry {
   danger?: boolean
   /** 分隔線放在這一項前面。 */
   separated?: boolean
+  /** 這一項現在做不了：照樣列出來但標淡；按下去會說明原因，不會默默沒反應。 */
+  disabled?: boolean
+  /** disabled 的原因（滑過時顯示）。 */
+  why?: string
 }
 
-const DELETABLE = new Set([
-  'shot',
-  'scene',
-  'character',
-  'location',
-  'note',
-  'group',
-  'freeImage',
-  'freeVideo',
-])
-/** 鏡頭的圖或影片有結果時，「刪除」是清掉採用中的版本；還沒有結果就沒有東西可以刪。 */
-const deletable = (node: CanvasNode): boolean =>
-  DELETABLE.has(node.data.kind) ||
-  ((node.data.kind === 'image' || node.data.kind === 'video') &&
-    (node.data.thumb !== undefined || node.data.videoSrc !== undefined))
+const deletable = (node: CanvasNode): boolean => blockedReason(node) === undefined
 /** 剪輯只有一個，不能複製；其他都可以（依種類各自處理，uiux-spec §12.10）。 */
 const copyable = (node: CanvasNode): boolean => node.data.kind !== 'cut'
 const HAS_PANEL = new Set(['shot', 'image', 'video', 'cut', 'character', 'location', 'scene'])
@@ -115,19 +106,21 @@ export function nodeEntries(node: CanvasNode, selection: readonly CanvasNode[]):
       },
     )
   }
-  if (deletable(node))
-    entries.push({
-      id: 'delete',
-      label:
-        kind === 'group'
-          ? '刪除群組（格子留著）'
-          : kind === 'image' || kind === 'video'
-            ? '清掉採用中的版本'
-            : '刪除',
-      hint: 'Delete',
-      danger: true,
-      separated: true,
-    })
+  // 每一種都列「刪除」：刪不掉的標淡並寫原因（剪輯是由場自動長出來的…），不是把這一項藏起來
+  const why = blockedReason(node)
+  entries.push({
+    id: 'delete',
+    label:
+      kind === 'group'
+        ? '刪除群組（格子留著）'
+        : kind === 'image' || kind === 'video'
+          ? '清掉採用中的版本'
+          : '刪除',
+    hint: 'Delete',
+    danger: true,
+    separated: true,
+    ...(why === undefined ? {} : { disabled: true, why }),
+  })
   return entries
 }
 
