@@ -11,12 +11,14 @@ const FLASH_MS = 2200
  * - `fresh`：標著「AI 剛改」的節點，直到使用者看過（選取、滑過一下）或動過就消失；
  * - `flash`：剛被改、正在亮一下的節點（幾秒後只剩標記）；
  * - 刪掉的東西交給 `onRemoved`（畫面用提示說「AI 刪了第 3 鏡，可以復原」）。
- * 已經標著的節點之後又被改（例如 AI 叫的生成做完了），再亮一次。
+ * 已經標著的節點之後內容又變了（例如 AI 叫的生成做完了），畫布頁用 `rekindle` 再亮一次。
  */
 export function useAiMarks(onRemoved: (message: string) => void): {
   fresh: ReadonlySet<string>
   flash: ReadonlySet<string>
   seen: (keys: Iterable<string>) => void
+  /** 已經標著的節點內容變了（例如 AI 叫的生成做完了）：再亮一次。 */
+  rekindle: (keys: readonly string[]) => void
   /** 只留這些節點的標記（節點不在了就不用記著）。 */
   prune: (existing: ReadonlySet<string>) => void
   /** 剛有人改過的節點鍵（給「畫面跟著 AI」用）。 */
@@ -34,6 +36,27 @@ export function useAiMarks(onRemoved: (message: string) => void): {
     timers.current.delete(key)
   }, [])
 
+  const kindle = useCallback(
+    (keys: readonly string[]): void => {
+      setFlash((now) => new Set([...now, ...keys]))
+      for (const key of keys) {
+        stopFlash(key)
+        timers.current.set(
+          key,
+          window.setTimeout(() => {
+            timers.current.delete(key)
+            setFlash((now) => {
+              const next = new Set(now)
+              next.delete(key)
+              return next
+            })
+          }, FLASH_MS),
+        )
+      }
+    },
+    [stopFlash],
+  )
+
   useEffect(() => {
     const pending = timers.current
     const off = window.svs.on('canvas.aiChanged', (event) => {
@@ -41,21 +64,7 @@ export function useAiMarks(onRemoved: (message: string) => void): {
       setLatest(event)
       if (keys.length > 0) {
         setFresh((now) => new Set([...now, ...keys]))
-        setFlash((now) => new Set([...now, ...keys]))
-        for (const key of keys) {
-          stopFlash(key)
-          pending.set(
-            key,
-            window.setTimeout(() => {
-              pending.delete(key)
-              setFlash((now) => {
-                const next = new Set(now)
-                next.delete(key)
-                return next
-              })
-            }, FLASH_MS),
-          )
-        }
+        kindle(keys)
       }
       const message = removedMessage(event.removed)
       if (message !== undefined) removedRef.current(message)
@@ -65,7 +74,7 @@ export function useAiMarks(onRemoved: (message: string) => void): {
       for (const timer of pending.values()) window.clearTimeout(timer)
       pending.clear()
     }
-  }, [stopFlash])
+  }, [kindle])
 
   const seen = useCallback(
     (keys: Iterable<string>): void => {
@@ -91,5 +100,5 @@ export function useAiMarks(onRemoved: (message: string) => void): {
     })
   }, [])
 
-  return { fresh, flash, seen, prune, latest }
+  return { fresh, flash, seen, rekindle: kindle, prune, latest }
 }
