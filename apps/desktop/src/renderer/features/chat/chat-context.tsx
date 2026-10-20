@@ -77,6 +77,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [activeId, setActiveId] = useState<string>()
   const [byConversation, setByConversation] = useState<Record<string, ChatPanelMessage[]>>({})
   const loaded = useRef(new Set<string>())
+  const resetRef = useRef<() => void>(() => undefined)
 
   const refreshEnabled = useCallback((): void => {
     // 設定的開關沒設時，開發版開、打包版關（跟主程序同一個規則）
@@ -93,7 +94,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(
     () =>
       window.svs.on('chat.event', (event: ChatEvent) => {
-        if (event.type === 'conversation') {
+        if (event.type === 'reset') {
+          // 專案換了：這個專案有它自己的對話，重讀
+          resetRef.current()
+        } else if (event.type === 'conversation') {
           setConversations((list) => upsert(list, event.conversation))
         } else {
           setByConversation((all) => ({
@@ -160,6 +164,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         toast.show({ message: errorText(error), tone: 'danger' })
       })
   }, [newConversation, select, toast])
+
+  // 專案換了（開另一個、另存為、Claude 建了新專案）：清掉畫面上的對話；面板開著或之前開過，就重讀這個專案的清單
+  useEffect(() => {
+    resetRef.current = (): void => {
+      loaded.current.clear()
+      setByConversation({})
+      setActiveId(undefined)
+      setConversations([])
+      if (prereq !== undefined && prereq !== 'checking' && prereq.state === 'ready') recheck()
+    }
+  }, [prereq, recheck])
 
   const setOpen = useCallback(
     (next: boolean): void => {

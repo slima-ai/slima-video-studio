@@ -5,6 +5,8 @@ export interface ClaudeArgsInput {
   sessionId: string
   /** true＝接續（`--resume`），false＝開新的（`--session-id`）。 */
   resume: boolean
+  /** 接續時另外分出一個新的 session（`--fork-session`）：這個對話是從別的專案複製來的，不能跟原本的共用同一份。 */
+  fork?: boolean
   /** 我們的 MCP 轉接指令（不含 token：轉接檔每次自己從使用者資料夾讀）。 */
   bridge: BridgeCommand
   systemPrompt: string
@@ -34,6 +36,7 @@ export function buildClaudeArgs(input: ClaudeArgsInput): string[] {
     '--include-partial-messages',
     input.resume ? '--resume' : '--session-id',
     input.sessionId,
+    ...(input.resume && input.fork === true ? ['--fork-session'] : []),
     '--strict-mcp-config',
     '--mcp-config',
     mcpConfig,

@@ -214,7 +214,8 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
     return
   }
   if (text.includes('記得')) {
-    say(`我記得：${sessionId === 'fake-session' ? '' : '同一個對話，'}上一句是接續的。`)
+    const forked = args.includes('--fork-session') ? '分出新的 session，' : ''
+    say(`我記得：${sessionId === 'fake-session' ? '' : '同一個對話，'}${forked}上一句是接續的。`)
     finish('我記得')
     return
   }
