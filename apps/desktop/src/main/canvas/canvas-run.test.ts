@@ -319,8 +319,9 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
       stage: 'storyboard',
     })
     await harness.finished()
-    for (const shot of withDialogue ? harness.shots.list().shots : []) {
-      harness.shots.update(shot.id, { dialogue: `第 ${String(shot.number)} 鏡的台詞。` })
+    // 勾了旁白，拆鏡就替每一鏡寫了台詞；withDialogue=false 是台詞被清掉的鏡頭（使用者刪掉、或別處建的）
+    for (const shot of withDialogue ? [] : harness.shots.list().shots) {
+      harness.shots.update(shot.id, { dialogue: '' })
     }
     return { h: harness, oneliner }
   }
@@ -377,7 +378,7 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
     expect(state.shots.every((s) => s.narration === undefined)).toBe(true)
   })
 
-  it('示範模式拆出來的鏡頭沒有台詞：預估說旁白不會念，只加配樂；通知也說實話', async () => {
+  it('鏡頭沒有台詞（被清掉了）：預估說旁白不會念，只加配樂；通知也說實話', async () => {
     const { h } = await storyboarded(ALL_ON, false)
     const plan = h.canvas.runPlan({ keys: [], all: true })
     expect(plan.sound).toMatchObject({

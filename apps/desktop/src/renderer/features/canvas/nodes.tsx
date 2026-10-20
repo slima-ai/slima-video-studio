@@ -582,6 +582,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
           {data.kind === 'shot' ? (
             <>
               <ShotDescription id={id} text={data.summary ?? ''} />
+              {data.dialogue ? <ShotDialogue id={id} text={data.dialogue} /> : null}
               <p className="lod-full flex items-center gap-1.5 text-xs text-fg-muted">
                 <span className="min-w-0 truncate">{data.meta}</span>
                 {data.sceneId === undefined ? (
@@ -1194,6 +1195,71 @@ function ShotDescription({ id, text }: { id: string; text: string }) {
       }}
     >
       {text}
+    </p>
+  )
+}
+
+/**
+ * 鏡頭的旁白台詞（一句話勾了「旁白」拆鏡時寫的，或在面板寫的）：寫在描述下面一行，雙擊就地改，
+ * Enter 或離開輸入框就存，Esc 放棄；清空就是不念。
+ */
+function ShotDialogue({ id, text }: { id: string; text: string }) {
+  const { saveShotDialogue } = useCanvasActions()
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(text)
+  const done = useRef(false)
+  useEffect(() => {
+    if (!editing) setValue(text)
+  }, [text, editing])
+  if (editing) {
+    const finish = (commit: boolean): void => {
+      if (done.current) return
+      done.current = true
+      setEditing(false)
+      const next = value.trim()
+      if (commit && next !== text) saveShotDialogue?.(id, next)
+      else setValue(text)
+    }
+    return (
+      <input
+        autoFocus
+        data-testid="shot-dialogue-edit"
+        aria-label="這一鏡的旁白"
+        value={value}
+        maxLength={200}
+        className="nodrag nowheel nopan lod-full h-5 shrink-0 rounded-md border border-accent bg-surface px-1 text-[11px]"
+        onChange={(event) => {
+          setValue(event.target.value)
+        }}
+        onKeyDown={(event) => {
+          event.stopPropagation()
+          if (event.key === 'Escape') {
+            event.preventDefault()
+            finish(false)
+          } else if (event.key === 'Enter') {
+            event.preventDefault()
+            finish(true)
+          }
+        }}
+        onBlur={() => {
+          finish(true)
+        }}
+      />
+    )
+  }
+  return (
+    <p
+      data-testid="shot-dialogue"
+      title={saveShotDialogue ? '雙擊修改旁白' : undefined}
+      className="lod-full truncate text-[11px] leading-snug text-fg-muted"
+      onDoubleClick={() => {
+        if (!saveShotDialogue) return
+        done.current = false
+        setValue(text)
+        setEditing(true)
+      }}
+    >
+      旁白：{text}
     </p>
   )
 }

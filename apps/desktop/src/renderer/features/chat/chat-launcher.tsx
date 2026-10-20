@@ -1,12 +1,12 @@
-import { Sparkles } from 'lucide-react'
 import { useEffect } from 'react'
 
+import { Mascot } from '../../brand/mascot'
 import { cn } from '../../lib/cn'
 import { useChatDock } from './chat-context'
 
 /** 畫布右下角的小按鈕：按了從右邊滑出 Claude 對話。功能沒打開（實驗功能開關）就不出現。 */
 export function ChatLauncher() {
-  const { enabled, open, setOpen, refreshEnabled } = useChatDock()
+  const { enabled, open, setOpen, refreshEnabled, active } = useChatDock()
   // 回到畫布時重問一次（使用者可能剛在設定頁改了開關）
   useEffect(refreshEnabled, [refreshEnabled])
   if (!enabled) return null
@@ -26,7 +26,7 @@ export function ChatLauncher() {
         setOpen(!open)
       }}
     >
-      <Sparkles className="size-3.5" aria-hidden />
+      <Mascot size={20} mood={active?.running === true ? 'working' : 'idle'} className="-my-0.5" />
       Claude
     </button>
   )

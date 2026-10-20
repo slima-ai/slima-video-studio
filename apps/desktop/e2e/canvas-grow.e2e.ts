@@ -82,14 +82,13 @@ function expectAudio(audio: ReturnType<typeof audioOf>, want: 'audible' | 'silen
 }
 
 /**
- * 先產生分鏡（卡片上的聲音照 `sound` 勾）→ 每一鏡寫上台詞（分鏡寫好後使用者看過、改好）→ 按右上角「全部生成」。
- * 回傳按下之前確認面板的文字，跟做完之後的聲音狀態與成品檔。
+ * 先產生分鏡（卡片上的聲音照 `sound` 勾；勾了旁白，拆鏡就會替每一鏡寫台詞）→ 按右上角「全部生成」。
+ * 回傳分鏡寫好之後每一鏡的台詞、按下之前確認面板的文字。
  */
 async function storyboardThenGenerateAll(
   page: Page,
   sound: { narration: boolean; music: boolean },
-  options: { dialogue?: boolean } = {},
-): Promise<{ confirmText: string }> {
+): Promise<{ confirmText: string; dialogues: string[] }> {
   await prepare(page)
   // 影片原聲關掉：成品裡有沒有音軌，完全看旁白與配樂有沒有加
   await page.getByTestId('oneliner-sound-native').uncheck()
@@ -102,26 +101,18 @@ async function storyboardThenGenerateAll(
     timeout: 60_000,
   })
   await expect.poll(() => kindCount(page, 'shot')).toBe(3)
-  if (options.dialogue !== false) {
-    await page.evaluate(async () => {
-      const list = await window.svs.invoke('shots.list', {})
-      if (!list.ok) throw new Error(list.error.userMessage)
-      for (const shot of list.data.shots) {
-        const done = await window.svs.invoke('shots.update', {
-          shotId: shot.id,
-          patch: { dialogue: `第 ${String(shot.number)} 鏡的台詞。` },
-        })
-        if (!done.ok) throw new Error(done.error.userMessage)
-      }
-    })
-  }
+  const dialogues = await page.evaluate(async () => {
+    const list = await window.svs.invoke('shots.list', {})
+    if (!list.ok) throw new Error(list.error.userMessage)
+    return list.data.shots.map((shot) => shot.dialogue)
+  })
   await page.getByTestId('run-all').click()
   const confirm = page.getByTestId('run-confirm')
   await expect(confirm).toBeVisible()
   const confirmText = await confirm.innerText()
   await page.getByTestId('run-confirm-ok').click()
   await expect(confirm).toHaveCount(0)
-  return { confirmText }
+  return { confirmText, dialogues }
 }
 
 const soundState = (page: Page) =>
@@ -422,13 +413,27 @@ test.describe('畫布上的一句話（示範模式）', () => {
   test('先產生分鏡 → 全部生成：照卡片勾的旁白與配樂，預估含聲音，成品聽得到聲音', async ({
     page,
   }) => {
-    const { confirmText } = await storyboardThenGenerateAll(page, { narration: true, music: true })
+    const { confirmText, dialogues } = await storyboardThenGenerateAll(page, {
+      narration: true,
+      music: true,
+    })
+    // 勾了旁白：先產生分鏡就替每一鏡寫了台詞，鏡頭卡上看得到（「旁白：…」），也改得到
+    expect(dialogues).toHaveLength(3)
+    for (const line of dialogues) expect(line.trim().length).toBeGreaterThan(0)
+    await expect(page.getByTestId('shot-dialogue').first()).toContainText('旁白：')
     expect(confirmText).toMatch(/接好片之後自動加旁白與配樂（約 US\$\d+\.\d\d）/)
+    expect(confirmText).toContain('旁白：3 個鏡頭有台詞，會念出來')
     await expect(page.getByTestId('toast').filter({ hasText: '旁白與配樂也加好了' })).toBeVisible({
       timeout: 60_000,
     })
     const state = await soundState(page)
     expect(state).toMatchObject({ narrated: 3, shots: 3, music: true, hasSound: true })
+    // 佇列裡有旁白那一筆（3 句台詞各一筆語音）
+    const jobs = await page.evaluate(async () => {
+      const result = await window.svs.invoke('queue.list', {})
+      return result.ok ? result.data.jobs.filter((job) => job.kind === 'tts').length : -1
+    })
+    expect(jobs).toBe(3)
     // 影片原聲關著（沒加聲音的對照是靜音），所以聽得到聲音就是旁白與配樂混出來的
     expectAudio(audioOf(await exportedFinal(page)), 'audible')
   })
@@ -457,35 +462,118 @@ test.describe('畫布上的一句話（示範模式）', () => {
     expectAudio(audioOf(await exportedFinal(page)), 'silent')
   })
 
-  test('一次做完整支（示範模式、沒有台詞）：完成的提示說實話——配樂加好了、沒有旁白', async ({
+  test('一次做完整支：完成的提示照實說——勾了旁白與配樂就是「旁白與配樂也加好了」（示範的鏡頭有台詞）', async ({
     page,
   }) => {
     await prepare(page)
     await generate(page)
     await finished(page)
     await expect(
-      page
-        .getByTestId('toast')
-        .filter({ hasText: '短片生成好了（配樂加好了；沒有鏡頭有台詞，所以沒有旁白）' }),
+      page.getByTestId('toast').filter({ hasText: '短片生成好了（旁白與配樂也加好了）' }),
+    ).toBeVisible()
+    expect(await soundState(page)).toMatchObject({ narrated: 3, music: true, hasSound: true })
+  })
+
+  test('一次做完整支沒勾旁白：不寫台詞，完成的提示說配樂加好了、沒有提到旁白', async ({ page }) => {
+    await prepare(page)
+    await page.getByTestId('oneliner-sound-narration').uncheck()
+    await generate(page)
+    await finished(page)
+    await expect(
+      page.getByTestId('toast').filter({ hasText: '短片生成好了（配樂加好了）' }),
     ).toBeVisible()
     expect(await soundState(page)).toMatchObject({ narrated: 0, music: true, hasSound: true })
   })
 
-  test('示範模式拆出來的鏡頭沒有台詞：確認面板說旁白不會念，只加配樂，通知也說實話', async ({
+  test('不勾旁白：先產生分鏡不寫台詞，鏡頭卡上沒有旁白，確認面板說旁白不會念，只加配樂', async ({
     page,
   }) => {
-    const { confirmText } = await storyboardThenGenerateAll(
-      page,
-      { narration: true, music: true },
-      { dialogue: false },
-    )
+    const { confirmText, dialogues } = await storyboardThenGenerateAll(page, {
+      narration: false,
+      music: true,
+    })
+    expect(dialogues).toEqual(['', '', ''])
+    await expect(page.getByTestId('shot-dialogue')).toHaveCount(0)
     expect(confirmText).toMatch(/接好片之後自動加配樂（約 US\$\d+\.\d\d）/)
-    expect(confirmText).toContain('旁白：目前沒有鏡頭有台詞，所以不會念')
     expect(confirmText).not.toContain('自動加旁白')
-    await expect(
-      page.getByTestId('toast').filter({ hasText: '配樂加好了；沒有鏡頭有台詞，所以沒有旁白' }),
-    ).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByTestId('toast').filter({ hasText: '配樂加好了' })).toBeVisible({
+      timeout: 60_000,
+    })
     expect(await soundState(page)).toMatchObject({ narrated: 0, music: true, hasSound: true })
+  })
+
+  test('一次做完整支勾了旁白：每一鏡也有台詞，做完有旁白，成品聽得到', async ({ page }) => {
+    await prepare(page)
+    await page.getByTestId('oneliner-sound-native').uncheck()
+    await page.getByTestId('oneliner-sound-music').uncheck()
+    await page.getByTestId('oneliner-generate').click()
+    await page.getByTestId('run-confirm-ok').click()
+    await finished(page)
+    await expect.poll(() => kindCount(page, 'shot')).toBe(3)
+    const dialogues = await page.evaluate(async () => {
+      const list = await window.svs.invoke('shots.list', {})
+      if (!list.ok) throw new Error(list.error.userMessage)
+      return list.data.shots.map((shot) => shot.dialogue)
+    })
+    for (const line of dialogues) expect(line.trim().length).toBeGreaterThan(0)
+    // 做完整支時，接好片之後照勾選加旁白：3 句台詞各念一次
+    expect(await soundState(page)).toMatchObject({ narrated: 3, music: false, hasSound: true })
+  })
+
+  test('鏡頭卡上的旁白雙擊就能改：改完存起來、可以復原；清空就是不念', async ({ page }) => {
+    await storyboardThenGenerateAll(page, { narration: true, music: false })
+    // 先等背景自動加旁白做完：它的提示會蓋掉「已改這一鏡的旁白」
+    await expect(page.getByTestId('toast').filter({ hasText: '旁白加好了' })).toBeVisible({
+      timeout: 60_000,
+    })
+    const card = page.getByTestId('shot-dialogue').first()
+    await card.dblclick()
+    const input = page.getByTestId('shot-dialogue-edit')
+    await input.fill('雨停了，貓走進屋裡。')
+    await input.press('Enter')
+    await expect(page.getByTestId('shot-dialogue').first()).toContainText('雨停了，貓走進屋裡。')
+    await expect(page.getByTestId('toast').filter({ hasText: '已改這一鏡的旁白' })).toBeVisible()
+    await page.getByTestId('toast').getByRole('button', { name: '復原' }).click()
+    await expect(page.getByTestId('shot-dialogue').first()).not.toContainText(
+      '雨停了，貓走進屋裡。',
+    )
+  })
+
+  test('旁白念到一半使用者改了那一鏡的台詞：改的字留著，舊聲音標出「跟台詞不一樣」，不會悄悄掛上去', async ({
+    page,
+  }) => {
+    await storyboardThenGenerateAll(page, { narration: true, music: false })
+    await expect(page.getByTestId('toast').filter({ hasText: '旁白加好了' })).toBeVisible({
+      timeout: 60_000,
+    })
+    const fresh = '雨停了，貓走進屋裡。'
+    // 同時送出：念第 3 鏡（讀的是舊台詞）、使用者把第 3 鏡的台詞改掉
+    const result = await page.evaluate(async (line) => {
+      const list = await window.svs.invoke('shots.list', {})
+      if (!list.ok) throw new Error(list.error.userMessage)
+      const third = list.data.shots[2]
+      if (!third) throw new Error('沒有第 3 鏡')
+      const narrating = window.svs.invoke('sound.generateNarration', { shotId: third.id })
+      await window.svs.invoke('shots.update', { shotId: third.id, patch: { dialogue: line } })
+      await narrating
+      const state = await window.svs.invoke('sound.get', {})
+      if (!state.ok) throw new Error(state.error.userMessage)
+      const view = state.data.shots.find((s) => s.shotId === third.id)
+      return {
+        shotId: third.id,
+        dialogue: view?.dialogue,
+        narrationText: view?.narration?.text,
+        warnings: state.data.warnings.map((w) => ({ kind: w.kind, shotId: w.shotId })),
+      }
+    }, fresh)
+    // 改的字沒有被蓋回舊的
+    expect(result.dialogue).toBe(fresh)
+    // 聲音是用舊字念的：一定要有提示，使用者才知道要重念
+    expect(result.narrationText).not.toBe(fresh)
+    expect(result.warnings).toContainEqual({
+      kind: 'narration_text_changed',
+      shotId: result.shotId,
+    })
   })
 
   test('加過就不再自動補：刪掉配樂再按全部生成，配樂不會回來；在卡片上重新勾就再加', async ({

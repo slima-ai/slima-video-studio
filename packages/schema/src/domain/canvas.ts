@@ -145,6 +145,8 @@ export const CanvasNodeSchema = z.object({
   auto: z.boolean(),
   title: z.string(),
   summary: z.string().optional(),
+  /** 鏡頭的旁白台詞（沒有就不帶）：卡片上寫「旁白：…」，雙擊可以改。 */
+  dialogue: z.string().optional(),
   /** 卡片上的一行小字，例如「中景・平視・5 秒」。 */
   meta: z.string().optional(),
   /** 鏡頭上顯示的出場角色名字。 */

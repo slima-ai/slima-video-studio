@@ -82,7 +82,7 @@ export function SetupWizard({ data, reload, onDone }: SetupWizardProps) {
               onChanged={reload}
               only={['openrouter']}
             />
-            <p className="text-sm text-fg-muted" data-testid="wizard-more-keys">
+            <p className="mt-3 text-sm text-fg-muted" data-testid="wizard-more-keys">
               只要這一把就能做出完整的影片。之後想用角色鎖定或更多模型，再到「設定」填 fal.ai
               的金鑰。
             </p>

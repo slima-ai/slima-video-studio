@@ -20,6 +20,11 @@ export interface ToastOptions {
   ms?: number
   /** 這則提示是哪一類（例如連續復原）；畫面上一次只留一則，key 只是標記。 */
   key?: string
+  /**
+   * 背景做完事的通知（不是使用者剛做的事）：畫面上有帶按鈕的提示（例如等著按「復原」）時先等著，
+   * 那則收掉再顯示，不要把使用者剛做的事的回饋吃掉；等著的只留最新一則。
+   */
+  background?: boolean
 }
 
 interface ToastItem extends ToastOptions {
@@ -51,33 +56,52 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const nextId = useRef(1)
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>())
 
-  const dismiss = useCallback((id: number): void => {
-    const timer = timers.current.get(id)
-    if (timer) clearTimeout(timer)
-    timers.current.delete(id)
-    setToasts((current) => current.filter((t) => t.id !== id))
+  /** 畫面上現在這一則，和等著輪到的背景通知。 */
+  const shown = useRef<ToastItem | undefined>(undefined)
+  const waiting = useRef<ToastOptions | undefined>(undefined)
+  const dismissRef = useRef<(id: number) => void>(() => undefined)
+
+  const present = useCallback((toast: ToastOptions): void => {
+    const id = nextId.current++
+    // 一次只顯示一則：新的提示直接取代畫面上的舊提示，不會疊在一起
+    for (const timer of timers.current.values()) clearTimeout(timer)
+    timers.current.clear()
+    const item: ToastItem = { ...toast, id }
+    shown.current = item
+    setToasts([item])
+    timers.current.set(
+      id,
+      setTimeout(() => {
+        dismissRef.current(id)
+      }, toast.ms ?? TOAST_MS),
+    )
   }, [])
+
+  const dismiss = useCallback(
+    (id: number): void => {
+      const timer = timers.current.get(id)
+      if (timer) clearTimeout(timer)
+      timers.current.delete(id)
+      setToasts((current) => current.filter((t) => t.id !== id))
+      if (shown.current?.id !== id) return
+      shown.current = undefined
+      const next = waiting.current
+      waiting.current = undefined
+      if (next) present(next)
+    },
+    [present],
+  )
+  dismissRef.current = dismiss
 
   const show = useCallback(
     (toast: ToastOptions): void => {
-      const id = nextId.current++
-      // 一次只顯示一則：新的提示直接取代畫面上的舊提示，不會疊在一起
-      setToasts((current) => {
-        for (const t of current) {
-          const timer = timers.current.get(t.id)
-          if (timer) clearTimeout(timer)
-          timers.current.delete(t.id)
-        }
-        return [{ ...toast, id }]
-      })
-      timers.current.set(
-        id,
-        setTimeout(() => {
-          dismiss(id)
-        }, toast.ms ?? TOAST_MS),
-      )
+      if (toast.background === true && shown.current?.action) {
+        waiting.current = toast
+        return
+      }
+      present(toast)
     },
-    [dismiss],
+    [present],
   )
 
   useEffect(() => {

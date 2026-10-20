@@ -48,10 +48,16 @@ function nameOf(node: CanvasAiChanged['removed'][number]): string {
 }
 
 /** AI 刪了東西的提示；沒有值得說的（只有跟著不見的圖與影片）就是 undefined。 */
-export function removedMessage(removed: CanvasAiChanged['removed']): string | undefined {
+export function removedMessage(
+  removed: CanvasAiChanged['removed'],
+  /** 這是右下角 Claude 對話正在做的一輪：復原會把這一輪的改動一起退回。 */
+  wholeTurn = false,
+): string | undefined {
   const reported = removed.filter((node) => REPORTED_KINDS.has(node.kind))
   if (reported.length === 0) return undefined
   const names = reported.slice(0, 3).map(nameOf).join('、')
   const more = reported.length > 3 ? `等 ${String(reported.length)} 個` : ''
-  return `AI 刪了${names}${more}，可以復原`
+  return wholeTurn
+    ? `AI 刪了${names}${more}，可以復原（會連 Claude 這一輪的其他改動一起退回）`
+    : `AI 刪了${names}${more}，可以復原`
 }

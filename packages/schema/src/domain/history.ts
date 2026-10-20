@@ -18,7 +18,17 @@ export const HistoryResultSchema = z.object({
   applied: z.boolean(),
   label: z.string().optional(),
   state: HistoryStateSchema,
+  /** 沒復原是因為 Claude 正在改、最上面那一步是它這一輪的：等它做完或按停止。 */
+  blocked: z.literal('ai_running').optional(),
+  /**
+   * 這一步裡有些改動因為「後來又被改過」（現在的值已經不是這一步留下的值）或那一列已經不在而沒動：
+   * `all`＝整步都沒動（按了看起來沒反應，要說一聲）；`some`＝動了一部分。
+   */
+  skipped: z.enum(['all', 'some']).optional(),
 })
+/** Claude 一輪的改動合成一步後，那一步在復原紀錄裡的名字。畫面用它認得「下一步會退回 Claude 那一輪」。 */
+export const AI_TURN_UNDO_LABEL = 'Claude 這一輪的改動'
+
 export type HistoryResult = z.infer<typeof HistoryResultSchema>
 
 /**

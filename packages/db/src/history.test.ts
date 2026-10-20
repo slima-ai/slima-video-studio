@@ -362,3 +362,178 @@ describe('StructureHistory：聲音', () => {
     })
   })
 })
+
+describe('StructureHistory：group（Claude 一輪的改動併成一步）', () => {
+  it('組裡的編輯併成一步；使用者自己的編輯照舊各一步、排在後面，復原的順序是後來的先退', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '一' })
+    const scene = repos.outline.addScene(act.id, { title: '街角' })
+    history.clear()
+    const turn = history.openGroup('Claude 這一輪')
+    // Claude 改了場的名字、加了一幕
+    history.record('改名', () => repos.outline.updateScene(scene.id, { title: '巷口' }), turn)
+    // 使用者在這段時間自己加了一幕（不屬於這一組）
+    const mine = history.record('新增一幕', () => repos.outline.addAct({ title: '我加的' }))
+    // Claude 又加了一幕、又改了一次名字
+    history.record('新增一幕', () => repos.outline.addAct({ title: 'Claude 加的' }), turn)
+    history.record('改名', () => repos.outline.updateScene(scene.id, { title: '碼頭' }), turn)
+    expect(history.state()).toMatchObject({ undoCount: 2, undoLabel: '新增一幕' })
+    expect(history.groupIsOnTop(turn)).toBe(false)
+
+    // 第一次復原：只退使用者自己的那一步
+    history.undo()
+    expect(repos.outline.listActs().map((a) => a.title)).toEqual(['一', 'Claude 加的'])
+    expect(repos.outline.listActs().some((a) => a.id === mine.id)).toBe(false)
+    expect(repos.outline.listScenes()[0]?.title).toBe('碼頭')
+    // 第二次：Claude 這一輪整個退（兩次改名回到最早的名字、它加的那一幕不見）
+    expect(history.groupIsOnTop(turn)).toBe(true)
+    expect(history.undo()?.label).toBe('Claude 這一輪')
+    expect(repos.outline.listActs().map((a) => a.title)).toEqual(['一'])
+    expect(repos.outline.listScenes()[0]?.title).toBe('街角')
+    // 重做：回到 Claude 做完的樣子
+    history.redo()
+    expect(repos.outline.listScenes()[0]?.title).toBe('碼頭')
+    expect(repos.outline.listActs().map((a) => a.title)).toEqual(['一', 'Claude 加的'])
+  })
+
+  it('組裡新增又刪掉的東西不留痕跡；改了又改回原值的欄位不算改', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '一' })
+    history.clear()
+    const turn = history.openGroup('Claude 這一輪')
+    const temp = history.record('新增一幕', () => repos.outline.addAct({ title: '暫時的' }), turn)
+    history.record(
+      '刪除這一幕',
+      () => {
+        repos.outline.deleteAct(temp.id)
+      },
+      turn,
+    )
+    // 全部抵銷：沒有留下任何一步
+    expect(history.state().canUndo).toBe(false)
+    history.record('改名', () => repos.outline.updateAct(act.id, { title: '二' }), turn)
+    history.record('改回去', () => repos.outline.updateAct(act.id, { title: '一' }), turn)
+    expect(history.state().canUndo).toBe(false)
+  })
+
+  it('組裡新增了鏡頭、又改了它、再刪掉別的：復原一次全部回到開始之前', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '一' })
+    const scene = repos.outline.addScene(act.id, { title: '街角' })
+    const old = repos.shots.create({ sceneId: scene.id, description: '原本的鏡頭' })
+    history.clear()
+    const turn = history.openGroup('Claude 這一輪')
+    const fresh = history.record(
+      '新增鏡頭',
+      () => repos.shots.create({ sceneId: scene.id, description: '新的' }),
+      turn,
+    )
+    history.record(
+      '改鏡頭',
+      () => repos.shots.update(fresh.id, { description: '新的（改過）' }),
+      turn,
+    )
+    history.record(
+      '改鏡頭',
+      () => repos.shots.update(old.id, { description: '原本的（改過）' }),
+      turn,
+    )
+    history.record(
+      '刪除鏡頭',
+      () => {
+        repos.shots.delete(old.id)
+      },
+      turn,
+    )
+    expect(history.state().undoCount).toBe(1)
+    history.undo()
+    const left = repos.shots.list()
+    expect(left.map((x) => x.description)).toEqual(['原本的鏡頭'])
+    history.redo()
+    expect(repos.shots.list().map((x) => x.description)).toEqual(['新的（改過）'])
+  })
+
+  it('收掉的組不再併；沒給組的編輯（使用者）不併進開著的組', () => {
+    const { repos, history } = setup()
+    const turn = history.openGroup('Claude 這一輪')
+    history.record('新增一幕', () => repos.outline.addAct({ title: 'A' }), turn)
+    history.closeGroup(turn)
+    history.record('新增一幕', () => repos.outline.addAct({ title: 'B' }), turn)
+    expect(history.state().undoCount).toBe(2)
+    expect(history.groupIsOnTop(turn)).toBe(false)
+  })
+
+  it('同一輪裡 Claude 和使用者改到同一列：Claude 改 A→B、使用者改 B→C、Claude 再改 C→D；連按兩次復原最後回到 A，中間不丟錯', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: 'A' })
+    history.clear()
+    const turn = history.openGroup('Claude 這一輪')
+    history.record('改名', () => repos.outline.updateAct(act.id, { title: 'B' }), turn)
+    history.record('改名', () => repos.outline.updateAct(act.id, { title: 'C' }))
+    history.record('改名', () => repos.outline.updateAct(act.id, { title: 'D' }), turn)
+    // 組那一筆是 A→D（排在下面），使用者那一筆 B→C 在上面
+    expect(history.state().undoCount).toBe(2)
+    expect(repos.outline.listActs()[0]?.title).toBe('D')
+    // 第一次復原：使用者那一步。現在的值（D）已經不是他留下的值（C），欄位保護讓這一步不動它，也不丟錯
+    expect(history.undo()).toMatchObject({ applied: 0, skipped: 1 })
+    expect(repos.outline.listActs()[0]?.title).toBe('D')
+    // 第二次：Claude 這一輪整個退，回到最早的 A
+    const second = history.undo()
+    expect(second).toMatchObject({ label: 'Claude 這一輪', skipped: 0 })
+    expect(repos.outline.listActs()[0]?.title).toBe('A')
+    expect(history.state().canUndo).toBe(false)
+    // 重做兩次也不丟錯，最後回到 Claude 做完的 D
+    expect(() => {
+      history.redo()
+      history.redo()
+    }).not.toThrow()
+    expect(repos.outline.listActs()[0]?.title).toBe('D')
+  })
+
+  it('Claude 建了一列、使用者改了它、Claude 又把它刪掉：組那一筆抵銷不見，使用者那一筆指向不存在的列，按復原不會壞', () => {
+    const { repos, history } = setup()
+    history.clear()
+    const turn = history.openGroup('Claude 這一輪')
+    const act = history.record('新增一幕', () => repos.outline.addAct({ title: '暫時的' }), turn)
+    history.record('改名', () => repos.outline.updateAct(act.id, { title: '使用者改的' }))
+    history.record(
+      '刪除這一幕',
+      () => {
+        repos.outline.deleteAct(act.id)
+      },
+      turn,
+    )
+    // 組抵銷了（新增又刪掉），只剩使用者那一筆
+    expect(repos.outline.listActs()).toHaveLength(0)
+    expect(history.state().undoCount).toBe(1)
+    // 復原：那一列已經不在，這一步什麼都不動、不丟錯、資料沒壞
+    expect(history.undo()).toMatchObject({ applied: 0, skipped: 1 })
+    expect(repos.outline.listActs()).toHaveLength(0)
+    expect(history.state().canUndo).toBe(false)
+    // 之後的新操作照常能記、能復原
+    const again = history.record('新增一幕', () => repos.outline.addAct({ title: '之後的' }))
+    history.undo()
+    expect(repos.outline.listActs().some((a) => a.id === again.id)).toBe(false)
+  })
+
+  it('一步裡只有一部分欄位後來又被改過：動了能動的，略過的數量照實回報；整步都被改過就是 applied 0', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '一' })
+    const scene = repos.outline.addScene(act.id, { title: '街角', mood: '安靜' })
+    history.clear()
+    history.record('改場', () =>
+      repos.outline.updateScene(scene.id, { title: '巷口', mood: '緊張' }),
+    )
+    // 之後別的地方又把氣氛改了
+    repos.outline.updateScene(scene.id, { mood: '熱鬧' })
+    const result = history.undo()
+    expect(result).toMatchObject({ applied: 1, skipped: 1 })
+    const [after] = repos.outline.listScenes()
+    expect(after?.title).toBe('街角')
+    expect(after?.mood).toBe('熱鬧')
+    // 整步都被改過
+    history.record('改名', () => repos.outline.updateScene(scene.id, { title: '碼頭' }))
+    repos.outline.updateScene(scene.id, { title: '倉庫' })
+    expect(history.undo()).toMatchObject({ applied: 0, skipped: 1 })
+  })
+})

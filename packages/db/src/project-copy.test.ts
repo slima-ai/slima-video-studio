@@ -53,6 +53,26 @@ describe('copyProject（另存為）', () => {
     expect(source.repos.characters.list()).toHaveLength(3)
   })
 
+  it('Claude 對話的紀錄（chat/）一起複製；原本沒有就不憑空建一個', async () => {
+    const withChat = newProject('有對話')
+    mkdirSync(join(withChat.dir, 'chat'), { recursive: true })
+    writeFileSync(
+      join(withChat.dir, 'chat', '11111111-1111-4111-8111-111111111111.jsonl'),
+      '{"v":1}\n',
+    )
+    const root = tempDir()
+    const copy = join(root, '有對話的複本.svsproj')
+    await copyProject(withChat, copy, { name: '複本', env })
+    expect(
+      readFileSync(join(copy, 'chat', '11111111-1111-4111-8111-111111111111.jsonl'), 'utf8'),
+    ).toBe('{"v":1}\n')
+
+    const plain = newProject('沒對話')
+    const plainCopy = join(root, '沒對話的複本.svsproj')
+    await copyProject(plain, plainCopy, { name: '複本', env })
+    expect(existsSync(join(plainCopy, 'chat'))).toBe(false)
+  })
+
   it('素材照內容雜湊的位置原樣複製；寫到一半的 .tmp 與鎖檔不帶；匯出的成品帶過去', async () => {
     const source = newProject('有素材')
     const put = await source.assets.put(PNG, 'image/png')

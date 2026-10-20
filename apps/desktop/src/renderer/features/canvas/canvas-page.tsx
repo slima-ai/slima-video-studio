@@ -91,6 +91,7 @@ import { GettingStartedDialog } from '../help/getting-started-dialog'
 import { ShortcutsDialog } from './shortcuts-dialog'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
 import { HoverTip } from './hover-tip'
+import { useChatDock } from '../chat/chat-context'
 import { useAiMarks } from './use-ai-marks'
 import { RunPlanConfirm } from './run-confirm-plan'
 import { useCanvas } from './use-canvas'
@@ -224,14 +225,19 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   // 選取只存在畫面：資料重新載入時，還在的節點維持選取
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   // AI 工具（MCP）剛改過的節點：亮一下、標「AI 剛改」；刪掉的用提示說清楚、可以復原
-  const aiMarks = useAiMarks((message) => {
-    toast.show({
-      key: 'ai-removed',
-      message,
-      action: { label: '復原', onAction: history.undo },
-      ms: 10_000,
-    })
-  })
+  const chatDock = useChatDock()
+  const chatBusy = chatDock.active?.running === true
+  const aiMarks = useAiMarks(
+    (message) => {
+      toast.show({
+        key: 'ai-removed',
+        message,
+        action: { label: '復原', onAction: history.undo },
+        ms: 10_000,
+      })
+    },
+    () => chatBusy,
+  )
   const { seen: aiSeen, prune: aiPrune, rekindle: aiRekindle, fresh: aiFresh } = aiMarks
   // 使用者選取了、或滑過一下，就算看過
   useEffect(() => {
@@ -554,6 +560,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       window.svs.on('canvas.notice', (notice) => {
         toast.show({
           key: 'canvas-notice',
+          background: true,
           message: notice.message,
           ...(notice.tone === 'danger' ? { tone: 'danger' as const } : {}),
         })
@@ -1177,6 +1184,22 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             toast.show({
               key: 'shot-description',
               message: '已改鏡頭描述：第一張畫面和影片要重跑才會用到',
+              action: { label: '復原', onAction: history.undo },
+            })
+          })
+          .catch((error: unknown) => {
+            onChanged()
+            toast.show({ message: errorText(error), tone: 'danger' })
+          })
+      },
+      saveShotDialogue: (shotKey, dialogue) => {
+        const shotId = shotKey.replace(/^shot:/, '')
+        call('shots.update', { shotId, patch: { dialogue } })
+          .then(() => {
+            onChanged()
+            toast.show({
+              key: 'shot-dialogue',
+              message: dialogue === '' ? '已清掉這一鏡的旁白' : '已改這一鏡的旁白',
               action: { label: '復原', onAction: history.undo },
             })
           })

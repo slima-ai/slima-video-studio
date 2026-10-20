@@ -201,6 +201,7 @@ describe('生成中的節點狀態', () => {
     description: '貓',
     status: 'generating',
     characters: [],
+    dialogue: '',
     inCut: true,
   } as never
   const base = {

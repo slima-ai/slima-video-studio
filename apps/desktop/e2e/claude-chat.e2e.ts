@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test'
+import { readdirSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
 
@@ -31,6 +32,15 @@ async function useFreeMcpPort(page: Page): Promise<void> {
     const result = await window.svs.invoke('settings.update', { mcp: { port: p } })
     if (!result.ok) throw new Error(result.error.userMessage)
   }, port)
+}
+
+/** 目前專案的復原還能退幾步。 */
+async function undoCount(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const r = await window.svs.invoke('history.state', {})
+    if (!r.ok) throw new Error(r.error.userMessage)
+    return r.data.undoCount ?? 0
+  })
 }
 
 /** 打開面板、（AI 工具連線沒開就一鍵打開）、等到輸入框出現。 */
@@ -117,7 +127,7 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(drawer).toHaveAttribute('data-open', 'false')
   })
 
-  test('Claude 做事時，停止鈕和 Esc 都能中斷這一輪；中斷後同一個對話還能接著講', async ({
+  test('Claude 做事時，停止鈕和 Esc 都能中斷 Claude 現在做的事；中斷後同一個對話還能接著講', async ({
     page,
   }) => {
     await useFreeMcpPort(page)
@@ -142,6 +152,194 @@ test.describe('Claude 對話（假的 claude）', () => {
     await input.fill('你還記得嗎')
     await input.press('Enter')
     await expect(page.getByTestId('chat-message-assistant').last()).toContainText('我記得')
+  })
+
+  test('用量到上限：出現「繼續」，按了用新行程接回同一個對話做完；對話沒有斷', async ({ page }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('做很多事，用量會用完')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-error')).toContainText('用量到上限')
+    await expect(page.getByTestId('chat-continue')).toBeVisible()
+    await page.getByTestId('chat-continue').click()
+    await expect(page.getByTestId('chat-message-assistant').last()).toContainText(
+      '接著做完了（接回同一個對話）',
+    )
+    // 做完之後按鈕不見；對話還是同一個
+    await expect(page.getByTestId('chat-continue')).toHaveCount(0)
+    await expect(page.getByTestId('chat-message-user')).toHaveCount(2)
+  })
+
+  test('Claude 回 Markdown：表格、粗體、清單照樣子顯示；裡面夾的 HTML 只是字，不會執行', async ({
+    page,
+  }, testInfo) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('給我一個表格')
+    await input.press('Enter')
+    const reply = page.getByTestId('chat-message-assistant').last()
+    await expect(reply.getByTestId('md-table')).toBeVisible({ timeout: 30_000 })
+    await expect(reply.locator('th')).toHaveText(['#', '景別', '秒數'])
+    await expect(reply.locator('td strong')).toHaveText('大遠景')
+    await expect(reply.locator('li')).toHaveCount(2)
+    await expect(reply.locator('code')).toHaveText('角色卡')
+    // 沒有原始標記留在畫面上
+    await expect(reply).not.toContainText('|---|')
+    await expect(reply).not.toContainText('**')
+    // HTML 只是字：沒有 img，頁面標題沒被改
+    await expect(reply.locator('img')).toHaveCount(0)
+    await expect(reply).toContainText('<img src=x onerror=')
+    expect(await page.title()).not.toBe('pwned')
+    await page.getByTestId('chat-drawer').screenshot({ path: testInfo.outputPath('markdown.png') })
+  })
+
+  test('對話紀錄存在專案資料夾；另存為連 chat/ 一起複製，複本裡看得到舊對話、接著講會分出新的 session，原本專案的紀錄沒被動', async ({
+    page,
+  }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('幫我建一個專案，加兩個鏡頭')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-message-assistant').last()).toHaveAttribute(
+      'data-state',
+      'done',
+      { timeout: 30_000 },
+    )
+    // 紀錄寫在專案資料夾的 chat/（一個對話一個檔，第一行是版本）
+    const original = await page.evaluate(async () => {
+      const result = await window.svs.invoke('project.status', {})
+      if (!result.ok || !result.data) throw new Error('沒有專案')
+      return result.data.dir
+    })
+    const files = readdirSync(join(original, 'chat'))
+    expect(files).toHaveLength(1)
+    const text = readFileSync(join(original, 'chat', files[0] ?? ''), 'utf8')
+    expect(text.split('\n')[0]).toBe('{"v":1}')
+    expect(text).toContain('幫我建一個專案，加兩個鏡頭')
+    // 不存 token、帳號、思考之類的東西
+    expect(text).not.toMatch(/token|api[_-]?key|email|thinking/i)
+
+    // 另存為：切到複本，面板重讀；複本的 chat/ 有同一份，舊對話的字還在
+    const copy = await page.evaluate(async () => {
+      const result = await window.svs.invoke('project.saveAs', { name: '複本專案' })
+      if (!result.ok) throw new Error(result.error.userMessage)
+      return result.data.dir
+    })
+    expect(readdirSync(join(copy, 'chat'))).toEqual(files)
+    await expect(page.getByTestId('chat-message-user').first()).toHaveText(
+      '幫我建一個專案，加兩個鏡頭',
+    )
+    await page.getByTestId('chat-input').fill('你還記得嗎')
+    await page.getByTestId('chat-input').press('Enter')
+    await expect(page.getByTestId('chat-message-assistant').last()).toContainText(
+      '分出新的 session',
+      { timeout: 30_000 },
+    )
+    // 原本專案的紀錄還是原樣（沒有多出複本裡才說的話）
+    expect(readFileSync(join(original, 'chat', files[0] ?? ''), 'utf8')).not.toContain('你還記得嗎')
+    expect(readFileSync(join(copy, 'chat', files[0] ?? ''), 'utf8')).toContain('你還記得嗎')
+  })
+
+  test('Claude 一輪的改動合成一步復原：建 2 個鏡頭，按一次復原（或 ⌘Z）全退', async ({ page }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('幫我建一個專案，加兩個鏡頭')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-message-assistant').last()).toHaveAttribute(
+      'data-state',
+      'done',
+      { timeout: 30_000 },
+    )
+    await expect.poll(() => kindCount(page, 'shot'), { timeout: 15_000 }).toBe(2)
+    expect(await undoCount(page)).toBe(1)
+    await page.mouse.click(600, 600)
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect.poll(() => kindCount(page, 'shot')).toBe(0)
+    // 重做：整輪一起回來
+    await page.keyboard.press('ControlOrMeta+Shift+z')
+    await expect.poll(() => kindCount(page, 'shot')).toBe(2)
+  })
+
+  test('一輪做到一半被停止：已經做的改動也是一步就能退', async ({ page }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('做一半就停')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-stop')).toBeVisible({ timeout: 30_000 })
+    await expect.poll(() => kindCount(page, 'shot'), { timeout: 15_000 }).toBe(1)
+    await page.getByTestId('chat-stop').click()
+    await expect(page.getByTestId('chat-stopped')).toBeVisible()
+    expect(await undoCount(page)).toBe(1)
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(0)
+  })
+
+  test('Claude 還在做的時候使用者自己動手：他的操作自己一步，復原只退他最後做的那一步；Claude 那一步不被併進去', async ({
+    page,
+  }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('做一半就停')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-stop')).toBeVisible({ timeout: 30_000 })
+    await expect.poll(() => kindCount(page, 'shot'), { timeout: 15_000 }).toBe(1)
+    // Claude 還在等（沒收尾）：使用者自己加了一個鏡頭
+    await page.evaluate(async () => {
+      const r = await window.svs.invoke('canvas.add', { kind: 'shot' })
+      if (!r.ok) throw new Error(r.error.userMessage)
+    })
+    await expect.poll(() => kindCount(page, 'shot')).toBe(2)
+    expect(await undoCount(page)).toBe(2)
+    // 復原：只退使用者自己加的那個，Claude 做的那個還在
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(1)
+    await expect(page.getByTestId('chat-stop')).toBeVisible()
+  })
+
+  test('Claude 還在做、最上面一步是它的：按復原先不動，說「Claude 正在改」；它做完或被停止之後才能退整輪', async ({
+    page,
+  }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('做一半就停')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-stop')).toBeVisible({ timeout: 30_000 })
+    await expect.poll(() => kindCount(page, 'shot'), { timeout: 15_000 }).toBe(1)
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect(page.getByText('Claude 正在改這個專案')).toBeVisible()
+    // 什麼都沒退
+    expect(await kindCount(page, 'shot')).toBe(1)
+    expect(await undoCount(page)).toBe(1)
+    // 按停止之後就能退
+    await page.getByTestId('chat-stop').click()
+    await expect(page.getByTestId('chat-stopped')).toBeVisible()
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(0)
+  })
+
+  test('使用者自己的操作照舊：一個動作一步，按一次復原只退一個', async ({ page }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    // 使用者自己加兩個鏡頭（跟畫布按鈕走同一條路）：兩步
+    const addShot = (): Promise<void> =>
+      page.evaluate(async () => {
+        const r = await window.svs.invoke('canvas.add', { kind: 'shot' })
+        if (!r.ok) throw new Error(r.error.userMessage)
+      })
+    await addShot()
+    await addShot()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(2)
+    expect(await undoCount(page)).toBe(2)
+    await page.getByRole('button', { name: /復原/ }).first().click()
+    await expect.poll(() => kindCount(page, 'shot')).toBe(1)
+    expect(await undoCount(page)).toBe(1)
   })
 
   test('行程當掉：說明連線中斷（不貼原始錯誤），再講一句會接著上次的對話', async ({ page }) => {

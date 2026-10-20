@@ -202,6 +202,73 @@ export interface HistoryEntry {
   changes: Change[]
 }
 
+/**
+ * 一組合成一步的改動（例如 Claude 一輪裡所有的工具呼叫）。組開著的時候，用這個組記下的編輯都併進同一筆復原紀錄；
+ * 沒用這個組記的編輯（使用者自己的操作）照舊各是一步、排在組的後面，不會被併進去。
+ */
+export interface HistoryGroup {
+  readonly label: string
+  /** 這一組目前的那一筆紀錄（還沒有任何改動時是 undefined）。 */
+  entry?: HistoryEntry
+  closed: boolean
+}
+
+type Fields = Record<string, { before: unknown; after: unknown }>
+const afterValues = (fields: Fields): Row =>
+  Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v.after]))
+const beforeValues = (fields: Fields): Row =>
+  Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v.before]))
+
+/**
+ * 把後來的改動接到前面已經記下的改動後面，結果等於「從最前面的狀態直接到最後的狀態」：
+ * 新增後又改→一筆新增（內容是最後的）；新增後又刪→什麼都不用記；改了又改→欄位的「之前」留最早的、「之後」用最新的；
+ * 改了又刪→刪（內容還原成最早的樣子）。
+ */
+export function mergeChanges(prev: readonly Change[], next: readonly Change[]): Change[] {
+  const out = [...prev]
+  for (const change of next) {
+    const at = out.findIndex((c) => c.table === change.table && c.id === change.id)
+    const old = at < 0 ? undefined : out[at]
+    if (!old) {
+      out.push(change)
+    } else if (old.kind === 'insert' && change.kind === 'update') {
+      out[at] = { ...old, row: { ...old.row, ...afterValues(change.fields) } }
+    } else if (old.kind === 'insert' && change.kind === 'delete') {
+      out.splice(at, 1)
+    } else if (old.kind === 'update' && change.kind === 'update') {
+      const fields: Fields = { ...old.fields }
+      for (const [name, value] of Object.entries(change.fields)) {
+        const first = fields[name]
+        if (first === undefined) fields[name] = value
+        else if (isDeepStrictEqual(first.before, value.after)) Reflect.deleteProperty(fields, name)
+        else fields[name] = { before: first.before, after: value.after }
+      }
+      if (Object.keys(fields).length === 0) out.splice(at, 1)
+      else out[at] = { ...old, fields }
+    } else if (old.kind === 'update' && change.kind === 'delete') {
+      out[at] = { ...change, row: { ...change.row, ...beforeValues(old.fields) } }
+    } else if (old.kind === 'delete' && change.kind === 'insert') {
+      // 刪掉又用同一個 id 建回來：整體看是這一列的內容變了
+      const fields: Fields = {}
+      for (const [name, value] of Object.entries(change.row)) {
+        if (!isDeepStrictEqual(old.row[name], value))
+          fields[name] = { before: old.row[name], after: value }
+      }
+      if (Object.keys(fields).length === 0) out.splice(at, 1)
+      else out[at] = { table: change.table, id: change.id, kind: 'update', fields }
+    } else {
+      out.push(change)
+    }
+  }
+  return out
+}
+
+/** 復原或重做一步的結果：那一步，加上真的動了幾處、因為後來又被改過而略過幾處。 */
+export interface AppliedEntry extends HistoryEntry {
+  applied: number
+  skipped: number
+}
+
 export interface HistoryState {
   canUndo: boolean
   canRedo: boolean
@@ -236,17 +303,50 @@ export class StructureHistory {
     private readonly limit = HISTORY_LIMIT,
   ) {}
 
-  /** 執行一個編輯並記下它改了什麼；沒有改到任何東西就不記；編輯失敗（丟錯）也不記。 */
-  record<T>(label: string, run: () => T): T {
+  /**
+   * 執行一個編輯並記下它改了什麼；沒有改到任何東西就不記；編輯失敗（丟錯）也不記。
+   * 給了 `group`（而且還開著）就併進那一組的紀錄，不另外成一步。
+   */
+  record<T>(label: string, run: () => T, group?: HistoryGroup): T {
     const before = snapshot(this.db, this.projectId)
     const result = run()
     const changes = diff(before, snapshot(this.db, this.projectId))
-    if (changes.length > 0) {
+    if (changes.length === 0) return result
+    this.redoStack = []
+    if (group && !group.closed) {
+      const existing = group.entry
+      if (existing && this.undoStack.includes(existing)) {
+        existing.changes = mergeChanges(existing.changes, changes)
+        // 全部抵銷了（新增又刪掉）：這一組沒留下任何東西，紀錄拿掉
+        if (existing.changes.length === 0) {
+          this.undoStack.splice(this.undoStack.indexOf(existing), 1)
+          delete group.entry
+        }
+        return result
+      }
+      const entry: HistoryEntry = { label: group.label, changes }
+      group.entry = entry
+      this.undoStack.push(entry)
+    } else {
       this.undoStack.push({ label, changes })
-      if (this.undoStack.length > this.limit) this.undoStack.shift()
-      this.redoStack = []
     }
+    if (this.undoStack.length > this.limit) this.undoStack.shift()
     return result
+  }
+
+  /** 開一組：之後用這一組記下的編輯會併成一步。 */
+  openGroup(label: string): HistoryGroup {
+    return { label, closed: false }
+  }
+
+  /** 收一組：之後不再併進去。 */
+  closeGroup(group: HistoryGroup): void {
+    group.closed = true
+  }
+
+  /** 最上面（按復原會退的）那一步，是不是這一組還開著的那一筆。 */
+  groupIsOnTop(group: HistoryGroup): boolean {
+    return !group.closed && group.entry !== undefined && this.undoStack.at(-1) === group.entry
   }
 
   /**
@@ -282,23 +382,27 @@ export class StructureHistory {
     this.redoStack = []
   }
 
-  /** 復原最近一個動作；沒有可復原的就回傳 undefined。 */
-  undo(): HistoryEntry | undefined {
+  /**
+   * 復原最近一個動作；沒有可復原的就回傳 undefined。
+   * 回傳的 `skipped` 是這一步裡因為「現在的值已經不是它留下的值」（後來又被改過）或那一列已經不在而沒動的地方，
+   * `applied` 是真的動了的地方；兩個都是數量。
+   */
+  undo(): AppliedEntry | undefined {
     const entry = this.undoStack.at(-1)
     if (!entry) return undefined
-    this.apply(entry, 'undo')
+    const counts = this.apply(entry, 'undo')
     this.undoStack.pop()
     this.redoStack.push(entry)
-    return entry
+    return { ...entry, ...counts }
   }
 
-  redo(): HistoryEntry | undefined {
+  redo(): AppliedEntry | undefined {
     const entry = this.redoStack.at(-1)
     if (!entry) return undefined
-    this.apply(entry, 'redo')
+    const counts = this.apply(entry, 'redo')
     this.redoStack.pop()
     this.undoStack.push(entry)
-    return entry
+    return { ...entry, ...counts }
   }
 
   /** 做了無法復原的大動作（例如 AI 重新拆場）之後清空，免得舊的紀錄對不上現在的資料。 */
@@ -320,7 +424,12 @@ export class StructureHistory {
     }
   }
 
-  private apply(entry: HistoryEntry, direction: 'undo' | 'redo'): void {
+  private apply(
+    entry: HistoryEntry,
+    direction: 'undo' | 'redo',
+  ): { applied: number; skipped: number } {
+    let applied = 0
+    let skipped = 0
     const undoing = direction === 'undo'
     const toInsert = entry.changes.filter((c) => c.kind === (undoing ? 'delete' : 'insert'))
     const toRemove = entry.changes.filter((c) => c.kind === (undoing ? 'insert' : 'delete'))
@@ -338,24 +447,37 @@ export class StructureHistory {
         for (const change of [...toInsert].sort((a, b) => order(a.table) - order(b.table))) {
           if (change.kind === 'update') continue
           const table = byKey(change.table)
-          if (!table.get(tx, change.id)) table.insert(tx, change.row)
+          if (table.get(tx, change.id)) skipped++
+          else {
+            table.insert(tx, change.row)
+            applied++
+          }
         }
         for (const change of toUpdate) {
           const table = byKey(change.table)
           const current = table.get(tx, change.id)
-          if (!current) continue
+          if (!current) {
+            skipped++
+            continue
+          }
           const fields: Row = {}
           for (const [name, { before, after }] of Object.entries(change.fields)) {
             const from = undoing ? after : before
             const to = undoing ? before : after
             if (isDeepStrictEqual(current[name], from)) fields[name] = to
+            else skipped++
           }
-          if (Object.keys(fields).length > 0) table.update(tx, change.id, fields)
+          if (Object.keys(fields).length > 0) {
+            table.update(tx, change.id, fields)
+            applied += Object.keys(fields).length
+          }
         }
         for (const change of [...toRemove].sort((a, b) => order(b.table) - order(a.table))) {
           byKey(change.table).remove(tx, change.id)
+          applied++
         }
       })
+      return { applied, skipped }
     } catch (error) {
       // 資料已經和這筆紀錄對不上（例如相關的場被別的動作刪掉），這筆就不能再用了
       if (undoing) this.undoStack.pop()

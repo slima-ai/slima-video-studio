@@ -15,9 +15,15 @@ describe('工具名換成白話', () => {
     expect(toolDoingLabel('create_shot')).toBe('正在建立鏡頭…')
   })
 
-  it('沒有對照的工具退回「使用工具 xxx」，不會壞', () => {
-    expect(toolLabel('brand_new_tool')).toBe('使用工具 brand_new_tool')
-    expect(toolDoingLabel('brand_new_tool')).toBe('正在使用工具 brand_new_tool…')
+  it('沒有對照的工具退回「做了一個步驟」，不會壞、也不把英文工具名給使用者看', () => {
+    expect(toolLabel('brand_new_tool')).toBe('做了一個步驟')
+    expect(toolDoingLabel('brand_new_tool')).toBe('正在做一個步驟…')
+  })
+
+  it('同一個詞不能指兩件事：重做（取消復原）和重新生成要分得開', () => {
+    expect(toolLabel('redo')).not.toBe(toolLabel('regenerate_shot'))
+    expect(toolLabel('regenerate_shot')).toBe('重新生成鏡頭')
+    expect(toolLabel('redo')).toBe('重做（取消剛才的復原）')
   })
 
   it('我們 MCP 的每一個工具都有白話對照（新增工具忘了補會在這裡紅）', async () => {

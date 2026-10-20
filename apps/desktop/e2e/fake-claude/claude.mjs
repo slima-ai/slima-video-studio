@@ -108,7 +108,7 @@ async function useTool(name, input) {
   })
 }
 const say = (text) => {
-  for (const piece of text.match(/.{1,4}/gu) ?? []) {
+  for (const piece of text.match(/[\s\S]{1,4}/gu) ?? []) {
     out({
       type: 'stream_event',
       event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: piece } },
@@ -147,7 +147,12 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
   }
   if (message.type !== 'user') return
   const text = String(message.message?.content ?? '')
-  if (text.includes('很久')) {
+  if (text.includes('很久') || text.includes('做一半')) {
+    // 做一半：先建專案、加一個鏡頭，再接著一個要做很久的工作
+    if (text.includes('做一半')) {
+      await useTool('create_project', { name: 'Claude 建的短片' })
+      await useTool('create_shot', {})
+    }
     // 一個要做很久的工作：等使用者按停止
     out({
       type: 'stream_event',
@@ -176,8 +181,46 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
     return
   }
   if (text.includes('壞掉')) process.exit(1)
+  if (text.includes('用量')) {
+    // 這個行程的用量用完了：沒做完就停
+    say('做到一半…')
+    out({
+      type: 'result',
+      subtype: 'error_max_budget_usd',
+      is_error: true,
+      session_id: sessionId,
+    })
+    return
+  }
+  if (text.includes('接著剛才')) {
+    // 新的行程用 --resume 接回同一個對話
+    const reply = `接著做完了（${flag('--resume') === undefined ? '新的對話' : '接回同一個對話'}）。`
+    say(reply)
+    finish(reply)
+    return
+  }
+  if (text.includes('表格')) {
+    // 真的 Claude 常回 Markdown：表格、粗體、清單，還有不該被執行的 HTML
+    const reply = [
+      '三個鏡頭規劃好了：',
+      '',
+      '| # | 景別 | 秒數 |',
+      '|---|---|---|',
+      '| 1 | **大遠景** | 7 |',
+      '| 2 | 中景 | 6 |',
+      '',
+      '- 先建 `角色卡`',
+      '- 再生成第一張畫面',
+      '',
+      '<img src=x onerror="document.title=\'pwned\'">',
+    ].join('\n')
+    say(reply)
+    finish(reply)
+    return
+  }
   if (text.includes('記得')) {
-    say(`我記得：${sessionId === 'fake-session' ? '' : '同一個對話，'}上一句是接續的。`)
+    const forked = args.includes('--fork-session') ? '分出新的 session，' : ''
+    say(`我記得：${sessionId === 'fake-session' ? '' : '同一個對話，'}${forked}上一句是接續的。`)
     finish('我記得')
     return
   }

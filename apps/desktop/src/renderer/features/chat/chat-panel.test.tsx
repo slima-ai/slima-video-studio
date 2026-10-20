@@ -323,4 +323,59 @@ describe('Claude 對話面板：講話與串流', () => {
     })
     expect(screen.getByTestId('chat-error').textContent).toBe('和 Claude 的連線中斷了。')
   })
+
+  it('用量到上限：最後一則出現「繼續」，按了送出接著做的話；不是最後一則、一般失敗、進行中都沒有', async () => {
+    const fake = setup({ conversations: [conversation()] })
+    await openPanel()
+    await screen.findByTestId('chat-input')
+    const emit = (m: ChatPanelMessage): void => {
+      act(() => {
+        fake.emit('chat.event', { type: 'message', conversationId: ID, message: m })
+      })
+    }
+    // 一般失敗：沒有繼續
+    emit(message({ id: 'a', state: 'error', error: '連線中斷了。' }))
+    expect(screen.queryByTestId('chat-continue')).toBeNull()
+    // 用量到上限：有
+    emit(message({ id: 'b', state: 'error', error: '這一段用量到上限了。', resumable: true }))
+    fireEvent.click(screen.getByTestId('chat-continue'))
+    await waitFor(() => {
+      expect(fake.calls.find((c) => c.channel === 'chat.send')?.payload).toEqual({
+        conversationId: ID,
+        text: '請接著剛才的做下去。',
+      })
+    })
+    // 後面又有新的一則：舊的那則不再有按鈕
+    emit(message({ id: 'c', state: 'streaming' }))
+    expect(screen.queryByTestId('chat-continue')).toBeNull()
+  })
+
+  it('專案換了（另存為、開別的專案）：丟掉舊專案的對話，載入新專案的；沒有就開一個空的', async () => {
+    const options: Parameters<typeof setup>[0] = {
+      conversations: [conversation({ id: ID, title: '舊專案的對話' })],
+      messages: { [ID]: [message({ id: 'u1', role: 'user', text: '舊專案裡說的' })] },
+    }
+    const fake = setup(options)
+    await openPanel()
+    expect(await screen.findByText('舊專案裡說的')).toBeTruthy()
+    // 換到另一個專案：它有自己的一個對話
+    options.conversations = [conversation({ id: ID2, title: '新專案的對話' })]
+    options.messages = { [ID2]: [message({ id: 'u2', role: 'user', text: '新專案裡說的' })] }
+    act(() => {
+      fake.emit('chat.event', { type: 'reset' })
+    })
+    expect(await screen.findByText('新專案裡說的')).toBeTruthy()
+    expect(screen.queryByText('舊專案裡說的')).toBeNull()
+    // 再換到一個沒有任何對話的專案：自動開一個空的、可以直接講
+    options.conversations = []
+    options.messages = {}
+    act(() => {
+      fake.emit('chat.event', { type: 'reset' })
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('新專案裡說的')).toBeNull()
+    })
+    expect(await screen.findByTestId('chat-input')).toBeTruthy()
+    expect(fake.calls.filter((c) => c.channel === 'chat.create').length).toBeGreaterThan(0)
+  })
 })

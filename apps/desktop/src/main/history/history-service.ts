@@ -1,4 +1,4 @@
-import { StructureHistory, type ProjectHandle } from '@svs/db'
+import { StructureHistory, type HistoryGroup, type ProjectHandle } from '@svs/db'
 import {
   type CanvasAddKind,
   type HistoryResult,
@@ -8,6 +8,7 @@ import {
 } from '@svs/schema'
 
 import type { ProjectManager } from '../project-manager'
+import { isAiCall } from './ai-origin'
 import type { Broadcast } from '../runtime/project-runtime'
 
 export interface HistoryServiceDeps {
@@ -24,6 +25,12 @@ export interface HistoryService {
    */
   begin: (label: string) => () => void
   /** 做了無法復原的大動作（AI 重新拆場、重新生成整支影片…）之後清空，免得舊紀錄對不上現在的資料。 */
+  /**
+   * Claude 對話的一輪：從現在到呼叫回傳的函式之間，**AI 工具（MCP）做的改動**併成一步復原；
+   * 使用者自己的操作照舊各自一步、排在後面。這一輪的那一步還在最上面、而且還沒收尾時，復原會被擋下
+   * （`blocked: 'ai_running'`），免得退到一半 Claude 又接著改。
+   */
+  beginAiTurn: (label: string) => () => void
   clear: () => void
   state: () => HistoryState
   undo: () => HistoryResult
@@ -91,6 +98,8 @@ export function shotEditLabel(edit: ShotEdit): string {
 export function createHistoryService(deps: HistoryServiceDeps): HistoryService {
   const { projects, broadcast } = deps
   const histories = new WeakMap<ProjectHandle, StructureHistory>()
+  /** 每個專案目前開著的 Claude 一輪（一次最多一個）。 */
+  const turns = new WeakMap<ProjectHandle, HistoryGroup>()
   /** 每復原或重做一次加一，畫面看到它變了就重新載入資料。 */
   let revision = 0
 
@@ -117,11 +126,22 @@ export function createHistoryService(deps: HistoryServiceDeps): HistoryService {
   const apply = (direction: 'undo' | 'redo'): HistoryResult => {
     const history = live()
     if (!history) return { applied: false, state: NO_HISTORY }
+    const handle = projects.current()
+    const turn = handle ? turns.get(handle) : undefined
+    if (direction === 'undo' && turn && history.groupIsOnTop(turn)) {
+      return { applied: false, state: history.state(), blocked: 'ai_running' }
+    }
     try {
       const entry = direction === 'undo' ? history.undo() : history.redo()
       if (!entry) return { applied: false, state: history.state() }
       revision++
-      return { applied: true, label: entry.label, state: history.state() }
+      const skipped = entry.skipped === 0 ? undefined : entry.applied === 0 ? 'all' : 'some'
+      return {
+        applied: true,
+        label: entry.label,
+        state: history.state(),
+        ...(skipped === undefined ? {} : { skipped }),
+      }
     } finally {
       // 失敗時這筆紀錄已經作廢，也要讓畫面更新按鈕狀態
       announce()
@@ -132,7 +152,9 @@ export function createHistoryService(deps: HistoryServiceDeps): HistoryService {
     record: (label, run) => {
       const history = live()
       if (history) {
-        const result = history.record(label, run)
+        const handle = projects.current()
+        const turn = handle && isAiCall() ? turns.get(handle) : undefined
+        const result = history.record(label, run, turn)
         announce()
         return result
       }
@@ -158,6 +180,19 @@ export function createHistoryService(deps: HistoryServiceDeps): HistoryService {
         // 生成到一半換了專案：那個專案已經關掉，不記
         if (handle.closed) return
         finish()
+        announce()
+      }
+    },
+    beginAiTurn: (label) => {
+      const handle = projects.current()
+      if (!handle || handle.closed) return () => undefined
+      const history = historyOf(handle)
+      const group = history.openGroup(label)
+      turns.set(handle, group)
+      return () => {
+        if (group.closed) return
+        history.closeGroup(group)
+        if (turns.get(handle) === group) turns.delete(handle)
         announce()
       }
     },

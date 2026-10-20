@@ -274,6 +274,8 @@ describe('影片線的花錢步驟（真實模式、假的 OpenRouter）', () =>
       const out = await r.call(tool, args)
       expect(out.isError, tool).toBe(true)
       expect(textOf(out), tool).toContain('額度只剩 US$0.00')
+      // 拒絕的訊息要說出估價（工具說明承諾的）
+      expect(textOf(out), tool).toMatch(/預估要花 US\$\d/)
     }
     expect(noJobs(fake)).toHaveLength(requestsBefore)
     expect(r.controller.allowance.status().committedUsd).toBe(committedBefore)
