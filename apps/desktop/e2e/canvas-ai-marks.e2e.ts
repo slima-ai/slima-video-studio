@@ -278,3 +278,53 @@ test.describe('畫布：AI 剛改過', () => {
     })
   })
 })
+
+// 右下角的 Claude 對話（假的 claude）：焦點停在對話框時，AI 改畫面外的東西，畫面要跟過去
+test.describe('跟著 AI：焦點在右下角的對話框', () => {
+  test.use({ appEnv: { SVS_CLAUDE_BIN: join(__dirname, 'fake-claude/claude.mjs') } })
+
+  test('使用者剛送出訊息、游標還在對話框（不在畫布裡），AI 改畫面外的鏡頭：畫面照樣跟過去', async ({
+    page,
+    userDataDir,
+  }) => {
+    const ai = await connectAi(page, userDataDir)
+    await ai.callTool({ name: 'create_project', arguments: { name: '對話框焦點' } })
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const ids: string[] = []
+    for (let i = 0; i < 7; i++) {
+      ids.push(idOf(await ai.callTool({ name: 'create_shot', arguments: {} })))
+    }
+    const first = `shot:${ids[0] ?? ''}`
+    const last = `shot:${ids[ids.length - 1] ?? ''}`
+    await expect
+      .poll(async () => (await canvasNodes(page)).filter((n) => n.id === last).length)
+      .toBe(1)
+
+    // 先把畫面放到第一鏡、最後一鏡在畫面外（之後都不再碰畫布，焦點才會一直留在對話框）
+    await centerOn(page, first)
+    await viewportSettled(page)
+    // 打開對話面板、游標放進輸入框（像剛按下送出、還沒點別的地方）
+    await page.getByTestId('chat-launcher').click()
+    const input = page.getByTestId('chat-input')
+    await expect(input).toBeVisible()
+    await viewportSettled(page)
+    await expect(page.getByTestId(`node-${last}`)).not.toBeInViewport()
+    await input.click()
+    await input.pressSequentially('把最後一鏡改一下')
+    await expect(input).toBeFocused()
+    // 從畫布移走焦點／點對話框之後，「剛離開」的緩衝是 1.5 秒：等它過去，剩下的才是「焦點在對話框」本身
+    await page.waitForTimeout(1700)
+    await expect(input).toBeFocused()
+
+    await ai.callTool({
+      name: 'update_shot',
+      arguments: { shotId: ids[ids.length - 1] ?? '', description: '對話框還有游標時 AI 改的' },
+    })
+    await expect(page.getByTestId(`node-${last}`)).toBeInViewport({ ratio: 0.9 })
+    // 輸入框的字沒被動到、游標還在
+    await expect(input).toHaveValue('把最後一鏡改一下')
+    await expect(input).toBeFocused()
+    await ai.close()
+  })
+})
