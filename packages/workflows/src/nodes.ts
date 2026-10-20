@@ -139,12 +139,30 @@ const LlmBreakdownWithNarrationSchema = z.object({
 /** 旁白一秒大約念幾個字（中文），用來限制每鏡台詞的長度。 */
 const NARRATION_CHARS_PER_SEC = 4
 
-/** 模型寫的台詞（有要旁白才有）照每鏡秒數的上限截短；沒有就不帶這個欄位。 */
-function dialogueOf(shot: object, durationSec: number): { dialogue?: string } {
+/** 句讀：超過上限時從這些地方切開。 */
+const SENTENCE_BREAKS = '，。！？、；,.!?;'
+
+/**
+ * 模型寫的台詞（有要旁白才有）超過每鏡秒數的上限時，切在上限以內最後一個句讀（不念出殘句）；
+ * 上限以內找不到句讀就整句保留，讓聲音的「旁白太長」警告提醒使用者。沒有台詞就不帶這個欄位。
+ */
+export function dialogueOf(shot: object, durationSec: number): { dialogue?: string } {
   const raw = 'dialogue' in shot ? shot.dialogue : undefined
-  return typeof raw === 'string'
-    ? { dialogue: raw.trim().slice(0, narrationMaxChars(durationSec)) }
-    : {}
+  if (typeof raw !== 'string') return {}
+  const text = raw.trim()
+  const max = narrationMaxChars(durationSec)
+  if (text.length <= max) return { dialogue: text }
+  const head = text.slice(0, max)
+  let at = -1
+  for (let i = head.length - 1; i >= 0; i--) {
+    if (SENTENCE_BREAKS.includes(head.charAt(i))) {
+      at = i
+      break
+    }
+  }
+  // 結尾的逗號、頓號、分號拿掉；句號、驚嘆號、問號留著
+  const cut = at < 0 ? '' : head.slice(0, at + 1).replace(/[，、；,;]+$/u, '')
+  return { dialogue: cut === '' ? text : cut }
 }
 
 /** 每一鏡的旁白最多幾個字：配合每鏡秒數，念得完。 */
