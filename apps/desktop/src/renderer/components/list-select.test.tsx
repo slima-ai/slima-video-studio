@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ListSelect, type ListOption } from './list-select'
+import { ListSelect, listPlacement, type ListOption } from './list-select'
 
 afterEach(cleanup)
 
@@ -81,5 +81,28 @@ describe('ListSelect', () => {
     fireEvent.click(trigger)
     fireEvent.pointerDown(document.body)
     expect(screen.queryByRole('listbox')).toBeNull()
+  })
+})
+
+describe('listPlacement：選單往上還是往下、最高多少', () => {
+  it('下方放得下：往下、最高 288', () => {
+    expect(listPlacement({ top: 200, bottom: 240 }, 900)).toEqual({ up: false, maxHeight: 288 })
+  })
+
+  it('下方放不下、上方放得下：往上，不伸進最上面的專案列＋上方列（104px）', () => {
+    // 視窗 720：觸發鈕在 570–610，下方只剩 62；上方 570-104=466 放得下 288
+    expect(listPlacement({ top: 570, bottom: 610 }, 720)).toEqual({ up: true, maxHeight: 288 })
+  })
+
+  it('兩邊都放不下：挑空間大的那邊，選單縮到放得下（自己捲動），不會蓋住上方列', () => {
+    // 觸發鈕在 300–340、視窗 520：下方 520-340-48=132，上方 300-104=196 → 往上、最高 196
+    expect(listPlacement({ top: 300, bottom: 340 }, 520)).toEqual({ up: true, maxHeight: 196 })
+    // 上方更小就往下
+    expect(listPlacement({ top: 150, bottom: 190 }, 380)).toEqual({ up: false, maxHeight: 142 })
+  })
+
+  it('空間再小也至少 96；量不到位置（沒有元素）就照老樣子往下', () => {
+    expect(listPlacement({ top: 100, bottom: 140 }, 200).maxHeight).toBe(96)
+    expect(listPlacement(undefined, 900)).toEqual({ up: false, maxHeight: 288 })
   })
 })
