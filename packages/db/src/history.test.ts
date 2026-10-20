@@ -462,4 +462,56 @@ describe('StructureHistory：group（Claude 一輪的改動併成一步）', () 
     expect(history.state().undoCount).toBe(2)
     expect(history.groupIsOnTop(turn)).toBe(false)
   })
+
+  it('同一輪裡 Claude 和使用者改到同一列：Claude 改 A→B、使用者改 B→C、Claude 再改 C→D；連按兩次復原最後回到 A，中間不丟錯', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: 'A' })
+    history.clear()
+    const turn = history.openGroup('Claude 這一輪')
+    history.record('改名', () => repos.outline.updateAct(act.id, { title: 'B' }), turn)
+    history.record('改名', () => repos.outline.updateAct(act.id, { title: 'C' }))
+    history.record('改名', () => repos.outline.updateAct(act.id, { title: 'D' }), turn)
+    // 組那一筆是 A→D（排在下面），使用者那一筆 B→C 在上面
+    expect(history.state().undoCount).toBe(2)
+    expect(repos.outline.listActs()[0]?.title).toBe('D')
+    // 第一次復原：使用者那一步。現在的值（D）已經不是他留下的值（C），欄位保護讓這一步不動它，也不丟錯
+    expect(() => history.undo()).not.toThrow()
+    expect(repos.outline.listActs()[0]?.title).toBe('D')
+    // 第二次：Claude 這一輪整個退，回到最早的 A
+    expect(history.undo()?.label).toBe('Claude 這一輪')
+    expect(repos.outline.listActs()[0]?.title).toBe('A')
+    expect(history.state().canUndo).toBe(false)
+    // 重做兩次也不丟錯，最後回到 Claude 做完的 D
+    expect(() => {
+      history.redo()
+      history.redo()
+    }).not.toThrow()
+    expect(repos.outline.listActs()[0]?.title).toBe('D')
+  })
+
+  it('Claude 建了一列、使用者改了它、Claude 又把它刪掉：組那一筆抵銷不見，使用者那一筆指向不存在的列，按復原不會壞', () => {
+    const { repos, history } = setup()
+    history.clear()
+    const turn = history.openGroup('Claude 這一輪')
+    const act = history.record('新增一幕', () => repos.outline.addAct({ title: '暫時的' }), turn)
+    history.record('改名', () => repos.outline.updateAct(act.id, { title: '使用者改的' }))
+    history.record(
+      '刪除這一幕',
+      () => {
+        repos.outline.deleteAct(act.id)
+      },
+      turn,
+    )
+    // 組抵銷了（新增又刪掉），只剩使用者那一筆
+    expect(repos.outline.listActs()).toHaveLength(0)
+    expect(history.state().undoCount).toBe(1)
+    // 復原：那一列已經不在，這一步什麼都不動、不丟錯、資料沒壞
+    expect(() => history.undo()).not.toThrow()
+    expect(repos.outline.listActs()).toHaveLength(0)
+    expect(history.state().canUndo).toBe(false)
+    // 之後的新操作照常能記、能復原
+    const again = history.record('新增一幕', () => repos.outline.addAct({ title: '之後的' }))
+    history.undo()
+    expect(repos.outline.listActs().some((a) => a.id === again.id)).toBe(false)
+  })
 })
