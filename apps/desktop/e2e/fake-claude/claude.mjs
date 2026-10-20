@@ -108,7 +108,7 @@ async function useTool(name, input) {
   })
 }
 const say = (text) => {
-  for (const piece of text.match(/.{1,4}/gu) ?? []) {
+  for (const piece of text.match(/[\s\S]{1,4}/gu) ?? []) {
     out({
       type: 'stream_event',
       event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: piece } },
@@ -176,6 +176,25 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
     return
   }
   if (text.includes('壞掉')) process.exit(1)
+  if (text.includes('表格')) {
+    // 真的 Claude 常回 Markdown：表格、粗體、清單，還有不該被執行的 HTML
+    const reply = [
+      '三個鏡頭規劃好了：',
+      '',
+      '| # | 景別 | 秒數 |',
+      '|---|---|---|',
+      '| 1 | **大遠景** | 7 |',
+      '| 2 | 中景 | 6 |',
+      '',
+      '- 先建 `角色卡`',
+      '- 再生成第一張畫面',
+      '',
+      '<img src=x onerror="document.title=\'pwned\'">',
+    ].join('\n')
+    say(reply)
+    finish(reply)
+    return
+  }
   if (text.includes('記得')) {
     say(`我記得：${sessionId === 'fake-session' ? '' : '同一個對話，'}上一句是接續的。`)
     finish('我記得')
