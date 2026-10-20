@@ -80,8 +80,21 @@ export function SettingsTags({ tags }: { tags: readonly SettingsTag[] }) {
       if (frame !== 0) cancelAnimationFrame(frame)
     }
   }, [tags])
+  // 亮的標籤要在標籤列的可視範圍內：窄視窗標籤列要橫向滑，亮的那個自動滑到中間
+  const navRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const nav = navRef.current
+    const button = nav?.querySelector<HTMLElement>('[aria-current="true"]')
+    if (!nav || !button) return
+    const navRect = nav.getBoundingClientRect()
+    const rect = button.getBoundingClientRect()
+    const delta = rect.left - navRect.left - (nav.clientWidth - rect.width) / 2
+    // 整排放得下時 scrollLeft 會被夾在 0，不會動
+    if (Math.abs(delta) >= 1) nav.scrollLeft += delta
+  }, [active])
   return (
     <nav
+      ref={navRef}
       aria-label="跳到設定的這一區"
       data-testid="settings-tags"
       className="flex max-w-full items-center gap-1 overflow-x-auto"

@@ -187,7 +187,7 @@ export function ListSelect({
           else show()
         }}
         onKeyDown={onKeyDown}
-        className="flex h-10 w-full items-center gap-2 rounded-md border border-border bg-surface px-3 text-left text-sm transition-colors duration-200 hover:border-fg-muted/50 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+        className="flex min-h-10 w-full items-center gap-2 py-1 rounded-md border border-border bg-surface px-3 text-left text-sm transition-colors duration-200 hover:border-fg-muted/50 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
       >
         <span className="min-w-0 flex-1">
           {selected ? selected.content : <span className="text-fg-muted">{placeholder}</span>}

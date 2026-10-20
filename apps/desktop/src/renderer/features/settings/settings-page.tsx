@@ -79,7 +79,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
               <KeysSection keys={state.data.keys} storage={state.data.storage} onChanged={reload} />
             </SettingGroup>
             <SettingGroup id="models" title="使用的模型" hint="不確定的話保持預設就好。">
-              <div className="space-y-6 md:col-span-2">
+              <>
                 <ModelsSection
                   models={state.data.models}
                   selected={state.data.selected}
@@ -98,7 +98,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
                   />
                 ) : null}
                 <StoryboardGuideSection settings={state.data.settings} onChanged={reload} />
-              </div>
+              </>
             </SettingGroup>
             <SettingGroup id="experiments" title="實驗功能" hint="還在試的功能，可能隨時改變。">
               <ExperimentsSection settings={state.data.settings} onChanged={reload} />

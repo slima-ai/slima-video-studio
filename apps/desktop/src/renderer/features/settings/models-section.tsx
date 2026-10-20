@@ -4,14 +4,22 @@ import {
   type ModelTier,
   type PickableCapability,
 } from '@svs/schema'
-import { KeyRound } from 'lucide-react'
+import {
+  Clapperboard,
+  Image as ImageIcon,
+  KeyRound,
+  Mic,
+  Music,
+  Type,
+  type LucideIcon,
+} from 'lucide-react'
 import { useState } from 'react'
 
 import { Badge, type BadgeTone } from '../../components/badge'
 import { Button } from '../../components/button'
 import { EmptyState } from '../../components/empty-state'
 import { ListSelect, type ListOption } from '../../components/list-select'
-import { Section } from '../../components/section'
+import { SettingCard } from '../../components/setting-card'
 import { call, errorText } from '../../lib/svs'
 
 export interface ModelsSectionProps {
@@ -35,6 +43,14 @@ export const LABELS: Record<PickableCapability, { title: string; hint: string }>
   music: { title: '配樂', hint: '整支片子的背景音樂' },
 }
 
+const ICONS: Record<PickableCapability, LucideIcon> = {
+  llm: Type,
+  t2i: ImageIcon,
+  i2v: Clapperboard,
+  tts: Mic,
+  music: Music,
+}
+
 /** 由貴到便宜排；同一等級照原本的順序。 */
 const TIERS: { tier: ModelTier; label: string; tone: BadgeTone }[] = [
   { tier: 'premium', label: '高品質', tone: 'premium' },
@@ -43,28 +59,33 @@ const TIERS: { tier: ModelTier; label: string; tone: BadgeTone }[] = [
 ]
 
 /**
- * 一個選項：等級色塊、名稱、推薦小標，價格靠右；價格還沒跟官方核對過的標「估算」。
- * 還沒解鎖的模型在價格前寫「需要 fal.ai 金鑰」。
+ * 一個選項分兩行：第一行是完整的模型名稱（太長就換行，不截斷），第二行是等級色塊、推薦小標，
+ * 價格靠右；價格還沒跟官方核對過的標「估算」。還沒解鎖的模型在價格前寫「需要 fal.ai 金鑰」。
+ * 名稱是這張卡最重要的資訊，窄的時候也不能被標籤和價格擠掉。
  */
 function OptionContent({ model, recommended }: { model: ModelOption; recommended: boolean }) {
   const tier = TIERS.find((t) => t.tier === model.tier)
   return (
-    <span className="flex items-center gap-2">
-      {tier ? <Badge tone={tier.tone}>{tier.label}</Badge> : null}
-      <span className="min-w-0 truncate">{model.displayName}</span>
-      {recommended ? <Badge tone="warning">推薦</Badge> : null}
-      {model.needsKey ? (
-        <span className="shrink-0 text-xs text-fg-muted">需要 {model.needsKey} 金鑰</span>
-      ) : null}
-      {model.badges.map((badge) => (
-        <Badge key={badge} tone="neutral">
-          {badge}
-        </Badge>
-      ))}
-      <span className="ml-auto flex shrink-0 items-center gap-2">
-        {model.priceVerified ? null : <Badge tone="neutral">估算</Badge>}
-        <span className="text-xs text-fg-muted" title={model.priceLabel}>
-          {model.priceShort}
+    <span className="flex flex-col gap-0.5">
+      <span data-testid="model-name" className="min-w-0 [overflow-wrap:anywhere]">
+        {model.displayName}
+      </span>
+      <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        {tier ? <Badge tone={tier.tone}>{tier.label}</Badge> : null}
+        {recommended ? <Badge tone="warning">推薦</Badge> : null}
+        {model.needsKey ? (
+          <span className="shrink-0 text-xs text-fg-muted">需要 {model.needsKey} 金鑰</span>
+        ) : null}
+        {model.badges.map((badge) => (
+          <Badge key={badge} tone="neutral">
+            {badge}
+          </Badge>
+        ))}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {model.priceVerified ? null : <Badge tone="neutral">估算</Badge>}
+          <span className="text-xs text-fg-muted" title={model.priceLabel}>
+            {model.priceShort}
+          </span>
         </span>
       </span>
     </span>
@@ -153,42 +174,45 @@ export function ModelsSection({
   }
 
   return (
-    <Section
-      testId="models-section"
-      title="使用的模型"
-      description="所有專案預設用這些，不確定的話保持預設就好。標「估算」的價格還沒有跟官方核對過，實際以服務商帳單為準。"
-    >
-      <p data-testid="tier-legend" className="mb-3 text-xs leading-snug text-fg-muted">
+    <div className="contents" data-testid="models-section">
+      <p data-testid="tier-legend" className="text-xs leading-snug text-fg-muted md:col-span-2">
         等級：高品質＝畫面最好、比較貴比較慢；平衡＝畫面、價錢、速度都中等（沒特別選就用這一級）；
-        經濟＝便宜、快，適合先出草稿，滿意的鏡頭再用高品質重做。
+        經濟＝便宜、快，適合先出草稿，滿意的鏡頭再用高品質重做。標「估算」的價格還沒有跟官方核對過，
+        實際以服務商帳單為準。
       </p>
       {models.length === 0 ? (
-        <EmptyState
-          testId="models-empty"
-          icon={KeyRound}
-          message="還沒有可以選的模型。填入 OpenRouter 的金鑰就能開始（只填這一把就夠），或打開下面的「示範模式」先試玩。"
-          action={
-            <Button variant="primary" onClick={onGoToKeys}>
-              去填金鑰
-            </Button>
-          }
-        />
+        <div className="md:col-span-2">
+          <EmptyState
+            testId="models-empty"
+            icon={KeyRound}
+            message="還沒有可以選的模型。填入 OpenRouter 的金鑰就能開始（只填這一把就夠），或打開上面的「示範模式」先試玩。"
+            action={
+              <Button variant="primary" onClick={onGoToKeys}>
+                去填金鑰
+              </Button>
+            }
+          />
+        </div>
       ) : (
-        <div className="space-y-5">
-          {PICKABLE_CAPABILITIES.map((capability) => {
-            const candidates = models.filter((m) => m.capabilities.includes(capability))
-            const greyed = locked.filter((m) => m.capabilities.includes(capability))
-            const unlock = unlockText(greyed)
-            const current = selected[capability]
-            const detail = candidates.find((m) => m.id === current)
-            return (
-              <div key={capability}>
-                <label className="block text-sm font-medium" htmlFor={`model-${capability}`}>
-                  {LABELS[capability].title}
-                  <span className="ml-2 font-normal text-fg-muted">{LABELS[capability].hint}</span>
-                </label>
-                {candidates.length === 0 ? (
-                  <div className="mt-1 flex items-center gap-3 text-sm text-fg-muted">
+        PICKABLE_CAPABILITIES.map((capability) => {
+          const candidates = models.filter((m) => m.capabilities.includes(capability))
+          const greyed = locked.filter((m) => m.capabilities.includes(capability))
+          const unlock = unlockText(greyed)
+          const current = selected[capability]
+          const detail = candidates.find((m) => m.id === current)
+          return (
+            <SettingCard
+              key={capability}
+              icon={ICONS[capability]}
+              title={LABELS[capability].title}
+              testId={`model-card-${capability}`}
+              {...(candidates.length === 0
+                ? { status: { tone: 'warn' as const, label: '要先填金鑰' } }
+                : {})}
+              summary={`${LABELS[capability].hint}。`}
+              body={
+                candidates.length === 0 ? (
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-fg-muted">
                     <span>
                       目前沒有可用的{LABELS[capability].title}模型，請先填入對應服務的金鑰。
                     </span>
@@ -197,7 +221,10 @@ export function ModelsSection({
                     </Button>
                   </div>
                 ) : (
-                  <div className="mt-1">
+                  <div>
+                    <label className="sr-only" htmlFor={`model-${capability}`}>
+                      {LABELS[capability].title}
+                    </label>
                     <ListSelect
                       id={`model-${capability}`}
                       testId={`model-${capability}`}
@@ -261,17 +288,17 @@ export function ModelsSection({
                       </p>
                     ) : null}
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                )
+              }
+            />
+          )
+        })
       )}
       {error ? (
-        <p role="alert" className="mt-3 text-sm text-danger">
+        <p role="alert" className="text-sm text-danger md:col-span-2">
           {error}
         </p>
       ) : null}
-    </Section>
+    </div>
   )
 }

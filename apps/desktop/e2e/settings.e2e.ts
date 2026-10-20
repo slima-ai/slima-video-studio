@@ -64,7 +64,7 @@ test.describe('第一次使用的引導與設定頁', () => {
     )
     await expect(page.getByTestId('voice-tts')).toContainText('青澀青年男聲')
     await page.getByTestId('model-tts').scrollIntoViewIfNeeded()
-    await page.getByTestId('models-section').screenshot({
+    await page.locator('#models').screenshot({
       path: testInfo.outputPath('settings-tts-music-voice.png'),
     })
 
@@ -186,6 +186,93 @@ test.describe('第一次使用的引導與設定頁', () => {
     await expect(page.getByRole('status')).toHaveText('已儲存。')
     const settings = await page.evaluate(() => window.svs.invoke('settings.get', {}))
     expect(settings).toMatchObject({ ok: true, data: { budget: { perRunLimitUsd: 8 } } })
+  })
+
+  test('模型卡上的模型名稱在桌機與 390 寬都完整顯示（不被標籤、價格擠掉）', async ({ page }) => {
+    await page.getByRole('button', { name: '設定' }).click()
+    await page.getByTestId('demo-mode').uncheck()
+    for (const [label, id, value] of [
+      ['fal.ai 的服務金鑰', 'fal', 'fal-e2e-SECRETVALUE-wxyz'],
+      ['OpenRouter 的服務金鑰', 'openrouter', 'sk-or-e2e-SECRETVALUE-abcd'],
+    ] as const) {
+      await page.getByLabel(label).fill(value)
+      await page.getByTestId(`key-${id}`).getByRole('button', { name: '儲存' }).click()
+      await expect(page.getByTestId(`key-${id}-status`)).toContainText('已設定')
+    }
+    await page.getByTestId('model-t2i').click()
+    await page.getByTestId('model-t2i-option-fal/seedream-5.0').click()
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 })
+      for (const capability of ['llm', 't2i', 'i2v', 'tts', 'music']) {
+        const trigger = page.getByTestId(`model-${capability}`)
+        await trigger.scrollIntoViewIfNeeded()
+        const name = trigger.getByTestId('model-name')
+        await expect(name).toBeVisible()
+        const shown = (await name.textContent()) ?? ''
+        expect(shown.length, `${capability} 有名稱`).toBeGreaterThan(3)
+        // 名稱沒有被截斷：內容寬度不超過框，也沒有被藏在選單按鈕框外面
+        const fit = await trigger.evaluate((el) => {
+          const nameEl = el.querySelector<HTMLElement>('[data-testid="model-name"]')
+          if (!nameEl) return undefined
+          const box = el.getBoundingClientRect()
+          const text = nameEl.getBoundingClientRect()
+          return {
+            overflow: nameEl.scrollWidth - nameEl.clientWidth,
+            inside: text.left >= box.left && text.right <= box.right + 0.5,
+            pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+          }
+        })
+        expect(fit, `${width} 寬 ${capability}`).toEqual({
+          overflow: 0,
+          inside: true,
+          pageOverflow: 0,
+        })
+      }
+    }
+    // 真的模型名稱（例如 Kling 3.0 Standard、Seedream 5.0）看得到
+    await expect(page.getByTestId('model-i2v').getByTestId('model-name')).toContainText('Kling 3.0')
+    await expect(page.getByTestId('model-t2i').getByTestId('model-name')).toContainText('Seedream')
+  })
+
+  test('390 寬：標籤列可以左右滑，捲到哪一區亮的標籤就在可視範圍內', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.getByRole('button', { name: '設定' }).click()
+    await expect(page.getByTestId('settings-tags')).toBeVisible()
+    const visible = async (id: string): Promise<boolean> =>
+      page.evaluate((tagId) => {
+        const nav = document.querySelector('[data-testid="settings-tags"]')
+        const tag = document.querySelector(`[data-testid="settings-tag-${tagId}"]`)
+        if (!nav || !tag) return false
+        const n = nav.getBoundingClientRect()
+        const t = tag.getBoundingClientRect()
+        return (
+          t.left >= n.left - 0.5 &&
+          t.right <= n.right + 0.5 &&
+          t.left >= 0 &&
+          t.right <= window.innerWidth
+        )
+      }, id)
+    // 標籤列比視窗寬：靠自己橫向滑
+    const scrollable = await page
+      .getByTestId('settings-tags')
+      .evaluate((el) => el.scrollWidth > el.clientWidth)
+    expect(scrollable).toBe(true)
+    expect(await visible('general')).toBe(true)
+
+    const ids = ['general', 'connections', 'keys', 'models', 'experiments']
+    for (const id of ids.slice(1)) {
+      await page.locator(`#${id}`).scrollIntoViewIfNeeded()
+      await page.evaluate((target) => {
+        document.getElementById(target)?.scrollIntoView({ block: 'start' })
+      }, id)
+      await expect(page.getByTestId(`settings-tag-${id}`)).toHaveAttribute('aria-current', 'true')
+      await expect.poll(() => visible(id), { message: `捲到 ${id}，標籤在可視範圍內` }).toBe(true)
+    }
+    // 倒著捲回最上面，第一個標籤也要滑回來
+    await page.evaluate(() => {
+      document.getElementById('general')?.scrollIntoView({ block: 'start' })
+    })
+    await expect.poll(() => visible('general')).toBe(true)
   })
 
   test('頂端小標籤：捲到哪一區亮哪一個（含很長的區的中段與最底），點標籤捲到對的區', async ({

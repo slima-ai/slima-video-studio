@@ -10,6 +10,8 @@ test.describe('設定頁：分鏡準則', () => {
     userDataDir,
   }, testInfo) => {
     await page.getByRole('button', { name: '設定' }).click()
+    // 準則的編輯區收在卡片的「更多」裡
+    await page.getByTestId('storyboard-guide-section').getByTestId('setting-card-more').click()
     const box = page.getByTestId('storyboard-guide')
     await expect(box).toHaveValue(DEFAULT_STORYBOARD_GUIDE)
     await page.getByTestId('storyboard-guide-section').scrollIntoViewIfNeeded()
@@ -33,6 +35,7 @@ test.describe('設定頁：分鏡準則', () => {
     try {
       const page2 = await second.app.firstWindow()
       await page2.getByRole('button', { name: '設定' }).click()
+      await page2.getByTestId('storyboard-guide-section').getByTestId('setting-card-more').click()
       await expect(page2.getByTestId('storyboard-guide')).toHaveValue('每個場一定要有一個遠景。')
       await expect(page2.getByTestId('per-run-limit')).toHaveValue('12.5')
 

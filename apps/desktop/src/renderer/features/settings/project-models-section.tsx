@@ -1,8 +1,9 @@
 import { PICKABLE_CAPABILITIES, type ModelOption, type PickableCapability } from '@svs/schema'
+import { FolderCog } from 'lucide-react'
 import { useState } from 'react'
 
 import { ListSelect, type ListOption } from '../../components/list-select'
-import { Section } from '../../components/section'
+import { SettingCard } from '../../components/setting-card'
 import { call, errorText } from '../../lib/svs'
 import { LABELS, toOptions } from './models-section'
 
@@ -42,52 +43,56 @@ export function ProjectModelsSection({
   }
 
   return (
-    <Section
-      testId="project-models-section"
-      title="這個專案預設用什麼"
-      description={`只套用在「${project.name}」。沒改的用途跟著上面選的模型。`}
-    >
-      <div className="divide-y divide-border">
-        {PICKABLE_CAPABILITIES.map((capability) => {
-          const candidates = models.filter((m) => m.capabilities.includes(capability))
-          const appName = candidates.find((m) => m.id === selected[capability])?.displayName
-          const follow: ListOption = {
-            value: FOLLOW,
-            label: `跟著預設（${appName ?? '沒有可用的模型'}）`,
-            content: (
-              <span className="min-w-0 truncate">
-                跟著預設
-                <span className="text-fg-muted">（{appName ?? '沒有可用的模型'}）</span>
-              </span>
-            ),
-          }
-          const greyed = locked.filter((m) => m.capabilities.includes(capability))
-          return (
-            <div
-              key={capability}
-              className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3 py-2 first:pt-0 last:pb-0"
-            >
-              <label className="text-sm font-medium" htmlFor={`project-model-${capability}`}>
-                {LABELS[capability].title}
-              </label>
-              <ListSelect
-                id={`project-model-${capability}`}
-                testId={`project-model-${capability}`}
-                value={project.models[capability] ?? FOLLOW}
-                options={[follow, ...toOptions(candidates, greyed)]}
-                onChange={(value) => {
-                  choose(capability, value)
-                }}
-              />
-            </div>
-          )
-        })}
-      </div>
+    <div className="contents" data-testid="project-models-section">
+      <SettingCard
+        icon={FolderCog}
+        title="這個專案預設用什麼"
+        className="md:col-span-2"
+        summary={`只套用在「${project.name}」；沒改的用途跟著上面選的模型。`}
+        body={
+          <div className="divide-y divide-border">
+            {PICKABLE_CAPABILITIES.map((capability) => {
+              const candidates = models.filter((m) => m.capabilities.includes(capability))
+              const appName = candidates.find((m) => m.id === selected[capability])?.displayName
+              const follow: ListOption = {
+                value: FOLLOW,
+                label: `跟著預設（${appName ?? '沒有可用的模型'}）`,
+                content: (
+                  <span className="min-w-0 truncate">
+                    跟著預設
+                    <span className="text-fg-muted">（{appName ?? '沒有可用的模型'}）</span>
+                  </span>
+                ),
+              }
+              const greyed = locked.filter((m) => m.capabilities.includes(capability))
+              return (
+                <div
+                  key={capability}
+                  className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3 py-2 first:pt-0 last:pb-0"
+                >
+                  <label className="text-sm font-medium" htmlFor={`project-model-${capability}`}>
+                    {LABELS[capability].title}
+                  </label>
+                  <ListSelect
+                    id={`project-model-${capability}`}
+                    testId={`project-model-${capability}`}
+                    value={project.models[capability] ?? FOLLOW}
+                    options={[follow, ...toOptions(candidates, greyed)]}
+                    onChange={(value) => {
+                      choose(capability, value)
+                    }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        }
+      />
       {error ? (
-        <p role="alert" className="mt-3 text-sm text-danger">
+        <p role="alert" className="text-sm text-danger md:col-span-2">
           {error}
         </p>
       ) : null}
-    </Section>
+    </div>
   )
 }

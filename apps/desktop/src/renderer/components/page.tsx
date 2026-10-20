@@ -41,7 +41,7 @@ export function Page({
           </p>
         ) : null}
         <span className="flex-1" />
-        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="flex min-w-0 items-center gap-2">{actions}</div> : null}
       </header>
       <div
         className={cn(

@@ -4,10 +4,11 @@ import {
   resolveStoryboardGuide,
   type AppSettings,
 } from '@svs/schema'
+import { BookText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { Button } from '../../components/button'
-import { Section } from '../../components/section'
+import { SettingCard } from '../../components/setting-card'
 import { call, errorText } from '../../lib/svs'
 
 export interface StoryboardGuideSectionProps {
@@ -46,62 +47,69 @@ export function StoryboardGuideSection({ settings, onChanged }: StoryboardGuideS
   }
 
   return (
-    <Section
-      testId="storyboard-guide-section"
-      title="分鏡準則"
-      description="AI 把故事拆成鏡頭時會一起參考這份做法。可以照你的習慣修改；留成預設也沒問題。"
-    >
-      <label className="sr-only" htmlFor="storyboard-guide">
-        分鏡準則
-      </label>
-      <textarea
-        id="storyboard-guide"
-        data-testid="storyboard-guide"
-        value={text}
-        rows={14}
-        onChange={(event) => {
-          setText(event.target.value)
-          setDone(false)
-        }}
-        className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm leading-relaxed"
+    <div className="contents" data-testid="storyboard-guide-section">
+      <SettingCard
+        icon={BookText}
+        title="分鏡準則"
+        className="md:col-span-2"
+        status={customized ? { tone: 'ok', label: '已改過' } : { tone: 'off', label: '用預設' }}
+        summary="AI 把故事拆成鏡頭時會參考這份做法；可以照你的習慣改，留成預設也沒問題。"
+        details={
+          <div>
+            <label className="sr-only" htmlFor="storyboard-guide">
+              分鏡準則
+            </label>
+            <textarea
+              id="storyboard-guide"
+              data-testid="storyboard-guide"
+              value={text}
+              rows={14}
+              onChange={(event) => {
+                setText(event.target.value)
+                setDone(false)
+              }}
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm leading-relaxed"
+            />
+            <p className={`mt-1 text-sm ${tooLong ? 'text-danger' : 'text-fg-muted'}`}>
+              {String(text.length)} / {String(STORYBOARD_GUIDE_MAX_CHARS)} 字
+              {tooLong ? '：太長了，請刪減。' : ''}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                disabled={!dirty || tooLong}
+                onClick={() => {
+                  // 改回跟預設一模一樣就存成「用預設」，之後預設更新時才會跟著更新
+                  const guide = text.trim() === DEFAULT_STORYBOARD_GUIDE.trim() ? '' : text
+                  save(guide, '已儲存，下次拆鏡就會用這份準則。')
+                }}
+              >
+                儲存
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={!customized && !dirty}
+                onClick={() => {
+                  setText(DEFAULT_STORYBOARD_GUIDE)
+                  save('', '已恢復預設。')
+                }}
+              >
+                恢復預設
+              </Button>
+              {done ? (
+                <span role="status" className="text-sm text-success">
+                  {status}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        }
       />
-      <p className={`mt-1 text-sm ${tooLong ? 'text-danger' : 'text-fg-muted'}`}>
-        {String(text.length)} / {String(STORYBOARD_GUIDE_MAX_CHARS)} 字
-        {tooLong ? '：太長了，請刪減。' : ''}
-      </p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button
-          variant="secondary"
-          disabled={!dirty || tooLong}
-          onClick={() => {
-            // 改回跟預設一模一樣就存成「用預設」，之後預設更新時才會跟著更新
-            const guide = text.trim() === DEFAULT_STORYBOARD_GUIDE.trim() ? '' : text
-            save(guide, '已儲存，下次拆鏡就會用這份準則。')
-          }}
-        >
-          儲存
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={!customized && !dirty}
-          onClick={() => {
-            setText(DEFAULT_STORYBOARD_GUIDE)
-            save('', '已恢復預設。')
-          }}
-        >
-          恢復預設
-        </Button>
-        {done ? (
-          <span role="status" className="text-sm text-success">
-            {status}
-          </span>
-        ) : null}
-      </div>
       {error ? (
-        <p role="alert" className="mt-3 text-sm text-danger">
+        <p role="alert" className="text-sm text-danger md:col-span-2">
           {error}
         </p>
       ) : null}
-    </Section>
+    </div>
   )
 }
