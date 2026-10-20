@@ -24,7 +24,7 @@ const readStored = (): boolean => {
 /**
  * 「跟著 AI」：AI 工具（MCP）在改東西時，畫面平順地移到正在改的地方，讓人看得到它做了什麼。
  * - 只平移、不改縮放；放不下（一次改很多）就只帶最前面那一個進來；
- * - 使用者自己在動畫布（按著滑鼠、剛拖過或縮放）時不搶畫面；
+ * - 使用者在動畫布（按著滑鼠、正在打字或改名、剛按過鍵盤、剛縮放）時不搶畫面，結束後再等一下；
  * - 有開關（記在這台電腦上，預設開），關掉就完全不動。
  */
 export function useAiFollow({
@@ -49,12 +49,26 @@ export function useAiFollow({
     }
   }, [])
 
-  // 使用者正在動畫布：按著滑鼠，或剛放開／剛滾動縮放不久
+  // 使用者正在動畫布：按鍵還按著、焦點在畫布裡能輸入的地方（打字、改名），
+  // 或這些剛結束、剛按過鍵盤、剛滾動縮放不久（結束之後再多等 USER_BUSY_MS）
   const down = useRef(false)
   const busyUntil = useRef(0)
+  const typing = useCallback((): boolean => {
+    const el = container.current
+    const active = document.activeElement
+    return (
+      el !== null &&
+      active instanceof HTMLElement &&
+      el.contains(active) &&
+      active.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]')
+    )
+  }, [container])
   useEffect(() => {
     const el = container.current
     if (!el) return undefined
+    const later = (): void => {
+      busyUntil.current = Date.now() + USER_BUSY_MS
+    }
     const onDown = (): void => {
       down.current = true
     }
@@ -62,20 +76,21 @@ export function useAiFollow({
     const onUp = (): void => {
       if (!down.current) return
       down.current = false
-      busyUntil.current = Date.now() + USER_BUSY_MS
-    }
-    const onWheel = (): void => {
-      busyUntil.current = Date.now() + USER_BUSY_MS
+      later()
     }
     el.addEventListener('pointerdown', onDown, true)
     window.addEventListener('pointerup', onUp, true)
     window.addEventListener('pointercancel', onUp, true)
-    el.addEventListener('wheel', onWheel, { passive: true })
+    el.addEventListener('wheel', later, { passive: true })
+    el.addEventListener('keydown', later, true)
+    el.addEventListener('focusout', later, true)
     return () => {
       el.removeEventListener('pointerdown', onDown, true)
       window.removeEventListener('pointerup', onUp, true)
       window.removeEventListener('pointercancel', onUp, true)
-      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('wheel', later)
+      el.removeEventListener('keydown', later, true)
+      el.removeEventListener('focusout', later, true)
     }
   }, [container])
 
@@ -97,7 +112,7 @@ export function useAiFollow({
     const known = new Set(nodes.map((n) => n.id))
     if (!wanted.keys.some((key) => known.has(key))) return
     pending.current = undefined
-    if (down.current || Date.now() < busyUntil.current) return
+    if (down.current || typing() || Date.now() < busyUntil.current) return
     const el = container.current
     if (!el) return
     const viewport = rf.getViewport()
@@ -109,7 +124,7 @@ export function useAiFollow({
       margin,
     )
     if (pan) void rf.setViewport({ ...viewport, ...pan }, { duration: MOVE_MS })
-  }, [nodes, latest, follow, rf, container, margin])
+  }, [nodes, latest, follow, rf, container, margin, typing])
 
   return { follow, setFollow }
 }
