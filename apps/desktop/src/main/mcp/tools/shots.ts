@@ -99,7 +99,7 @@ export function registerShotTools(ctx: ToolContext): void {
     description:
       'Change fields of one shot (only the fields you pass). Does NOT generate anything and costs nothing; regenerating pictures/videos is a separate step. Fields: description, size (extreme_wide|wide|full|medium|close_up|extreme_close_up), angle, cameraMove (null, or a preset id: ' +
       CAMERA_MOVES.map((c) => c.id).join(', ') +
-      '; or your own short description such as "slow push in" — a text that is not a preset id is added to the video prompt exactly as written), durationSec (1–15), dialogue, characters (names), lighting, mood, timeOfDay, prompt (null = back to the automatic prompt), inCut.',
+      '; or your own short description such as "slow push in" — a text that is not a preset id is added to the video prompt exactly as written), durationSec (1–15), dialogue, characters (names), lighting, mood, timeOfDay, prompt (null = back to the automatic prompt), inCut. See load_guide("cinematography") for when to use each size, angle and camera move.',
     input: { shotId: z.string().min(1), ...ShotEditSchema.shape },
     hints: { readOnly: false, idempotent: true },
     run: async ({ shotId, ...patch }) => {
@@ -112,7 +112,7 @@ export function registerShotTools(ctx: ToolContext): void {
     name: 'create_shot',
     title: 'Add an empty shot',
     description:
-      'Add a new empty shot (to a scene and/or right after another shot). Fill it in with update_shot.',
+      'Add a new empty shot (to a scene and/or right after another shot). Fill it in with update_shot. See load_guide("cinematography") for when to use each size, angle and camera move.',
     input: {
       sceneId: z.string().optional().describe('Put it in this scene'),
       afterShotId: z.string().optional().describe('Put it right after this shot'),

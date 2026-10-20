@@ -430,7 +430,13 @@ describe('工具', () => {
       spending: { allowanceUsd: 0, committedUsd: 0, remainingUsd: 0 },
     })
     expect(data.tools).toContain('create_project')
-    expect(data.guides).toEqual(['getting-started', 'storyboard', 'spending', 'sound'])
+    expect(data.guides).toEqual([
+      'getting-started',
+      'storyboard',
+      'cinematography',
+      'spending',
+      'sound',
+    ])
   })
 
   it('load_guide：storyboard 用的是使用者設定的準則（改過就是改過的）', async () => {

@@ -32,7 +32,16 @@ export const DEFAULT_STORYBOARD_GUIDE = `1. 一個鏡頭只做一件事
 - 只寫看得到的東西，說「要什麼」，不要說「不要什麼」。
 - 太複雜的動作（連續變化、快速甩動、多個角色同時大動作）容易失敗，拆開或簡化。
 - 角色在大景別裡通常比近距離特寫更穩定，特寫與大動作留給真正需要的一兩個鏡頭。
-- 每個鏡頭的首幀要是一個構圖清楚、可以直接畫出來的畫面。`
+- 每個鏡頭的首幀要是一個構圖清楚、可以直接畫出來的畫面。
+
+9. 鏡頭語言（欄位 size、angle、cameraMove）
+先定這一場要觀眾感覺什麼，再選鏡頭。
+- size：extreme_wide 交代環境與孤單，wide、full 是人在環境裡，medium 適合對話與動作，close_up 表現情緒，extreme_close_up 整支片一兩次就好。
+- angle：high 讓人覺得渺小，low 有力量，over_shoulder 適合對話，dutch 表現不安（少用）。
+- cameraMove：static 最穩，沒有理由就用它；push_in 聚焦，pull_out 揭露或孤立，handheld 緊張，crane 壯闊。
+- 節奏：緊張 2 到 3 秒，一般 4 到 6 秒，揭露與最後一鏡 5 秒以上。
+- 光線：同一場的光線與時段保持一致；暖柔光是安心，冷暗是孤單，強對比是緊張。
+- 鏡頭之間只有直接切，不要寫溶接、淡出。`
 
 /** 自訂準則的字數上限（會跟著每次拆鏡一起送給文字模型，太長會變貴、也容易蓋過故事）。 */
 export const STORYBOARD_GUIDE_MAX_CHARS = 4000

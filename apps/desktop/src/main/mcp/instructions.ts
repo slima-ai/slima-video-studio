@@ -4,7 +4,7 @@
  */
 export const SERVER_INSTRUCTIONS = `Slima Video Studio turns a story into a finished video on the user's own computer. You are connected to the user's running copy of the app; what you change shows up in its window.
 
-**Start by calling \`get_capabilities\`.** It tells you the mode (demo or real), the current project, how much you may spend, and which tools and guides exist. Then \`load_guide\` what you need: \`getting-started\` for the order of work, \`storyboard\` before planning shots, \`spending\` before anything that calls an AI model.
+**Start by calling \`get_capabilities\`.** It tells you the mode (demo or real), the current project, how much you may spend, and which tools and guides exist. Then \`load_guide\` what you need: \`getting-started\` for the order of work, \`storyboard\` before planning shots, \`cinematography\` before choosing shot size, angle or camera move, \`spending\` before anything that calls an AI model.
 
 Three things worth knowing:
 - **Spending is limited by the user, not by you.** Tools that call an AI model are checked against an allowance only the user can change (it starts at US$0). In demo mode nothing costs money.

@@ -81,7 +81,7 @@ export function registerStoryTools(ctx: ToolContext): void {
     name: 'split_scene_into_shots',
     title: 'Split a scene into shots',
     description:
-      'The app\'s AI plans 2–6 shots for one scene (size, angle, camera move, duration, who is in it), following the storyboard guide (see load_guide "storyboard"). REPLACES the scene\'s current shots; if some already have generated pictures or videos you must pass replaceGenerated=true. Calls a text model, so it counts against the spending allowance; free in demo mode. After it, review with list_shots and fix with update_shot.',
+      'The app\'s AI plans 2–6 shots for one scene (size, angle, camera move, duration, who is in it), following the storyboard guide (see load_guide "storyboard"; also load_guide "cinematography" for when to use each size, angle and camera move). REPLACES the scene\'s current shots; if some already have generated pictures or videos you must pass replaceGenerated=true. Calls a text model, so it counts against the spending allowance; free in demo mode. After it, review with list_shots and fix with update_shot.',
     input: {
       sceneId: z.string().min(1).describe('A scene id from get_outline'),
       replaceGenerated: z

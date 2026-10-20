@@ -13,6 +13,23 @@ describe('分鏡準則', () => {
     expect(DEFAULT_STORYBOARD_GUIDE.length).toBeLessThan(STORYBOARD_GUIDE_MAX_CHARS / 2)
   })
 
+  it('預設準則有「鏡頭語言」那一條：App 的景別、角度、運鏡 id，而且只說直接切、不把溶接淡出當選項', () => {
+    for (const id of [
+      'extreme_wide',
+      'close_up',
+      'high',
+      'low',
+      'dutch',
+      'static',
+      'push_in',
+      'crane',
+    ]) {
+      expect(DEFAULT_STORYBOARD_GUIDE, id).toContain(id)
+    }
+    expect(DEFAULT_STORYBOARD_GUIDE).toContain('只有直接切，不要寫溶接、淡出')
+    expect(DEFAULT_STORYBOARD_GUIDE.match(/溶接|淡出/g)).toHaveLength(2)
+  })
+
   it('沒自訂（空白）就用預設，有自訂就用自訂', () => {
     expect(resolveStoryboardGuide(undefined)).toBe(DEFAULT_STORYBOARD_GUIDE)
     expect(resolveStoryboardGuide('  \n')).toBe(DEFAULT_STORYBOARD_GUIDE)
