@@ -1,8 +1,19 @@
+import type { OnelinerParams } from '@svs/schema'
 import { useState } from 'react'
 
 import { isMac } from '../../lib/history'
 import type { GrowConfirm as Pending } from './use-grow'
 import { RunConfirm } from './run-confirm'
+
+/** 完成後自動加的旁白與配樂（照卡片上勾的）；花費已經算進預估。 */
+function soundLines(sound: OnelinerParams['sound']): string[] {
+  if (!sound) return []
+  const parts = [
+    ...(sound.narration ? ['旁白（念有台詞的鏡頭）'] : []),
+    ...(sound.music ? ['一首配樂'] : []),
+  ]
+  return parts.length === 0 ? [] : [`接好之後加${parts.join('、')}，花費已算進預估`]
+}
 
 /**
  * 一句話的花費確認。「先產生分鏡」用白話分兩段說：這一步只寫分鏡約多少錢、下一步才生圖片和影片約多少錢；
@@ -53,6 +64,7 @@ export function GrowConfirm({
               `${String(n)} 張第一張畫面`,
               `${String(n)} 支影片（每支 ${String(params.durationSec)} 秒）`,
               '接成一支完整的片子',
+              ...soundLines(params.sound),
               ...(models.length > 0 ? [`用：${models.join('、')}`] : []),
               ...(check.demoMode ? ['示範模式：不會真的花錢，結果是假的'] : []),
             ]

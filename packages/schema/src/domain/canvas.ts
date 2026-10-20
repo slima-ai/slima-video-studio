@@ -494,6 +494,8 @@ export const CanvasRunPlanSchema = z.object({
   rejoin: z.boolean(),
   /** 接片時會接幾段（放進成品的鏡頭數）。 */
   segments: z.number().int().nonnegative().default(0),
+  /** 本來要接片，但放進成品的鏡頭還有幾個沒有影片、這次也不會生成，所以這次不接。 */
+  joinSkipped: z.number().int().positive().optional(),
   /** 生成完接好片之後會自動加旁白與配樂（「全部生成」，而且這批鏡頭是從有勾聲音的一句話來的）。 */
   sound: CanvasRunSoundPlanSchema.optional(),
 })

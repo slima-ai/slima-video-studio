@@ -19,21 +19,35 @@ test.describe('畫布：很多場的大專案', () => {
   }) => {
     await page.getByRole('button', { name: '畫布', exact: true }).click()
     await expect(page.getByTestId('canvas-root')).toBeVisible()
-    // 120 鏡＝12 場，一欄 10 場，縮到最小（0.1）也裝不下
+    // 120 鏡＝12 場，一欄 10 場，縮到看得清楚的程度（0.5）也裝不下
     const seeded = await page.evaluate(() => window.svs.invoke('dev.seedDemo', { shots: 120 }))
     expect(seeded.ok).toBe(true)
     await expect
       .poll(async () => (await canvasNodes(page)).filter((n) => n.data.kind === 'scene').length)
       .toBe(12)
 
+    // 「全部顯示」最多縮到 0.5（卡片的字和按鈕還在），裝不下就從第一場開始看
     await page.getByTestId('fit-view').click()
-    await expect.poll(async () => (await viewportOf(page))?.zoom).toBe(0.1)
+    await expect.poll(async () => (await viewportOf(page))?.zoom).toBe(0.5)
     const root = page.getByTestId('canvas-root')
+    await expect(root).toHaveAttribute('data-lod', 'full')
+    const scenes = (await canvasNodes(page)).filter((n) => n.data.kind === 'scene')
+    const first = scenes.reduce((a, b) => (b.position.y < a.position.y ? b : a))
+
+    // 自己縮到最小（0.1，只畫色塊），第一場仍在左上：場名的測試從這裡開始
+    await page.evaluate(({ x, y }) => {
+      const rf = (
+        window as unknown as {
+          __svsCanvas?: { setViewport: (v: object) => Promise<boolean> }
+        }
+      ).__svsCanvas
+      // 跟「全部顯示」一樣：第一場的左上角放在上方列與左側面板的右下
+      void rf?.setViewport({ x: 270 - x * 0.1, y: 80 - y * 0.1, zoom: 0.1 })
+    }, first.position)
+    await expect.poll(async () => (await viewportOf(page))?.zoom).toBe(0.1)
     await expect(root).toHaveAttribute('data-lod', 'low')
 
     // 從第一場開始看：第 1 場在畫面左上（上方列與左側面板的右下）
-    const scenes = (await canvasNodes(page)).filter((n) => n.data.kind === 'scene')
-    const first = scenes.reduce((a, b) => (b.position.y < a.position.y ? b : a))
     const firstBox = await page.locator(`.react-flow__node[data-id="${first.id}"]`).boundingBox()
     expect(firstBox?.y ?? 0).toBeGreaterThan(56)
     expect(firstBox?.y ?? 0).toBeLessThan(200)
