@@ -195,6 +195,23 @@ describe('動作名稱', () => {
     expect(repos.outline.listActs()).toHaveLength(0)
   })
 
+  it('復原時這一步的內容後來又被改過：整步沒動回 skipped=all；正常的沒有這個欄位', () => {
+    const { root, projects, history } = setup()
+    projects.create(join(root, 'skip.svsproj'), 'S')
+    const repos = projects.current()?.repos
+    if (!repos) throw new Error('專案沒開起來')
+    const act = history.record('新增一幕', () => repos.outline.addAct({ title: 'A' }))
+    history.record('改名', () => repos.outline.updateAct(act.id, { title: 'B' }))
+    // 別的地方又改了
+    repos.outline.updateAct(act.id, { title: 'C' })
+    const all = history.undo()
+    expect(all).toMatchObject({ applied: true, label: '改名', skipped: 'all' })
+    // 再按一次：退回更早的一步（新增那一幕），沒有略過
+    const normal = history.undo()
+    expect(normal.applied).toBe(true)
+    expect(normal.skipped).toBeUndefined()
+  })
+
   it('沒有 beginAiTurn 時，AI 呼叫跟使用者的一樣各是一步（Claude Desktop 之類在面板外連進來）', () => {
     const { root, projects, history } = setup()
     projects.create(join(root, 'ai2.svsproj'), 'AI')

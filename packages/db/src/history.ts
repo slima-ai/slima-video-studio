@@ -263,6 +263,12 @@ export function mergeChanges(prev: readonly Change[], next: readonly Change[]): 
   return out
 }
 
+/** 復原或重做一步的結果：那一步，加上真的動了幾處、因為後來又被改過而略過幾處。 */
+export interface AppliedEntry extends HistoryEntry {
+  applied: number
+  skipped: number
+}
+
 export interface HistoryState {
   canUndo: boolean
   canRedo: boolean
@@ -376,23 +382,27 @@ export class StructureHistory {
     this.redoStack = []
   }
 
-  /** 復原最近一個動作；沒有可復原的就回傳 undefined。 */
-  undo(): HistoryEntry | undefined {
+  /**
+   * 復原最近一個動作；沒有可復原的就回傳 undefined。
+   * 回傳的 `skipped` 是這一步裡因為「現在的值已經不是它留下的值」（後來又被改過）或那一列已經不在而沒動的地方，
+   * `applied` 是真的動了的地方；兩個都是數量。
+   */
+  undo(): AppliedEntry | undefined {
     const entry = this.undoStack.at(-1)
     if (!entry) return undefined
-    this.apply(entry, 'undo')
+    const counts = this.apply(entry, 'undo')
     this.undoStack.pop()
     this.redoStack.push(entry)
-    return entry
+    return { ...entry, ...counts }
   }
 
-  redo(): HistoryEntry | undefined {
+  redo(): AppliedEntry | undefined {
     const entry = this.redoStack.at(-1)
     if (!entry) return undefined
-    this.apply(entry, 'redo')
+    const counts = this.apply(entry, 'redo')
     this.redoStack.pop()
     this.undoStack.push(entry)
-    return entry
+    return { ...entry, ...counts }
   }
 
   /** 做了無法復原的大動作（例如 AI 重新拆場）之後清空，免得舊的紀錄對不上現在的資料。 */
@@ -414,7 +424,12 @@ export class StructureHistory {
     }
   }
 
-  private apply(entry: HistoryEntry, direction: 'undo' | 'redo'): void {
+  private apply(
+    entry: HistoryEntry,
+    direction: 'undo' | 'redo',
+  ): { applied: number; skipped: number } {
+    let applied = 0
+    let skipped = 0
     const undoing = direction === 'undo'
     const toInsert = entry.changes.filter((c) => c.kind === (undoing ? 'delete' : 'insert'))
     const toRemove = entry.changes.filter((c) => c.kind === (undoing ? 'insert' : 'delete'))
@@ -432,24 +447,37 @@ export class StructureHistory {
         for (const change of [...toInsert].sort((a, b) => order(a.table) - order(b.table))) {
           if (change.kind === 'update') continue
           const table = byKey(change.table)
-          if (!table.get(tx, change.id)) table.insert(tx, change.row)
+          if (table.get(tx, change.id)) skipped++
+          else {
+            table.insert(tx, change.row)
+            applied++
+          }
         }
         for (const change of toUpdate) {
           const table = byKey(change.table)
           const current = table.get(tx, change.id)
-          if (!current) continue
+          if (!current) {
+            skipped++
+            continue
+          }
           const fields: Row = {}
           for (const [name, { before, after }] of Object.entries(change.fields)) {
             const from = undoing ? after : before
             const to = undoing ? before : after
             if (isDeepStrictEqual(current[name], from)) fields[name] = to
+            else skipped++
           }
-          if (Object.keys(fields).length > 0) table.update(tx, change.id, fields)
+          if (Object.keys(fields).length > 0) {
+            table.update(tx, change.id, fields)
+            applied += Object.keys(fields).length
+          }
         }
         for (const change of [...toRemove].sort((a, b) => order(b.table) - order(a.table))) {
           byKey(change.table).remove(tx, change.id)
+          applied++
         }
       })
+      return { applied, skipped }
     } catch (error) {
       // 資料已經和這筆紀錄對不上（例如相關的場被別的動作刪掉），這筆就不能再用了
       if (undoing) this.undoStack.pop()

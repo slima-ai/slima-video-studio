@@ -1,4 +1,4 @@
-import type { HistoryState } from '@svs/schema'
+import { AI_TURN_UNDO_LABEL, type HistoryState } from '@svs/schema'
 import {
   createContext,
   useCallback,
@@ -92,9 +92,24 @@ export function HistoryProvider({ enabled, children }: HistoryProviderProps) {
             return
           }
           const other = direction === 'undo' ? 'redo' : 'undo'
+          // 這一步的內容後來又被改過，沒動：按了不能毫無回應，說清楚為什麼、再按一次會怎樣
+          if (result.skipped === 'all') {
+            const next = direction === 'undo' ? result.state.undoLabel : result.state.redoLabel
+            const verb = direction === 'undo' ? '復原' : '重做'
+            toast.show({
+              key: 'history',
+              message:
+                next === AI_TURN_UNDO_LABEL
+                  ? `這一步後來又被 Claude 改過，先略過；再按一次會${direction === 'undo' ? '退回' : '重做'} Claude 那一輪。`
+                  : `這一步的內容後來又被改過，先略過；再按一次會${verb}更${direction === 'undo' ? '早' : '後'}的一步。`,
+            })
+            return
+          }
           toast.show({
             key: 'history',
-            message: `${direction === 'undo' ? '已復原' : '已重做'}：${result.label ?? ''}`,
+            message: `${direction === 'undo' ? '已復原' : '已重做'}：${result.label ?? ''}${
+              result.skipped === 'some' ? '（有些內容後來又被改過，沒動）' : ''
+            }`,
             action: {
               label: direction === 'undo' ? '重做' : '復原',
               onAction: () => {
