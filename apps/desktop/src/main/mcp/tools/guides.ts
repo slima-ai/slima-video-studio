@@ -60,7 +60,7 @@ Rules
 2. Neighbouring shots must differ: change size by a step or more, or change angle. Never the same size three times running.
 3. Choose the camera move on purpose for every shot. Each scene needs at least one move with a purpose: push_in to stress something, pan to open up the space, follow to travel with an action. Do not repeat the same move, or the same angle, in more than two shots in a row. Keep static for dialogue, a pause, an emotional landing.
 4. Video models fail more on big, fast motion and on close-ups of a moving character. Save those for the one or two shots that need them; a slow push_in, pan or follow on a wide shot is safe.
-5. Describe what should be seen, never what to avoid.
+5. Describe what should be seen, never what to avoid. Describe one composition: place things by foreground, background and distance, never by splitting the frame into top and bottom or left and right parts ("face in the upper half, net in the lower half"); image models draw that literally as a two-panel collage. Say "close-up of the face, hands holding the net along the bottom edge of the frame" instead.
 
 Size (size)
 - extreme_wide: the place, its scale, a lone character. Opens or closes a scene.
