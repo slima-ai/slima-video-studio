@@ -138,7 +138,7 @@ function setup(
     ...(options.withHistory === true
       ? {
           history: {
-            begin: (label: string) => {
+            beginAiTurn: (label: string) => {
               historyLog.push(`begin:${label}`)
               let done = false
               return () => {

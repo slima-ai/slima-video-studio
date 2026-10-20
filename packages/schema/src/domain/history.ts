@@ -18,6 +18,8 @@ export const HistoryResultSchema = z.object({
   applied: z.boolean(),
   label: z.string().optional(),
   state: HistoryStateSchema,
+  /** 沒復原是因為 Claude 正在改、最上面那一步是它這一輪的：等它做完或按停止。 */
+  blocked: z.literal('ai_running').optional(),
 })
 export type HistoryResult = z.infer<typeof HistoryResultSchema>
 

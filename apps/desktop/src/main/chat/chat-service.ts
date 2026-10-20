@@ -52,7 +52,7 @@ export interface ChatServiceDeps {
   /** 對話閒置這麼久（毫秒）就把它的 claude 行程關掉；下次講話再用 --resume 接上。 */
   idleMs?: number
   /** 復原紀錄：Claude 一輪裡改的全部東西合成一步，按一次復原就退回這一輪開始之前。沒給就一個工具呼叫一步。 */
-  history?: { begin: (label: string) => () => void }
+  history?: { beginAiTurn: (label: string) => () => void }
   /** 目前開著的專案：對話紀錄存在它的 `chat/`。沒給就只放記憶體。 */
   project?: {
     dir: () => string | undefined
@@ -467,7 +467,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       const { turn } = conv
       if (!turn?.endHistory) continue
       turn.endHistory()
-      turn.endHistory = deps.history?.begin(CHAT_UNDO_LABEL)
+      turn.endHistory = deps.history?.beginAiTurn(CHAT_UNDO_LABEL)
     }
     if (dir) {
       for (const conv of conversations.values()) {
@@ -606,7 +606,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       emitConversation(conv)
       persist(conv, [user])
       // 檢查通過、要開始做事了：從現在開始把這一輪的改動記成一步
-      turn.endHistory = deps.history?.begin(CHAT_UNDO_LABEL)
+      turn.endHistory = deps.history?.beginAiTurn(CHAT_UNDO_LABEL)
       try {
         ensureProcess(conv, check.path).send(text)
       } catch (error) {

@@ -106,6 +106,27 @@ describe('HistoryProvider', () => {
     })
   })
 
+  it('Claude 正在改、最上面一步是它的：復原被擋下時說明原因，不說「沒有可以復原的動作」', async () => {
+    const svs = installFakeSvs({
+      'history.state': () => CAN_UNDO,
+      'history.undo': () => ({
+        applied: false,
+        blocked: 'ai_running',
+        state: CAN_UNDO,
+      }),
+    })
+    render(<Page />)
+    await screen.findByTestId('history-undo')
+    press(CTRL_Z)
+    await waitFor(() => {
+      expect(svs.payloadsOf('history.undo')).toHaveLength(1)
+    })
+    const text = (await screen.findByTestId('toast')).textContent
+    expect(text).toContain('Claude 正在改這個專案')
+    expect(text).toContain('按停止')
+    expect(text).not.toContain('沒有可以復原')
+  })
+
   it('不在大綱／分鏡表（enabled 為 false）時不接管快捷鍵', async () => {
     const svs = installFakeSvs()
     render(<Page enabled={false} />)

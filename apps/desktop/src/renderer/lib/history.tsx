@@ -82,6 +82,10 @@ export function HistoryProvider({ enabled, children }: HistoryProviderProps) {
       call(direction === 'undo' ? 'history.undo' : 'history.redo', {})
         .then((result) => {
           if (!result.applied) {
+            if (result.blocked === 'ai_running') {
+              toast.show({ message: 'Claude 正在改這個專案，等它做完或按停止，再復原。' })
+              return
+            }
             toast.show({
               message: direction === 'undo' ? '沒有可以復原的動作' : '沒有可以重做的動作',
             })

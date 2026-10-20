@@ -1,5 +1,6 @@
 import type { IpcChannel, IpcParsedRequest, IpcResponse } from '@svs/schema'
 
+import { runAsAi } from '../history/ai-origin'
 import type { HandlerContext, IpcRegistry } from '../ipc/registry'
 
 /** 工具呼叫失敗：訊息是給使用者／AI 看的白話文字（來自 AppError 的 userMessage），不含供應商原始錯誤。 */
@@ -94,7 +95,8 @@ export function createMcpCaller(
       if (!allowSet.has(channel)) {
         throw new McpToolError(`這個功能不開放給 AI 工具（${channel}）。`, 'not_allowed')
       }
-      const result = await registry.dispatch({ channel, payload }, ctx)
+      // 走這裡的都是 AI 工具做的：復原紀錄靠這個把 Claude 一輪的改動併成一步（見 history/ai-origin.ts）
+      const result = await runAsAi(() => registry.dispatch({ channel, payload }, ctx))
       if (!result.ok) throw new McpToolError(result.error.userMessage, result.error.code)
       return result.data as IpcResponse<typeof channel>
     },

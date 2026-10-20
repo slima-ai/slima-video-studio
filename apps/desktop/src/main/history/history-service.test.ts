@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { ProjectManager } from '../project-manager'
+import { runAsAi } from './ai-origin'
 import { createHistoryService, outlineLabel, shotEditLabel } from './history-service'
 
 const dirs: string[] = []
@@ -167,5 +168,41 @@ describe('動作名稱', () => {
   it('只改一個欄位就指出是哪一個，改多個就統稱', () => {
     expect(shotEditLabel({ description: 'x' })).toBe('修改鏡頭的畫面描述')
     expect(shotEditLabel({ dialogue: 'x', mood: null })).toBe('修改鏡頭')
+  })
+
+  it('beginAiTurn：AI（MCP）呼叫的改動併成一步、使用者的照舊各一步；最上面是 Claude 還開著的那一步時，復原被擋下', () => {
+    const { root, projects, history } = setup()
+    projects.create(join(root, 'ai.svsproj'), 'AI')
+    const repos = projects.current()?.repos
+    if (!repos) throw new Error('專案沒開起來')
+    const end = history.beginAiTurn('Claude 這一輪')
+    const asAi = <T>(run: () => T): T => runAsAi(run)
+    asAi(() => history.record('新增一幕', () => repos.outline.addAct({ title: 'AI 一' })))
+    asAi(() => history.record('新增一幕', () => repos.outline.addAct({ title: 'AI 二' })))
+    // 最上面是 Claude 這一輪、還沒收尾：復原擋下
+    expect(history.state()).toMatchObject({ undoCount: 1, undoLabel: 'Claude 這一輪' })
+    expect(history.undo()).toMatchObject({ applied: false, blocked: 'ai_running' })
+    expect(repos.outline.listActs()).toHaveLength(2)
+    // 使用者自己做了一件事：它在最上面，可以復原，而且只退它
+    history.record('新增一幕', () => repos.outline.addAct({ title: '我的' }))
+    expect(history.state().undoCount).toBe(2)
+    expect(history.undo()).toMatchObject({ applied: true, label: '新增一幕' })
+    expect(repos.outline.listActs().map((a) => a.title)).toEqual(['AI 一', 'AI 二'])
+    // 又被擋（最上面又是 Claude 的）；收尾之後就能一次退掉整輪
+    expect(history.undo().blocked).toBe('ai_running')
+    end()
+    expect(history.undo()).toMatchObject({ applied: true, label: 'Claude 這一輪' })
+    expect(repos.outline.listActs()).toHaveLength(0)
+  })
+
+  it('沒有 beginAiTurn 時，AI 呼叫跟使用者的一樣各是一步（Claude Desktop 之類在面板外連進來）', () => {
+    const { root, projects, history } = setup()
+    projects.create(join(root, 'ai2.svsproj'), 'AI')
+    const repos = projects.current()?.repos
+    if (!repos) throw new Error('專案沒開起來')
+    runAsAi(() => history.record('新增一幕', () => repos.outline.addAct({ title: 'A' })))
+    runAsAi(() => history.record('新增一幕', () => repos.outline.addAct({ title: 'B' })))
+    expect(history.state().undoCount).toBe(2)
+    expect(history.undo().blocked).toBeUndefined()
   })
 })
