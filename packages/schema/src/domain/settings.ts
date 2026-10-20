@@ -32,6 +32,15 @@ export const McpSettingsSchema = z.object({
 export type McpSettings = z.infer<typeof McpSettingsSchema>
 
 /**
+ * 實驗功能（App 層級）。`claudeChat`＝畫布右下角的 Claude 對話：沒設就依版本——開發版開、打包版關
+ * （條款還沒決定，公開發佈前的保險）；使用者在設定頁一動，就用他選的。
+ */
+export const ExperimentsSettingsSchema = z.object({
+  claudeChat: z.boolean().optional(),
+})
+export type ExperimentsSettings = z.infer<typeof ExperimentsSettingsSchema>
+
+/**
  * 聲音設定（App 層級）。`voices` 是每個旁白模型（ModelCard id）選的聲音（模型卡 voices 裡的 id）；
  * 沒選的模型用卡上的第一個聲音。聲音的模型本身跟其他用途一樣，放在 `models`（tts、music）。
  */
@@ -67,6 +76,7 @@ export const AppSettingsSchema = z.object({
   storyboardGuide: z.string().max(STORYBOARD_GUIDE_MAX_CHARS).default(''),
   mcp: McpSettingsSchema.default({ enabled: false, port: DEFAULT_MCP_PORT, allowanceUsd: 0 }),
   audio: AudioSettingsSchema.default({ voices: {} }),
+  experiments: ExperimentsSettingsSchema.default({}),
 })
 export type AppSettings = z.infer<typeof AppSettingsSchema>
 
@@ -93,6 +103,8 @@ export const AppSettingsPatchSchema = z.object({
       allowanceUsd: UsdSchema.optional(),
     })
     .optional(),
+  /** 實驗功能開關：逐項合併。 */
+  experiments: z.object({ claudeChat: z.boolean().optional() }).optional(),
 })
 export type AppSettingsPatch = z.infer<typeof AppSettingsPatchSchema>
 

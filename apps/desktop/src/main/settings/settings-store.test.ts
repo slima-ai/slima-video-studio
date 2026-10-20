@@ -30,6 +30,7 @@ describe('createSettingsStore', () => {
       storyboardGuide: '',
       mcp: { enabled: false, port: 47821, allowanceUsd: 0 },
       audio: { voices: {} },
+      experiments: {},
     })
   })
 
@@ -98,6 +99,19 @@ describe('applyPatch', () => {
       enabled: false,
       port: 47821,
       allowanceUsd: 2.5,
+    })
+  })
+
+  it('實驗功能：沒設就是沒有值（依版本決定）；更新逐項合併，沒給的欄位不蓋掉原值', () => {
+    expect(base.experiments).toEqual({})
+    const on = applyPatch(base, { experiments: { claudeChat: true } })
+    expect(on.experiments).toEqual({ claudeChat: true })
+    expect(applyPatch(on, { experiments: { claudeChat: undefined } }).experiments).toEqual({
+      claudeChat: true,
+    })
+    expect(applyPatch(on, { demoMode: true }).experiments).toEqual({ claudeChat: true })
+    expect(applyPatch(on, { experiments: { claudeChat: false } }).experiments).toEqual({
+      claudeChat: false,
     })
   })
 

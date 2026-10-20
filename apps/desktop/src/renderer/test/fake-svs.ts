@@ -24,6 +24,7 @@ export const SETTINGS: AppSettings = {
   budget: { perRunLimitUsd: 5 },
   modelNotices: [],
   audio: { voices: {} },
+  experiments: {},
 }
 
 export const KEYS: KeyStatus[] = [
