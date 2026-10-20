@@ -42,7 +42,7 @@ export function GrowConfirm({
               `這一步只寫分鏡：把故事拆成 ${String(n)} 個鏡頭，約 US$${check.estimatedUsd.toFixed(2)}（只用文字模型）`,
               pending.nextUsd === undefined
                 ? '下一步才生圖片和影片'
-                : `下一步才生圖片和影片：${String(n)} 張第一張畫面、${String(n)} 支影片，大約 US$${pending.nextUsd.toFixed(2)}（跟拆完後右上角的數字會差一點點）`,
+                : `下一步才生圖片和影片：${String(n)} 張第一張畫面、${String(n)} 支影片，約 US$${pending.nextUsd.toFixed(2)}（跟拆完後右上角的數字會差一點點）`,
               '分鏡寫好後你可以先看、先改，要生成時再按右上角的「全部生成」，那裡會給準確的預估',
               '旁白與配樂也不在這一步：卡片上勾的聲音會記住，按「全部生成」時自動加',
               ...(check.models.llm === undefined ? [] : [`這一步用：${check.models.llm}`]),
