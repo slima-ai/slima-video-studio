@@ -185,10 +185,11 @@ export function useRun(options: {
       setQualityState(next)
       const current = pending
       if (!current) return
-      const { keys, all } = current.request
+      const { keys, all, scope } = current.request
       const request: CanvasRunRequest = {
         keys,
         ...(all === undefined ? {} : { all }),
+        ...(scope === undefined ? {} : { scope }),
         ...(next ? { quality: next } : {}),
       }
       call('canvas.runPlan', request)

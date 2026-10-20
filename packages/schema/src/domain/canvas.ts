@@ -419,6 +419,12 @@ export const CanvasRunRequestSchema = z.object({
    * 「經濟」就是「先出草稿」：滿意的鏡頭再用高品質重做。
    */
   quality: ModelTierSchema.optional(),
+  /**
+   * 按在圖或影片節點上時要跑多少（▶ 旁的選單）：只跑這個（this）、這個和後面的（from-here：
+   * 影片接著接成品）、整條（chain：這一鏡的圖、影片，接著接成品）。明確指定的就是要做（已經有的重做、舊的保留）。
+   * 沒給就是原本的 ▶：補跑缺的、不重跑已經有的。
+   */
+  scope: z.enum(['this', 'from-here', 'chain']).optional(),
 })
 export type CanvasRunRequest = z.infer<typeof CanvasRunRequestSchema>
 

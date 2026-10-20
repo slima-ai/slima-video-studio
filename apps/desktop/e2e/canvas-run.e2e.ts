@@ -163,7 +163,9 @@ test.describe('畫布執行（示範模式）', () => {
     await centerOn(page, first.id)
     const play = page.getByTestId(`run-${first.id}`)
     await play.hover()
-    await expect(page.getByTestId('hover-tip')).toHaveText('重做這一步：產生新的一版，舊的保留')
+    await expect(page.getByTestId('hover-tip')).toContainText('重做這一步：產生新的一版，舊的保留')
+    // 滑過就看到預估
+    await expect(page.getByTestId('hover-tip')).toContainText('預估約 US$')
     await play.click()
     await expect(page.getByTestId('run-confirm')).toContainText('影片（重做：產生 v2，保留 v1）')
     await expect(page.getByTestId('run-confirm-ok')).toHaveText('重做（產生 v2，保留 v1）')

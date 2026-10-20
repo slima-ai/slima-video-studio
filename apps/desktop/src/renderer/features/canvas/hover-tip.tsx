@@ -34,9 +34,10 @@ export function HoverTip({
     const onOver = (event: MouseEvent): void => {
       const target = event.target instanceof Element ? event.target.closest('[data-tip]') : null
       if (!target) return
-      const text = target.getAttribute('data-tip') ?? ''
       window.clearTimeout(timer)
       timer = window.setTimeout(() => {
+        // 出現的時候才讀：▶ 的說明會在滑過之後才補上預估
+        const text = target.getAttribute('data-tip') ?? ''
         const box = target.getBoundingClientRect()
         // 靠近視窗左右邊緣時往內收，說明不會被切掉
         const x = Math.min(Math.max(box.left + box.width / 2, 150), window.innerWidth - 150)
