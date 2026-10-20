@@ -14,6 +14,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   breakdownNode,
   composeShotPrompts,
+  frameFillSuffix,
   ShotItemSchema,
   concatNode,
   dialogueOf,
@@ -504,12 +505,53 @@ describe('節點：首幀圖、圖生影片、接片', () => {
     expect(out.image).toEqual(image)
     expect(requests[0]).toMatchObject({
       capability: 't2i',
-      prompt: '一隻貓',
+      prompt: `一隻貓${frameFillSuffix('9:16')}`,
       aspectRatio: '9:16',
       seed: 2,
       count: 1,
     })
     expect(costs[0]).toMatchObject({ provider: 'fal', amountUsd: 0.08 })
+  })
+
+  it('首幀圖的 Prompt 後面補「滿版、單一連續畫面」：不是拼貼、分格、上下兩格，上下沒有黑色橫條；比例照節點的設定', () => {
+    const suffix = frameFillSuffix('16:9')
+    expect(suffix).toContain('16:9 滿版畫面')
+    expect(suffix).toContain('單一連續畫面，不是拼貼、分格或上下兩格')
+    expect(suffix).toContain('上下沒有黑色橫條')
+    expect(frameFillSuffix('9:16')).toContain('9:16 滿版畫面')
+  })
+
+  it('首幀圖：服務有提供去黑邊就用它回傳的圖（帶著節點的比例）；沒提供就用模型回傳的原圖', async () => {
+    const trimmed = { ...image, hash: HASH('e') }
+    const trim = vi.fn(() => Promise.resolve(trimmed))
+    const { studio } = fakeStudio([assets(image, 0.08)])
+    const out = await runNode(imageNode, {
+      params: { aspectRatio: '21:9' },
+      inputs: { prompt: '一隻貓' },
+      modelId: 'm',
+      studio: { ...studio, trimLetterbox: trim },
+    })
+    expect(out.out.image).toEqual(trimmed)
+    expect(trim).toHaveBeenCalledWith(image, '21:9', expect.anything())
+    const plain = fakeStudio([assets(image, 0.08)])
+    const out2 = await runNode(imageNode, {
+      inputs: { prompt: '一隻貓' },
+      modelId: 'm',
+      studio: plain.studio,
+    })
+    expect(out2.out.image).toEqual(image)
+  })
+
+  it('首幀圖：去黑邊失敗不能讓生成白花錢，用原圖並照樣入帳；使用者取消就照樣丟出取消', async () => {
+    const fail = vi.fn(() => Promise.reject(new Error('ffmpeg 壞了')))
+    const { studio } = fakeStudio([assets(image, 0.08)])
+    const { out, costs } = await runNode(imageNode, {
+      inputs: { prompt: '一隻貓' },
+      modelId: 'm',
+      studio: { ...studio, trimLetterbox: fail },
+    })
+    expect(out.image).toEqual(image)
+    expect(costs).toHaveLength(1)
   })
 
   it('圖生影片：有運鏡就帶進請求，空字串或沒給就不帶', async () => {
@@ -737,7 +779,7 @@ describe('自動挑參考圖', () => {
     expect(requests[0]).toMatchObject({
       capability: 'edit',
       modelId: 'fal/edit',
-      prompt: `阿鐵走路${REFERENCE_PROMPT_SUFFIX}`,
+      prompt: `阿鐵走路${REFERENCE_PROMPT_SUFFIX}${frameFillSuffix('16:9')}`,
       referenceAssets: [HASH('c'), HASH('d')],
     })
     expect(edited.costs[0]).toMatchObject({ modelId: 'fal/edit' })
@@ -749,7 +791,11 @@ describe('自動挑參考圖', () => {
       modelId: 'fal/t2i',
       studio,
     })
-    expect(requests[1]).toMatchObject({ capability: 't2i', modelId: 'fal/t2i', prompt: '空鏡頭' })
+    expect(requests[1]).toMatchObject({
+      capability: 't2i',
+      modelId: 'fal/t2i',
+      prompt: `空鏡頭${frameFillSuffix('16:9')}`,
+    })
     expect(requests[1]).toMatchObject({ referenceAssets: [] })
   })
 
