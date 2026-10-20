@@ -59,28 +59,33 @@ const TIERS: { tier: ModelTier; label: string; tone: BadgeTone }[] = [
 ]
 
 /**
- * 一個選項：等級色塊、名稱、推薦小標，價格靠右；價格還沒跟官方核對過的標「估算」。
- * 還沒解鎖的模型在價格前寫「需要 fal.ai 金鑰」。
+ * 一個選項分兩行：第一行是完整的模型名稱（太長就換行，不截斷），第二行是等級色塊、推薦小標，
+ * 價格靠右；價格還沒跟官方核對過的標「估算」。還沒解鎖的模型在價格前寫「需要 fal.ai 金鑰」。
+ * 名稱是這張卡最重要的資訊，窄的時候也不能被標籤和價格擠掉。
  */
 function OptionContent({ model, recommended }: { model: ModelOption; recommended: boolean }) {
   const tier = TIERS.find((t) => t.tier === model.tier)
   return (
-    <span className="flex items-center gap-2">
-      {tier ? <Badge tone={tier.tone}>{tier.label}</Badge> : null}
-      <span className="min-w-0 truncate">{model.displayName}</span>
-      {recommended ? <Badge tone="warning">推薦</Badge> : null}
-      {model.needsKey ? (
-        <span className="shrink-0 text-xs text-fg-muted">需要 {model.needsKey} 金鑰</span>
-      ) : null}
-      {model.badges.map((badge) => (
-        <Badge key={badge} tone="neutral">
-          {badge}
-        </Badge>
-      ))}
-      <span className="ml-auto flex shrink-0 items-center gap-2">
-        {model.priceVerified ? null : <Badge tone="neutral">估算</Badge>}
-        <span className="text-xs text-fg-muted" title={model.priceLabel}>
-          {model.priceShort}
+    <span className="flex flex-col gap-0.5">
+      <span data-testid="model-name" className="min-w-0 [overflow-wrap:anywhere]">
+        {model.displayName}
+      </span>
+      <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        {tier ? <Badge tone={tier.tone}>{tier.label}</Badge> : null}
+        {recommended ? <Badge tone="warning">推薦</Badge> : null}
+        {model.needsKey ? (
+          <span className="shrink-0 text-xs text-fg-muted">需要 {model.needsKey} 金鑰</span>
+        ) : null}
+        {model.badges.map((badge) => (
+          <Badge key={badge} tone="neutral">
+            {badge}
+          </Badge>
+        ))}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {model.priceVerified ? null : <Badge tone="neutral">估算</Badge>}
+          <span className="text-xs text-fg-muted" title={model.priceLabel}>
+            {model.priceShort}
+          </span>
         </span>
       </span>
     </span>
