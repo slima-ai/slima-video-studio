@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { cn } from '../../lib/cn'
 
@@ -11,26 +11,69 @@ export interface SettingsTag {
  * 頁面標題列右邊的一排小標籤：點了捲到那一區，捲動時亮著目前看到的這一區。
  * 寬窄視窗都是同一排（窄的時候橫向捲動）。標題列本來就黏在上面，所以標籤也一直在。
  */
+/** 最近的、真的會捲動的祖先（設定頁的內容區）。 */
+function scrollParentOf(el: HTMLElement): HTMLElement | undefined {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node)
+    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
+      return node
+    }
+  }
+  return undefined
+}
+
+/** 區的頂端離視窗上緣不到這麼多像素，就算「已經捲進這一區」（標題列 56px，再留一點）。 */
+const ENTER_PX = 96
+/** 按標籤後，這麼久之內不讓捲動事件改亮的標籤（平滑捲動大約這麼久）。 */
+const SCROLL_LOCK_MS = 900
+
+/**
+ * 目前在哪一區：最後一個頂端已經捲過上緣線的區；捲到最底了就是最後一區（最後一區很短、頂端永遠碰不到線）。
+ * 不用「哪些區跟某條帶子相交、取第一個」：上一區很長時它會一直跟帶子相交，亮的就停在上一區。
+ */
+export function currentTag(tags: readonly SettingsTag[]): string | undefined {
+  let current = tags[0]?.id
+  let last: HTMLElement | null = null
+  for (const tag of tags) {
+    const el = document.getElementById(tag.id)
+    if (!el) continue
+    last = el
+    if (el.getBoundingClientRect().top <= ENTER_PX) current = tag.id
+  }
+  if (last) {
+    const scroller = scrollParentOf(last)
+    if (
+      scroller &&
+      scroller.scrollTop > 0 &&
+      scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4
+    ) {
+      return tags[tags.length - 1]?.id
+    }
+  }
+  return current
+}
+
 export function SettingsTags({ tags }: { tags: readonly SettingsTag[] }) {
   const [active, setActive] = useState<string>(tags[0]?.id ?? '')
+  // 按了標籤、平滑捲動的這段時間，亮的就是按的那一個（不要被捲動途中經過的區搶走）
+  const lockedUntil = useRef(0)
   useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return undefined
-    const seen = new Map<string, boolean>()
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) seen.set(entry.target.id, entry.isIntersecting)
-        const first = tags.find((tag) => seen.get(tag.id) === true)
-        if (first) setActive(first.id)
-      },
-      // 標題列 56px：它下面這一條才算「看到」；只看上半部，下面剛露頭的區不算
-      { rootMargin: '-64px 0px -55% 0px' },
-    )
-    for (const tag of tags) {
-      const el = document.getElementById(tag.id)
-      if (el) observer.observe(el)
+    let frame = 0
+    const update = (): void => {
+      frame = 0
+      if (Date.now() < lockedUntil.current) return
+      const id = currentTag(tags)
+      if (id) setActive(id)
     }
+    const onScroll = (): void => {
+      if (frame === 0) frame = requestAnimationFrame(update)
+    }
+    // 內容區是設定頁外面的捲動容器：scroll 事件不會往上傳，用捕獲階段接
+    document.addEventListener('scroll', onScroll, true)
+    update()
     return () => {
-      observer.disconnect()
+      document.removeEventListener('scroll', onScroll, true)
+      if (frame !== 0) cancelAnimationFrame(frame)
     }
   }, [tags])
   return (
@@ -51,6 +94,7 @@ export function SettingsTags({ tags }: { tags: readonly SettingsTag[] }) {
           )}
           onClick={() => {
             setActive(tag.id)
+            lockedUntil.current = Date.now() + SCROLL_LOCK_MS
             document.getElementById(tag.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
           }}
         >

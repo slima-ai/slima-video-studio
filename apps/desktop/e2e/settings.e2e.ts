@@ -186,4 +186,93 @@ test.describe('第一次使用的引導與設定頁', () => {
     const settings = await page.evaluate(() => window.svs.invoke('settings.get', {}))
     expect(settings).toMatchObject({ ok: true, data: { budget: { perRunLimitUsd: 8 } } })
   })
+
+  test('頂端小標籤：捲到哪一區亮哪一個（含很長的區的中段與最底），點標籤捲到對的區', async ({
+    page,
+  }) => {
+    await page.getByRole('button', { name: '設定' }).click()
+    await expect(page.getByTestId('settings-tags')).toBeVisible()
+    const ids = ['general', 'connections', 'keys', 'models', 'experiments']
+    const lit = async (): Promise<string[]> =>
+      page
+        .locator('[data-testid^="settings-tag-"][aria-current="true"]')
+        .evaluateAll((els) => els.map((e) => e.getAttribute('data-testid') ?? ''))
+    /** 內容區的捲動容器（設定頁外面那一層）。 */
+    const scrollTo = (id: string, offsetPx: number): Promise<void> =>
+      page.evaluate(
+        ([target, offset]) => {
+          const el = document.getElementById(String(target))
+          if (!el) throw new Error('找不到區')
+          let node = el.parentElement
+          while (
+            node &&
+            !(
+              node.scrollHeight > node.clientHeight &&
+              /auto|scroll/.test(getComputedStyle(node).overflowY)
+            )
+          ) {
+            node = node.parentElement
+          }
+          if (!node) throw new Error('找不到捲動容器')
+          const delta = el.getBoundingClientRect().top - 64 + Number(offset)
+          node.scrollTop += delta
+        },
+        [id, offsetPx],
+      )
+
+    // 一開始：一般
+    await expect.poll(lit).toEqual(['settings-tag-general'])
+    // 依序捲到五區（區的頂端剛好在標題列下面）：每一次亮的都是那一區
+    for (const id of ids) {
+      await scrollTo(id, 0)
+      await expect.poll(lit, { message: `捲到 ${id}` }).toEqual([`settings-tag-${id}`])
+    }
+    // 倒著捲回來也一樣
+    for (const id of [...ids].reverse()) {
+      await scrollTo(id, 0)
+      await expect.poll(lit, { message: `倒捲到 ${id}` }).toEqual([`settings-tag-${id}`])
+    }
+    // 很長的區（AI 工具連線）捲到中段：還是它，不是上一區也不是下一區
+    await scrollTo('connections', 300)
+    await expect.poll(lit).toEqual(['settings-tag-connections'])
+    // 捲到整頁最底：最後一區（它很短，頂端碰不到線）
+    await page.evaluate(() => {
+      const el = document.getElementById('experiments')
+      let node = el?.parentElement ?? null
+      while (
+        node &&
+        !(
+          node.scrollHeight > node.clientHeight &&
+          /auto|scroll/.test(getComputedStyle(node).overflowY)
+        )
+      ) {
+        node = node.parentElement
+      }
+      if (node) node.scrollTop = node.scrollHeight
+    })
+    await expect.poll(lit).toEqual(['settings-tag-experiments'])
+
+    // 點標籤：捲到那一區（頂端在標題列下面），而且亮的是它
+    await page.getByTestId('settings-tag-general').click()
+    for (const id of ['keys', 'connections', 'models', 'general']) {
+      await page.getByTestId(`settings-tag-${id}`).click()
+      await expect
+        .poll(async () =>
+          page.evaluate(
+            (target) => document.getElementById(target)?.getBoundingClientRect().top ?? 9999,
+            id,
+          ),
+        )
+        .toBeLessThan(110)
+      await expect
+        .poll(async () =>
+          page.evaluate(
+            (target) => document.getElementById(target)?.getBoundingClientRect().top ?? -9999,
+            id,
+          ),
+        )
+        .toBeGreaterThan(40)
+      await expect.poll(lit).toEqual([`settings-tag-${id}`])
+    }
+  })
 })
