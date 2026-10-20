@@ -676,7 +676,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           { x: at.x - size.w / 2, y: at.y - 20 },
           undefined,
           undefined,
-          placeArea(),
+          // 只有沒指定位置的新增才找看得到的空位；指定了位置（拖放、右鍵、點的地方）就照那裡，
+          // 一句話放在固定的起點（自動排版的內容從它右邊長出來），也不跟著畫面挪
+          place === undefined && kind !== 'oneliner' ? placeArea() : undefined,
         )
         spot = { x: snap(free.x), y: snap(free.y) }
         rememberPlaced(spot, size)
@@ -709,7 +711,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 { x: (at?.x ?? 0) - 240, y: (at?.y ?? 0) - 150 },
                 undefined,
                 undefined,
-                placeArea(),
+                place === undefined ? placeArea() : undefined,
               )
               rememberPlaced({ x: snap(free.x), y: snap(free.y) }, size)
               return { x: snap(free.x), y: snap(free.y), ...size }
@@ -973,7 +975,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   // ── 放上圖片或影片：「上傳」選檔，或從檔案總管拖進來 ──
   /** 放在想放的地方；被佔住就挪到最近的空位（不然自動排版的場會被推開）。 */
   const mediaSpot = useCallback(
-    (at: XY): XY => {
+    (at: XY, inView: boolean): XY => {
       const size = NODE_SIZE.freeImage
       const free = freeSpot(
         obstaclesNow(),
@@ -981,7 +983,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         { x: at.x - size.w / 2, y: at.y - size.h / 2 },
         undefined,
         undefined,
-        placeArea(),
+        // 只有沒指定位置（上傳按鈕）才限制在看得到的範圍；拖進來的照放開的地方
+        inView ? placeArea() : undefined,
       )
       const spot = { x: snap(free.x), y: snap(free.y) }
       rememberPlaced(spot, size)
@@ -1024,7 +1027,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         .filter((n) => !isGroup(n))
         .map(rectOf)
         .filter((r) => r.w > 0 && r.h > 0)
-      const spot = mediaSpot(at)
+      const spot = mediaSpot(at, place === undefined)
       call('canvas.importFiles', {
         ...spot,
         ...(connectTo ? { connectTo } : {}),
@@ -1069,7 +1072,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             name: file.name,
             mime,
             bytes,
-            ...mediaSpot({ x: at.x + index * 240, y: at.y }),
+            ...mediaSpot({ x: at.x + index * 240, y: at.y }, false),
           }),
         )
       } catch (error) {
