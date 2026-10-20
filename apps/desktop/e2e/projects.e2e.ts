@@ -167,6 +167,20 @@ test.describe('首頁（不帶 SVS_DISABLE_HOME、不跳過引導：真正的第
     await expect(page.getByTestId('home-recent-empty')).toBeVisible()
     // 最上面的專案列在首頁也在：還沒有專案
     await expect(page.getByTestId('project-name')).toHaveText('未命名專案')
+    // 左邊導覽的每一顆都直接寫著名字（不用滑過才知道「專案」「檔案」各是什麼）
+    for (const label of [
+      '畫布',
+      '大綱',
+      '分鏡表',
+      '角色',
+      '場景卡',
+      '生成紀錄',
+      '檔案',
+      '專案',
+      '設定',
+    ]) {
+      await expect(page.getByTestId('layout-nav')).toContainText(label)
+    }
 
     await page.getByTestId('home-new').click()
     await page.getByTestId('new-project-name').fill('第一支')

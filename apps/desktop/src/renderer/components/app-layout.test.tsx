@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, within, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AppLayout } from './app-layout'
@@ -71,8 +71,9 @@ describe('AppLayout', () => {
     const other = screen.getByRole('button', { name: '畫布' })
     expect(other.getAttribute('aria-current')).toBeNull()
     expect(other.dataset.active).toBe('false')
-    // 提示文字只給滑鼠與鍵盤使用者看
-    expect(current.textContent).toBe('設定')
+    // 圖示下面的小字＋滑過或聚焦才出現的完整名稱（都是 aria-hidden，按鈕的名字是 aria-label）
+    expect(current.textContent).toBe('設定設定')
+    expect(current.querySelectorAll('[aria-hidden=true]').length).toBeGreaterThanOrEqual(2)
   })
 
   it('「從 Slima 匯入」只在有連上（或設定了）Slima 時才出現', () => {
@@ -80,5 +81,26 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('button', { name: '從 Slima 匯入' })).toBeNull()
     rerender(<AppLayout showSlima />)
     expect(screen.getByRole('button', { name: '從 Slima 匯入' })).toBeTruthy()
+  })
+
+  it('導覽按鈕在圖示下面直接寫名字，不用滑過才知道；從 Slima 匯入寫短的「Slima」', () => {
+    render(<AppLayout view="canvas" showSlima />)
+    const nav = within(screen.getByTestId('layout-nav'))
+    for (const [label, visible] of [
+      ['畫布', '畫布'],
+      ['大綱', '大綱'],
+      ['分鏡表', '分鏡表'],
+      ['角色', '角色'],
+      ['場景卡', '場景卡'],
+      ['生成紀錄', '生成紀錄'],
+      ['檔案', '檔案'],
+      ['從 Slima 匯入', 'Slima'],
+      ['專案', '專案'],
+      ['設定', '設定'],
+    ] as const) {
+      const button = nav.getByRole('button', { name: label })
+      // 圖示下面那行字（aria-hidden，名字仍是 aria-label）
+      expect(within(button).getAllByText(visible).length).toBeGreaterThanOrEqual(1)
+    }
   })
 })

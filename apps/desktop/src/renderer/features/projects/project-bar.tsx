@@ -1,4 +1,4 @@
-import type { ProjectStatus, RecentProject } from '@svs/schema'
+import type { MenuAction, ProjectStatus, RecentProject } from '@svs/schema'
 import {
   ChevronDown,
   Clapperboard,
@@ -26,6 +26,13 @@ export function saveHint(status: ProjectStatus | null | undefined): string {
   return status
     ? `專案會自動儲存，最後一次 ${clockTime(status.savedAt)}`
     : '還沒有專案。新增任何東西時會自動建立，之後都會自動儲存。'
+}
+
+const IS_MAC = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac')
+
+/** 選單項目右邊的快捷鍵提示；只有 macOS 有「檔案」選單，別的系統沒有這些快捷鍵就不顯示。 */
+function Shortcut({ keys }: { keys: string }) {
+  return IS_MAC ? <span className="ml-auto text-xs text-fg-muted">{keys}</span> : null
 }
 
 const barButton =
@@ -58,6 +65,52 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
 
   const name = status?.name ?? ''
   const hasProject = status !== null && status !== undefined
+
+  // 視窗上方選單（macOS 的「檔案」）選了哪一項：做的跟這一列的選單、快捷鍵是同一批動作。
+  // 用 ref 拿最新的版本，訂閱才不用每次重畫都重掛
+  const onMenuAction = useRef<(menu: MenuAction) => void>(() => undefined)
+  onMenuAction.current = (menu) => {
+    if (creating || savingAs) return
+    const noProject = (what: string): void => {
+      toast.show({ message: `還沒有專案可以${what}。新增任何東西時會自動建立。` })
+    }
+    switch (menu.action) {
+      case 'new':
+        setCreating(true)
+        break
+      case 'open':
+        finishWith(pickAndOpenProject(), true)
+        break
+      case 'openRecent':
+        if (menu.dir !== undefined) finishWith(call('project.openRecent', { dir: menu.dir }), true)
+        break
+      case 'save':
+        toast.show({ message: saveHint(status), key: 'save-hint' })
+        break
+      case 'saveAs':
+        if (hasProject) setSavingAs(true)
+        else noProject('另存')
+        break
+      case 'rename':
+        if (hasProject) setRenaming(true)
+        else noProject('改名')
+        break
+      case 'reveal':
+        if (hasProject) finishWith(call('project.reveal', {}), false)
+        else noProject('在資料夾中顯示')
+        break
+      case 'home':
+        onNavigate('home')
+        break
+    }
+  }
+  useEffect(
+    () =>
+      window.svs.on('menu.action', (menu) => {
+        onMenuAction.current(menu)
+      }),
+    [],
+  )
 
   // ⌘S／Ctrl+S：專案是自動儲存的，沒有東西要存；習慣按的人會看到這句，知道已經存好了
   useEffect(() => {
@@ -392,6 +445,7 @@ function ProjectMenu({
       >
         <FolderPlus className="size-4" aria-hidden />
         新專案
+        <Shortcut keys="⌘N" />
       </button>
       <button
         type="button"
@@ -403,6 +457,7 @@ function ProjectMenu({
       >
         <FolderOpen className="size-4" aria-hidden />
         開啟舊專案…
+        <Shortcut keys="⌘O" />
       </button>
       {recent.length > 0 ? (
         <>
@@ -457,6 +512,7 @@ function ProjectMenu({
           >
             <Copy className="size-4" aria-hidden />
             另存為…
+            <Shortcut keys="⇧⌘S" />
           </button>
           <button
             type="button"

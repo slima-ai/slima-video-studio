@@ -360,4 +360,111 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     await screen.findByTestId('project-menu')
     expect(screen.queryByTestId('menu-save-as')).toBeNull()
   })
+
+  describe('視窗上方選單（macOS「檔案」）選的動作', () => {
+    const setup = (statusValue: ProjectStatus | null = status()) => {
+      const go = vi.fn()
+      const fake = installFakeSvs({
+        'project.status': () => statusValue,
+        'project.list': () => ({ folder: '/tmp', projects: [] }),
+        'project.reveal': () => ({}),
+        'project.openRecent': (payload: { dir: string }) => ({
+          id: 'p3',
+          name: '狗的故事',
+          dir: payload.dir,
+          aspectRatio: '16:9',
+        }),
+        'project.pickAndOpen': () => ({
+          id: 'p9',
+          name: '舊的',
+          dir: '/old.svsproj',
+          aspectRatio: '16:9',
+        }),
+      })
+      render(
+        <ToastProvider>
+          <ProjectBar onNavigate={go} demoMode />
+        </ToastProvider>,
+      )
+      return { go, fake }
+    }
+    const pick = (action: string, dir?: string): void => {
+      act(() => {
+        useMenu(action, dir)
+      })
+    }
+    let useMenu: (action: string, dir?: string) => void = () => undefined
+
+    it('新專案、儲存、改名、首頁、開啟舊專案、最近的專案、在資料夾中顯示、另存為', async () => {
+      const { go, fake } = setup()
+      useMenu = (action, dir) => {
+        fake.emit('menu.action', dir === undefined ? { action } : { action, dir })
+      }
+      await screen.findByText('貓的故事')
+
+      pick('new')
+      expect(await screen.findByTestId('new-project-dialog')).toBeTruthy()
+      // 視窗開著時，又選了選單：不會疊出第二個視窗
+      pick('saveAs')
+      expect(screen.queryByTestId('save-as-dialog')).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: '取消' }))
+      await waitFor(() => {
+        expect(screen.queryByTestId('new-project-dialog')).toBeNull()
+      })
+
+      pick('save')
+      expect((await screen.findByTestId('toast')).textContent).toContain(
+        '專案會自動儲存，最後一次 12:03',
+      )
+
+      pick('rename')
+      expect(await screen.findByTestId('project-rename')).toBeTruthy()
+      fireEvent.keyDown(screen.getByTestId('project-rename'), { key: 'Escape' })
+
+      pick('saveAs')
+      expect(await screen.findByTestId('save-as-dialog')).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+      pick('home')
+      expect(go).toHaveBeenLastCalledWith('home')
+
+      pick('open')
+      await waitFor(() => {
+        expect(go).toHaveBeenLastCalledWith('canvas')
+      })
+      go.mockClear()
+      pick('openRecent', '/p/狗.svsproj')
+      await waitFor(() => {
+        expect(fake.payloadsOf('project.openRecent')).toEqual([{ dir: '/p/狗.svsproj' }])
+      })
+      await waitFor(() => {
+        expect(go).toHaveBeenCalledWith('canvas')
+      })
+      pick('reveal')
+      await waitFor(() => {
+        expect(fake.payloadsOf('project.reveal')).toEqual([{}])
+      })
+    })
+
+    it('沒有專案：另存為、改名、在資料夾中顯示都只說「還沒有專案…」，不去呼叫；儲存也說一聲', async () => {
+      const { fake } = setup(null)
+      useMenu = (action, dir) => {
+        fake.emit('menu.action', dir === undefined ? { action } : { action, dir })
+      }
+      await waitFor(() => {
+        expect(fake.payloadsOf('project.status')).toHaveLength(1)
+      })
+      for (const [action, text] of [
+        ['saveAs', '還沒有專案可以另存'],
+        ['rename', '還沒有專案可以改名'],
+        ['reveal', '還沒有專案可以在資料夾中顯示'],
+        ['save', '還沒有專案'],
+      ] as const) {
+        pick(action)
+        expect((await screen.findByTestId('toast')).textContent).toContain(text)
+      }
+      expect(fake.payloadsOf('project.reveal')).toEqual([])
+      expect(screen.queryByTestId('save-as-dialog')).toBeNull()
+    })
+  })
 })
