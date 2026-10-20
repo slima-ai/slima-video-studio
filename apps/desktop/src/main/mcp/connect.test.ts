@@ -198,6 +198,46 @@ describe('一鍵連接 Claude Desktop', () => {
   })
 })
 
+describe('Claude Code 有沒有連上（讀它的使用者層級設定）', () => {
+  const connector = (home: string) =>
+    createConnector({
+      platform: 'darwin',
+      home,
+      appData: undefined,
+      bridge: BRIDGE,
+      findClaude: () => Promise.resolve(undefined),
+      runFile: vi.fn(),
+    })
+
+  it('什麼都沒有：沒裝、沒連', () => {
+    expect(connector(tmp()).info().claudeCode).toEqual({ installed: false, connected: false })
+  })
+
+  it('有 .claude 資料夾：裝了，但設定裡沒有我們這一項就是沒連', () => {
+    const home = tmp()
+    mkdirSync(join(home, '.claude'))
+    writeFileSync(
+      join(home, '.claude.json'),
+      JSON.stringify({ mcpServers: { other: { command: 'x', args: [] } } }),
+    )
+    expect(connector(home).info().claudeCode).toEqual({ installed: true, connected: false })
+  })
+
+  it('設定裡有我們這一項、路徑一致：連上了；路徑變了或設定檔壞掉：沒連', () => {
+    const home = tmp()
+    const file = join(home, '.claude.json')
+    writeFileSync(file, JSON.stringify({ mcpServers: { 'slima-video-studio': BRIDGE } }))
+    expect(connector(home).info().claudeCode).toEqual({ installed: true, connected: true })
+    writeFileSync(
+      file,
+      JSON.stringify({ mcpServers: { 'slima-video-studio': { ...BRIDGE, command: '/old/app' } } }),
+    )
+    expect(connector(home).info().claudeCode.connected).toBe(false)
+    writeFileSync(file, '{ 壞掉')
+    expect(connector(home).info().claudeCode).toEqual({ installed: true, connected: false })
+  })
+})
+
 describe('一鍵連接 Claude Code', () => {
   const CLAUDE = '/Users/x/Library/Application Support/Claude Tools/bin/claude'
   const make = (

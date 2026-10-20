@@ -226,6 +226,21 @@ describe('本機 MCP 伺服器的安全檢查（沒過就不會進到 MCP）', (
     expect(ok.status).toBe(200)
   })
 
+  it('最近有誰連進來：被擋下的請求不算；通過的記下時間與對方報的名字（initialize 才有名字）', async () => {
+    expect(env.controller.status().lastSeen).toBeUndefined()
+    await raw(env, { headers: { Authorization: 'Bearer wrong' }, body: initialize })
+    expect(env.controller.status().lastSeen).toBeUndefined()
+    await raw(env, { headers: auth(), body: initialize })
+    const seen = env.controller.status().lastSeen
+    expect(seen?.client).toBe('t')
+    expect(Number.isNaN(Date.parse(seen?.at ?? ''))).toBe(false)
+    // 後面沒有名字的請求（呼叫工具）：時間更新、名字沿用
+    await raw(env, { headers: auth(), body: '{"jsonrpc":"2.0","id":9,"method":"tools/list"}' })
+    expect(env.controller.status().lastSeen?.client).toBe('t')
+    // token 一律不出現在狀態的 lastSeen 裡
+    expect(JSON.stringify(env.controller.status().lastSeen)).not.toContain(env.token)
+  })
+
   it('錯的路徑 404、非 POST 405、壞掉的 JSON 400、太大 413', async () => {
     expect((await raw(env, { headers: auth(), path: '/other', body: initialize })).status).toBe(404)
     expect((await raw(env, { headers: auth(), method: 'GET' })).status).toBe(405)

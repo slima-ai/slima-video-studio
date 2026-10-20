@@ -112,6 +112,19 @@ function readDesktopConfig(file: string): DesktopConfig {
   })
 }
 
+/** Claude Code 的使用者層級設定（`claude mcp add --scope user` 寫在這裡）；讀不到或格式不對都當作沒連。 */
+function claudeCodeHasEntry(file: string, bridge: BridgeCommand): boolean {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
+    if (typeof parsed !== 'object' || parsed === null) return false
+    const servers = (parsed as { mcpServers?: unknown }).mcpServers
+    if (typeof servers !== 'object' || servers === null) return false
+    return sameEntry((servers as Record<string, unknown>)[SERVER_NAME], bridge)
+  } catch {
+    return false
+  }
+}
+
 export interface ConnectorDeps {
   platform: NodeJS.Platform
   home: string
@@ -133,6 +146,7 @@ export interface McpConnector {
 export function createConnector(deps: ConnectorDeps): McpConnector {
   const configPath = desktopConfigPath(deps.platform, deps.home, deps.appData)
   const now = deps.now ?? (() => new Date())
+  const claudeJson = join(deps.home, '.claude.json')
   return {
     info: () => {
       const connected =
@@ -151,6 +165,10 @@ export function createConnector(deps: ConnectorDeps): McpConnector {
           // 資料夾在，代表裝過 Claude Desktop
           installed: configPath !== undefined && existsSync(dirname(configPath)),
           connected,
+        },
+        claudeCode: {
+          installed: existsSync(claudeJson) || existsSync(join(deps.home, '.claude')),
+          connected: claudeCodeHasEntry(claudeJson, deps.bridge),
         },
         desktopSnippet: desktopSnippet(deps.bridge),
         claudeCodeCommand: claudeCodeBridgeCommand(deps.bridge, deps.platform),

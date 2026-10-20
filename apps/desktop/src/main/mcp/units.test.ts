@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { createAllowance } from './allowance'
 import { createRedactor } from './redact'
+import { clientOf } from './server'
 import { createTokenStore } from './token'
 
 const dirs: string[] = []
@@ -101,5 +102,18 @@ describe('遮蔽', () => {
     expect(r.redact('key=sk-live-AAAAAAAA and again sk-live-AAAAAAAA; abc')).toBe(
       'key=[已遮蔽] and again [已遮蔽]; abc',
     )
+  })
+})
+
+describe('對方報的名字（initialize）', () => {
+  it('只有 initialize 帶 clientInfo.name 才有；其他請求、壞格式、空字串都沒有；太長的截掉', () => {
+    const init = (name: unknown) => ({ method: 'initialize', params: { clientInfo: { name } } })
+    expect(clientOf(init('claude-code'))).toEqual({ client: 'claude-code' })
+    expect(clientOf({ method: 'tools/list' })).toEqual({})
+    expect(clientOf(init(''))).toEqual({})
+    expect(clientOf(init(42))).toEqual({})
+    expect(clientOf(null)).toEqual({})
+    expect(clientOf([init('x')])).toEqual({})
+    expect(clientOf(init('a'.repeat(100))).client).toHaveLength(64)
   })
 })

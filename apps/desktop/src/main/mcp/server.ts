@@ -16,6 +16,8 @@ export interface McpHttpOptions {
   /** 所有送出的訊息都先過這個遮蔽（金鑰、token）。 */
   redactor: Redactor
   log: Pick<Logger, 'info' | 'warn' | 'error'>
+  /** 每個過了檢查（本機、token 對、內容是 JSON）的請求；`client` 只有 initialize 才有（對方自己報的名字）。 */
+  onRequest?: (info: { client?: string }) => void
 }
 
 export interface McpHttp {
@@ -52,6 +54,17 @@ export function tokenMatches(header: string | undefined, token: string): boolean
   const a = createHash('sha256').update(match[1]).digest()
   const b = createHash('sha256').update(token).digest()
   return timingSafeEqual(a, b)
+}
+
+/** initialize 請求裡對方報的名字（其他請求沒有）。 */
+export function clientOf(body: unknown): { client?: string } {
+  if (typeof body !== 'object' || body === null) return {}
+  const { method, params } = body as { method?: unknown; params?: unknown }
+  if (method !== 'initialize' || typeof params !== 'object' || params === null) return {}
+  const info = (params as { clientInfo?: unknown }).clientInfo
+  if (typeof info !== 'object' || info === null) return {}
+  const name = (info as { name?: unknown }).name
+  return typeof name === 'string' && name !== '' ? { client: name.slice(0, 64) } : {}
 }
 
 function send(
@@ -126,6 +139,7 @@ export function createMcpHttp(options: McpHttpOptions): McpHttp {
       send(res, tooLarge ? 413 : 400, jsonRpcError(tooLarge ? 'Payload too large' : 'Invalid JSON'))
       return
     }
+    options.onRequest?.(clientOf(body))
     const server = options.createMcpServer()
     // 無狀態模式要明確傳 sessionIdGenerator: undefined（SDK 官方寫法）
     // @ts-expect-error SDK 的選項型別與 exactOptionalPropertyTypes 不相容，不接受明確的 undefined

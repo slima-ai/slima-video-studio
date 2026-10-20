@@ -131,6 +131,14 @@ export const McpStatusSchema = z.object({
   allowanceUsd: z.number().nonnegative(),
   /** 已經預留給 AI 工具的金額（美金）；額度減掉它就是還能花的。 */
   committedUsd: z.number().nonnegative(),
+  /** 最近一次有 AI 工具帶著正確的 token 連進來（重開 App 之後清空）；畫面用它說「剛剛有人連過」。 */
+  lastSeen: z
+    .object({
+      at: z.string(),
+      /** 對方自己報的名字（MCP 的 initialize 才有，例如 claude-code）；沒帶就沒有。 */
+      client: z.string().optional(),
+    })
+    .optional(),
 })
 export type McpStatus = z.infer<typeof McpStatusSchema>
 
@@ -143,6 +151,12 @@ export const McpConnectInfoSchema = z.object({
     /** 看起來有裝 Claude Desktop（它的設定資料夾存在）。 */
     installed: z.boolean(),
     /** 設定檔裡已經有一項指到這個 App（而且路徑沒變）。 */
+    connected: z.boolean(),
+  }),
+  claudeCode: z.object({
+    /** 看起來有裝 Claude Code（它的設定檔或資料夾在使用者的家目錄裡）。 */
+    installed: z.boolean(),
+    /** 它的使用者層級設定裡已經有一項指到這個 App（而且路徑沒變）。 */
     connected: z.boolean(),
   }),
   /** 貼進 Claude Desktop 設定檔的片段（手動連線用）。 */
