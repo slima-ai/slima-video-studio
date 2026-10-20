@@ -476,7 +476,12 @@ const NAMED_KINDS = new Set(['shot', 'oneliner', 'character', 'location'])
 function useAiSeenOnHover(id: string, touched: boolean | undefined) {
   const { aiSeen } = useCanvasActions()
   const timer = useRef<number | undefined>(undefined)
-  useEffect(() => () => window.clearTimeout(timer.current), [])
+  useEffect(
+    () => () => {
+      window.clearTimeout(timer.current)
+    },
+    [],
+  )
   if (!touched || !aiSeen) return {}
   return {
     onMouseEnter: () => {
