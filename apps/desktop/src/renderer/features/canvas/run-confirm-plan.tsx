@@ -117,7 +117,6 @@ export function runLines(plan: CanvasRunPlan): string[] {
           }）`
         : step.label,
     ),
-    ...(plan.sound ? soundLines(plan.sound) : []),
     ...(models.length > 0 && plan.shotCount > 0 ? [`用：${models.join('、')}`] : []),
     ...(plan.skippedBusy > 0 ? [`${String(plan.skippedBusy)} 個鏡頭正在生成，先略過`] : []),
     ...(plan.demoMode && plan.shotCount > 0 ? ['示範模式：不會真的花錢，結果是假的'] : []),
@@ -158,6 +157,23 @@ export function RunPlanConfirm({
       />
     )
   }
+  // 旁白與配樂的說明放在步驟清單外面：清單很長時會捲動，這幾行不能被捲到看不見
+  const soundNote = plan.sound ? (
+    <ul className="flex flex-col gap-0.5 text-sm text-fg-muted" data-testid="run-confirm-sound">
+      {soundLines(plan.sound).map((line) => (
+        <li key={line}>{line}</li>
+      ))}
+    </ul>
+  ) : null
+  const qualitySwitch =
+    onQuality && plan.shotCount > 0 ? <QualitySwitch value={quality} onChange={onQuality} /> : null
+  const extra =
+    soundNote || qualitySwitch ? (
+      <>
+        {soundNote}
+        {qualitySwitch}
+      </>
+    ) : undefined
   return (
     <RunConfirm
       anchor={anchor}
@@ -167,9 +183,7 @@ export function RunPlanConfirm({
       lowerBound={plan.estimateIsLowerBound}
       cachedNote={!redo}
       okLabel={okLabelOf(plan)}
-      {...(onQuality && plan.shotCount > 0
-        ? { extra: <QualitySwitch value={quality} onChange={onQuality} /> }
-        : {})}
+      {...(extra ? { extra } : {})}
       onOk={onOk}
       onCancel={onCancel}
     />
