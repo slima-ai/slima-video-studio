@@ -7,6 +7,7 @@ import {
   SelectionMode,
   useReactFlow,
   useStore,
+  useStoreApi,
   type NodeChange,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -58,7 +59,7 @@ import { choicesFor, type AddChoice } from './connection-rules'
 import { nodeEntries, paneEntries, type ContextEntry } from './context-menu'
 import { DELETE_TOAST_MS, FIXED_EDGE_REASON, planDelete, type DeletePlan } from './delete-plan'
 import { DetailPanel, keyOfTarget, panelTargetOf, type PanelTarget } from './detail-panel'
-import { useFitAll } from './fit-all'
+import { READABLE_ZOOM, openViewport, useFitAll } from './fit-all'
 import { FLOAT_PANEL } from './floating-panel'
 import { DragOverlay } from './drag-overlay'
 import { ConnectionLine, EDGE_TYPES } from './edges'
@@ -173,15 +174,27 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const history = useHistory()
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // 一開始的視角只決定一次：上次的視角；沒存過且已經有節點就「全部顯示」；
+  // 一開始的視角只決定一次：上次的視角（縮到看不清楚的不算，卡片只剩色塊）；
+  // 沒存過且已經有節點，就等畫布準備好（onInit）再決定：放得進畫面就全部顯示，
+  // 放不下就定位到第一個入口（一句話卡或第一場），不要縮到全部塞進去；
   // 空畫布維持原點（之後 fitView 屬性變了會讓 React Flow 重新縮放，所以不能跟著資料換）
-  const [initialView] = useState(() =>
-    graph.viewport
-      ? { defaultViewport: graph.viewport }
-      : graph.nodes.length > 0
-        ? { fitView: true, fitViewOptions: FIT_OPTIONS }
-        : { defaultViewport: { x: 0, y: 0, zoom: 1 } },
-  )
+  const [initialView] = useState(() => {
+    const saved =
+      graph.viewport && graph.viewport.zoom >= READABLE_ZOOM ? graph.viewport : undefined
+    return {
+      defaultViewport: saved ?? { x: 0, y: 0, zoom: 1 },
+      decide: saved === undefined && graph.nodes.length > 0,
+    }
+  })
+  const { decide: decideOnInit, ...initialProps } = initialView
+  const store = useStoreApi<CanvasNode, CanvasEdge>()
+  const onInit = useCallback((): void => {
+    if (!decideOnInit) return
+    const { width, height } = store.getState()
+    const view = openViewport(rf.getNodes(), { width, height })
+    if (view === 'fit') void rf.fitView(FIT_OPTIONS)
+    else if (view) void rf.setViewport(view)
+  }, [decideOnInit, rf, store])
   const flow = useMemo(() => toFlowGraph(graph), [graph])
   // 拖移：存好位置（鏡頭換場時一併改所屬的場）再重新讀資料；這段時間畫面維持放開時的樣子
   const persistMove = useCallback(
@@ -506,6 +519,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   // place：新節點想放的位置（畫布座標，節點上緣中間）；沒有就交給自動排版
   const [addMenu, setAddMenu] = useState<{ at: XY; place?: XY; from?: PortRef }>()
   const pendingReveal = useRef<string | undefined>(undefined)
+  const pendingFit = useRef(false)
   const bornTimer = useRef<number | undefined>(undefined)
   useEffect(
     () => () => {
@@ -526,8 +540,14 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     bornTimer.current = window.setTimeout(() => {
       setBorn(undefined)
     }, BORN_MS)
-    void revealNode(node)
-  }, [flow.nodes, revealNode])
+    if (pendingFit.current) {
+      pendingFit.current = false
+      // 等節點都進了畫布的內部狀態再算外框
+      window.setTimeout(() => {
+        fitAll(300)
+      }, 80)
+    } else void revealNode(node)
+  }, [flow.nodes, revealNode, fitAll])
   // 一句話生成中，資料每次重新載入就多幾個節點：新出現的播長出動畫
   const knownKeys = useRef<ReadonlySet<string> | undefined>(undefined)
   const growTimers = useRef<number[]>([])
@@ -574,7 +594,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       place?: XY,
       from?: PortRef,
       story?: string,
-      after?: { open?: boolean; message?: string },
+      after?: { fit?: boolean; empty?: boolean; message?: string },
     ): void => {
       // 鏡頭放進游標所在的場；角色與地點放在想放的位置，被佔住就挪到最近的空位
       const sceneKey = kind === 'shot' && place ? sceneAt(flow.nodes, place)?.id : undefined
@@ -598,9 +618,11 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       }
       if (kind === 'group') {
         // 有選取的格子：群組框住它們（選到場框就框住整場）；沒有就放一個空的在這裡
-        // 鏡頭連同它的圖與影片一起框（它們本來就一起動）
+        // 鏡頭連同它的圖與影片一起框（它們本來就一起動）。
+        // 從左邊面板或選單「新增」的（empty）永遠是空的：剛新增的節點會自動被選取，
+        // 不然新的群組框會蓋在它上面，也壓到旁邊的場框；要框住選取的用 Ctrl+G
         const picked = flow.nodes.flatMap((n) =>
-          !selected.has(n.id) || isGroup(n)
+          after?.empty === true || !selected.has(n.id) || isGroup(n)
             ? []
             : isFrame(n)
               ? membersOf(flow.nodes, n.id)
@@ -640,8 +662,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           }
           pendingReveal.current = result.key
           onChanged()
-          // 從空白畫布「自己一步一步來」加的第一個鏡頭：直接打開它的面板
-          if (after?.open === true) setPanel(panelTargetOf(result.key))
+          // 從空白畫布「自己一步一步來」加的第一個鏡頭：不自動打開右邊的面板（會蓋住畫布右半邊的
+          // 剪輯節點），改成把整串節點放進畫面，要寫描述就雙擊卡片
+          if (after?.fit === true) pendingFit.current = true
           // 新增的都能用 Cmd/Ctrl+Z 收回
           toast.show({
             key: 'canvas-add',
@@ -876,7 +899,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       return
     }
     const kind = addKindOf(choice.kind)
-    if (kind) addNode(kind, menu.place, menu.from)
+    if (kind) addNode(kind, menu.place, menu.from, undefined, { empty: true })
   }
   // ── 放上圖片或影片：「上傳」選檔，或從檔案總管拖進來 ──
   /** 放在想放的地方；被佔住就挪到最近的空位（不然自動排版的場會被推開）。 */
@@ -1719,7 +1742,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 minZoom={0.1}
                 maxZoom={2}
                 onlyRenderVisibleElements
-                {...initialView}
+                {...initialProps}
+                onInit={onInit}
                 proOptions={{ hideAttribution: true }}
               >
                 {/* 縮得很小時點點密到看不出來，每一格畫面卻都要重畫一整片：不畫 */}
@@ -1743,7 +1767,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                     return
                   }
                   const added = addKindOf(kind)
-                  if (added) addNode(added)
+                  if (added) addNode(added, undefined, undefined, undefined, { empty: true })
                 }}
               />
               {menu ? (
@@ -1911,9 +1935,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                   busy={split.busy}
                   onManual={() => {
                     addNode('shot', undefined, undefined, undefined, {
-                      open: true,
+                      fit: true,
                       message:
-                        '已加上第一個鏡頭（放在新的場裡）。在右邊面板寫畫面描述，寫好按 ▶ 生成',
+                        '已加上第一個鏡頭（放在新的場裡）。雙擊卡片上的描述寫畫面，寫好按 ▶ 生成；要更多設定按卡片右上的 ↗',
                     })
                   }}
                   onSplit={split.start}

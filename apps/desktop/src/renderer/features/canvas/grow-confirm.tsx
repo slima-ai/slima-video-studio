@@ -1,8 +1,19 @@
+import type { OnelinerParams } from '@svs/schema'
 import { useState } from 'react'
 
 import { isMac } from '../../lib/history'
 import type { GrowConfirm as Pending } from './use-grow'
 import { RunConfirm } from './run-confirm'
+
+/** 完成後自動加的旁白與配樂（照卡片上勾的）；花費已經算進預估。 */
+function soundLines(sound: OnelinerParams['sound']): string[] {
+  if (!sound) return []
+  const parts = [
+    ...(sound.narration ? ['旁白（念有台詞的鏡頭）'] : []),
+    ...(sound.music ? ['一首配樂'] : []),
+  ]
+  return parts.length === 0 ? [] : [`接好之後加${parts.join('、')}，花費已算進預估`]
+}
 
 /**
  * 一句話的花費確認。「先產生分鏡」用白話分兩段說：這一步只寫分鏡約多少錢、下一步才生圖片和影片約多少錢；
@@ -42,7 +53,7 @@ export function GrowConfirm({
               `這一步只寫分鏡：把故事拆成 ${String(n)} 個鏡頭，約 US$${check.estimatedUsd.toFixed(2)}（只用文字模型）`,
               pending.nextUsd === undefined
                 ? '下一步才生圖片和影片'
-                : `下一步才生圖片和影片：${String(n)} 張第一張畫面、${String(n)} 支影片，約 US$${pending.nextUsd.toFixed(2)}`,
+                : `下一步才生圖片和影片：${String(n)} 張第一張畫面、${String(n)} 支影片，約 US$${pending.nextUsd.toFixed(2)}（跟拆完後右上角的數字會差一點點）`,
               '分鏡寫好後你可以先看、先改，要生成時再按右上角的「全部生成」，那裡會給準確的預估',
               '旁白與配樂也不在這一步：卡片上勾的聲音會記住，按「全部生成」時自動加',
               ...(check.models.llm === undefined ? [] : [`這一步用：${check.models.llm}`]),
@@ -53,6 +64,7 @@ export function GrowConfirm({
               `${String(n)} 張第一張畫面`,
               `${String(n)} 支影片（每支 ${String(params.durationSec)} 秒）`,
               '接成一支完整的片子',
+              ...soundLines(params.sound),
               ...(models.length > 0 ? [`用：${models.join('、')}`] : []),
               ...(check.demoMode ? ['示範模式：不會真的花錢，結果是假的'] : []),
             ]

@@ -156,6 +156,10 @@ test.describe('畫布上的一句話（示範模式）', () => {
     const confirm = page.getByTestId('run-confirm')
     await expect(confirm).toContainText('拆成 3 個鏡頭')
     await expect(confirm).toContainText('3 支影片（每支 3 秒）')
+    // 卡片上預設勾了旁白與配樂：彈窗也要列出來，花費已經算進預估
+    await expect(confirm).toContainText('旁白')
+    await expect(confirm).toContainText('一首配樂')
+    await expect(confirm).toContainText('花費已算進預估')
     await expect(confirm).toContainText('示範模式')
     await expect(confirm).toContainText('預估約')
     // 專案還是空的：沒有「取代全部」

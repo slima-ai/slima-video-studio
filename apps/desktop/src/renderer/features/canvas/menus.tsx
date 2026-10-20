@@ -13,7 +13,11 @@ export interface AddItem {
 
 /** 新增節點的種類與一行說明（左側節點面板、新增選單共用）。 */
 export const ADD_ITEMS: readonly AddItem[] = [
-  { kind: 'oneliner', label: '一句話', desc: '寫一句話，自動長出整支短片' },
+  {
+    kind: 'oneliner',
+    label: '一句話',
+    desc: '寫一句話，自動長出整支短片（會花錢，按之前先給預估）',
+  },
   { kind: 'scene', label: '場', desc: '一段故事：地點、時間、氣氛' },
   { kind: 'shot', label: '鏡頭', desc: '一個畫面：描述、台詞、運鏡' },
   { kind: 'character', label: '角色', desc: '人物或動物：外貌、服裝' },

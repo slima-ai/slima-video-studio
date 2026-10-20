@@ -117,6 +117,11 @@ export function runLines(plan: CanvasRunPlan): string[] {
           }）`
         : step.label,
     ),
+    ...(plan.joinSkipped
+      ? [
+          `其他 ${String(plan.joinSkipped)} 段還沒有影片，這次不會接成成品。影片都有了，再按「接成成品」`,
+        ]
+      : []),
     ...(models.length > 0 && plan.shotCount > 0 ? [`用：${models.join('、')}`] : []),
     ...(plan.skippedBusy > 0 ? [`${String(plan.skippedBusy)} 個鏡頭正在生成，先略過`] : []),
     ...(plan.demoMode && plan.shotCount > 0 ? ['示範模式：不會真的花錢，結果是假的'] : []),

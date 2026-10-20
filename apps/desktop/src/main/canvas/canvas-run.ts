@@ -104,6 +104,19 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
     return final === undefined || final.stale || videoShotIds.some((id) => inCut.has(id))
   }
 
+  /**
+   * 放進成品、而且這次跑完仍然沒有影片的鏡頭數。有的話接不成（接片要每一段都有影片），
+   * 這時不排接片、確認視窗也不列這一步，免得使用者以為做完會有成品。
+   */
+  const segmentsWithoutVideo = (videoShotIds: readonly string[]): number => {
+    const willMake = new Set(videoShotIds)
+    return shots
+      .list()
+      .shots.filter(
+        (v) => v.inCut !== false && !willMake.has(v.id) && !v.videos.some((t) => t.adopted),
+      ).length
+  }
+
   /** 這批要生成影片的鏡頭，要不要在接好片之後加旁白與配樂。 */
   const soundWanted = (videoShotIds: readonly string[]) => {
     if (!runSound || videoShotIds.length === 0) return undefined
@@ -123,10 +136,10 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         return { ...emptyPlan(), ok: false, issue: '還沒有鏡頭可以接。', rejoin: true }
       }
       const check = shots.planRun(items, request.quality)
-      const rejoin =
-        target.rejoin ||
-        ((target.all || target.joinAfter) &&
-          joinAfterAll(check.entries.filter((entry) => entry.video).map((entry) => entry.shot.id)))
+      const videoIds = check.entries.filter((entry) => entry.video).map((entry) => entry.shot.id)
+      const wantsJoin = !target.rejoin && (target.all || target.joinAfter) && joinAfterAll(videoIds)
+      const missing = wantsJoin ? segmentsWithoutVideo(videoIds) : 0
+      const rejoin = target.rejoin || (wantsJoin && missing === 0)
       // 全部生成而且會接片：生成完照一句話卡片記住的聲音勾選加旁白與配樂，花費也算進這一次
       const soundWant =
         check.ok && rejoin && target.all
@@ -199,6 +212,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         shotCount: entries.length,
         rejoin,
         segments,
+        ...(missing > 0 ? { joinSkipped: missing } : {}),
       }
     },
 
@@ -209,8 +223,10 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         .planRun(items, request.quality)
         .entries.filter((entry) => entry.video)
         .map((entry) => entry.shot.id)
-      const rejoin =
-        target.rejoin || ((target.all || target.joinAfter) && joinAfterAll(videoShotIds))
+      const wantsJoin =
+        !target.rejoin && (target.all || target.joinAfter) && joinAfterAll(videoShotIds)
+      // 還有鏡頭沒有影片就不接（跟確認視窗說的一致），不會在背景吐出「第 N 鏡還沒有影片」的錯
+      const rejoin = target.rejoin || (wantsJoin && segmentsWithoutVideo(videoShotIds) === 0)
       // 旁白與配樂只跟著「全部生成」，其他範圍的執行不自動加
       const soundWant = rejoin && target.all ? soundWanted(videoShotIds) : undefined
       const result =

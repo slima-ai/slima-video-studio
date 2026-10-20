@@ -24,8 +24,17 @@ test.describe('畫布：空白時的三個起點，與沒歸場的鏡頭', () =>
     await expect.poll(() => kindCount(page, 'shot')).toBe(1)
     expect(await kindCount(page, 'scene')).toBe(1)
     await expect(page.getByTestId('canvas-empty')).toHaveCount(0)
-    await expect(page.getByTestId('shot-panel')).toBeVisible()
+    // 右邊的面板不自動打開（會蓋住畫布右半邊的剪輯）：整串節點都在畫面上，描述在卡片上雙擊寫
+    await expect(page.getByTestId('shot-panel')).toHaveCount(0)
     await expect(toast(page)).toContainText('已加上第一個鏡頭')
+    await expect(toast(page)).toContainText('雙擊卡片上的描述')
+    for (const kind of ['scene', 'shot', 'image', 'video', 'cut']) {
+      const node = (await canvasNodes(page)).find((n) => n.data.kind === kind)
+      if (!node) throw new Error(`沒有 ${kind} 節點`)
+      await expect(page.locator(`.react-flow__node[data-id="${node.id}"]`)).toBeInViewport({
+        ratio: 0.9,
+      })
+    }
     // 鏡頭在場裡：沒有「沒歸場」的標記與提醒，也沒有任何圖與影片
     await expect(page.getByTestId('loose-banner')).toHaveCount(0)
     await expect(page.getByTestId('loose-badge')).toHaveCount(0)

@@ -103,4 +103,45 @@ test.describe('畫布：▶ 旁的「只跑這個／這個和後面的／整條�
     await expect(confirm).toContainText('影片')
     await expect(confirm).toContainText('接成成品')
   })
+
+  test('其他鏡頭還沒有影片：「整條」的確認視窗寫「這次不會接成成品」、不列那一步，做完也真的沒接', async ({
+    page,
+  }) => {
+    await generateAndOpenCanvas(page)
+    const make = async (): Promise<string> => {
+      const created = await page.evaluate(() => window.svs.invoke('shots.create', {}))
+      if (!created.ok) throw new Error(created.error.userMessage)
+      return `shot:${created.data.id}`
+    }
+    const first = await make()
+    const second = await make()
+    await expect
+      .poll(async () => (await canvasNodes(page)).some((n) => n.id === `${second}:video`))
+      .toBe(true)
+    await centerOn(page, `${first}:video`)
+
+    await page.getByTestId(`run-mode-${first}:video`).click()
+    await page.getByTestId('run-mode-chain').click()
+    const confirm = page.getByTestId('run-confirm')
+    await expect(confirm).toContainText('第一張畫面')
+    await expect(confirm).toContainText('其他 1 段還沒有影片，這次不會接成成品')
+    await expect(confirm).not.toContainText('接成成品（')
+    await page.getByTestId('run-confirm-ok').click()
+
+    // 做完這支之後，結果跟彈窗說的一致：沒有接成成品、也沒有「還沒有可用的影片」的錯誤
+    const id = first.slice('shot:'.length)
+    await expect
+      .poll(async () => (await shotsOf(page)).find((s) => s.id === id)?.videos.length)
+      .toBe(1)
+    await expect(page.getByTestId('toast').filter({ hasText: '完成：' })).toBeVisible()
+    await expect(page.getByTestId('toast').filter({ hasText: '成品接好了' })).toHaveCount(0)
+    await expect(page.getByTestId('toast').filter({ hasText: '還沒有可用的影片' })).toHaveCount(0)
+
+    // 換成另一支：現在只剩 0 段沒有影片（這次就會做出它的影片）→ 彈窗列出接成成品
+    await centerOn(page, `${second}:video`)
+    await page.getByTestId(`run-mode-${second}:video`).click()
+    await page.getByTestId('run-mode-chain').click()
+    await expect(confirm).toContainText('接成成品（')
+    await expect(confirm).not.toContainText('這次不會接成成品')
+  })
 })
