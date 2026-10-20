@@ -504,6 +504,33 @@ async function shootElement(locator: Locator, testInfo: TestInfo, name: string):
   }
 }
 
+/** 元素截圖，四周多留一點邊（卡片的邊框才不會被切到）。元素要整個在畫面裡。 */
+async function shootPadded(
+  page: Page,
+  locator: Locator,
+  testInfo: TestInfo,
+  name: string,
+): Promise<void> {
+  const box = await locator.boundingBox()
+  if (!box) throw new Error(`${name}: 找不到元素`)
+  const pad = 12
+  const path = testInfo.outputPath(name)
+  await page.screenshot({
+    path,
+    clip: {
+      x: Math.max(0, box.x - pad),
+      y: Math.max(0, box.y - pad),
+      width: box.width + pad * 2,
+      height: box.height + pad * 2,
+    },
+  })
+  const dir = process.env.SVS_SCREENSHOT_DIR
+  if (dir) {
+    mkdirSync(dir, { recursive: true })
+    copyFileSync(path, join(dir, name))
+  }
+}
+
 /** 新專案：從專案選單回首頁，按「新專案」、取名字、建立。 */
 async function createProject(page: Page, name: string): Promise<void> {
   await page.getByTestId('project-menu-button').click()
@@ -517,7 +544,7 @@ async function createProject(page: Page, name: string): Promise<void> {
 /**
  * README 用的圖（淺色，跟 docs/images 裡其他的一樣是 App 真實的畫面）：
  * 要更新時 `SVS_SCREENSHOT_DIR=docs/images pnpm test:e2e e2e/screenshots.e2e.ts -g "README 用的圖"`，
- * 或從 CI 的 e2e-report 下載同名的檔案。檔名的編號接在 01、08、09 後面。
+ * 或從 CI 的 e2e-report 下載同名的檔案。檔名的編號：01 設定精靈、08 設定頁的連線區、09 成品面板的聲音區、10～14 其餘。
  */
 test.describe('README 用的圖', () => {
   test('10 首頁、11 空白畫布的三種開始方式', async ({ page }, testInfo) => {
@@ -557,6 +584,22 @@ test.describe('README 用的圖', () => {
       testInfo,
       '12-oneliner-card.png',
     )
+  })
+
+  test('08 設定頁的 AI 工具連線區、14 設定頁的一般區', async ({ page }, testInfo) => {
+    // 視窗夠高，兩個區才會整個進畫面（元素截圖超過視窗高度會被切掉）
+    await page.setViewportSize({ width: 1280, height: 1800 })
+    await chooseTheme(page, THEMES[1])
+    await page.getByRole('button', { name: '設定' }).click()
+    await expect(page.getByTestId('settings-tags')).toBeVisible()
+    await page.locator('#general').scrollIntoViewIfNeeded()
+    await shootPadded(page, page.locator('#general'), testInfo, '14-settings-general.png')
+    // 總開關打開：示意圖與燈是「開放中」，Claude Desktop／Claude Code 還沒連接
+    await page.getByTestId('mcp-enabled').check()
+    await expect(page.getByTestId('mcp-status')).toContainText('開放中')
+    await page.waitForTimeout(400) // 開關的滑動與顏色漸變播完
+    await page.locator('#connections').scrollIntoViewIfNeeded()
+    await shootPadded(page, page.locator('#connections'), testInfo, '08-connect-claude.png')
   })
 
   test('13 ▶ 旁的選單', async ({ page }, testInfo) => {
