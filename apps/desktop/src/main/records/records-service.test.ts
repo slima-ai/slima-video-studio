@@ -36,6 +36,14 @@ describe('cleanPrompt', () => {
     expect(cleanPrompt(`阿鐵走進雨裡${REFERENCE_PROMPT_SUFFIX}`)).toBe('阿鐵走進雨裡')
     expect(cleanPrompt('阿鐵走進雨裡')).toBe('阿鐵走進雨裡')
   })
+
+  it('也拿掉首幀圖補的「滿版單一連續畫面」描述（圖片編輯時兩段都拿掉），重生時才不會疊兩次', async () => {
+    const { REFERENCE_PROMPT_SUFFIX, frameFillSuffix } = await import('@svs/workflows')
+    expect(cleanPrompt(`阿鐵走進雨裡${frameFillSuffix('16:9')}`)).toBe('阿鐵走進雨裡')
+    expect(cleanPrompt(`阿鐵走進雨裡${REFERENCE_PROMPT_SUFFIX}${frameFillSuffix('9:16')}`)).toBe(
+      '阿鐵走進雨裡',
+    )
+  })
 })
 
 describe('RecordsService.list', () => {

@@ -1,6 +1,5 @@
 import {
   AppError,
-  type AspectRatio,
   type AssetRef,
   type GenerationOutput,
   type GenerationRequest,
@@ -30,15 +29,6 @@ export interface StudioServices {
   generate: (request: GenerationRequest, ctx: GenerateContext) => Promise<GenerateResult>
   /** 把多段影片接成一支，存進素材庫。 */
   concatVideos: (videos: readonly AssetRef[], ctx: { signal: AbortSignal }) => Promise<AssetRef>
-  /**
-   * 圖片帶電影黑邊（模型自己畫的上下或左右黑條）時，裁掉並補回要求的比例，存進素材庫回新的素材；
-   * 沒有黑邊就原樣回傳。首幀要鋪滿整個畫面，不然影片頭一兩秒會帶著黑條。沒給就不處理。
-   */
-  trimLetterbox?: (
-    image: AssetRef,
-    aspectRatio: AspectRatio,
-    ctx: { signal: AbortSignal },
-  ) => Promise<AssetRef>
 }
 
 export const STUDIO_SERVICE_KEY = 'studio'

@@ -78,7 +78,7 @@ export class AssetStore {
   async put(
     content: Buffer | Uint8Array | Readable,
     mime: string,
-    meta: { width?: number; height?: number; durationSec?: number; trimmedFrom?: string } = {},
+    meta: { width?: number; height?: number; durationSec?: number } = {},
   ): Promise<PutResult> {
     const tmpPath = join(this.rootDir, '.tmp', `${randomUUID()}.part`)
     const hash = createHash('sha256')
@@ -123,7 +123,6 @@ export class AssetStore {
         width: meta.width ?? null,
         height: meta.height ?? null,
         durationSec: meta.durationSec ?? null,
-        trimmedFrom: meta.trimmedFrom ?? null,
         createdAt: this.now().toISOString(),
       })
       .onConflictDoNothing()

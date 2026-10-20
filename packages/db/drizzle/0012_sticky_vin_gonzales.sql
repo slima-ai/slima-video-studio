@@ -1,1 +1,0 @@
-ALTER TABLE `assets` ADD `trimmed_from` text;

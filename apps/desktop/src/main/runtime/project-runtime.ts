@@ -20,6 +20,7 @@ import type {
 import type { KeyVault } from '../keys/key-vault'
 import type { Logger } from '../logger'
 import { createProjectJobQueue } from '../job-queue'
+import { withLetterboxTrim } from '../letterbox-driver'
 import { createMockVideoRenderer } from '../mock-video'
 import type { ProjectManager } from '../project-manager'
 import { createProviderServices } from '../provider-services'
@@ -88,7 +89,8 @@ export function createProjectRuntime(deps: ProjectRuntimeDeps): ProjectRuntime {
   const buildDrivers = (handle: ProjectHandle): Record<string, JobDriver> => {
     const services = createProviderServices(handle)
     const tools = (deps.tools ?? findTools)()
-    return {
+    // 首幀圖生完、存進素材庫之前，自動裁掉模型畫的黑邊（請求帶 trimLetterbox 才會）
+    const drivers: Record<string, JobDriver> = {
       mock: createMockDriver(services, {
         ...(tools ? { renderVideo: createMockVideoRenderer(tools, deps.mockFrame) } : {}),
         ...(deps.mockFrame ? { renderFrame: deps.mockFrame } : {}),
@@ -111,6 +113,12 @@ export function createProjectRuntime(deps: ProjectRuntimeDeps): ProjectRuntime {
         ...(deps.openrouterBaseUrl === undefined ? {} : { baseUrl: deps.openrouterBaseUrl }),
       }),
     }
+    return Object.fromEntries(
+      Object.entries(drivers).map(([name, driver]) => [
+        name,
+        withLetterboxTrim(driver, { handle, tools }),
+      ]),
+    )
   }
 
   /** 任務屬於哪一鏡：節點還在跑時看記憶體裡的索引，跑完之後從節點執行紀錄的節點編號認出來。 */

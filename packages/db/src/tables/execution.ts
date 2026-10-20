@@ -11,8 +11,6 @@ export const assets = sqliteTable('assets', {
   width: integer('width'),
   height: integer('height'),
   durationSec: real('duration_sec'),
-  // 自動裁掉黑邊的圖：原圖的雜湊（花費與時間要從原圖那次生成查）
-  trimmedFrom: text('trimmed_from'),
   createdAt: text('created_at').notNull(),
 })
 

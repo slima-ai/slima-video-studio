@@ -13,7 +13,7 @@ import {
   type RecordsFilter,
   type RecordsSnapshot,
 } from '@svs/schema'
-import { REFERENCE_PROMPT_SUFFIX } from '@svs/workflows'
+import { REFERENCE_PROMPT_SUFFIX, withoutFrameFillSuffix } from '@svs/workflows'
 
 import type { ProjectManager } from '../project-manager'
 import type { ShotService } from '../shots/shot-service'
@@ -38,11 +38,15 @@ const SCAN = 5000
 const invalid = (userMessage: string): AppError =>
   new AppError({ code: 'invalid_request', userMessage })
 
-/** 圖片編輯時，系統會在 prompt 後面補一段「參考圖要一致」的提醒；顯示與重用時拿掉。 */
+/**
+ * 首幀圖送出的 prompt 後面，系統會補「滿版單一連續畫面」的描述，圖片編輯時前面還有一段「參考圖要一致」的提醒；
+ * 顯示與重用時都拿掉（不然重生時會疊兩次）。
+ */
 export function cleanPrompt(prompt: string): string {
-  return prompt.endsWith(REFERENCE_PROMPT_SUFFIX)
-    ? prompt.slice(0, -REFERENCE_PROMPT_SUFFIX.length)
-    : prompt
+  const base = withoutFrameFillSuffix(prompt)
+  return base.endsWith(REFERENCE_PROMPT_SUFFIX)
+    ? base.slice(0, -REFERENCE_PROMPT_SUFFIX.length)
+    : base
 }
 
 function promptOf(request: GenerationRequest): string | undefined {

@@ -15,6 +15,7 @@ import {
   breakdownNode,
   composeShotPrompts,
   frameFillSuffix,
+  withoutFrameFillSuffix,
   ShotItemSchema,
   concatNode,
   dialogueOf,
@@ -521,37 +522,30 @@ describe('節點：首幀圖、圖生影片、接片', () => {
     expect(frameFillSuffix('9:16')).toContain('9:16 滿版畫面')
   })
 
-  it('首幀圖：服務有提供去黑邊就用它回傳的圖（帶著節點的比例）；沒提供就用模型回傳的原圖', async () => {
-    const trimmed = { ...image, hash: HASH('e') }
-    const trim = vi.fn(() => Promise.resolve(trimmed))
-    const { studio } = fakeStudio([assets(image, 0.08)])
-    const out = await runNode(imageNode, {
+  it('withoutFrameFillSuffix：把補上的滿版描述拿掉（每種比例都認得）；沒有就原樣', () => {
+    for (const ratio of ['16:9', '9:16', '1:1', '4:3', '21:9']) {
+      expect(withoutFrameFillSuffix(`一隻貓${frameFillSuffix(ratio)}`)).toBe('一隻貓')
+    }
+    expect(withoutFrameFillSuffix('一隻貓')).toBe('一隻貓')
+    // 圖片編輯：參考圖提醒在滿版描述前面，兩段都要能拿掉（由 records-service 的 cleanPrompt 依序處理）
+    const edit = `阿鐵走路${REFERENCE_PROMPT_SUFFIX}${frameFillSuffix('16:9')}`
+    expect(withoutFrameFillSuffix(edit)).toBe(`阿鐵走路${REFERENCE_PROMPT_SUFFIX}`)
+  })
+
+  it('首幀圖的請求帶 trimLetterbox：存進素材庫之前由任務佇列自動裁掉模型畫的黑邊（節點不用管）', async () => {
+    const { studio, requests } = fakeStudio([assets(image, 0.08)])
+    const { out } = await runNode(imageNode, {
       params: { aspectRatio: '21:9' },
       inputs: { prompt: '一隻貓' },
       modelId: 'm',
-      studio: { ...studio, trimLetterbox: trim },
+      studio,
     })
-    expect(out.out.image).toEqual(trimmed)
-    expect(trim).toHaveBeenCalledWith(image, '21:9', expect.anything())
-    const plain = fakeStudio([assets(image, 0.08)])
-    const out2 = await runNode(imageNode, {
-      inputs: { prompt: '一隻貓' },
-      modelId: 'm',
-      studio: plain.studio,
-    })
-    expect(out2.out.image).toEqual(image)
-  })
-
-  it('首幀圖：去黑邊失敗不能讓生成白花錢，用原圖並照樣入帳；使用者取消就照樣丟出取消', async () => {
-    const fail = vi.fn(() => Promise.reject(new Error('ffmpeg 壞了')))
-    const { studio } = fakeStudio([assets(image, 0.08)])
-    const { out, costs } = await runNode(imageNode, {
-      inputs: { prompt: '一隻貓' },
-      modelId: 'm',
-      studio: { ...studio, trimLetterbox: fail },
+    expect(requests[0]).toMatchObject({
+      capability: 't2i',
+      aspectRatio: '21:9',
+      trimLetterbox: true,
     })
     expect(out.image).toEqual(image)
-    expect(costs).toHaveLength(1)
   })
 
   it('圖生影片：有運鏡就帶進請求，空字串或沒給就不帶', async () => {

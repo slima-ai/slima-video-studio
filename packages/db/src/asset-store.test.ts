@@ -66,18 +66,6 @@ describe('AssetStore', () => {
     })
   })
 
-  it('自動裁掉黑邊的圖記下原圖是哪一張（沒裁過的沒有這個欄位）', async () => {
-    const { assets } = newProject()
-    const original = await assets.put(PNG, 'image/png', { width: 1, height: 1 })
-    const trimmed = await assets.put(Buffer.concat([PNG, Buffer.from([0])]), 'image/png', {
-      width: 1,
-      height: 1,
-      trimmedFrom: original.hash,
-    })
-    expect(assets.getMeta(trimmed.hash)?.trimmedFrom).toBe(original.hash)
-    expect(assets.getMeta(original.hash)?.trimmedFrom).toBeUndefined()
-  })
-
   it('串流中途出錯：丟出型別化錯誤，不留下暫存檔也不留下素材', async () => {
     const { assets } = newProject()
     const broken = new Readable({

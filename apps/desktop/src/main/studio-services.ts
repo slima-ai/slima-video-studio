@@ -1,6 +1,6 @@
 import type { ProjectHandle } from '@svs/db'
 import type { JobQueue } from '@svs/engine'
-import { concatVideos, probe, trimLetterbox, type MediaTools } from '@svs/media'
+import { concatVideos, probe, type MediaTools } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
@@ -97,34 +97,6 @@ export function createStudioServices({ queue, handle, tools, models }: StudioDep
         }
       } finally {
         ctx.signal.removeEventListener('abort', onAbort)
-      }
-    },
-
-    async trimLetterbox(image, aspectRatio, ctx): Promise<AssetRef> {
-      const found = handle.assets.find(image.hash)
-      if (!found) return image
-      const [w, h] = aspectRatio.split(':').map(Number)
-      if (!w || !h) return image
-      const dir = await mkdtemp(join(tmpdir(), 'svs-letterbox-'))
-      try {
-        const out = join(dir, 'trimmed.png')
-        // 沒有黑邊就什麼都不做；有（上下或左右兩條差不多寬）就裁掉、補回 aspectRatio、放大回原尺寸
-        if (!(await trimLetterbox(tools, found.path, out, w / h, { signal: ctx.signal }))) {
-          return image
-        }
-        const info = await probe(tools, out, { signal: ctx.signal })
-        const meta = {
-          ...(info.width ? { width: info.width } : {}),
-          ...(info.height ? { height: info.height } : {}),
-        }
-        // 記下原圖是哪一張：畫面要查花費與時間、要標「已自動裁掉黑邊」
-        const stored = await handle.assets.put(new Uint8Array(await readFile(out)), 'image/png', {
-          ...meta,
-          trimmedFrom: image.hash,
-        })
-        return { hash: stored.hash, kind: 'image', mime: 'image/png', bytes: stored.bytes, ...meta }
-      } finally {
-        await rm(dir, { recursive: true, force: true })
       }
     },
 
