@@ -129,6 +129,10 @@ export const QuickStartProgressSchema = z.object({
   exportedPath: z.string().optional(),
   /** 勾了旁白或配樂、但沒有加成功（影片本身沒問題，成品面板可以再試）。 */
   soundFailed: z.boolean().optional(),
+  /** 開始加聲音時那一句（只寫真的會做的：沒有台詞就不說旁白）。 */
+  soundStart: z.string().optional(),
+  /** 加完聲音那一句（說實話：沒有台詞就說沒有旁白）。 */
+  soundDone: z.string().optional(),
   error: z.object({ userMessage: z.string(), retryable: z.boolean() }).optional(),
 })
 export type QuickStartProgress = z.infer<typeof QuickStartProgressSchema>
