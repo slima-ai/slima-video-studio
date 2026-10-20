@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+
 import { useChatDock } from './chat-context'
 import { ChatPanel } from './chat-panel'
 
@@ -10,6 +12,15 @@ export const CHAT_DRAWER_WIDTH = 380
  */
 export function ChatDrawer() {
   const { enabled, open, active, stop } = useChatDock()
+  // 面板開著就在根元素上記一筆：右下角的提示（toast）靠它往左讓開，不蓋住輸入欄與送出鈕
+  const showing = enabled && open
+  useEffect(() => {
+    if (!showing) return undefined
+    document.documentElement.dataset.chatDrawer = 'open'
+    return () => {
+      delete document.documentElement.dataset.chatDrawer
+    }
+  }, [showing])
   if (!enabled) return null
   return (
     <aside
