@@ -12,8 +12,11 @@ import {
 } from './project-folder'
 import { readProjectFile, writeProjectFile } from './project-file'
 
-/** 複製時要帶過去的資料夾：素材（內容雜湊命名）與匯出的成品。`.tmp` 是寫到一半的暫存，不帶。 */
-const COPIED_FOLDERS = ['assets', 'exports'] as const
+/**
+ * 複製時要帶過去的資料夾：素材（內容雜湊命名）、匯出的成品、Claude 對話的紀錄（`chat/`）。
+ * `.tmp` 是寫到一半的暫存，不帶。
+ */
+const COPIED_FOLDERS = ['assets', 'exports', 'chat'] as const
 
 /**
  * 把開著的專案複製成另一個專案資料夾（另存為）。**不是直接複製 project.sqlite**：專案開著時資料先寫在
@@ -50,7 +53,8 @@ export async function copyProject(
           recursive: true,
           filter: (path) => !path.split(/[\\/]/).includes('.tmp'),
         })
-      } else {
+      } else if (folder !== 'chat') {
+        // 對話紀錄是用到才有的：原本沒有就不在複本裡憑空建一個空資料夾
         mkdirSync(join(destDir, folder), { recursive: true })
       }
     }

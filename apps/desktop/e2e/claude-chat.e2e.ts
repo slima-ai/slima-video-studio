@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test'
+import { readdirSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
 
@@ -183,6 +184,54 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(reply).toContainText('<img src=x onerror=')
     expect(await page.title()).not.toBe('pwned')
     await page.getByTestId('chat-drawer').screenshot({ path: testInfo.outputPath('markdown.png') })
+  })
+
+  test('對話紀錄存在專案資料夾；另存為連 chat/ 一起複製，複本裡看得到舊對話、接著講會分出新的 session，原本專案的紀錄沒被動', async ({
+    page,
+  }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('幫我建一個專案，加兩個鏡頭')
+    await input.press('Enter')
+    await expect(page.getByTestId('chat-message-assistant').last()).toHaveAttribute(
+      'data-state',
+      'done',
+      { timeout: 30_000 },
+    )
+    // 紀錄寫在專案資料夾的 chat/（一個對話一個檔，第一行是版本）
+    const original = await page.evaluate(async () => {
+      const result = await window.svs.invoke('project.status', {})
+      if (!result.ok || !result.data) throw new Error('沒有專案')
+      return result.data.dir
+    })
+    const files = readdirSync(join(original, 'chat'))
+    expect(files).toHaveLength(1)
+    const text = readFileSync(join(original, 'chat', files[0] ?? ''), 'utf8')
+    expect(text.split('\n')[0]).toBe('{"v":1}')
+    expect(text).toContain('幫我建一個專案，加兩個鏡頭')
+    // 不存 token、帳號、思考之類的東西
+    expect(text).not.toMatch(/token|api[_-]?key|email|thinking/i)
+
+    // 另存為：切到複本，面板重讀；複本的 chat/ 有同一份，舊對話的字還在
+    const copy = await page.evaluate(async () => {
+      const result = await window.svs.invoke('project.saveAs', { name: '複本專案' })
+      if (!result.ok) throw new Error(result.error.userMessage)
+      return result.data.dir
+    })
+    expect(readdirSync(join(copy, 'chat'))).toEqual(files)
+    await expect(page.getByTestId('chat-message-user').first()).toHaveText(
+      '幫我建一個專案，加兩個鏡頭',
+    )
+    await page.getByTestId('chat-input').fill('你還記得嗎')
+    await page.getByTestId('chat-input').press('Enter')
+    await expect(page.getByTestId('chat-message-assistant').last()).toContainText(
+      '分出新的 session',
+      { timeout: 30_000 },
+    )
+    // 原本專案的紀錄還是原樣（沒有多出複本裡才說的話）
+    expect(readFileSync(join(original, 'chat', files[0] ?? ''), 'utf8')).not.toContain('你還記得嗎')
+    expect(readFileSync(join(copy, 'chat', files[0] ?? ''), 'utf8')).toContain('你還記得嗎')
   })
 
   test('行程當掉：說明連線中斷（不貼原始錯誤），再講一句會接著上次的對話', async ({ page }) => {

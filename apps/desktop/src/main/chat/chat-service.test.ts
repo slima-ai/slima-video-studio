@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -7,6 +7,7 @@ import type { ChatEvent, ChatPanelMessage } from '@svs/schema'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { bridgeCommand } from '../mcp/connect'
+import { readConversations } from './chat-store'
 import type { ClaudeCheck } from './claude-check'
 import type { SpawnClaude } from './claude-process'
 import { createChatService, type ChatServiceDeps } from './chat-service'
@@ -39,10 +40,10 @@ class FakeChild extends EventEmitter {
   }
 }
 
-const init = (connected = true) => ({
+const init = (connected = true, sessionId = 's') => ({
   type: 'system',
   subtype: 'init',
-  session_id: 's',
+  session_id: sessionId,
   mcp_servers: [{ name: 'slima-video-studio', status: connected ? 'connected' : 'failed' }],
 })
 const text = (delta: string) => ({
@@ -91,6 +92,9 @@ function setup(
     interruptGraceMs?: number
     claudeBudgetUsd?: number
     idleMs?: number
+    /** 目前專案資料夾（有給才會存紀錄）。 */
+    projectDir?: string
+    /** 同一個專案資料夾在別的「App 啟動」裡：共用 tmp 目錄用。 */
   } = {},
 ) {
   const children: FakeChild[] = []
@@ -105,6 +109,14 @@ function setup(
   const workDir = mkdtempSync(join(tmpdir(), 'svs-chat-'))
   dirs.push(workDir)
   let n = 0
+  const project = {
+    dir: options.projectDir,
+    listeners: new Set<() => void>(),
+    switchTo(dir: string | undefined): void {
+      project.dir = dir
+      for (const listener of project.listeners) listener()
+    },
+  }
   const deps: ChatServiceDeps = {
     settings: {
       get: () => ({
@@ -120,6 +132,19 @@ function setup(
     packaged: options.packaged ?? false,
     bridge: bridgeCommand('/exe', '/bridge.js', '/user'),
     workDir,
+    ...(options.projectDir === undefined
+      ? {}
+      : {
+          project: {
+            dir: () => project.dir,
+            onChange: (listener: () => void) => {
+              project.listeners.add(listener)
+              return () => {
+                project.listeners.delete(listener)
+              }
+            },
+          },
+        }),
     check: () =>
       Promise.resolve(options.check ?? { state: 'ready', path: '/bin/claude', version: '2.1.304' }),
     spawn,
@@ -159,7 +184,7 @@ function setup(
           }
         ).message
       : undefined
-  return { service, children, calls, events, deps, last }
+  return { service, children, calls, events, deps, last, project }
 }
 
 describe('ChatService：開對話、送一則、一路串流', () => {
@@ -217,7 +242,7 @@ describe('ChatService：開對話、送一則、一路串流', () => {
     await service.send(conv.id, '一')
     const first = children[0]
     if (!first) throw new Error()
-    first.line(init())
+    first.line(init(true, conv.id))
     first.line(success('好'))
     await service.send(conv.id, '二')
     expect(children).toHaveLength(1)
@@ -507,5 +532,199 @@ describe('ChatService.dispose', () => {
     await service.send(conv.id, '嗨')
     service.dispose()
     expect(children[0]?.killed).toContain('SIGTERM')
+  })
+})
+
+describe('ChatService：對話紀錄存在專案資料夾的 chat/', () => {
+  const projectDir = (): string => {
+    const d = mkdtempSync(join(tmpdir(), 'svs-chat-proj-'))
+    dirs.push(d)
+    return d
+  }
+  const arg = (args: string[] | undefined, flag: string): string | undefined => {
+    const at = args?.indexOf(flag) ?? -1
+    return at < 0 ? undefined : args?.[at + 1]
+  }
+
+  /** 講一句話、做完。 */
+  async function say(
+    s: ReturnType<typeof setup>,
+    conversationId: string,
+    text: string,
+    sessionId?: string,
+  ): Promise<FakeChild> {
+    await s.service.send(conversationId, text)
+    const child = s.children[s.children.length - 1]
+    if (!child) throw new Error('沒有行程')
+    child.line(init(true, sessionId))
+    child.line(success(`回：${text}`))
+    return child
+  }
+
+  it('講過的話存起來；重開 App（新的服務）讀得回來，接著講用 --resume 接回同一個 Claude session', async () => {
+    const dir = projectDir()
+    const a = setup({ projectDir: dir })
+    const conv = a.service.create()
+    // 還沒說話：不存檔
+    expect(existsSync(join(dir, 'chat'))).toBe(false)
+    await say(a, conv.id, '幫我建一個鏡頭', 'claude-session-1')
+    expect(readdirSync(join(dir, 'chat'))).toEqual([`${conv.id}.jsonl`])
+    a.service.dispose()
+
+    const b = setup({ projectDir: dir })
+    const [restored] = b.service.list().conversations
+    expect(restored).toMatchObject({ id: conv.id, title: '幫我建一個鏡頭', running: false })
+    expect(b.service.messages(conv.id).messages.map((m) => [m.role, m.text, m.state])).toEqual([
+      ['user', '幫我建一個鏡頭', undefined],
+      ['assistant', '回：幫我建一個鏡頭', 'done'],
+    ])
+    await b.service.send(conv.id, '再加一個')
+    const args = b.calls[0]?.args
+    expect(arg(args, '--resume')).toBe('claude-session-1')
+    expect(args).not.toContain('--session-id')
+    expect(args).not.toContain('--fork-session')
+  })
+
+  it('改名也存；沒開專案時只放記憶體、不寫任何檔案', async () => {
+    const dir = projectDir()
+    const a = setup({ projectDir: dir })
+    const conv = a.service.create()
+    await say(a, conv.id, '嗨')
+    a.service.rename(conv.id, '我取的名字')
+    const b = setup({ projectDir: dir })
+    expect(b.service.list().conversations[0]?.title).toBe('我取的名字')
+    const none = setup()
+    const c = none.service.create()
+    await say(none, c.id, '嗨')
+    expect(none.service.messages(c.id).messages).toHaveLength(2)
+  })
+
+  it('專案另存出來的複本：對話跟著來，接著講用 --resume ＋ --fork-session（不跟原本的共用同一個 session）；分出來之後就是它自己的', async () => {
+    const original = projectDir()
+    const copy = projectDir()
+    const a = setup({ projectDir: original })
+    const conv = a.service.create()
+    await say(a, conv.id, '原本專案裡的對話', 'session-orig')
+    // 另存為：chat/ 一起複製
+    cpSync(join(original, 'chat'), join(copy, 'chat'), { recursive: true })
+
+    const b = setup({ projectDir: copy })
+    expect(b.service.list().conversations).toHaveLength(1)
+    const child = await say(b, conv.id, '複本裡接著講', 'session-forked')
+    expect(arg(b.calls[0]?.args, '--resume')).toBe('session-orig')
+    expect(b.calls[0]?.args).toContain('--fork-session')
+    child.emit('exit', 0, null)
+    // 分出新 session 之後：下次接續用新的、不再分岔
+    await b.service.send(conv.id, '再講一句')
+    expect(arg(b.calls[1]?.args, '--resume')).toBe('session-forked')
+    expect(b.calls[1]?.args).not.toContain('--fork-session')
+    // 原本專案的紀錄沒被動到
+    const c = setup({ projectDir: original })
+    expect(c.service.messages(conv.id).messages).toHaveLength(2)
+  })
+
+  it('Claude 那邊找不到這個對話的舊紀錄：改開新的、把我們存的內容帶過去當背景、使用者看不到錯誤', async () => {
+    const dir = projectDir()
+    const a = setup({ projectDir: dir })
+    const conv = a.service.create()
+    await say(a, conv.id, '暗號是香蕉', 'gone-session')
+    a.service.dispose()
+
+    const b = setup({ projectDir: dir })
+    await b.service.send(conv.id, '暗號是什麼？')
+    expect(arg(b.calls[0]?.args, '--resume')).toBe('gone-session')
+    const old = b.children[0]
+    // claude 說找不到就退出（還沒有 init）
+    old?.stderr.emit('data', 'No conversation found with session ID: gone-session\n')
+    old?.emit('exit', 1, null)
+    expect(b.children).toHaveLength(2)
+    expect(b.calls[1]?.args).toContain('--session-id')
+    expect(b.calls[1]?.args).not.toContain('--resume')
+    const sent = JSON.stringify(b.children[1]?.written[0])
+    expect(sent).toContain('暗號是香蕉')
+    expect(sent).toContain('回：暗號是香蕉')
+    expect(sent).toContain('現在使用者說：暗號是什麼？')
+    // 畫面上沒有錯誤；新的行程回覆後一切照常
+    const fresh = b.children[1]
+    fresh?.line(init(true, 'new-session'))
+    fresh?.line(success('香蕉'))
+    const messages = b.service.messages(conv.id).messages
+    expect(messages.map((m) => m.state)).toEqual([undefined, 'done', undefined, 'done'])
+    expect(messages[3]?.text).toBe('香蕉')
+    // 使用者那一則存的是他自己說的話，不是帶了背景的那一長串
+    expect(messages[2]?.text).toBe('暗號是什麼？')
+    // 之後接著講用新的 session
+    fresh?.emit('exit', 0, null)
+    await b.service.send(conv.id, '還在嗎')
+    expect(arg(b.calls[2]?.args, '--resume')).toBe('new-session')
+  })
+
+  it('不是「找不到舊紀錄」的退出照舊當成連線中斷，不會偷偷重開', async () => {
+    const dir = projectDir()
+    const a = setup({ projectDir: dir })
+    const conv = a.service.create()
+    await say(a, conv.id, '嗨', 'sess')
+    const b = setup({ projectDir: dir })
+    await b.service.send(conv.id, '再嗨')
+    b.children[0]?.stderr.emit('data', 'something else broke')
+    b.children[0]?.emit('exit', 1, null)
+    expect(b.children).toHaveLength(1)
+    expect(b.service.messages(conv.id).messages.at(-1)).toMatchObject({ state: 'error' })
+  })
+
+  it('專案換了：目前專案的對話才出現在清單；正在做事的對話（Claude 剛建了新專案）跟著搬過去，通知畫面重讀', async () => {
+    const first = projectDir()
+    const second = projectDir()
+    const s = setup({ projectDir: first })
+    const idle = s.service.create()
+    await say(s, idle.id, '第一個專案裡聊過的', 's1')
+    const busy = s.service.create()
+    await s.service.send(busy.id, '建一個新專案')
+    expect(s.service.list().conversations).toHaveLength(2)
+    // Claude 建了新專案、App 切過去
+    s.project.switchTo(second)
+    expect(s.events.some((e) => e.type === 'reset')).toBe(true)
+    // 正在做事的那個跟過來；沒在做事的留在第一個專案
+    expect(s.service.list().conversations.map((c) => c.id)).toEqual([busy.id])
+    expect(readdirSync(join(second, 'chat'))).toEqual([`${busy.id}.jsonl`])
+    expect(existsSync(join(first, 'chat', `${busy.id}.jsonl`))).toBe(false)
+    expect(existsSync(join(first, 'chat', `${idle.id}.jsonl`))).toBe(true)
+    // 做完之後它還在新專案的清單裡，紀錄也在新專案
+    const child = s.children[s.children.length - 1]
+    child?.line(init(true, 's2'))
+    child?.line(success('建好了'))
+    expect(s.service.list().conversations.map((c) => c.id)).toEqual([busy.id])
+    expect(readConversations(second)[0]?.messages).toHaveLength(2)
+    // 切回第一個專案：看得到第一個專案的對話
+    s.project.switchTo(first)
+    expect(s.service.list().conversations.map((c) => c.id)).toEqual([idle.id])
+  })
+
+  it('同一個 App 裡另存為：切到複本後清單照複本的紀錄重讀（同一個 id 不會被舊專案的那份擋住），舊專案的行程收掉', async () => {
+    const original = projectDir()
+    const copy = projectDir()
+    const s = setup({ projectDir: original })
+    const conv = s.service.create()
+    const child = await say(s, conv.id, '原本專案裡的對話', 'session-orig')
+    cpSync(join(original, 'chat'), join(copy, 'chat'), { recursive: true })
+    s.project.switchTo(copy)
+    // 舊專案那個對話的行程被收掉（紀錄在它自己的專案裡，回去再讀）
+    expect(child.killed).toContain('SIGTERM')
+    const [listed] = s.service.list().conversations
+    expect(listed).toMatchObject({ id: conv.id, running: false })
+    expect(s.service.messages(conv.id).messages).toHaveLength(2)
+    await s.service.send(conv.id, '複本裡接著講')
+    const forked = s.children[s.children.length - 1]
+    forked?.line(init(true, 'session-forked'))
+    forked?.line(success('好'))
+    const args = s.calls[s.calls.length - 1]?.args
+    expect(arg(args, '--resume')).toBe('session-orig')
+    expect(args).toContain('--fork-session')
+    // 切回原本的專案：原本的紀錄原樣、沒有複本裡才說的話
+    s.project.switchTo(original)
+    expect(s.service.messages(conv.id).messages.map((m) => m.text)).toEqual([
+      '原本專案裡的對話',
+      '回：原本專案裡的對話',
+    ])
   })
 })

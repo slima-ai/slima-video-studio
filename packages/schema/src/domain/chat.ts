@@ -67,6 +67,8 @@ export const ChatEventSchema = z.discriminatedUnion('type', [
     message: ChatPanelMessageSchema,
   }),
   z.object({ type: z.literal('conversation'), conversation: ChatConversationSchema }),
+  /** 專案換了：畫面丟掉現有的對話清單，重讀。 */
+  z.object({ type: z.literal('reset') }),
 ])
 export type ChatEvent = z.infer<typeof ChatEventSchema>
 
