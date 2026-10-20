@@ -58,8 +58,9 @@ Read this before split_scene_into_shots and whenever you create or edit shots. T
 Rules
 1. One shot, one idea: one action, one camera move.
 2. Neighbouring shots must differ: change size by a step or more, or change angle. Never the same size three times running.
-3. Video models are steadier when a shot is wide and slow. Save close-ups and big motion for one or two shots that need them.
-4. Describe what should be seen, never what to avoid.
+3. Choose the camera move on purpose for every shot. Each scene needs at least one move with a purpose: push_in to stress something, pan to open up the space, follow to travel with an action. Do not repeat the same move, or the same angle, in more than two shots in a row. Keep static for dialogue, a pause, an emotional landing.
+4. Video models fail more on big, fast motion and on close-ups of a moving character. Save those for the one or two shots that need them; a slow push_in, pan or follow on a wide shot is safe.
+5. Describe what should be seen, never what to avoid.
 
 Size (size)
 - extreme_wide: the place, its scale, a lone character. Opens or closes a scene.
@@ -74,7 +75,7 @@ Angle (angle)
 - back: following someone, or hiding the face. dutch: unease; sparingly.
 
 Camera move (cameraMove: a preset id, or null)
-- static: calm, watching; the default when you have no reason to move.
+- static: calm, watching; for dialogue, a pause, an emotional landing.
 - push_in: focus, closeness, dread. pull_out: reveal, or leaving someone alone.
 - pan: sweeping a space. tilt: height or scale. follow: travelling with the subject.
 - orbit: all sides of a subject; short shots only. handheld: urgency, realism.
@@ -95,13 +96,13 @@ The app joins shots with straight cuts. There is no dissolve, fade or wipe, so d
 
 Feeling to shot
 Starting points, not laws:
-- Lonely: extreme_wide or wide, subject small in a corner; high or eye_level; static or a very slow pull_out; 4 to 6 s; cold, dim, one light.
-- Warm, trusting: medium then close_up; eye_level (over_shoulder for two people); static or slow push_in; 3 to 5 s; soft warm light.
+- Lonely: extreme_wide or wide, subject small in a corner; high or eye_level; a very slow pull_out, or static; 4 to 6 s; cold, dim, one light.
+- Warm, trusting: medium then close_up; eye_level (over_shoulder for two people); slow push_in, or static on the words; 3 to 5 s; soft warm light.
 - Tense: alternate close_up and wide; dutch, low or back; handheld, push_in as something closes in; 2 to 3 s; hard light, strong contrast.
 - Reveal, awe: close_up reaction then extreme_wide (or reverse); low or overhead; pull_out, crane or tilt; hold the reveal 5 s or more after a small, short shot; backlight.
-- Calm ending: wide or medium, steady; eye_level; static or slow pull_out, one slow_motion detail; last shot 5 s or more; softer light.
+- Calm ending: wide or medium, steady; eye_level; slow pull_out, or static on the last image; one slow_motion detail; last shot 5 s or more; softer light.
 
-Check each scene: sizes vary, every move has a reason, neighbours differ, light is consistent, no shot does two things.
+Check each scene: sizes vary, at least one move has a purpose, no move or angle repeats more than twice in a row, neighbours differ, light is consistent, no shot does two things.
 `
 
 /** 使用者自己改過的分鏡準則（設定頁）優先，沒改就是內建的。 */

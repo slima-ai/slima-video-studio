@@ -30,6 +30,14 @@ describe('分鏡準則', () => {
     expect(DEFAULT_STORYBOARD_GUIDE.match(/溶接|淡出/g)).toHaveLength(2)
   })
 
+  it('運鏡不預設不動：沒有「沒理由就用 static／就不要動」；每場至少一個帶目的的運鏡、同一種不連續超過兩鏡', () => {
+    expect(DEFAULT_STORYBOARD_GUIDE).not.toContain('沒有理由就用')
+    expect(DEFAULT_STORYBOARD_GUIDE).not.toContain('沒有理由就不要動')
+    expect(DEFAULT_STORYBOARD_GUIDE).toContain('每一場至少有一個帶目的的運鏡')
+    expect(DEFAULT_STORYBOARD_GUIDE).toContain('同一種運鏡或角度不要連續超過兩鏡')
+    expect(DEFAULT_STORYBOARD_GUIDE).toContain('static 留給對話、停頓與情緒落點')
+  })
+
   it('沒自訂（空白）就用預設，有自訂就用自訂', () => {
     expect(resolveStoryboardGuide(undefined)).toBe(DEFAULT_STORYBOARD_GUIDE)
     expect(resolveStoryboardGuide('  \n')).toBe(DEFAULT_STORYBOARD_GUIDE)

@@ -35,6 +35,13 @@ describe('load_guide("cinematography")', () => {
     expect(feeling.indexOf('Starting points, not laws:')).toBeLessThan(feeling.indexOf('- Lonely'))
   })
 
+  it('運鏡要選對的、不預設不動：每場至少一個帶目的的運鏡、同一種運鏡或角度不連續超過兩鏡；static 留給對話與停頓', () => {
+    expect(cinematography).not.toMatch(/default when you have no reason/i)
+    expect(cinematography).toContain('Each scene needs at least one move with a purpose')
+    expect(cinematography).toContain('in more than two shots in a row')
+    expect(cinematography).toContain('Keep static for dialogue, a pause, an emotional landing')
+  })
+
   it('長度不超過現有最長指南的 1.5 倍（每個工作階段載入都要花 token）', () => {
     const longest = Math.max(
       ...GUIDE_TOPICS.filter((t) => t !== 'cinematography' && t !== 'storyboard').map(
