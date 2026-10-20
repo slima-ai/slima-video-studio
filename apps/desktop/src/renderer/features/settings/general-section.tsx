@@ -23,7 +23,7 @@ const THEME_LABELS: Record<ThemePreference, string> = {
   dark: '深色',
 }
 
-/** 「一般」區的三張卡：示範模式、外觀、App 自己每次生成最多花多少。 */
+/** 「一般」區的三張卡：示範模式、外觀、單次花費上限。 */
 export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
   const [limit, setLimit] = useState(String(settings.budget.perRunLimitUsd))
   const [error, setError] = useState<string | undefined>()
@@ -123,9 +123,9 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
 
       <SettingCard
         icon={CircleDollarSign}
-        title="每次生成的花費上限"
+        title="單次花費上限"
         status={{ tone: 'ok', label: `US$${String(settings.budget.perRunLimitUsd)}` }}
-        summary="App 自己每次生成最多花多少：預估超過，那一次就不會開始，會告訴你。"
+        summary="每按一次生成（你按的，或 AI 工具要求的）：預估花費超過這個金額，那一次就不會開始。花的是你在 OpenRouter、fal.ai 等服務的帳戶。"
         body={
           <form
             onSubmit={(event) => {
@@ -137,7 +137,7 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
             }}
           >
             <label className="sr-only" htmlFor="per-run-limit">
-              每次生成的花費上限（美金）
+              單次花費上限（美金）
             </label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-fg-muted">US$</span>
@@ -157,7 +157,8 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
               </Button>
             </div>
             <p className="mt-1 text-xs text-fg-muted">
-              要做更大的就到這裡調高，不會偷偷花錢。預設 US${DEFAULT_PER_RUN_LIMIT_USD}。
+              超過時會告訴你預估多少，不會直接做；要做更大的就到這裡調高，再做一次。預設 US$
+              {DEFAULT_PER_RUN_LIMIT_USD}。示範模式不花錢。
             </p>
             {valid ? null : <p className="mt-1 text-sm text-danger">請輸入大於 0 的數字。</p>}
             {saved ? (

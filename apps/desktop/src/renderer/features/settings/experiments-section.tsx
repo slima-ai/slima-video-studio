@@ -63,7 +63,8 @@ export function ExperimentsSection({ settings, onChanged }: ExperimentsSectionPr
           <div className="space-y-3">
             <p className="text-sm text-fg-muted">
               需要先裝好並登入 Claude Code，也要打開「AI 工具連線」。對話會用到你自己的 Claude
-              用量； 花錢的生成步驟照「AI 工具連線」的額度擋。這是實驗功能，可能隨時改變。
+              用量；要花服務金鑰的生成（圖片、影片…）受「AI 工具的總額度」和「單次花費上限」限制。
+              這是實驗功能，可能隨時改變。
             </p>
             <BudgetField
               value={settings.experiments.claudeBudgetUsd}
@@ -82,7 +83,7 @@ export function ExperimentsSection({ settings, onChanged }: ExperimentsSectionPr
   )
 }
 
-/** Claude 對話每一段最多用多少 Claude 用量（美金，約）。到上限時對話裡會出現「繼續」，不會斷掉。 */
+/** Claude 對話每一段的用量上限（約 US$）。到上限時對話裡會出現「繼續」，不會斷掉。 */
 function BudgetField({
   value,
   onChanged,
@@ -119,7 +120,7 @@ function BudgetField({
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <label htmlFor="experiment-claude-budget" className="text-fg-muted">
-        Claude 對話每一段最多用多少 Claude 用量（美金，約）
+        Claude 對話每一段的用量上限（約 US$）
       </label>
       <input
         id="experiment-claude-budget"
@@ -138,7 +139,10 @@ function BudgetField({
         }}
       />
       <span className="text-xs text-fg-muted">
-        到上限時對話裡會出現「繼續」，按了就接著做；留空用預設（US$0.5）。
+        花的是你自己的 Claude 用量，跟「單次花費上限」「AI 工具的總額度」不同。一段＝連續使用，閒置
+        10
+        分鐘或按「繼續」就算新的一段；到上限時對話會停下並出現「繼續」，按了再用同樣的量。留空用預設（約
+        US$0.50）。
       </span>
     </div>
   )
