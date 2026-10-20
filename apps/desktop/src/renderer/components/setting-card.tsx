@@ -11,7 +11,7 @@ export interface SettingCardProps {
   /** 一個詞到一句短話。 */
   title: string
   /** 狀態燈（已填／沒填／連線中…）。 */
-  status?: Pick<StatusLightProps, 'tone' | 'label'>
+  status?: Pick<StatusLightProps, 'tone' | 'label' | 'testId'>
   /** 一句白話：使用者需要知道的那一件事。太長的放進 `details`。 */
   summary: string
   /** 卡右上角的主要動作（開關或按鈕），最多一個；其他操作放進 `details`。 */
@@ -63,7 +63,7 @@ export function SettingCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h3 className="text-sm font-semibold">{title}</h3>
-            {status ? <StatusLight tone={status.tone} label={status.label} /> : null}
+            {status ? <StatusLight {...status} /> : null}
           </div>
           <p className="wrap-zh mt-1 text-sm text-fg-muted">{summary}</p>
         </div>

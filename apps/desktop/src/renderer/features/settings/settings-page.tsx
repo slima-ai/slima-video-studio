@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 
 import { Button } from '../../components/button'
 import { SkeletonCards } from '../../components/skeleton'
@@ -30,14 +30,13 @@ export interface SettingsPageProps {
 
 /** 設定頁：API Key、模型、示範模式與花費上限。 */
 export function SettingsPage({ state, reload }: SettingsPageProps) {
-  const keysRef = useRef<HTMLDivElement>(null)
   // 每次打開都重讀：專案可能剛開或剛換，金鑰也可能在別的地方改過
   useEffect(() => {
     reload()
   }, [reload])
   /** 從「使用的模型」跳到金鑰區，並把游標放進第一個還沒填的欄位。 */
   const goToKeys = (): void => {
-    const box = keysRef.current
+    const box = document.getElementById('keys')
     if (!box) return
     box.scrollIntoView({ behavior: 'smooth', block: 'start' })
     box.querySelector<HTMLInputElement>('input:not(:disabled)')?.focus({ preventScroll: true })
@@ -72,14 +71,12 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
             >
               <ConnectionsArea onChanged={reload} storageAvailable={state.data.storage.available} />
             </SettingGroup>
-            <SettingGroup id="keys" title="服務金鑰" hint="要真的生成圖片、影片、聲音才需要填。">
-              <div ref={keysRef} className="md:col-span-2">
-                <KeysSection
-                  keys={state.data.keys}
-                  storage={state.data.storage}
-                  onChanged={reload}
-                />
-              </div>
+            <SettingGroup
+              id="keys"
+              title="服務金鑰"
+              hint="用你自己的帳號呼叫 AI 服務，費用由服務商直接向你收；金鑰只存在這台電腦、不會上傳。"
+            >
+              <KeysSection keys={state.data.keys} storage={state.data.storage} onChanged={reload} />
             </SettingGroup>
             <SettingGroup id="models" title="使用的模型" hint="不確定的話保持預設就好。">
               <div className="space-y-6 md:col-span-2">

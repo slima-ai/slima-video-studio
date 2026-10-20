@@ -21,13 +21,15 @@ export interface StatusLightProps {
   /** 一定要有文字：不能只靠顏色（色盲、深淺色都要看得懂）。 */
   label: string
   className?: string
+  /** 預設 `status-light`；同一頁有好幾顆時各給自己的。 */
+  testId?: string
 }
 
 /** 狀態燈：一顆小圓點加一小段字（「已填」「沒填」「連線中」…）。 */
-export function StatusLight({ tone, label, className }: StatusLightProps) {
+export function StatusLight({ tone, label, className, testId = 'status-light' }: StatusLightProps) {
   return (
     <span
-      data-testid="status-light"
+      data-testid={testId}
       data-tone={tone}
       className={cn(
         'inline-flex shrink-0 items-center gap-1.5 text-xs font-medium',
