@@ -31,6 +31,7 @@ import { join } from 'node:path'
 
 import type { Logger } from '../logger'
 import type { ProjectManager } from '../project-manager'
+import { markSoundAutoAdded } from '../canvas/canvas-run-sound'
 import { lockedAnchors, referenceEditModel } from '../characters/anchors'
 import { ensureProject, safeFileName, stamp } from '../ensure-project'
 import { createProjectEngine } from '../project-engine'
@@ -270,6 +271,11 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
         ...(request.mode ? { mode: request.mode } : {}),
         ...(request.sourceKey ? { sourceKey: request.sourceKey } : {}),
       })
+      // 一句話節點重新生成：新的內容，之後的「全部生成」再照卡片的勾選決定要不要自動加聲音
+      const sourceNodeId = request.sourceKey?.startsWith('node:')
+        ? request.sourceKey.slice('node:'.length)
+        : undefined
+      if (sourceNodeId !== undefined) markSoundAutoAdded(handle, [sourceNodeId], false)
       // 對話框的「影片原聲」勾選存進專案的聲音設定（之後單鏡重新生成也沿用）
       if (request.sound) handle.repos.sound.updateSettings({ nativeAudio: request.sound.native })
       const anchors = lockedAnchors(handle)
@@ -355,6 +361,10 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
             } catch (error) {
               failed = !controller.signal.aborted
               log.warn(`快速開始完成後加聲音失敗：${String(error)}`)
+            }
+            // 加成功了：記在一句話節點上，之後的「全部生成」不再自動補（使用者刪掉的配樂不會又冒出來）
+            if (!failed && !controller.signal.aborted && sourceNodeId !== undefined) {
+              markSoundAutoAdded(handle, [sourceNodeId], true, now)
             }
           }
           const mixedHash = shots.finalVideoHash()

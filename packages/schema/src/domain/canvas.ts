@@ -109,6 +109,11 @@ export const OnelinerParamsSchema = z.object({
   aspectRatio: z.enum(['16:9', '9:16']),
   /** 聲音三個勾選；舊的節點沒有這個欄位，畫面上當成全開。 */
   sound: QuickStartSoundSchema.optional(),
+  /**
+   * 旁白與配樂已經自動加過的時間（ISO）。有值就不再自動補（使用者刪掉的配樂不會又冒出來）；
+   * 在卡片上改聲音勾選、或重新產生分鏡，就清掉，之後的「全部生成」再照勾選加。
+   */
+  soundAutoAddedAt: z.string().optional(),
 })
 export type OnelinerParams = z.infer<typeof OnelinerParamsSchema>
 

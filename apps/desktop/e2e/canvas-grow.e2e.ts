@@ -449,4 +449,64 @@ test.describe('畫布上的一句話（示範模式）', () => {
     expect(await soundState(page)).toMatchObject({ narrated: 0, music: false, hasSound: false })
     expectAudio(audioOf(await exportedFinal(page)), 'silent')
   })
+
+  test('加過就不再自動補：刪掉配樂再按全部生成，配樂不會回來；在卡片上重新勾就再加', async ({
+    page,
+  }) => {
+    await storyboardThenGenerateAll(page, { narration: true, music: true })
+    await expect(page.getByTestId('toast').filter({ hasText: '旁白與配樂也加好了' })).toBeVisible({
+      timeout: 60_000,
+    })
+    const first = await soundState(page)
+    expect(first).toMatchObject({ narrated: 3, music: true })
+
+    // 使用者刪掉配樂，又多加一個有台詞的鏡頭
+    await page.evaluate(async () => {
+      const state = await window.svs.invoke('sound.get', {})
+      if (!state.ok || !state.data.music) throw new Error('應該有配樂')
+      const removed = await window.svs.invoke('sound.removeClip', { clipId: state.data.music.id })
+      if (!removed.ok) throw new Error(removed.error.userMessage)
+      const list = await window.svs.invoke('shots.list', {})
+      if (!list.ok) throw new Error(list.error.userMessage)
+      const created = await window.svs.invoke('shots.create', {
+        sceneId: list.data.shots[0]?.sceneId,
+      })
+      if (!created.ok) throw new Error(created.error.userMessage)
+      const edited = await window.svs.invoke('shots.update', {
+        shotId: created.data.id,
+        patch: { dialogue: '多出來的一鏡。' },
+      })
+      if (!edited.ok) throw new Error(edited.error.userMessage)
+    })
+    expect((await soundState(page)).music).toBe(false)
+
+    // 再按全部生成：確認面板不提自動加聲音，生成完配樂還是沒有
+    await page.getByTestId('run-all').click()
+    const confirm = page.getByTestId('run-confirm')
+    await expect(confirm).toBeVisible()
+    expect(await confirm.innerText()).not.toContain('自動加')
+    await page.getByTestId('run-confirm-ok').click()
+    await expect
+      .poll(async () => (await soundState(page)).finalVersion, { timeout: 60_000 })
+      .toBeGreaterThan(first.finalVersion ?? 0)
+    await expect(page.getByTestId('toast').filter({ hasText: '成品接好了' })).toBeVisible()
+    expect(await soundState(page)).toMatchObject({ music: false, narrated: 3 })
+
+    // 在卡片上重新勾一次「配樂」（取消再勾回來）：下一次全部生成再照勾選加
+    await focusOneliner(page)
+    await page.getByTestId('oneliner-sound-music').uncheck()
+    await page.getByTestId('oneliner-sound-music').check()
+    await page.evaluate(async () => {
+      const list = await window.svs.invoke('shots.list', {})
+      if (!list.ok) throw new Error(list.error.userMessage)
+      const created = await window.svs.invoke('shots.create', {
+        sceneId: list.data.shots[0]?.sceneId,
+      })
+      if (!created.ok) throw new Error(created.error.userMessage)
+    })
+    await page.getByTestId('run-all').click()
+    await expect(page.getByTestId('run-confirm')).toContainText('接好片之後自動加')
+    await page.getByTestId('run-confirm-ok').click()
+    await expect.poll(async () => (await soundState(page)).music, { timeout: 60_000 }).toBe(true)
+  })
 })

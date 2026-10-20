@@ -18,12 +18,32 @@ export interface RunSoundDeps {
   log: Pick<Logger, 'warn'>
 }
 
-export type RunSoundWant = Pick<QuickStartSound, 'narration' | 'music'>
+type SoundTodo = Pick<QuickStartSound, 'narration' | 'music'>
+
+export type RunSoundWant = SoundTodo & {
+  /** 這次的勾選來自哪些一句話節點（加好之後替它們記下「加過了」）。 */
+  nodeIds: readonly string[]
+}
+
+/** 旁白與配樂加過了：記在一句話節點的設定上（`on` 是 false 就清掉）。 */
+export function markSoundAutoAdded(
+  handle: NonNullable<ReturnType<ProjectManager['current']>>,
+  nodeIds: readonly string[],
+  on: boolean,
+  now: () => Date = () => new Date(),
+): void {
+  for (const id of nodeIds) {
+    handle.repos.canvas.updateNodeParams(id, {
+      soundAutoAddedAt: on ? now().toISOString() : undefined,
+    })
+  }
+}
 
 export interface RunSound {
   /**
    * 「全部生成」要不要順便加旁白與配樂：這次生成的鏡頭所在的場，連著哪些一句話節點，就看那些節點記住的聲音勾選
-   * （「先產生分鏡」時卡片上勾的；舊的節點沒記就當全開），有一個要就要。沒有一句話節點連著（自己一步一步做的）就不加。
+   * （「先產生分鏡」時卡片上勾的；舊的節點沒記就當全開），有一個要就要。沒有一句話節點連著（自己一步一步做的）就不加；
+   * 節點已經自動加過（`soundAutoAddedAt`）就不再補，使用者刪掉的配樂不會又冒出來。
    */
   wanted: (
     shots: readonly { id: string; sceneId?: string | undefined }[],
@@ -38,7 +58,7 @@ export function createRunSound(deps: RunSoundDeps): RunSound {
   const { projects, log } = deps
 
   /** 這一輪還要加的：配樂已經有了就不再生。 */
-  const remaining = (want: RunSoundWant): RunSoundWant | undefined => {
+  const remaining = (want: RunSoundWant): SoundTodo | undefined => {
     const sound = deps.sound?.()
     if (!sound) return undefined
     const next = {
@@ -66,11 +86,13 @@ export function createRunSound(deps: RunSoundDeps): RunSound {
       let want: RunSoundWant | undefined
       for (const node of canvas.listNodes()) {
         if (node.type !== 'oneliner' || !linked.has(`node:${node.id}`)) continue
+        if (typeof node.params.soundAutoAddedAt === 'string') continue
         const parsed = QuickStartSoundSchema.safeParse(node.params.sound)
         const sound = parsed.success ? parsed.data : DEFAULT_QUICK_START_SOUND
         want = {
           narration: (want?.narration ?? false) || sound.narration,
           music: (want?.music ?? false) || sound.music,
+          nodeIds: [...(want?.nodeIds ?? []), node.id],
         }
       }
       return want && (want.narration || want.music) ? want : undefined
@@ -94,9 +116,12 @@ export function createRunSound(deps: RunSoundDeps): RunSound {
     async add(want) {
       const todo = remaining(want)
       const sound = deps.sound?.()
-      if (!todo || !sound) return undefined
+      if (!sound) return undefined
       try {
-        await sound.addAll(todo)
+        if (todo) await sound.addAll(todo)
+        // 加成功（或本來就都有了）才記下加過了；失敗的話之後的全部生成還會再試
+        const handle = projects.current()
+        if (handle && !handle.closed) markSoundAutoAdded(handle, want.nodeIds, true)
         return undefined
       } catch (error) {
         log.warn(`全部生成之後加聲音失敗：${String(error)}`)

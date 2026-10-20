@@ -328,11 +328,12 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
   })
 
   it('已經有配樂就不再生一首：再補跑一次只補缺的旁白', async () => {
-    const { h } = await storyboarded(ALL_ON)
+    const { h, oneliner } = await storyboarded(ALL_ON)
     await h.canvas.run({ keys: [], all: true })
     await settled(h, '旁白與配樂也加好了')
     const firstMusic = h.sound.state().music?.id
-    // 新增一個鏡頭、寫上台詞，再按全部生成
+    // 在卡片上重新勾選（清掉「加過了」）、新增一個鏡頭並寫上台詞，再按全部生成
+    h.canvas.updateOneliner({ key: oneliner.key, patch: { sound: ALL_ON } })
     const extra = h.shots.create({ sceneId: h.shots.list().shots[0]?.sceneId })
     h.shots.update(extra.id, { dialogue: '多出來的一鏡。' })
     const plan = h.canvas.runPlan({ keys: [], all: true })
@@ -348,5 +349,78 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
     expect(noticesOf(h).at(-1)).toBe('旁白與配樂也加好了')
     expect(h.sound.state().music?.id).toBe(firstMusic)
     expect(h.sound.state().shots.every((s) => s.narration !== undefined)).toBe(true)
+  })
+
+  const markOf = (h: Awaited<ReturnType<typeof storyboarded>>['h'], key: string) =>
+    h.projects
+      .current()
+      ?.repos.canvas.listNodes()
+      .find((n) => `node:${n.id}` === key)?.params.soundAutoAddedAt
+
+  it('加過就不再自動補：使用者刪掉的配樂不會因為再按全部生成又冒出來；在卡片上重新勾才再加', async () => {
+    const { h, oneliner } = await storyboarded(ALL_ON)
+    expect(markOf(h, oneliner.key)).toBeUndefined()
+    await h.canvas.run({ keys: [], all: true })
+    await settled(h, '旁白與配樂也加好了')
+    expect(typeof markOf(h, oneliner.key)).toBe('string')
+    // 使用者刪掉配樂，又新增一個有台詞的鏡頭，再按全部生成
+    const music = h.sound.state().music
+    if (!music) throw new Error('應該有配樂')
+    h.sound.removeClip(music.id)
+    const extra = h.shots.create({ sceneId: h.shots.list().shots[0]?.sceneId })
+    h.shots.update(extra.id, { dialogue: '多出來的一鏡。' })
+    expect(h.canvas.runPlan({ keys: [], all: true }).sound).toBeUndefined()
+    await h.canvas.run({ keys: [], all: true })
+    await settled(h, '成品接好了')
+    await h.shots.whenIdle()
+    expect(h.sound.state().music).toBeUndefined()
+    expect(h.sound.state().shots.find((s) => s.shotId === extra.id)?.narration).toBeUndefined()
+    // 在卡片上重新勾一次聲音：清掉「加過了」，下一次全部生成再照勾選加
+    h.canvas.updateOneliner({ key: oneliner.key, patch: { sound: ALL_ON } })
+    expect(markOf(h, oneliner.key)).toBeUndefined()
+    // 還有鏡頭要生成、要接片，才會加聲音
+    h.shots.create({ sceneId: h.shots.list().shots[0]?.sceneId })
+    expect(h.canvas.runPlan({ keys: [], all: true }).sound).toMatchObject({
+      narration: true,
+      music: true,
+    })
+  })
+
+  it('聲音沒加成就不記加過了；一次做完整支加好聲音會記，重新產生分鏡會清掉', async () => {
+    const h = createStudioHarness()
+    harnesses.push(h)
+    const oneliner = h.canvas.add({ kind: 'oneliner' })
+    h.canvas.updateOneliner({ key: oneliner.key, patch: { sound: ALL_ON } })
+    const grow = async (stage: 'storyboard' | 'full') => {
+      await h.quickstart.run({
+        story: '一隻貓在雨天裡找到溫暖的家',
+        style: 'anime',
+        shotCount: 3,
+        durationSec: 3,
+        aspectRatio: '16:9',
+        variation: 0,
+        mode: 'append',
+        sourceKey: oneliner.key,
+        sound: ALL_ON,
+        stage,
+      })
+      await vi.waitFor(
+        () => {
+          const last = h.progress().at(-1)
+          expect(last && last.status !== 'running').toBe(true)
+        },
+        { timeout: 30_000, interval: 20 },
+      )
+    }
+    await grow('full')
+    const node = (): Record<string, unknown> | undefined =>
+      h.projects
+        .current()
+        ?.repos.canvas.listNodes()
+        .find((n) => `node:${n.id}` === oneliner.key)?.params
+    // 示範鏡頭沒有台詞、配樂照加：整次做完，記下加過了
+    expect(typeof node()?.soundAutoAddedAt).toBe('string')
+    await grow('storyboard')
+    expect(node()?.soundAutoAddedAt).toBeUndefined()
   })
 })

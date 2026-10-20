@@ -452,7 +452,11 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
           userMessage: '找不到這個「一句話」，可能已經被刪掉了。',
         })
       }
-      handle.repos.canvas.updateNodeParams(node.id, patch)
+      // 改了聲音勾選＝重新決定要不要自動加：之後的「全部生成」再照新的勾選加
+      handle.repos.canvas.updateNodeParams(
+        node.id,
+        patch.sound === undefined ? patch : { ...patch, soundAutoAddedAt: undefined },
+      )
       revision += 1
       broadcast('canvas.changed', { revision })
     },
