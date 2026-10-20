@@ -2,13 +2,14 @@ import { type McpStatus } from '@svs/schema'
 import { join } from 'node:path'
 
 import type { Logger } from '../logger'
-import type { IpcRegistry } from '../ipc/registry'
+import type { HandlerContext, IpcRegistry } from '../ipc/registry'
 import type { KeyVault } from '../keys/key-vault'
 import type { MediaTools } from '@svs/media'
 
 import type { ProjectManager } from '../project-manager'
 import type { Broadcast } from '../runtime/project-runtime'
 import type { SettingsStore } from '../settings/settings-store'
+import { createCanvasMarker, withAiChangeNotice } from './ai-changes'
 import { createAllowance, type Allowance } from './allowance'
 import { createAssetViewer } from './viewer'
 import { createMcpCaller } from './bridge'
@@ -51,8 +52,13 @@ export function createMcpController(deps: McpControllerDeps): McpController {
     allowanceUsd: () => settings.get().mcp.allowanceUsd,
     demoMode: () => settings.get().demoMode,
   })
-  const caller = createMcpCaller(deps.registry, (event, payload) => {
+  const emit: HandlerContext['emit'] = (event, payload) => {
     deps.broadcast(event, payload)
+  }
+  // 走 MCP 進來的呼叫都是 AI 工具做的：改了畫布就通知畫面（亮一下、標「AI 剛改」、刪了什麼）
+  const caller = withAiChangeNotice(createMcpCaller(deps.registry, emit), {
+    marks: createCanvasMarker(deps.registry),
+    emit,
   })
   const redactor = createRedactor(() => [
     tokens.get(),

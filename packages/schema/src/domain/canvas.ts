@@ -507,6 +507,24 @@ export const CanvasRunResultSchema = z.object({
 })
 export type CanvasRunResult = z.infer<typeof CanvasRunResultSchema>
 
+/**
+ * AI 工具（走 MCP 進來的呼叫，不管是 Claude Desktop、Claude Code 還是 App 自己的 Claude 對話）
+ * 剛改了畫布上的哪些節點：呼叫前後各取一次畫布，比較出來的。只給畫面用（亮一下、標「AI 剛改」、
+ * 刪掉的提示），不是 MCP 介面的一部分。位置的變動（自動排版）不算。
+ */
+export const CanvasAiChangedSchema = z.object({
+  at: z.string(),
+  /** 呼叫的內部通道名（例如 `shots.update`），給除錯與之後顯示用。 */
+  channel: z.string(),
+  /** 內容變了的既有節點鍵。 */
+  changed: z.array(z.string()),
+  /** 新出現的節點鍵。 */
+  added: z.array(z.string()),
+  /** 不見的節點（帶標題與種類，畫面才說得出「刪了第 3 鏡」）。 */
+  removed: z.array(z.object({ key: z.string(), title: z.string(), kind: CanvasNodeKindSchema })),
+})
+export type CanvasAiChanged = z.infer<typeof CanvasAiChangedSchema>
+
 /** 主行程在背景做完事（例如生成完自動接片）時的一行通知。 */
 export const CanvasNoticeSchema = z.object({
   tone: z.enum(['success', 'danger']),
