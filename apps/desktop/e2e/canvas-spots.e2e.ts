@@ -101,6 +101,21 @@ test.describe('畫布：新增的節點放在空位，不疊在一起', () => {
     }
   })
 
+  test('剛新增的角色還選著，再從面板新增群組：群組是空的、放在空位，不蓋在角色或場框上（走查 N4）', async ({
+    page,
+  }) => {
+    await generateAndOpenCanvas(page)
+    await page.getByTestId('palette-character').click()
+    await page.getByTestId('palette-group').click()
+    await page.waitForTimeout(800)
+    const all = await boxes(page)
+    const group = all.find((b) => b.kind === 'group')
+    if (!group) throw new Error('沒有群組')
+    const hit = (a: Box, b: Box): boolean =>
+      a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+    expect(all.filter((b) => b.kind !== 'group' && b.w > 0 && hit(group, b))).toEqual([])
+  })
+
   test('一次選好幾個檔案放上畫布：每個都放在空位，不疊在別的格子或彼此上面', async ({
     app,
     page,

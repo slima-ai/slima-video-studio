@@ -68,7 +68,9 @@ function Port({ nodeId, port }: { nodeId: string; port: PortDef }) {
         data-dangling={!connected}
       />
       <span className="port-label" data-side={port.side} data-link={link} style={{ top: port.top }}>
-        {port.tone === 'ref' && port.side === 'in' ? `參考・${port.label}` : port.label}
+        {port.tone === 'ref' && port.side === 'in' && !port.label.startsWith('參考')
+          ? `參考・${port.label}`
+          : port.label}
       </span>
       {addable ? (
         <button
@@ -353,6 +355,8 @@ function Title({ id, data }: { id: string; data: CanvasNodeData }) {
     <b
       className="lod-mid flex min-w-0 cursor-default items-center gap-1.5 text-sm font-semibold"
       title={renamable ? '雙擊改名' : undefined}
+      // 鏡頭號是自動編的、不能改名：雙擊是打開設定，先說清楚（不然會以為可以像場名一樣就地改）
+      {...(data.kind === 'shot' ? { 'data-tip': '鏡頭號是自動編的；雙擊打開設定' } : {})}
       onDoubleClick={() => {
         if (renamable) startRename(id)
         else focusNode(id)

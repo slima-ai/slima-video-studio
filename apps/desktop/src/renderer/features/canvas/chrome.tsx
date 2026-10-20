@@ -149,7 +149,7 @@ export function TopBar(props: TopBarProps) {
           type="button"
           className={button}
           data-testid="tidy"
-          title="拖過的格子回到自動排好的位置（可以復原）"
+          data-tip="把拖過的格子排回自動排好的位置，再全部顯示（可以復原）"
           onClick={props.onTidy}
         >
           整理
