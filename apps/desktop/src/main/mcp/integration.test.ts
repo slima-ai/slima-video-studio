@@ -410,11 +410,24 @@ describe('工具', () => {
     }
   })
 
-  it('伺服器 instructions 很短，且指向 get_capabilities', async () => {
+  it('伺服器 instructions 很短（MCP 上限 4,096 字，這裡抓 2,000），且指向 get_capabilities', async () => {
     const client = await connect(env)
     const instructions = client.getInstructions() ?? ''
     expect(instructions).toContain('get_capabilities')
-    expect(instructions.length).toBeLessThan(1500)
+    expect(instructions.length).toBeLessThan(2000)
+  })
+
+  it('使用者只說「幫我把故事拆成 6 鏡」時，instructions 要 Claude 用 App 的工具做，不要只回一張文字表（Claude 曾經只貼表）', async () => {
+    const client = await connect(env)
+    const instructions = client.getInstructions() ?? ''
+    expect(instructions).toContain('storyboard, a shot breakdown or a short film')
+    expect(instructions).toContain('inside Slima Video Studio')
+    expect(instructions).toContain('never name the app')
+    expect(instructions).toContain('Do not answer with only a text table')
+    // 說完要用工具之後，還是先叫 get_capabilities
+    expect(instructions.indexOf('inside Slima Video Studio')).toBeLessThan(
+      instructions.indexOf('Start by calling'),
+    )
   })
 
   it('設定頁的位置寫對：金鑰在「服務金鑰」、示範模式在「一般」，「AI 工具連線」不是貼金鑰的地方（Claude 曾經指錯路）', async () => {
