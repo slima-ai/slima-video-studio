@@ -539,6 +539,43 @@ test.describe('畫布上的一句話（示範模式）', () => {
     )
   })
 
+  test('旁白念到一半使用者改了那一鏡的台詞：改的字留著，舊聲音標出「跟台詞不一樣」，不會悄悄掛上去', async ({
+    page,
+  }) => {
+    await storyboardThenGenerateAll(page, { narration: true, music: false })
+    await expect(page.getByTestId('toast').filter({ hasText: '旁白加好了' })).toBeVisible({
+      timeout: 60_000,
+    })
+    const fresh = '雨停了，貓走進屋裡。'
+    // 同時送出：念第 3 鏡（讀的是舊台詞）、使用者把第 3 鏡的台詞改掉
+    const result = await page.evaluate(async (line) => {
+      const list = await window.svs.invoke('shots.list', {})
+      if (!list.ok) throw new Error(list.error.userMessage)
+      const third = list.data.shots[2]
+      if (!third) throw new Error('沒有第 3 鏡')
+      const narrating = window.svs.invoke('sound.generateNarration', { shotId: third.id })
+      await window.svs.invoke('shots.update', { shotId: third.id, patch: { dialogue: line } })
+      await narrating
+      const state = await window.svs.invoke('sound.get', {})
+      if (!state.ok) throw new Error(state.error.userMessage)
+      const view = state.data.shots.find((s) => s.shotId === third.id)
+      return {
+        shotId: third.id,
+        dialogue: view?.dialogue,
+        narrationText: view?.narration?.text,
+        warnings: state.data.warnings.map((w) => ({ kind: w.kind, shotId: w.shotId })),
+      }
+    }, fresh)
+    // 改的字沒有被蓋回舊的
+    expect(result.dialogue).toBe(fresh)
+    // 聲音是用舊字念的：一定要有提示，使用者才知道要重念
+    expect(result.narrationText).not.toBe(fresh)
+    expect(result.warnings).toContainEqual({
+      kind: 'narration_text_changed',
+      shotId: result.shotId,
+    })
+  })
+
   test('加過就不再自動補：刪掉配樂再按全部生成，配樂不會回來；在卡片上重新勾就再加', async ({
     page,
   }) => {

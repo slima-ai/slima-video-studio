@@ -550,6 +550,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       window.svs.on('canvas.notice', (notice) => {
         toast.show({
           key: 'canvas-notice',
+          background: true,
           message: notice.message,
           ...(notice.tone === 'danger' ? { tone: 'danger' as const } : {}),
         })
