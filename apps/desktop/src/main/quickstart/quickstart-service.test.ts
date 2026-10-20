@@ -167,13 +167,27 @@ describe('QuickStartService.run（示範模式，不連網、不用 Key）', () 
     const lastWith = (progress: () => QuickStartProgress[], key: 'soundStart' | 'soundDone') =>
       [...progress()].reverse().find((p) => p[key] !== undefined)?.[key]
 
-    it('示範模式拆出來的鏡頭沒有台詞：進行中只說配樂，完成說配樂加好了、沒有旁白', async () => {
-      const { service, finished, progress, sound } = setup()
+    it('勾了旁白：拆鏡替每一鏡寫了台詞，進行中說旁白與配樂，完成說旁白與配樂也加好了，每一鏡都有旁白', async () => {
+      const { service, finished, progress, sound, shots } = setup()
       await service.run(request({ sound: SOUND }))
       const done = await finished()
       expect(done.status).toBe('succeeded')
+      for (const shot of shots.list().shots) expect(shot.dialogue.trim().length).toBeGreaterThan(0)
+      expect(lastWith(progress, 'soundStart')).toBe('成品接好了，正在加旁白與配樂…')
+      expect(done.soundDone).toBe('旁白與配樂也加好了')
+      const state = sound.state()
+      expect(state.music).toBeDefined()
+      expect(state.shots.every((shot) => shot.narration !== undefined)).toBe(true)
+    })
+
+    it('沒勾旁白：不寫台詞，進行中只說配樂，完成說配樂加好了，沒有旁白', async () => {
+      const { service, finished, progress, sound, shots } = setup()
+      await service.run(request({ sound: { ...SOUND, narration: false } }))
+      const done = await finished()
+      expect(done.status).toBe('succeeded')
+      for (const shot of shots.list().shots) expect(shot.dialogue).toBe('')
       expect(lastWith(progress, 'soundStart')).toBe('成品接好了，正在加配樂…')
-      expect(done.soundDone).toBe('配樂加好了；沒有鏡頭有台詞，所以沒有旁白')
+      expect(done.soundDone).toBe('配樂加好了')
       const state = sound.state()
       expect(state.music).toBeDefined()
       expect(state.shots.every((shot) => shot.narration === undefined)).toBe(true)

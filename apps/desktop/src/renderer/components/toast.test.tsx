@@ -54,6 +54,53 @@ describe('Toast', () => {
     expect(screen.queryByTestId('toast')).toBeNull()
   })
 
+  it('背景的通知不會吃掉使用者剛做的事的回饋：帶按鈕的提示先留著，收掉之後才輪到它', () => {
+    function Both() {
+      const { show } = useToast()
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              show({ message: '已改這一鏡的旁白', action: { label: '復原', onAction: vi.fn() } })
+            }}
+          >
+            user
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              show({ message: '旁白加好了', background: true })
+            }}
+          >
+            background
+          </button>
+        </>
+      )
+    }
+    render(
+      <ToastProvider>
+        <Both />
+      </ToastProvider>,
+    )
+    // 沒有別的提示時，背景通知照常顯示
+    fireEvent.click(screen.getByText('background'))
+    expect(screen.getByTestId('toast').textContent).toContain('旁白加好了')
+    fireEvent.click(screen.getByText('user'))
+    expect(screen.getByTestId('toast').textContent).toContain('已改這一鏡的旁白')
+    fireEvent.click(screen.getByText('background'))
+    expect(screen.getAllByTestId('toast')).toHaveLength(1)
+    expect(screen.getByTestId('toast').textContent).toContain('已改這一鏡的旁白')
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS + 10)
+    })
+    expect(screen.getByTestId('toast').textContent).toContain('旁白加好了')
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS + 10)
+    })
+    expect(screen.queryByTestId('toast')).toBeNull()
+  })
+
   it('一次只顯示一則：新的提示取代舊的，不會疊在一起', () => {
     function Keyed() {
       const { show } = useToast()

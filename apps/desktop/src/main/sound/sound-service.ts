@@ -172,6 +172,17 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     const warnings: SoundWarning[] = []
     for (const view of views) {
       const clip = view.narration
+      // 旁白念的字跟現在的台詞不一樣（念的時候或念完之後使用者改了台詞）：不能悄悄掛著舊聲音
+      if (clip && clip.text.trim() !== view.dialogue.trim()) {
+        warnings.push({
+          kind: 'narration_text_changed',
+          shotId: view.shotId,
+          message:
+            view.dialogue.trim() === ''
+              ? `第 ${String(view.number)} 鏡的台詞已經清掉了，可是旁白還是念舊的字。`
+              : `第 ${String(view.number)} 鏡的台詞改過了，旁白念的還是舊的字。重新生成這一鏡的旁白，聲音才會跟台詞一樣。`,
+        })
+      }
       if (!clip?.durationSec) continue
       const over = clip.offsetSec + clip.durationSec - view.durationSec
       if (over > NARRATION_SPILL_SEC) {

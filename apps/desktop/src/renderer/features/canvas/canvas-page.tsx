@@ -550,6 +550,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       window.svs.on('canvas.notice', (notice) => {
         toast.show({
           key: 'canvas-notice',
+          background: true,
           message: notice.message,
           ...(notice.tone === 'danger' ? { tone: 'danger' as const } : {}),
         })
@@ -1141,6 +1142,22 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             toast.show({
               key: 'shot-description',
               message: '已改鏡頭描述：第一張畫面和影片要重跑才會用到',
+              action: { label: '復原', onAction: history.undo },
+            })
+          })
+          .catch((error: unknown) => {
+            onChanged()
+            toast.show({ message: errorText(error), tone: 'danger' })
+          })
+      },
+      saveShotDialogue: (shotKey, dialogue) => {
+        const shotId = shotKey.replace(/^shot:/, '')
+        call('shots.update', { shotId, patch: { dialogue } })
+          .then(() => {
+            onChanged()
+            toast.show({
+              key: 'shot-dialogue',
+              message: dialogue === '' ? '已清掉這一鏡的旁白' : '已改這一鏡的旁白',
               action: { label: '復原', onAction: history.undo },
             })
           })

@@ -97,7 +97,7 @@ export const SoundShotViewSchema = z.object({
 export type SoundShotView = z.infer<typeof SoundShotViewSchema>
 
 export const SoundWarningSchema = z.object({
-  kind: z.enum(['narration_too_long', 'music_shorter_than_film']),
+  kind: z.enum(['narration_too_long', 'narration_text_changed', 'music_shorter_than_film']),
   shotId: IdSchema.optional(),
   /** 白話說明，可以直接顯示。 */
   message: z.string(),

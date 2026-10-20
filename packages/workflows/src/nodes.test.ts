@@ -15,7 +15,9 @@ import {
   composeShotPrompts,
   ShotItemSchema,
   concatNode,
+  dialogueOf,
   imageNode,
+  narrationMaxChars,
   pickReferences,
   REFERENCE_PROMPT_SUFFIX,
   shotPromptNode,
@@ -185,6 +187,69 @@ describe('節點：拆鏡', () => {
       capability: 'llm',
       modelId: 'openrouter/claude-sonnet-5.5',
     })
+  })
+
+  it('勾了旁白：要求每鏡一句短台詞（長度配合秒數），輸出帶 dialogue 並照上限截短；沒勾就說不要寫對白、也不帶台詞', async () => {
+    const lines = llmShots(3)
+    const long = '這是一句寫得太長太長太長太長太長太長太長念不完的旁白台詞'
+    const withNarration = fakeStudio([
+      text(
+        JSON.stringify({
+          ...lines,
+          shots: lines.shots.map((s, i) => ({
+            ...s,
+            dialogue: i === 0 ? long : `旁白 ${String(i)}`,
+          })),
+        }),
+      ),
+    ])
+    const { out } = await runNode(breakdownNode, {
+      params: { ...params, narration: true },
+      modelId: 'm',
+      studio: withNarration.studio,
+    })
+    const system = (withNarration.requests[0] as { system?: string }).system ?? ''
+    expect(system).toContain('dialogue')
+    expect(system).toContain('最多 16 個字')
+    expect(system).toContain('每個鏡頭都要有 dialogue')
+    const shots = out.shots as { dialogue?: string }[]
+    // 超過上限又沒有句讀可以切：整句保留（聲音的「旁白太長」警告會提醒）
+    expect(shots[0]?.dialogue).toBe(long)
+    expect(shots[1]?.dialogue).toBe('旁白 1')
+
+    const plain = fakeStudio([text(JSON.stringify(llmShots(3)))])
+    const { out: none } = await runNode(breakdownNode, {
+      params,
+      modelId: 'm',
+      studio: plain.studio,
+    })
+    expect((plain.requests[0] as { system?: string }).system).toContain('不要寫對白')
+    expect((none.shots as { dialogue?: string }[]).every((s) => s.dialogue === undefined)).toBe(
+      true,
+    )
+  })
+
+  it('勾了旁白但模型沒給台詞：附上錯誤再問一次（台詞是必填）', async () => {
+    const { studio, requests } = fakeStudio([
+      text(JSON.stringify(llmShots(3))),
+      text(
+        JSON.stringify({
+          ...llmShots(3),
+          shots: llmShots(3).shots.map((s) => ({ ...s, dialogue: '一句旁白' })),
+        }),
+      ),
+    ])
+    const { out } = await runNode(breakdownNode, {
+      params: { ...params, narration: true },
+      modelId: 'm',
+      studio,
+    })
+    expect(requests).toHaveLength(2)
+    expect((out.shots as { dialogue?: string }[]).map((s) => s.dialogue)).toEqual([
+      '一句旁白',
+      '一句旁白',
+      '一句旁白',
+    ])
   })
 
   it('已經建好的角色名字會告訴模型，故事裡出現時要用一模一樣的名字', async () => {
@@ -784,5 +849,42 @@ describe('場景卡：Prompt 與參考圖', () => {
     expect(flow.nodes.find((n) => n.id === 'prompt')?.params).toMatchObject({
       scenes: [{ id: 'loc1', name: '舊倉庫' }],
     })
+  })
+})
+
+describe('dialogueOf：台詞超過每鏡上限時不念出殘句', () => {
+  // 4 秒一鏡，上限 16 個字
+  const dur = 4
+  const at = (dialogue: unknown) => dialogueOf({ dialogue }, dur).dialogue
+
+  it('剛好在上限內：原樣保留（只去掉前後空白）', () => {
+    expect(narrationMaxChars(dur)).toBe(16)
+    expect(at('  黑藤爬滿了斷橋，貓走過去。 ')).toBe('黑藤爬滿了斷橋，貓走過去。')
+    expect(at('一二三四五六七八九十一二三四五六')).toBe('一二三四五六七八九十一二三四五六')
+  })
+
+  it('超過上限而且上限以內有句讀：切在最後一個句讀，結尾的逗號拿掉、句號留著', () => {
+    expect(at('黑藤爬滿了斷橋，貓小心地走過去，回頭看了一眼。')).toBe(
+      '黑藤爬滿了斷橋，貓小心地走過去',
+    )
+    expect(at('黑藤爬滿了斷橋貓小心走過去，回頭看了一眼。')).toBe('黑藤爬滿了斷橋貓小心走過去')
+    expect(at('黑藤爬滿了斷橋，貓小心地走過去。回頭看了一眼')).toBe(
+      '黑藤爬滿了斷橋，貓小心地走過去。',
+    )
+    expect(at('黑藤爬滿了斷橋，貓走過去。回頭看了一眼，風停了。')).toBe(
+      '黑藤爬滿了斷橋，貓走過去。',
+    )
+    expect(at('Vines, the cat walks over the bridge.')).toBe('Vines')
+  })
+
+  it('超過上限但上限以內沒有句讀：整句保留，不切成半句', () => {
+    const line = '黑藤爬滿了斷橋貓小心地走過去回頭看了一眼'
+    expect(line.length).toBeGreaterThan(16)
+    expect(at(line)).toBe(line)
+  })
+
+  it('沒有台詞欄位就不帶；不是字串也不帶', () => {
+    expect(dialogueOf({}, dur)).toEqual({})
+    expect(dialogueOf({ dialogue: 3 }, dur)).toEqual({})
   })
 })

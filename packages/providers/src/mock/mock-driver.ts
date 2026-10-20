@@ -385,6 +385,8 @@ function demoBreakdown(example: unknown, request: LlmRequest): unknown {
       return {
         ...template,
         description: `${lead}：${clause}`,
+        // 要旁白時（schema 有 dialogue）：示範的旁白就是這一段故事的短句，示範模式也聽得到
+        ...('dialogue' in template ? { dialogue: clause.slice(0, 16) } : {}),
         ...(size === undefined ? {} : { size }),
       }
     }),

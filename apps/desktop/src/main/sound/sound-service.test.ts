@@ -133,6 +133,31 @@ describe('SoundService（示範模式）', () => {
     expect(warning?.message).toContain('第 1 鏡的旁白')
   })
 
+  it('念的時候或念完之後台詞改了：改的字留著，state 警示旁白跟台詞不一樣，重念就消失', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    h.shots.update(first, { dialogue: '舊的台詞。' })
+    const narrating = h.sound.generateNarration({ shotId: first })
+    // 念的當下讀了舊台詞；念的途中使用者把台詞改掉
+    h.shots.update(first, { dialogue: '新的台詞。' })
+    await narrating
+    const view = h.sound.state().shots.find((s) => s.shotId === first)
+    expect(view?.dialogue).toBe('新的台詞。')
+    expect(view?.narration?.text).toBe('舊的台詞。')
+    const warning = h.sound.state().warnings.find((w) => w.kind === 'narration_text_changed')
+    expect(warning?.shotId).toBe(first)
+    expect(warning?.message).toContain('第 1 鏡的台詞改過了')
+
+    await h.sound.generateNarration({ shotId: first })
+    expect(h.sound.state().warnings.some((w) => w.kind === 'narration_text_changed')).toBe(false)
+    // 台詞清掉、旁白還在：也要說
+    h.shots.update(first, { dialogue: '' })
+    expect(
+      h.sound.state().warnings.find((w) => w.kind === 'narration_text_changed')?.message,
+    ).toContain('台詞已經清掉')
+  })
+
   it('配樂：沒給描述就組一段純音樂的描述；整支一首，再生一次換成新版本', async () => {
     const h = setup()
     await withShots(h)

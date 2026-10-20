@@ -507,4 +507,39 @@ describe('Mock driver：示範拆鏡', () => {
     ])
     for (const shot of parsed.shots) expect(shot.description).not.toMatch(/[a-z]/i)
   })
+
+  it('schema 有 dialogue（一句話勾了旁白）：每一鏡都有台詞，取自那一段故事；沒有 dialogue 就不加', async () => {
+    const { driver } = setup()
+    const run = async (withDialogue: boolean) => {
+      const shot = z.object({
+        description: z.string(),
+        ...(withDialogue ? { dialogue: z.string().min(1) } : {}),
+      })
+      const schema = z.object({ title: z.string(), shots: z.array(shot).min(1).max(12) })
+      const result = await driver.submit(
+        job({
+          capability: 'llm',
+          modelId: 'mock/llm',
+          messages: [
+            {
+              role: 'user',
+              content: '故事：\n一隻貓在下雨的夜晚，找到溫暖的家。\n\n請拆成 3 個鏡頭。',
+            },
+          ],
+          jsonSchema: z.toJSONSchema(schema),
+        }),
+        ctx,
+      )
+      if (result.status !== 'done') throw new Error('沒有完成')
+      const output = GenerationOutputSchema.parse(result.output)
+      if (output.kind !== 'text') throw new Error('不是文字')
+      return JSON.parse(output.text) as { shots: { dialogue?: string }[] }
+    }
+    const withLines = await run(true)
+    expect(withLines.shots).toHaveLength(3)
+    for (const shot of withLines.shots) expect((shot.dialogue ?? '').length).toBeGreaterThan(0)
+    expect(withLines.shots[0]?.dialogue).toBe('一隻貓在下雨的夜晚')
+    const without = await run(false)
+    for (const shot of without.shots) expect(shot.dialogue).toBeUndefined()
+  })
 })

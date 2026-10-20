@@ -40,6 +40,8 @@ export interface QuickStartOptions {
   storyboardGuide?: string
   /** 見 ShotWorkflowOptions.editModel。 */
   editModel?: { id: string; referenceLimit: number }
+  /** 一句話勾了「旁白」：拆鏡時每一鏡另外寫一句旁白台詞；沒給（或 false）就不寫。 */
+  narration?: boolean
   /** 只拆鏡（文字模型）：不生成圖片和影片、不接片。之後的步驟用畫布的「生成」補上。 */
   storyboardOnly?: boolean
   /** 工作流的 id 與時間戳（測試要固定時傳入）。 */
@@ -195,6 +197,7 @@ export function buildQuickStart(options: QuickStartOptions): Workflow {
       variation,
       knownCharacters: [...(options.knownCharacters ?? [])],
       guide: options.storyboardGuide ?? '',
+      narration: options.narration === true,
     },
     options.models.llm,
     breakdownNode.version,
