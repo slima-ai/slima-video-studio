@@ -26,10 +26,16 @@ function codeSpan(text: string, key: number): ReactNode {
   )
 }
 
-/** 找成對的標記：回傳結束位置（標記開頭的索引），找不到回 -1；內容不能是空的。 */
+/** 一個行內標記（成對的符號、連結的網址）最多往後找這麼遠；沒關起來的標記不會讓整段文字被反覆掃描。 */
+const MAX_SPAN = 2000
+
+/** 行內標記可能的開頭字元。 */
+const MARKER_START = /[`![*~]/
+
+/** 找成對的標記：回傳結束位置（標記開頭的索引），找不到或太遠回 -1；內容不能是空的。 */
 function closeAt(text: string, from: number, mark: string): number {
-  const i = text.indexOf(mark, from)
-  return i > from ? i : -1
+  const k = text.slice(from, from + MAX_SPAN).indexOf(mark)
+  return k > 0 ? from + k : -1
 }
 
 export function renderInline(text: string): ReactNode[] {
@@ -44,7 +50,14 @@ export function renderInline(text: string): ReactNode[] {
   }
   let i = 0
   while (i < text.length) {
-    const rest = text.slice(i)
+    // 一般的字（不是任何標記的開頭）直接放進去，不做任何比對
+    if (!MARKER_START.test(text.charAt(i))) {
+      buffer += text.charAt(i)
+      i += 1
+      continue
+    }
+    // 只往後看有限的長度（不是整段剩下的字）：每個位置的工作量有上限，長回覆才不會變成 n²
+    const rest = text.slice(i, i + MAX_SPAN + 200)
     // 行內程式碼：裡面不再解析
     if (text[i] === '`') {
       const end = closeAt(text, i + 1, '`')
@@ -56,7 +69,9 @@ export function renderInline(text: string): ReactNode[] {
       }
     }
     // 圖片：不載入，只顯示替代文字
-    const image = /^!\[([^\]\n]*)\]\(((?:[^()\s]|\([^()\s]*\))*)[^)\n]*\)/.exec(rest)
+    const image = /^!\[([^\]\n]{0,300})\]\(((?:[^()\s]|\([^()\s]*\)){0,1500})[^)\n]{0,200}\)/.exec(
+      rest,
+    )
     if (image) {
       flush()
       const alt = image[1] ?? ''
@@ -71,7 +86,7 @@ export function renderInline(text: string): ReactNode[] {
       continue
     }
     // 連結：只顯示文字；安全的網址附在後面
-    const link = /^\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))*)\)/.exec(rest)
+    const link = /^\[([^\]\n]{1,300})\]\(((?:[^()\s]|\([^()\s]*\)){0,1500})\)/.exec(rest)
     if (link) {
       flush()
       const label = link[1] ?? ''
@@ -120,9 +135,14 @@ export function renderInline(text: string): ReactNode[] {
       text[i + 1] !== ' ' &&
       text[i + 1] !== undefined
     ) {
-      let end = text.indexOf('*', i + 1)
+      const limit = i + MAX_SPAN
+      const nextStar = (from: number): number => {
+        const k = text.slice(from, limit).indexOf('*')
+        return k < 0 ? -1 : from + k
+      }
+      let end = nextStar(i + 1)
       while (end > 0 && (text[end - 1] === ' ' || text[end + 1] === '*')) {
-        end = text.indexOf('*', end + 1)
+        end = nextStar(end + 1)
       }
       if (end > i + 1) {
         flush()

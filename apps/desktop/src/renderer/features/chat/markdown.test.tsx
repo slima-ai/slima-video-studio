@@ -113,3 +113,29 @@ describe('Markdown：不安全的東西只會變成字，不會執行', () => {
     expect(c.querySelector('td')?.textContent).toBe('<img src=x onerror=alert(1)>')
   })
 })
+
+describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段就整則重畫）', () => {
+  const MAX_MS = 200
+  const big = 20_000
+  const cases: [string, string][] = [
+    ['未收尾的圖片', `![a](${'x'.repeat(big)}`],
+    ['未收尾的連結', `[a](${'x'.repeat(big)}`],
+    ['未收尾的粗體', `**${'a'.repeat(big)}`],
+    ['未收尾的行內程式碼', `\`${'字'.repeat(big)}`],
+    ['未收尾的斜體', `*${'a'.repeat(big)}`],
+    ['一堆沒收尾的圖片開頭', '![a](xx '.repeat(big / 8)],
+    ['一堆單獨的星號與底線', '*a **b ~~c `d '.repeat(big / 14)],
+    ['一堆括號', `[a](${'('.repeat(big)}`],
+    ['一大串沒有換行的字', '字'.repeat(big * 5)],
+  ]
+  for (const [name, input] of cases) {
+    it(`${name}（${String(input.length)} 字）在 ${String(MAX_MS)} 毫秒內畫完，而且字一個都沒少`, () => {
+      const start = performance.now()
+      const c = view(input)
+      const ms = performance.now() - start
+      expect(ms).toBeLessThan(MAX_MS)
+      // 沒收尾的標記原樣當文字：畫面上的字跟輸入一樣長（圖片、連結例外：它們成立時才會被改寫）
+      if (!name.includes('一堆沒收尾的圖片')) expect(c.textContent.length).toBeGreaterThan(big / 2)
+    })
+  }
+})
