@@ -1,5 +1,5 @@
 import type { SoundState } from '@svs/schema'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { appError, installFakeSvs } from '../../test/fake-svs'
@@ -147,6 +147,57 @@ describe('ShotSound：一個鏡頭的聲音', () => {
       expect(box.checked).toBe(true)
     })
     expect(screen.getByRole('alert').textContent).toContain('存不進去')
+  })
+
+  it('點掉之後主程序變成靜音、別處又改回來：勾選要跟著主程序回到勾著（暫存不能復活）', async () => {
+    const fake = installFakeSvs({
+      'sound.get': () => state(),
+      'sound.updateSettings': () => SETTINGS,
+    })
+    render(<ShotSound shotId="s1" />)
+    const box = await screen.findByTestId<HTMLInputElement>('shot-sound-native')
+    fireEvent.click(box)
+    expect(box.checked).toBe(false)
+    // 主程序存好了：這一鏡靜音
+    act(() => {
+      fake.emit('sound.changed', state({ shots: [view(1, { nativeMuted: true }), view(2)] }))
+    })
+    expect(box.checked).toBe(false)
+    // 別處（例如 MCP 的聲音設定）把它改回來：以主程序為準
+    act(() => {
+      fake.emit('sound.changed', state({ shots: [view(1, { nativeMuted: false }), view(2)] }))
+    })
+    expect(box.checked).toBe(true)
+  })
+
+  it('資料剛載入、畫面剛出現就點「用影片原聲」：不會被載入那一刻留下的重設蓋回去', async () => {
+    // 不包 act：載入那次 commit 的 passive effect 要等下一個排程才跑，
+    // 這裡偏偏在 commit 一出現的同一個 microtask 就點，把 CI 機器忙時才會碰到的順序固定下來
+    const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean | undefined }
+    const before = env.IS_REACT_ACT_ENVIRONMENT
+    env.IS_REACT_ACT_ENVIRONMENT = false
+    try {
+      installFakeSvs({
+        'sound.get': () => state(),
+        'sound.updateSettings': () => new Promise(() => undefined),
+      })
+      const { container } = render(<ShotSound shotId="s1" />)
+      const checkedAfterClick = await new Promise<boolean>((resolve) => {
+        const observer = new MutationObserver(() => {
+          const box = container.querySelector<HTMLInputElement>('[data-testid="shot-sound-native"]')
+          if (!box) return
+          observer.disconnect()
+          box.click()
+          setTimeout(() => {
+            resolve(box.checked)
+          }, 50)
+        })
+        observer.observe(container, { childList: true, subtree: true })
+      })
+      expect(checkedAfterClick).toBe(false)
+    } finally {
+      env.IS_REACT_ACT_ENVIRONMENT = before
+    }
   })
 
   it('沒台詞 → 在聲音區寫入並儲存（走 shots.update）→ 出現「念出這句台詞」；沒存之前不能念', async () => {
