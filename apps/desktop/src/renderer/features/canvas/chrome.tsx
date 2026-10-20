@@ -1,10 +1,10 @@
-import { useReactFlow } from '@xyflow/react'
+import { useReactFlow, useStore } from '@xyflow/react'
 import { useState, type DragEvent } from 'react'
 
 import { Spinner } from '../../components/skeleton'
 import { cn } from '../../lib/cn'
 import { applyTheme, useResolvedTheme } from '../../lib/theme'
-import { useFitAll } from './fit-all'
+import { READABLE_ZOOM, useFitAll, useFocusEntry } from './fit-all'
 import { KindBadge } from './kind-icon'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
 import { ADD_ITEMS } from './menus'
@@ -240,6 +240,8 @@ export function TopBar(props: TopBarProps) {
 export function ZoomControls({ right = 12 }: { right?: number }) {
   const { zoomIn, zoomOut } = useReactFlow()
   const fitAll = useFitAll()
+  const focusEntry = useFocusEntry()
+  const unreadable = useStore((s) => s.transform[2] < READABLE_ZOOM)
   const button = cn(
     'rounded-lg border border-border bg-surface-raised px-2.5 py-1 text-xs shadow-card hover:bg-accent/10',
   )
@@ -248,6 +250,17 @@ export function ZoomControls({ right = 12 }: { right?: number }) {
       className="absolute bottom-3 z-20 flex gap-1.5 transition-[right] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
       style={{ right }}
     >
+      {unreadable ? (
+        <button
+          type="button"
+          className={cn(button, 'border-accent/50 text-accent')}
+          data-testid="zoom-readable"
+          title="縮太小，卡片上的字和按鈕都看不到：回到第一個入口，放大到看得清楚"
+          onClick={focusEntry}
+        >
+          放大到看得清楚
+        </button>
+      ) : null}
       <button
         type="button"
         className={button}

@@ -7,6 +7,7 @@ import {
   SelectionMode,
   useReactFlow,
   useStore,
+  useStoreApi,
   type NodeChange,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -57,7 +58,7 @@ import { choicesFor, type AddChoice } from './connection-rules'
 import { nodeEntries, paneEntries, type ContextEntry } from './context-menu'
 import { DELETE_TOAST_MS, FIXED_EDGE_REASON, planDelete, type DeletePlan } from './delete-plan'
 import { DetailPanel, keyOfTarget, panelTargetOf, type PanelTarget } from './detail-panel'
-import { useFitAll } from './fit-all'
+import { READABLE_ZOOM, openViewport, useFitAll } from './fit-all'
 import { FLOAT_PANEL } from './floating-panel'
 import { DragOverlay } from './drag-overlay'
 import { ConnectionLine, EDGE_TYPES } from './edges'
@@ -172,15 +173,27 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const history = useHistory()
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // 一開始的視角只決定一次：上次的視角；沒存過且已經有節點就「全部顯示」；
+  // 一開始的視角只決定一次：上次的視角（縮到看不清楚的不算，卡片只剩色塊）；
+  // 沒存過且已經有節點，就等畫布準備好（onInit）再決定：放得進畫面就全部顯示，
+  // 放不下就定位到第一個入口（一句話卡或第一場），不要縮到全部塞進去；
   // 空畫布維持原點（之後 fitView 屬性變了會讓 React Flow 重新縮放，所以不能跟著資料換）
-  const [initialView] = useState(() =>
-    graph.viewport
-      ? { defaultViewport: graph.viewport }
-      : graph.nodes.length > 0
-        ? { fitView: true, fitViewOptions: FIT_OPTIONS }
-        : { defaultViewport: { x: 0, y: 0, zoom: 1 } },
-  )
+  const [initialView] = useState(() => {
+    const saved =
+      graph.viewport && graph.viewport.zoom >= READABLE_ZOOM ? graph.viewport : undefined
+    return {
+      defaultViewport: saved ?? { x: 0, y: 0, zoom: 1 },
+      decide: saved === undefined && graph.nodes.length > 0,
+    }
+  })
+  const { decide: decideOnInit, ...initialProps } = initialView
+  const store = useStoreApi<CanvasNode, CanvasEdge>()
+  const onInit = useCallback((): void => {
+    if (!decideOnInit) return
+    const { width, height } = store.getState()
+    const view = openViewport(rf.getNodes(), { width, height })
+    if (view === 'fit') void rf.fitView(FIT_OPTIONS)
+    else if (view) void rf.setViewport(view)
+  }, [decideOnInit, rf, store])
   const flow = useMemo(() => toFlowGraph(graph), [graph])
   // 拖移：存好位置（鏡頭換場時一併改所屬的場）再重新讀資料；這段時間畫面維持放開時的樣子
   const persistMove = useCallback(
@@ -1716,7 +1729,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 minZoom={0.1}
                 maxZoom={2}
                 onlyRenderVisibleElements
-                {...initialView}
+                {...initialProps}
+                onInit={onInit}
                 proOptions={{ hideAttribution: true }}
               >
                 {/* 縮得很小時點點密到看不出來，每一格畫面卻都要重畫一整片：不畫 */}
