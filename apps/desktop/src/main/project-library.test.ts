@@ -59,6 +59,39 @@ describe('專案清單', () => {
     ])
   })
 
+  it('指定存放位置：專案建在那個資料夾，名字照給的；位置不存在或不是絕對路徑就拒絕、不建任何東西', () => {
+    const { library, projects, root } = setup()
+    const elsewhere = join(root, '別處')
+    mkdirSync(elsewhere)
+    const info = library.createNew('貓的故事', elsewhere)
+    expect(info.name).toBe('貓的故事')
+    expect(info.dir.startsWith(`${elsewhere}/`)).toBe(true)
+    expect(projects.info()?.dir).toBe(info.dir)
+
+    for (const bad of [join(root, '沒有這個資料夾'), '相對/路徑']) {
+      expect(() => library.createNew('壞的', bad)).toThrow('找不到這個資料夾')
+    }
+    // 失敗不會把目前開著的專案關掉
+    expect(projects.info()?.dir).toBe(info.dir)
+  })
+
+  it('選資料夾：把視窗選到的路徑交出去；沒給視窗或取消就是 undefined', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'svs-library-pick-'))
+    dirs.push(root)
+    const projects = new ProjectManager('test')
+    managers.push(projects)
+    const make = (pick?: () => Promise<string | undefined>) =>
+      createProjectLibrary({
+        projects,
+        projectsDir: join(root, 'projects'),
+        reveal: vi.fn(),
+        ...(pick ? { pickFolder: pick } : {}),
+      })
+    expect(await make(() => Promise.resolve('/某處')).pickFolder()).toBe('/某處')
+    expect(await make(() => Promise.resolve(undefined)).pickFolder()).toBeUndefined()
+    expect(await make().pickFolder()).toBeUndefined()
+  })
+
   it('在檔案總管顯示：只接受清單裡的專案；沒給就是目前的', () => {
     const { library, reveal } = setup()
     const info = library.createNew('甲')

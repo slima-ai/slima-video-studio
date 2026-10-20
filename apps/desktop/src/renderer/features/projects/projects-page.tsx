@@ -7,6 +7,7 @@ import { Button } from '../../components/button'
 import { EmptyState } from '../../components/empty-state'
 import { Page } from '../../components/page'
 import { call, errorText } from '../../lib/svs'
+import { NewProjectDialog } from './new-project-dialog'
 import { timeAgo } from '../../lib/usage'
 
 interface Library {
@@ -22,6 +23,7 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
   const [library, setLibrary] = useState<Library>()
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
+  const [creating, setCreating] = useState(false)
 
   const load = useCallback((): void => {
     call('project.list', {})
@@ -73,7 +75,7 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
           data-testid="project-new"
           disabled={busy}
           onClick={() => {
-            act(() => call('project.createNew', {}), true)
+            setCreating(true)
           }}
         >
           <Plus className="size-4" />
@@ -82,6 +84,17 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
       }
     >
       <div className="space-y-6">
+        {creating ? (
+          <NewProjectDialog
+            onClose={() => {
+              setCreating(false)
+            }}
+            onCreated={() => {
+              setCreating(false)
+              onNavigate('canvas')
+            }}
+          />
+        ) : null}
         {error ? (
           <p role="alert" className="text-sm text-danger">
             {error}

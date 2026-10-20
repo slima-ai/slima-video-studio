@@ -142,7 +142,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
         folder: '/tmp',
         projects: [summary('貓的故事', true), summary('狗的故事'), summary('鳥的故事')],
       }),
-      'project.createNew': () => ({
+      'project.createAt': () => ({
         id: 'p2',
         name: '我的短片',
         dir: '/tmp/new.svsproj',
@@ -170,13 +170,18 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     expect(fake.payloadsOf('project.open')).toEqual([{ dir: '/tmp/狗的故事.svsproj' }])
     expect(screen.queryByTestId('project-menu')).toBeNull()
 
+    // 新專案：先跳出問名字的視窗，建好才回到畫布
     go.mockClear()
     fireEvent.click(screen.getByTestId('project-menu-button'))
     fireEvent.click(await screen.findByTestId('menu-new'))
+    expect(await screen.findByTestId('new-project-dialog')).toBeTruthy()
+    expect(go).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('new-project-create'))
     await waitFor(() => {
       expect(go).toHaveBeenCalledWith('canvas')
     })
-    expect(fake.payloadsOf('project.createNew')).toEqual([{}])
+    expect(fake.payloadsOf('project.createAt')).toEqual([{ name: '我的短片' }])
+    expect(screen.queryByTestId('new-project-dialog')).toBeNull()
 
     go.mockClear()
     fireEvent.click(screen.getByTestId('project-menu-button'))

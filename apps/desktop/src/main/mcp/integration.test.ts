@@ -544,6 +544,11 @@ describe('金鑰與不開放的功能', () => {
       'mcp.regenerateToken',
       'dev.seedDemo',
       'project.reveal',
+      // 專案列與新專案對話框用的，只給畫面
+      'project.status',
+      'project.rename',
+      'project.createAt',
+      'project.pickFolder',
       'files.reveal',
       'canvas.importFiles',
       'canvas.importBytes',

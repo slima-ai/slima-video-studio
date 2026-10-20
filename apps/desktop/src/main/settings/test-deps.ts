@@ -243,6 +243,7 @@ export function testSettingsDeps(
       createNew: () => {
         throw new Error('測試用的專案清單不能開新專案')
       },
+      pickFolder: () => Promise.resolve(undefined),
       reveal: () => undefined,
     },
     history: {

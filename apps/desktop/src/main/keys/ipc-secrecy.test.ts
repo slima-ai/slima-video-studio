@@ -24,6 +24,8 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'dev.seedDemo': [{ shots: 1 }],
   'project.createNew': [{}],
   'project.reveal': [{}],
+  'project.createAt': [{ name: 'x', parentDir: '/nonexistent/dir' }],
+  'project.pickFolder': [{}],
   'project.status': [{}],
   'project.rename': [{ name: '新名字' }],
   'keys.list': [{}],
