@@ -23,6 +23,10 @@ export interface CanvasActions {
   openPanel?: (nodeId: string) => void
   /** 雙擊標題：置中並縮放到 100%。 */
   focusNode: (nodeId: string) => void
+  /** 雙擊場、角色、地點、群組的標題：就地改名（輸入框蓋在標題上）。沒提供就還是置中。 */
+  startRename?: (nodeId: string) => void
+  /** 雙擊鏡頭的描述改完：存回鏡頭（只存起來，圖與影片要重跑才會用到）。沒提供就不能就地改。 */
+  saveShotDescription?: (shotKey: string, description: string) => void
   toggleInCut: (nodeId: string) => void
   /**
    * 一句話節點的「先產生分鏡」（stage = storyboard，只用文字模型）與「一次做完整支」（stage = full）：

@@ -977,6 +977,14 @@ export const ipcContract = {
   },
 } as const
 
+/** 視窗上方選單（macOS）選了哪一項：畫面收到就做同一件事（跟專案列的選單、快捷鍵是同一批動作）。 */
+export const MenuActionSchema = z.object({
+  action: z.enum(['new', 'open', 'openRecent', 'save', 'saveAs', 'rename', 'reveal', 'home']),
+  /** 只有 openRecent 有：要打開的專案資料夾（畫面會用 project.openRecent，只接受最近清單裡的）。 */
+  dir: z.string().optional(),
+})
+export type MenuAction = z.infer<typeof MenuActionSchema>
+
 /** 主行程主動推給 renderer 的事件。 */
 export const ipcEvents = {
   'app.pinged': z.object({ message: z.string(), receivedAt: z.number().int() }),
@@ -1010,6 +1018,8 @@ export const ipcEvents = {
   'history.changed': HistoryChangedSchema,
   /** Slima 連線狀態改變了。 */
   'slima.status': SlimaStatusSchema,
+  /** 使用者選了視窗上方選單的「檔案」項目（新專案、開啟、儲存…）。 */
+  'menu.action': MenuActionSchema,
   /** 有新的模型通知（例如選的模型下架、自動換掉）：畫面用 `models.notices` 取走。 */
   'models.noticed': z.object({}),
 } as const

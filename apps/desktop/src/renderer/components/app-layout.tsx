@@ -31,6 +31,8 @@ export type AppView =
 
 interface NavItem {
   label: string
+  /** 圖示下面的小字（太長放不下時用短的；沒給就是 label）。 */
+  short?: string
   icon: LucideIcon
   view?: AppView
   /** false 的項目要有對應的條件才顯示（Slima 連上了）。 */
@@ -45,18 +47,23 @@ const NAV_ITEMS: NavItem[] = [
   { label: '場景卡', icon: MapPin, view: 'locations', always: true },
   { label: '生成紀錄', icon: History, view: 'records', always: true },
   { label: '檔案', icon: FolderOpen, view: 'files', always: true },
-  { label: '從 Slima 匯入', icon: Download, view: 'slima', always: false },
+  { label: '從 Slima 匯入', short: 'Slima', icon: Download, view: 'slima', always: false },
   { label: '專案', icon: Clapperboard, view: 'projects', always: true },
 ]
 
-/** 導覽按鈕：目前所在的頁面有底色與左側指示條；滑過或鍵盤聚焦會顯示名稱。 */
+/**
+ * 導覽按鈕：圖示下面直接寫名字（不用滑過才知道這顆是什麼）；目前所在的頁面有底色與左側指示條；
+ * 滑過或鍵盤聚焦會顯示完整名稱。
+ */
 function NavButton({
   label,
+  short,
   icon: Icon,
   active,
   onClick,
 }: {
   label: string
+  short?: string | undefined
   icon: LucideIcon
   active: boolean
   onClick?: (() => void) | undefined
@@ -69,12 +76,15 @@ function NavButton({
       aria-current={active ? 'page' : undefined}
       data-active={active}
       onClick={onClick}
-      className={`group relative ${active ? 'bg-surface-overlay text-fg' : ''}`}
+      className={`group relative h-auto w-12 flex-col gap-0.5 px-0 py-1.5 ${active ? 'bg-surface-overlay text-fg' : ''}`}
     >
       {active ? (
-        <span aria-hidden className="absolute -left-2.5 top-2 h-5 w-[3px] rounded-r bg-accent" />
+        <span aria-hidden className="absolute -left-1 top-2 h-5 w-[3px] rounded-r bg-accent" />
       ) : null}
       <Icon className="size-5" />
+      <span aria-hidden className="text-[10px] font-normal leading-none">
+        {short ?? label}
+      </span>
       <span
         aria-hidden
         role="presentation"
@@ -140,10 +150,11 @@ export function AppLayout({
             className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-border bg-surface-raised py-2"
           >
             {NAV_ITEMS.filter((item) => item.always || showSlima).map(
-              ({ label, icon, view: target }) => (
+              ({ label, short, icon, view: target }) => (
                 <NavButton
                   key={label}
                   label={label}
+                  short={short}
                   icon={icon}
                   active={target !== undefined && target === view}
                   onClick={target ? () => onNavigate?.(target) : undefined}

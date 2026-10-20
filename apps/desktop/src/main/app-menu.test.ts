@@ -1,3 +1,4 @@
+import type { MenuItemConstructorOptions } from 'electron'
 import { describe, expect, it } from 'vitest'
 
 import { appMenuTemplate } from './app-menu'
@@ -10,12 +11,67 @@ describe('視窗上方的選單', () => {
 
   it('macOS 是中文的精簡選單，保留「編輯」讓輸入框的 Cmd+C／V／Z 能用', () => {
     const menu = appMenuTemplate('darwin') ?? []
-    expect(menu.map((m) => m.label)).toEqual(['Slima Video Studio', '編輯', '視窗'])
+    expect(menu.map((m) => m.label)).toEqual(['Slima Video Studio', '檔案', '編輯', '視窗'])
     const labels = JSON.stringify(menu)
     expect(labels).not.toMatch(/"label":"(File|Edit|View|Window)"/)
-    const edit = menu[1]?.submenu
+    const edit = menu[2]?.submenu
     expect(Array.isArray(edit) ? edit.map((i) => i.role) : []).toEqual(
       expect.arrayContaining(['undo', 'redo', 'cut', 'copy', 'paste', 'selectAll']),
     )
+  })
+
+  it('「檔案」：新專案、開啟舊專案、最近的專案、儲存、另存為、改名、在 Finder 顯示、首頁，各自的快捷鍵', () => {
+    const file = (appMenuTemplate('darwin')?.[1]?.submenu ?? []) as MenuItemConstructorOptions[]
+    const byLabel = (label: string) => file.find((item) => item.label === label)
+    expect(byLabel('新專案…')?.accelerator).toBe('CmdOrCtrl+N')
+    expect(byLabel('開啟舊專案…')?.accelerator).toBe('CmdOrCtrl+O')
+    expect(byLabel('儲存')?.accelerator).toBe('CmdOrCtrl+S')
+    expect(byLabel('另存為…')?.accelerator).toBe('Shift+CmdOrCtrl+S')
+    expect(byLabel('改名…')).toBeTruthy()
+    expect(byLabel('在 Finder 顯示')).toBeTruthy()
+    expect(byLabel('首頁')).toBeTruthy()
+    // 沒有最近的專案：子選單灰掉
+    expect(byLabel('開啟最近的專案')?.enabled).toBe(false)
+  })
+
+  it('選了「檔案」的項目：把動作交給 onAction；最近的專案帶著路徑、最多列 5 個', () => {
+    const actions: unknown[] = []
+    const recent = Array.from({ length: 7 }, (_, i) => ({
+      name: `專案${String(i)}`,
+      dir: `/p/${String(i)}.svsproj`,
+    }))
+    const menu = appMenuTemplate('darwin', { onAction: (a) => actions.push(a), recent }) ?? []
+    const file = (menu[1]?.submenu ?? []) as MenuItemConstructorOptions[]
+    const run = (label: string): void => {
+      const item = file.find((i) => i.label === label)
+      ;(item?.click as (() => void) | undefined)?.()
+    }
+    for (const label of [
+      '新專案…',
+      '開啟舊專案…',
+      '儲存',
+      '另存為…',
+      '改名…',
+      '在 Finder 顯示',
+      '首頁',
+    ]) {
+      run(label)
+    }
+    expect(actions).toEqual([
+      { action: 'new' },
+      { action: 'open' },
+      { action: 'save' },
+      { action: 'saveAs' },
+      { action: 'rename' },
+      { action: 'reveal' },
+      { action: 'home' },
+    ])
+    const sub = file.find((i) => i.label === '開啟最近的專案')
+    expect(sub?.enabled).toBe(true)
+    const items = (sub?.submenu ?? []) as MenuItemConstructorOptions[]
+    expect(items.map((i) => i.label)).toEqual(['專案0', '專案1', '專案2', '專案3', '專案4'])
+    actions.length = 0
+    ;(items[2]?.click as () => void)()
+    expect(actions).toEqual([{ action: 'openRecent', dir: '/p/2.svsproj' }])
   })
 })

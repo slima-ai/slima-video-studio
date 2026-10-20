@@ -7,6 +7,7 @@ import { useToast } from '../../components/toast'
 import { assetUrl } from '../../lib/asset'
 import { cn } from '../../lib/cn'
 import { useCanvasActions, useConnectedPorts, useLinking, useLod } from './canvas-actions'
+import { isRenamable } from './rename-box'
 import { choicesFor } from './connection-rules'
 import { blockedReason, deleteTip } from './delete-plan'
 import { KindIcon } from './kind-icon'
@@ -306,12 +307,16 @@ function IoLine({ id, data, bottom }: { id: string; data: CanvasNodeData; bottom
 }
 
 function Title({ id, data }: { id: string; data: CanvasNodeData }) {
-  const { focusNode } = useCanvasActions()
+  const { focusNode, startRename } = useCanvasActions()
+  // 角色、地點雙擊標題就地改名；鏡頭等其他格子雙擊還是置中
+  const renamable = startRename !== undefined && isRenamable(id, data.kind)
   return (
     <b
       className="lod-mid flex min-w-0 cursor-default items-center gap-1.5 text-sm font-semibold"
+      title={renamable ? '雙擊改名' : undefined}
       onDoubleClick={() => {
-        focusNode(id)
+        if (renamable) startRename(id)
+        else focusNode(id)
       }}
     >
       <KindIcon kind={data.kind} />
@@ -510,7 +515,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
         <div className="flex min-h-0 flex-1 flex-col gap-1.5 px-3 py-2">
           {data.kind === 'shot' ? (
             <>
-              <p className="lod-full line-clamp-2 text-xs leading-snug">{data.summary}</p>
+              <ShotDescription id={id} text={data.summary ?? ''} />
               <p className="lod-full flex items-center gap-1.5 text-xs text-fg-muted">
                 <span className="min-w-0 truncate">{data.meta}</span>
                 {data.sceneId === undefined ? (
@@ -938,7 +943,7 @@ export const CutNode = memo(CutImpl)
 
 /** 場框：群組框，隨內容伸縮；拖鏡頭經過時亮起並提示。 */
 function FrameImpl({ id, data, selected }: NodeProps<CanvasNode>) {
-  const { focusNode } = useCanvasActions()
+  const { startRename, focusNode } = useCanvasActions()
   const linkState = useLinkState(id)
   return (
     <div
@@ -954,8 +959,10 @@ function FrameImpl({ id, data, selected }: NodeProps<CanvasNode>) {
       >
         <p
           className="svs-frame-grip svs-frame-title absolute inset-x-0 top-0 h-9 cursor-grab truncate px-4 pt-2.5 text-[13px] font-semibold text-fg-muted active:cursor-grabbing"
+          title={startRename ? '雙擊改名' : undefined}
           onDoubleClick={() => {
-            focusNode(id)
+            if (startRename) startRename(id)
+            else focusNode(id)
           }}
         >
           <KindIcon kind="scene" className="mr-1.5 inline align-[-2px]" />
@@ -1040,9 +1047,74 @@ function NoteBody({ id, text }: { id: string; text: string }) {
   )
 }
 
+/**
+ * 鏡頭的畫面描述：雙擊就地改，Enter（Shift+Enter 換行）或離開輸入框就存，Esc 放棄；
+ * 清空或沒改就不存。編輯中的輸入框不拖動格子、不捲動畫布。
+ */
+function ShotDescription({ id, text }: { id: string; text: string }) {
+  const { saveShotDescription } = useCanvasActions()
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(text)
+  const done = useRef(false)
+  useEffect(() => {
+    if (!editing) setValue(text)
+  }, [text, editing])
+  if (editing) {
+    const finish = (commit: boolean): void => {
+      if (done.current) return
+      done.current = true
+      setEditing(false)
+      const next = value.trim()
+      if (commit && next !== '' && next !== text) saveShotDescription?.(id, next)
+      else setValue(text)
+    }
+    return (
+      <textarea
+        autoFocus
+        data-testid="shot-desc-edit"
+        aria-label="這一鏡的畫面描述"
+        value={value}
+        maxLength={1000}
+        className="nodrag nowheel nopan lod-full h-[46px] shrink-0 resize-none rounded-md border border-accent bg-surface px-1 py-0.5 text-xs leading-snug"
+        onChange={(event) => {
+          setValue(event.target.value)
+        }}
+        onKeyDown={(event) => {
+          event.stopPropagation()
+          if (event.key === 'Escape') {
+            event.preventDefault()
+            finish(false)
+          } else if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault()
+            finish(true)
+          }
+        }}
+        onBlur={() => {
+          finish(true)
+        }}
+      />
+    )
+  }
+  return (
+    <p
+      data-testid="shot-desc"
+      title={saveShotDescription ? '雙擊修改描述' : undefined}
+      className="lod-full line-clamp-2 text-xs leading-snug"
+      onDoubleClick={() => {
+        if (!saveShotDescription) return
+        done.current = false
+        setValue(text)
+        setEditing(true)
+      }}
+    >
+      {text}
+    </p>
+  )
+}
+
 /** 自訂群組：框住幾格一起搬動，可以命名、換色；不影響資料。只有標題列是抓手。 */
 function GroupImpl({ id, data, selected }: NodeProps<CanvasNode>) {
-  const { updateFree } = useCanvasActions()
+  const { updateFree, startRename } = useCanvasActions()
   const color = data.color ?? 'slate'
   return (
     <div
@@ -1053,7 +1125,15 @@ function GroupImpl({ id, data, selected }: NodeProps<CanvasNode>) {
     >
       <div data-selected={selected} className="svs-group size-full rounded-2xl">
         <div className="svs-group-grip absolute inset-x-0 top-0 flex h-9 cursor-grab items-center gap-2 px-3 active:cursor-grabbing">
-          <span className="svs-group-title truncate text-[13px] font-semibold">{data.title}</span>
+          <span
+            className="svs-group-title truncate text-[13px] font-semibold"
+            title={startRename ? '雙擊改名' : undefined}
+            onDoubleClick={() => {
+              startRename?.(id)
+            }}
+          >
+            {data.title}
+          </span>
           {selected ? (
             <span className="nodrag ml-auto flex shrink-0 gap-1" role="group" aria-label="群組顏色">
               {Object.entries(GROUP_COLOR).map(([key, swatch]) => (
