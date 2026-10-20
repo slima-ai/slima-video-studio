@@ -130,8 +130,18 @@ void app.whenReady().then(() => {
     void runKeyHelper()
     return
   }
-  const menu = appMenuTemplate(process.platform)
-  Menu.setApplicationMenu(menu ? Menu.buildFromTemplate(menu) : null)
+  // 先放一份沒有「最近的專案」的選單；專案服務準備好之後（下面）會換成帶著最近專案的
+  const installMenu = (recent: readonly { name: string; dir: string }[] = []): void => {
+    const menu = appMenuTemplate(process.platform, {
+      onAction: (action) => {
+        // 轉給畫面：選單、專案列的選單、快捷鍵做的是同一批動作
+        broadcast('menu.action', action)
+      },
+      recent,
+    })
+    Menu.setApplicationMenu(menu ? Menu.buildFromTemplate(menu) : null)
+  }
+  installMenu()
   const log = createLogger(join(app.getPath('userData'), 'logs'))
   mainLog = log
   installCrashGuards(process, log)
@@ -285,6 +295,17 @@ void app.whenReady().then(() => {
   })
   restoreLastProject(join(userData, 'last-project.json'), projects, log)
   trackRecentProjects(recent, projects)
+  // 「檔案 › 開啟最近的專案」跟著專案開啟、關閉更新（macOS 才有選單）
+  const refreshMenu = (): void => {
+    installMenu(
+      studio.library
+        .recent()
+        .filter((p) => !p.current && !p.missing)
+        .map((p) => ({ name: p.name, dir: p.dir })),
+    )
+  }
+  refreshMenu()
+  projects.onChange(refreshMenu)
   const mcp = createMcpController({
     registry,
     settings,
