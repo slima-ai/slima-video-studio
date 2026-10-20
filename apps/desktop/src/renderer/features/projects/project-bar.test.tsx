@@ -38,14 +38,14 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     expect(screen.queryByRole('button', { name: /儲存/ })).toBeNull()
   })
 
-  it('沒有專案：寫「未命名專案」，不能改名，沒有存檔狀態也沒有花費', async () => {
+  it('沒有專案：寫「還沒有專案」（不是「未命名專案」），不能改名，沒有存檔狀態也沒有花費', async () => {
     const fake = installFakeSvs({ 'project.status': () => null })
     render(<ProjectBar onNavigate={vi.fn()} demoMode />)
     await waitFor(() => {
       expect(fake.payloadsOf('project.status')).toHaveLength(1)
     })
     const name = screen.getByTestId('project-name')
-    expect(name.textContent).toBe('未命名專案')
+    expect(name.textContent).toBe('還沒有專案')
     expect((name as HTMLButtonElement).disabled).toBe(true)
     expect(screen.queryByTestId('save-status')).toBeNull()
     expect(screen.queryByTestId('spent')).toBeNull()
@@ -55,7 +55,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     installFakeSvs()
     render(<ProjectBar onNavigate={vi.fn()} demoMode />)
     expect(screen.getByTestId('project-bar')).toBeTruthy()
-    expect(screen.getByTestId('project-name').textContent).toBe('未命名專案')
+    expect(screen.getByTestId('project-name').textContent).toBe('還沒有專案')
   })
 
   it('專案有動靜（事件）就重新問，存檔時間跟著更新', async () => {

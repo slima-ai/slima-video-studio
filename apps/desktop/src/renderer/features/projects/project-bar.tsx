@@ -177,7 +177,7 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
             setRenaming(true)
           }}
         >
-          {hasProject && name !== '' ? name : '未命名專案'}
+          {!hasProject ? '還沒有專案' : name !== '' ? name : '未命名專案'}
         </button>
       )}
 
