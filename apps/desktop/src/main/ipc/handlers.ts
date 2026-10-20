@@ -11,6 +11,7 @@ import type { ConceptService } from '../characters/concept-service'
 import type { SoundService } from '../sound/sound-service'
 import type { CharacterService } from '../characters/character-service'
 import type { KeyVault } from '../keys/key-vault'
+import type { ChatService } from '../chat/chat-service'
 import type { McpConnector } from '../mcp/connect'
 import type { McpController } from '../mcp/controller'
 import type { KeyTester } from '../keys/key-tester'
@@ -49,6 +50,8 @@ export interface HandlerDeps {
   mcp?: McpController
   /** 一鍵連接 Claude Desktop／Claude Code；測試可以不給。 */
   mcpConnector?: McpConnector
+  /** 右下角的 Claude 對話（實驗功能）；測試可以不給（狀態會是「沒開」）。 */
+  chat?: ChatService
   runtime: QueueAccess
   quickstart: QuickStartService
   upgrade: UpgradeService
@@ -89,6 +92,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     settingsService,
     mcp,
     mcpConnector,
+    chat,
     runtime,
     quickstart,
     upgrade,
@@ -337,6 +341,27 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('mcp.connectClaudeCode', () =>
     (mcpConnector ?? noConnector()).connectClaudeCode(),
   )
+  // 右下角 Claude 對話（只給畫面用，不在 MCP 白名單）
+  const noChat = (): never => {
+    throw new AppError({ code: 'invalid_request', userMessage: '這個版本還不能和 Claude 對話。' })
+  }
+  registry.registerHandler('chat.status', () => chat?.status() ?? { state: 'disabled' as const })
+  registry.registerHandler('chat.list', () => (chat ?? noChat()).list())
+  registry.registerHandler('chat.create', () => (chat ?? noChat()).create())
+  registry.registerHandler('chat.rename', ({ conversationId, title }) =>
+    (chat ?? noChat()).rename(conversationId, title),
+  )
+  registry.registerHandler('chat.messages', ({ conversationId }) =>
+    (chat ?? noChat()).messages(conversationId),
+  )
+  registry.registerHandler('chat.send', async ({ conversationId, text }) => {
+    await (chat ?? noChat()).send(conversationId, text)
+    return {}
+  })
+  registry.registerHandler('chat.stop', ({ conversationId }) => {
+    ;(chat ?? noChat()).stop(conversationId)
+    return {}
+  })
   registry.registerHandler('models.list', () => settingsService.listModels())
   registry.registerHandler('models.setProject', ({ models }) => {
     settingsService.setProjectModels(models)

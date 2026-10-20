@@ -108,6 +108,8 @@ export interface AppLayoutProps {
   showSlima?: boolean
   /** 最上面一條，每一頁都在（專案名、存檔狀態、模式、花費）。 */
   header?: ReactNode
+  /** 整條從右邊滑出的面板（Claude 對話）：占自己的位置，中央區與詳細面板讓出空間，不被蓋住。 */
+  drawer?: ReactNode
 }
 
 /**
@@ -121,6 +123,7 @@ export function AppLayout({
   queue,
   showSlima = false,
   header,
+  drawer,
 }: AppLayoutProps) {
   // 右側面板：頁面用 <SidePanel> 把內容放進來，有選取才滑入
   const [panelElement, setPanelElement] = useState<HTMLElement | null>(null)
@@ -170,36 +173,39 @@ export function AppLayout({
             />
           </nav>
 
-          {/* 面板打開時中央一次讓出位置（只重排一次）；面板自己用 translateX 滑入，動畫過程不會重排 */}
-          <main
-            data-testid="layout-main"
-            style={{ marginRight: panelOpen ? PANEL_WIDTHS[panelWidth] : 0 }}
-            data-bleed={view === 'canvas'}
-            className={
-              // 畫布首頁滿版（自己處理平移與捲動）；其他頁面是有邊界的內容區
-              view === 'canvas'
-                ? 'relative min-w-0 flex-1 overflow-hidden'
-                : 'min-w-0 flex-1 overflow-auto'
-            }
-          >
-            {children}
-          </main>
+          <div className="relative flex min-w-0 flex-1 overflow-clip">
+            {/* 面板打開時中央一次讓出位置（只重排一次）；面板自己用 translateX 滑入，動畫過程不會重排 */}
+            <main
+              data-testid="layout-main"
+              style={{ marginRight: panelOpen ? PANEL_WIDTHS[panelWidth] : 0 }}
+              data-bleed={view === 'canvas'}
+              className={
+                // 畫布首頁滿版（自己處理平移與捲動）；其他頁面是有邊界的內容區
+                view === 'canvas'
+                  ? 'relative min-w-0 flex-1 overflow-hidden'
+                  : 'min-w-0 flex-1 overflow-auto'
+              }
+            >
+              {children}
+            </main>
 
-          <aside
-            ref={setPanelElement}
-            aria-label="詳細面板"
-            inert={!panelOpen}
-            data-testid="layout-panel"
-            data-open={panelOpen}
-            style={{
-              width: PANEL_WIDTHS[panelWidth],
-              transform: panelOpen ? 'translateX(0)' : 'translateX(100%)',
-            }}
-            className={`absolute inset-y-0 right-0 z-10 overflow-clip border-l border-border bg-surface-raised transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-              // 收起時不要陰影：面板在畫面外，陰影會漏進來
-              panelOpen ? 'shadow-panel' : ''
-            }`}
-          />
+            <aside
+              ref={setPanelElement}
+              aria-label="詳細面板"
+              inert={!panelOpen}
+              data-testid="layout-panel"
+              data-open={panelOpen}
+              style={{
+                width: PANEL_WIDTHS[panelWidth],
+                transform: panelOpen ? 'translateX(0)' : 'translateX(100%)',
+              }}
+              className={`absolute inset-y-0 right-0 z-10 overflow-clip border-l border-border bg-surface-raised transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+                // 收起時不要陰影：面板在畫面外，陰影會漏進來
+                panelOpen ? 'shadow-panel' : ''
+              }`}
+            />
+          </div>
+          {drawer}
         </div>
 
         {showQueue ? (

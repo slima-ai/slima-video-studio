@@ -1,5 +1,5 @@
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
-import { ChevronDown, ChevronRight, Lock, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Lock, Sparkles, Trash2 } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
 
 import { Spinner } from '../../components/skeleton'
@@ -469,7 +469,47 @@ const numberOf = (title: string): string => /\d+/.exec(title)?.[0] ?? ''
 /** 縮小時標題列的字小到看不見：鏡頭、一句話、角色、地點在卡片中間改寫一行大字的名稱（圖與影片有縮圖，不用）。 */
 const NAMED_KINDS = new Set(['shot', 'oneliner', 'character', 'location'])
 
+/**
+ * 「AI 剛改」的小標記：貼在卡片左上角外面。滑過一下（算看過了）就收掉；選取、動它也會收掉。
+ * 傳回 hover 事件要接的屬性，放在節點最外層。
+ */
+function useAiSeenOnHover(id: string, touched: boolean | undefined) {
+  const { aiSeen } = useCanvasActions()
+  const timer = useRef<number | undefined>(undefined)
+  useEffect(
+    () => () => {
+      window.clearTimeout(timer.current)
+    },
+    [],
+  )
+  if (!touched || !aiSeen) return {}
+  return {
+    onMouseEnter: () => {
+      window.clearTimeout(timer.current)
+      timer.current = window.setTimeout(() => {
+        aiSeen(id)
+      }, 1200)
+    },
+    onMouseLeave: () => {
+      window.clearTimeout(timer.current)
+    },
+  }
+}
+
+function AiBadge({ id }: { id: string }) {
+  return (
+    <span
+      data-testid={`ai-badge-${id}`}
+      className="pointer-events-none absolute -top-2.5 left-3 z-10 flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold leading-none text-accent-fg shadow-card"
+    >
+      <Sparkles aria-hidden className="size-3" />
+      AI 剛改
+    </span>
+  )
+}
+
 function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
+  const aiHover = useAiSeenOnHover(id, data.aiTouched)
   const generating = data.kind === 'image' || data.kind === 'video'
   const status = data.status
   const ghost = generating && status === 'idle'
@@ -482,8 +522,11 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
       data-status={status}
       data-kind={data.kind}
       data-born={data.born}
+      data-ai-flash={data.aiFlash}
       data-linkstate={linkState}
+      {...aiHover}
     >
+      {data.aiTouched ? <AiBadge id={id} /> : null}
       <div
         className={cn(
           'svs-card flex size-full flex-col rounded-lg border border-border bg-surface-raised text-fg shadow-card transition-shadow hover:shadow-lg',
@@ -985,13 +1028,17 @@ export const CutNode = memo(CutImpl)
 function FrameImpl({ id, data, selected }: NodeProps<CanvasNode>) {
   const { startRename, focusNode } = useCanvasActions()
   const linkState = useLinkState(id)
+  const aiHover = useAiSeenOnHover(id, data.aiTouched)
   return (
     <div
       className="group/card relative size-full"
       data-testid={`node-${id}`}
       data-born={data.born}
+      data-ai-flash={data.aiFlash}
       data-linkstate={linkState}
+      {...aiHover}
     >
+      {data.aiTouched ? <AiBadge id={id} /> : null}
       <div
         data-drop={data.hint !== undefined}
         data-selected={selected}
@@ -1220,14 +1267,18 @@ function ShotDialogue({ id, text }: { id: string; text: string }) {
 /** 自訂群組：框住幾格一起搬動，可以命名、換色；不影響資料。只有標題列是抓手。 */
 function GroupImpl({ id, data, selected }: NodeProps<CanvasNode>) {
   const { updateFree, startRename } = useCanvasActions()
+  const aiHover = useAiSeenOnHover(id, data.aiTouched)
   const color = data.color ?? 'slate'
   return (
     <div
       className="group/card relative size-full"
       data-testid={`node-${id}`}
       data-color={color}
+      data-ai-flash={data.aiFlash}
       style={{ '--c': GROUP_COLOR[color].hex } as CSSProperties}
+      {...aiHover}
     >
+      {data.aiTouched ? <AiBadge id={id} /> : null}
       <div data-selected={selected} className="svs-group size-full rounded-2xl">
         <div className="svs-group-grip absolute inset-x-0 top-0 flex h-9 cursor-grab items-center gap-2 px-3 active:cursor-grabbing">
           <span

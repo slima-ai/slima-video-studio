@@ -18,6 +18,9 @@ import {
   findClaudeInLoginShell,
   runFileDirect,
 } from './mcp/connect'
+import { createChatService, type ChatService } from './chat/chat-service'
+import { checkClaude, runCaptureDirect } from './chat/claude-check'
+import { spawnClaudeDirect } from './chat/claude-process'
 import { createMcpController, type McpController } from './mcp/controller'
 import { createIpcRegistry } from './ipc/registry'
 import { restoreLastProject } from './last-project'
@@ -32,7 +35,7 @@ import { appMenuTemplate } from './app-menu'
 import { createMockFrameRenderer } from './mock-frame'
 import { renderCardWithElectron } from './credits/render-card-electron'
 import { createStudioApp } from './studio-app'
-import { openrouterBaseUrlOverride, startsOnHome } from './test-overrides'
+import { claudeBinOverride, openrouterBaseUrlOverride, startsOnHome } from './test-overrides'
 import { isInternalUrl, isSafeExternalUrl } from './navigation'
 import { QUIET_COMMAND_LINE_SWITCHES, quietWindowsEnabled } from './quiet-windows'
 import { APP_TITLE, createWindowOptions } from './window'
@@ -92,6 +95,7 @@ let projects: ProjectManager | undefined
 let runtime: ProjectRuntime | undefined
 let slimaService: SlimaService | undefined
 let mcpController: McpController | undefined
+let chatService: ChatService | undefined
 let mainLog: Logger | undefined
 
 // 目前只有一個主視窗，其 URL 同時是 IPC 寄件者驗證的依據
@@ -327,6 +331,21 @@ void app.whenReady().then(() => {
     findClaude: findClaudeInLoginShell,
     runFile: runFileDirect,
   })
+  // 右下角的 Claude 對話（實驗功能）：用使用者自己登入的 Claude Code，我們不碰任何金鑰
+  const claudeOverride = claudeBinOverride(process.env, app.isPackaged)
+  const findClaude = (): Promise<string | undefined> =>
+    claudeOverride === undefined ? findClaudeInLoginShell() : Promise.resolve(claudeOverride)
+  const chat = createChatService({
+    settings,
+    packaged: app.isPackaged,
+    bridge: bridgeCommand(process.execPath, join(__dirname, 'mcp-stdio-bridge.js'), userData),
+    workDir: join(userData, 'claude-chat', 'work'),
+    check: () => checkClaude({ findClaude, run: runCaptureDirect }),
+    spawn: spawnClaudeDirect,
+    broadcast: relay,
+    log,
+  })
+  chatService = chat
   runtime = studio.runtime
   slimaService = slima
   registerAllHandlers(registry, {
@@ -347,6 +366,7 @@ void app.whenReady().then(() => {
     settingsService,
     mcp,
     mcpConnector,
+    chat,
     runtime,
     quickstart,
     upgrade,
@@ -385,6 +405,7 @@ app.on('before-quit', () => {
   runShutdown(
     [
       ['中斷 Slima 連線', () => slimaService?.stop()],
+      ['關閉 Claude 對話', () => chatService?.dispose()],
       ['停止 AI 工具連線', () => mcpController?.stop()],
       ['停止生成佇列', () => runtime?.dispose()],
       ['關閉專案', () => projects?.close()],

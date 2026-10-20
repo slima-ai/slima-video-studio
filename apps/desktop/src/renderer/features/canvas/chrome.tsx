@@ -4,6 +4,7 @@ import { useState, type DragEvent } from 'react'
 import { Spinner } from '../../components/skeleton'
 import { cn } from '../../lib/cn'
 import { applyTheme, useResolvedTheme } from '../../lib/theme'
+import { ChatLauncher } from '../chat/chat-launcher'
 import { READABLE_ZOOM, useFitAll, useFocusEntry } from './fit-all'
 import { KindBadge } from './kind-icon'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
@@ -250,6 +251,7 @@ export function ZoomControls({ right = 12 }: { right?: number }) {
       className="absolute bottom-3 z-20 flex gap-1.5 transition-[right] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
       style={{ right }}
     >
+      <ChatLauncher />
       {unreadable ? (
         <button
           type="button"

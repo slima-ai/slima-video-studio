@@ -366,6 +366,23 @@
     transform: scale(1);
   }
 }
+/* AI 剛改過：外圈亮一下再淡掉（之後只剩「AI 剛改」小標記） */
+@keyframes svs-ai-flash {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+  30% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+[data-ai-flash='true'] > .svs-card,
+[data-ai-flash='true'] > .svs-frame,
+[data-ai-flash='true'] > .svs-group {
+  animation: svs-ai-flash 1.6s ease-out 1;
+}
 [data-born='true'] > .svs-card,
 [data-born='true'] > .svs-frame {
   animation: svs-grow 300ms ease-out both;
