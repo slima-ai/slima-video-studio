@@ -68,6 +68,16 @@ export function MessageView({
             ))}
           </ul>
         ) : null}
+        {message.notes !== undefined && message.notes.length > 0 ? (
+          <details className="text-xs text-fg-muted" data-testid="chat-notes">
+            <summary className="cursor-pointer select-none">Claude 的工作筆記（已收起）</summary>
+            {message.notes.map((note, index) => (
+              <p key={index} className="mt-1 whitespace-pre-wrap break-words">
+                {note}
+              </p>
+            ))}
+          </details>
+        ) : null}
         {message.text !== '' ? <Markdown text={message.text} /> : null}
         {waiting ? (
           <p className="flex items-center gap-1.5 text-xs text-fg-muted" role="status">

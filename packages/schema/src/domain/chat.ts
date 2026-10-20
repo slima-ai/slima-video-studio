@@ -54,6 +54,11 @@ export const ChatPanelMessageSchema = z.object({
   state: z.enum(['streaming', 'done', 'stopped', 'error']).optional(),
   /** state 是 error 時的白話說明。 */
   error: z.string().optional(),
+  /**
+   * 被收起來的「工作筆記」：Claude 對上下文裡「USD budget」提示的英文碎碎念（見 main/chat/stream-events.ts 的 isBudgetChatter）。
+   * 不直接給使用者看、也不丟掉：畫面上是一行「Claude 的工作筆記（已收起）」，點了展開看原文——萬一判斷錯了還看得到。
+   */
+  notes: z.array(z.string()).optional(),
   /** 因為用量或步數到上限而停下來：可以按「繼續」，用新的行程接著做（畫面才顯示那顆按鈕）。 */
   resumable: z.boolean().optional(),
 })

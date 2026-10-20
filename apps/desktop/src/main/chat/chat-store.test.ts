@@ -125,6 +125,24 @@ describe('對話紀錄檔（專案資料夾的 chat/）', () => {
     }
   })
 
+  it('收起來的工作筆記（notes）會存進檔案、讀得回來；沒有就不寫這個欄位', () => {
+    const dir = project()
+    const withNotes: ChatPanelMessage = {
+      id: 'm1',
+      role: 'assistant',
+      text: '好',
+      steps: [],
+      at: AT,
+      state: 'done',
+      notes: ["Ignore the session USD budget note? It's the agent budget."],
+    }
+    expect(sanitizeMessage(withNotes).notes).toEqual(withNotes.notes)
+    expect(sanitizeMessage({ ...withNotes, notes: [] })).not.toHaveProperty('notes')
+    expect(sanitizeMessage({ ...withNotes, notes: undefined })).not.toHaveProperty('notes')
+    writeConversation(dir, { info: info(), messages: [withNotes] })
+    expect(readConversations(dir)[0]?.messages[0]?.notes).toEqual(withNotes.notes)
+  })
+
   it('讀回來時還在串流的訊息（App 當時被關掉）變成「沒做完」，不會永遠轉圈', () => {
     const dir = project()
     appendRecords(dir, ID, [

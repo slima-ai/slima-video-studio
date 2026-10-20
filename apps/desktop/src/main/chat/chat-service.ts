@@ -279,7 +279,14 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     const message = turn.assistant
     // 這一輪的改動合成一步復原（做到一半被停止、出錯、行程當掉也一樣：已經做的改動一步就能退）
     turn.endHistory?.()
-    if (outcome.text !== undefined && message.text.trim() === '') message.text = outcome.text
+    if (outcome.text !== undefined && message.text.trim() === '') {
+      // 這一輪最後的回覆如果就是那種碎碎念，一樣收起來
+      if (isBudgetChatter(outcome.text)) {
+        if (!(message.notes ?? []).includes(outcome.text.trim())) {
+          message.notes = [...(message.notes ?? []), outcome.text.trim()]
+        }
+      } else message.text = outcome.text
+    }
     message.steps = message.steps.map((step) =>
       step.status === 'running'
         ? { ...step, status: 'error', label: toolLabel(step.tool), summary: '沒有做完' }
@@ -338,9 +345,14 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
         if (turn?.textStart === undefined) return
         // 剛結束的是一段文字：整段只有英文、又在講預算提示（Claude Code 在上下文附的「USD budget: …」，
         // 它有時會把對那行字的反應當成回覆寫出來）就不給使用者看
-        if (isBudgetChatter(turn.assistant.text.slice(turn.textStart))) {
-          turn.assistant.text = turn.assistant.text.slice(0, turn.textStart).trimEnd()
-          scheduleEmit(conv, turn)
+        {
+          const block = turn.assistant.text.slice(turn.textStart)
+          if (isBudgetChatter(block)) {
+            // 收起來而不是丟掉：畫面上一行小字，點了看原文
+            turn.assistant.notes = [...(turn.assistant.notes ?? []), block.trim()]
+            turn.assistant.text = turn.assistant.text.slice(0, turn.textStart).trimEnd()
+            scheduleEmit(conv, turn)
+          }
         }
         turn.textStart = undefined
         return

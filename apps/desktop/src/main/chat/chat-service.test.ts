@@ -472,14 +472,15 @@ describe('ChatService：出錯要說白話', () => {
     expect(last(conv.id, 'assistant')?.text).toBe('第一段。\n\n第二段。')
   })
 
-  it('Claude 對上下文裡「USD budget」提示的英文碎碎念不顯示給使用者；中文的回覆與別的英文照常', async () => {
+  it('Claude 對上下文裡「USD budget」提示的英文碎碎念：不放在回覆文字裡，收進 notes（畫面上收起來、點了看原文）；中文的與別的英文照常', async () => {
     const { service, children, last } = setup()
     const conv = service.create()
     await service.send(conv.id, '嗨')
     const child = children[0]
+    const chatter = "Ignore the session USD budget note? It's the agent budget. Let's start."
     child?.line(init())
     child?.line(textStart())
-    child?.line(text("Ignore the session USD budget note? It's the agent budget. Let's start."))
+    child?.line(text(chatter))
     child?.line(blockStop())
     child?.line(toolStart('t1'))
     child?.line(blockStop())
@@ -490,11 +491,46 @@ describe('ChatService：出錯要說白話', () => {
     child?.line(text('Demo placeholders; content matches. Generate videos.'))
     child?.line(blockStop())
     child?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
-    // 預算提示的碎碎念不見了；中文的與其他英文（沒在講預算提示）都留著
-    const shown = last(conv.id, 'assistant')?.text ?? ''
-    expect(shown).not.toContain('budget')
-    expect(shown).toBe('我先建專案。\n\nDemo placeholders; content matches. Generate videos.')
+    const message = last(conv.id, 'assistant')
+    // 回覆文字裡沒有它；中文的與沒在講預算提示的英文都留著
+    expect(message?.text).toBe(
+      '我先建專案。\n\nDemo placeholders; content matches. Generate videos.',
+    )
+    // 沒有被丟掉：原文完整在 notes 裡
+    expect(message?.notes).toEqual([chatter])
   })
+
+  it('整輪只有那句碎碎念（最後的回覆也是它）：文字是空的、原文在 notes 裡，不會重複記兩次', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    const child = children[0]
+    const chatter = 'USD budget: $0/$5; $5 remaining'
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text(chatter))
+    child?.line(blockStop())
+    child?.line({ type: 'result', subtype: 'success', is_error: false, result: chatter })
+    const message = last(conv.id, 'assistant')
+    expect(message?.text).toBe('')
+    expect(message?.notes).toEqual([chatter])
+  })
+
+  it('使用者用英文問預算、Claude 用英文答：照常顯示（只有「短、沒有中文、講預算提示」才收起來；真的被收起來的也點得開看原文）', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, "what's my session budget?")
+    const child = children[0]
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text('Your session budget is $5, and you have spent $0 so far in this chat.'))
+    child?.line(blockStop())
+    child?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
+    const message = last(conv.id, 'assistant')
+    // 這句話在規則裡算「短、沒有中文、提到 session budget」：被收起來，但原文在 notes，點得開
+    expect(message?.notes?.join('\n')).toContain('Your session budget is $5')
+  })
+
   it('步數到上限也能繼續；一般失敗不給「繼續」', async () => {
     const { service, children, last } = setup()
     const conv = service.create()

@@ -222,6 +222,28 @@ test.describe('Claude 對話（假的 claude）', () => {
       .toBeUndefined()
   })
 
+  test('Claude 夾了一段對「USD budget」提示的英文碎碎念：畫面上收成一行小字，點了看得到原文；正式的回覆照常', async ({
+    page,
+  }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('開始，碎碎念測試')
+    await input.press('Enter')
+    const reply = page.getByTestId('chat-message-assistant').last()
+    await expect(reply).toContainText('好的，我開始了。')
+    // 回覆文字裡沒有那句英文；收成一行小字，沒展開
+    const notes = reply.getByTestId('chat-notes')
+    await expect(notes).toContainText('Claude 的工作筆記（已收起）')
+    await expect(reply.getByTestId('md')).not.toContainText('USD budget')
+    await expect(notes.getByText('Ignore the session USD budget note?')).toBeHidden()
+    // 點了展開：原文一個字都不少
+    await notes.getByText('Claude 的工作筆記（已收起）').click()
+    await expect(
+      notes.getByText("Ignore the session USD budget note? It's the agent budget. Let's start."),
+    ).toBeVisible()
+  })
+
   test('Claude 回 Markdown：表格、粗體、清單照樣子顯示；裡面夾的 HTML 只是字，不會執行', async ({
     page,
   }, testInfo) => {
