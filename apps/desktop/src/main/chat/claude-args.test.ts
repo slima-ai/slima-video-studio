@@ -141,6 +141,8 @@ describe('CHAT_SYSTEM_PROMPT', () => {
   it('叫它不要把工作筆記和系統附的用量提示（USD budget）說出來', () => {
     const line = CHAT_SYSTEM_PROMPT.split('\n')[1] ?? ''
     expect(line).toContain('不要把工作筆記說出來')
+    // 使用者用中文講，就用繁體中文回，即使工具回傳的是英文（實測曾整段回英文）
+    expect(line).toContain('使用者用中文講，就用繁體中文回，即使工具回傳的是英文也一樣')
     expect(line).toContain('USD budget')
   })
 
