@@ -132,8 +132,8 @@ function resultError(subtype: string): string {
   if (subtype === 'error_max_budget_usd') {
     return '這個對話的 Claude 用量到上限了。開一個新對話，或之後再試。'
   }
-  if (subtype === 'error_max_turns') return 'Claude 這一輪做了太多步，先停下來了。可以請它接著做。'
-  return 'Claude 這一輪沒有做完，請再試一次。'
+  if (subtype === 'error_max_turns') return 'Claude 這次做了太多步，先停下來了。可以請它接著做。'
+  return 'Claude 這次沒有做完，請再試一次。'
 }
 
 /** 把標準輸出的片段拼成一行一行（換行分隔的 JSON）；壞掉的行略過。 */

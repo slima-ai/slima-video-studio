@@ -4,7 +4,7 @@ import { Check, Loader2, X } from 'lucide-react'
 import { Mascot, type MascotMood } from '../../brand/mascot'
 import { cn } from '../../lib/cn'
 
-/** Claude 這一輪用過的工具：一行一個，進行中轉圈、做完打勾、失敗打叉；滑過看結果摘要。 */
+/** Claude 這次用過的工具：一行一個，進行中轉圈、做完打勾、失敗打叉；滑過看結果摘要。 */
 function StepRow({ step }: { step: ChatStep }) {
   return (
     <li
@@ -40,7 +40,7 @@ export function MessageView({ message }: { message: ChatPanelMessage }) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end" data-testid="chat-message-user">
-        <p className="wrap-zh max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-accent px-3 py-2 text-sm text-accent-fg">
+        <p className="break-words max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-accent px-3 py-2 text-sm text-accent-fg">
           {message.text}
         </p>
       </div>
@@ -60,7 +60,7 @@ export function MessageView({ message }: { message: ChatPanelMessage }) {
           </ul>
         ) : null}
         {message.text !== '' ? (
-          <p className="wrap-zh whitespace-pre-wrap text-sm">{message.text}</p>
+          <p className="break-words whitespace-pre-wrap text-sm">{message.text}</p>
         ) : null}
         {waiting ? (
           <p className="flex items-center gap-1.5 text-xs text-fg-muted" role="status">
@@ -75,7 +75,7 @@ export function MessageView({ message }: { message: ChatPanelMessage }) {
         ) : null}
         {message.state === 'error' ? (
           <p role="alert" className="text-sm text-danger" data-testid="chat-error">
-            {message.error ?? 'Claude 這一輪沒有做完，請再試一次。'}
+            {message.error ?? 'Claude 這次沒有做完，請再試一次。'}
           </p>
         ) : null}
       </div>

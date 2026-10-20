@@ -6,7 +6,7 @@ export const CHAT_DRAWER_WIDTH = 380
 
 /**
  * 畫面右邊整條滑出的對話面板（不是彈出小視窗）。收起時寬度是 0、內容不可操作；
- * 裡面固定寬度，滑動過程不會跟著重排。聚焦在面板裡按 Esc 停止 Claude 正在做的這一輪。
+ * 裡面固定寬度，滑動過程不會跟著重排。聚焦在面板裡按 Esc 停止 Claude 正在做的事。
  */
 export function ChatDrawer() {
   const { enabled, open, active, stop } = useChatDock()

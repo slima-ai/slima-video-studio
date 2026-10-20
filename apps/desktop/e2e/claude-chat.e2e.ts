@@ -117,7 +117,7 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(drawer).toHaveAttribute('data-open', 'false')
   })
 
-  test('Claude 做事時，停止鈕和 Esc 都能中斷這一輪；中斷後同一個對話還能接著講', async ({
+  test('Claude 做事時，停止鈕和 Esc 都能中斷 Claude 現在做的事；中斷後同一個對話還能接著講', async ({
     page,
   }) => {
     await useFreeMcpPort(page)
