@@ -28,6 +28,14 @@ const shotView = (s: {
   characters: s.characters,
 })
 
+/** `estimate_cost` 收的動作名稱。對話的開場提示（chat/claude-args.ts）也寫了這些名字，有單元測試對著它檢查。 */
+export const ESTIMATE_COST_ACTIONS = [
+  'split_story_into_scenes',
+  'split_scene_into_shots',
+  'generate_first_frames',
+  'generate_videos',
+] as const
+
 /** 故事 → 分場 → 鏡頭。兩個「拆」的步驟會呼叫文字模型，先過額度。 */
 export function registerStoryTools(ctx: ToolContext): void {
   defineTool(ctx, {
@@ -120,14 +128,7 @@ export function registerStoryTools(ctx: ToolContext): void {
       String(GENERATION_RESERVE_FACTOR) +
       ' for pictures and videos), the allowance left, and whether it fits. possible=false (with an issue) means the step cannot start now, for example videos before any first frame exists. For sound use plan_sound.',
     input: {
-      action: z
-        .enum([
-          'split_story_into_scenes',
-          'split_scene_into_shots',
-          'generate_first_frames',
-          'generate_videos',
-        ])
-        .describe('Which step to estimate'),
+      action: z.enum(ESTIMATE_COST_ACTIONS).describe('Which step to estimate'),
       story: z
         .string()
         .max(120_000)
