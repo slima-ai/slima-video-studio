@@ -2,6 +2,7 @@ import {
   DEFAULT_QUICK_START_SOUND,
   QuickStartSoundSchema,
   isAppError,
+  type CanvasNotice,
   type CanvasRunSoundPlan,
   type QuickStartSound,
 } from '@svs/schema'
@@ -39,6 +40,47 @@ export function markSoundAutoAdded(
   }
 }
 
+export interface RunSoundResult {
+  problem?: string
+  /** 念了幾個鏡頭的旁白。 */
+  narrations: number
+  /** 這次生了配樂。 */
+  music: boolean
+  /** 這次要念旁白，可是沒有鏡頭可念：現在有幾個鏡頭有台詞（0 就是沒有台詞）。 */
+  noNarrationBecause?: { dialogueShots: number }
+}
+
+/** 開始加聲音時的通知：只寫真的會做的（沒有台詞就不說旁白）；沒有東西要加就不通知。 */
+export function soundStartNotice(plan: CanvasRunSoundPlan | undefined): CanvasNotice | undefined {
+  const parts = [plan && plan.narrationShots > 0 ? '旁白' : '', plan?.music ? '配樂' : ''].filter(
+    Boolean,
+  )
+  if (parts.length === 0) return undefined
+  return { tone: 'success', message: `成品接好了，正在加${parts.join('與')}…` }
+}
+
+/** 加完聲音之後的一行通知：說實話做了哪些（沒台詞就不會有旁白，要講出來）。 */
+export function soundDoneNotice(result: RunSoundResult): CanvasNotice {
+  if (result.problem !== undefined) {
+    return {
+      tone: 'danger',
+      message: `聲音沒加成（${result.problem}）：可以在成品面板的「聲音」區再試`,
+    }
+  }
+  const done = [...(result.narrations > 0 ? ['旁白'] : []), ...(result.music ? ['配樂'] : [])]
+  const why = result.noNarrationBecause
+    ? result.noNarrationBecause.dialogueShots === 0
+      ? '沒有鏡頭有台詞，所以沒有旁白'
+      : '有台詞的鏡頭都已經有旁白了'
+    : undefined
+  const head =
+    done.length === 0 ? '成品接好了' : `${done.join('與')}${done.length > 1 ? '也' : ''}加好了`
+  return {
+    tone: 'success',
+    message: why === undefined || done.length > 1 ? head : `${head}；${why}`,
+  }
+}
+
 export interface RunSound {
   /**
    * 「全部生成」要不要順便加旁白與配樂：這次生成的鏡頭所在的場，連著哪些一句話節點，就看那些節點記住的聲音勾選
@@ -50,9 +92,16 @@ export interface RunSound {
   ) => RunSoundWant | undefined
   /** 預估要多花多少、加得成加不成（沒有可用的模型、超過預算上限）；沒東西要加是 undefined。 */
   plan: (want: RunSoundWant) => CanvasRunSoundPlan | undefined
-  /** 加旁白與配樂並混進成品；已經有配樂的不再生一首、已經有旁白的鏡頭不再念。回傳失敗原因（成功是 undefined）。 */
-  add: (want: RunSoundWant) => Promise<string | undefined>
+  /**
+   * 加旁白與配樂並混進成品；已經有配樂的不再生一首、已經有旁白的鏡頭不再念。
+   * 回傳做了什麼：念了幾個鏡頭、有沒有生配樂，加不成時多一個白話原因 `problem`。
+   */
+  add: (want: RunSoundWant) => Promise<RunSoundResult>
 }
+
+/** 現在有台詞的鏡頭數。 */
+const dialogueShotsOf = (sound: Pick<SoundService, 'state'>): number =>
+  sound.state().shots.filter((shot) => shot.dialogue.trim() !== '').length
 
 export function createRunSound(deps: RunSoundDeps): RunSound {
   const { projects, log } = deps
@@ -108,6 +157,8 @@ export function createRunSound(deps: RunSoundDeps): RunSound {
       })
       return {
         ...todo,
+        narrationShots: plan.items.filter((item) => item.kind === 'narration').length,
+        dialogueShots: dialogueShotsOf(sound),
         usd: plan.ok ? plan.totalUsd : 0,
         ...(plan.ok || plan.issue === undefined ? {} : { issue: plan.issue }),
       }
@@ -116,16 +167,25 @@ export function createRunSound(deps: RunSoundDeps): RunSound {
     async add(want) {
       const todo = remaining(want)
       const sound = deps.sound?.()
-      if (!sound) return undefined
+      if (!sound) return { narrations: 0, music: false }
       try {
-        if (todo) await sound.addAll(todo)
+        const done = todo ? await sound.addAll(todo) : { narrations: 0, music: false }
         // 加成功（或本來就都有了）才記下加過了；失敗的話之後的全部生成還會再試
         const handle = projects.current()
         if (handle && !handle.closed) markSoundAutoAdded(handle, want.nodeIds, true)
-        return undefined
+        return {
+          ...done,
+          ...(todo?.narration === true && done.narrations === 0
+            ? { noNarrationBecause: { dialogueShots: dialogueShotsOf(sound) } }
+            : {}),
+        }
       } catch (error) {
         log.warn(`全部生成之後加聲音失敗：${String(error)}`)
-        return isAppError(error) ? error.userMessage : '加聲音失敗了'
+        return {
+          narrations: 0,
+          music: false,
+          problem: isAppError(error) ? error.userMessage : '加聲音失敗了',
+        }
       }
     },
   }

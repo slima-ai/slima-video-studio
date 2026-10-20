@@ -88,6 +88,7 @@ function expectAudio(audio: ReturnType<typeof audioOf>, want: 'audible' | 'silen
 async function storyboardThenGenerateAll(
   page: Page,
   sound: { narration: boolean; music: boolean },
+  options: { dialogue?: boolean } = {},
 ): Promise<{ confirmText: string }> {
   await prepare(page)
   // 影片原聲關掉：成品裡有沒有音軌，完全看旁白與配樂有沒有加
@@ -101,17 +102,19 @@ async function storyboardThenGenerateAll(
     timeout: 60_000,
   })
   await expect.poll(() => kindCount(page, 'shot')).toBe(3)
-  await page.evaluate(async () => {
-    const list = await window.svs.invoke('shots.list', {})
-    if (!list.ok) throw new Error(list.error.userMessage)
-    for (const shot of list.data.shots) {
-      const done = await window.svs.invoke('shots.update', {
-        shotId: shot.id,
-        patch: { dialogue: `第 ${String(shot.number)} 鏡的台詞。` },
-      })
-      if (!done.ok) throw new Error(done.error.userMessage)
-    }
-  })
+  if (options.dialogue !== false) {
+    await page.evaluate(async () => {
+      const list = await window.svs.invoke('shots.list', {})
+      if (!list.ok) throw new Error(list.error.userMessage)
+      for (const shot of list.data.shots) {
+        const done = await window.svs.invoke('shots.update', {
+          shotId: shot.id,
+          patch: { dialogue: `第 ${String(shot.number)} 鏡的台詞。` },
+        })
+        if (!done.ok) throw new Error(done.error.userMessage)
+      }
+    })
+  }
   await page.getByTestId('run-all').click()
   const confirm = page.getByTestId('run-confirm')
   await expect(confirm).toBeVisible()
@@ -434,7 +437,7 @@ test.describe('畫布上的一句話（示範模式）', () => {
     const { confirmText } = await storyboardThenGenerateAll(page, { narration: true, music: false })
     expect(confirmText).toContain('接好片之後自動加旁白（約')
     expect(confirmText).not.toContain('配樂')
-    await expect(page.getByTestId('toast').filter({ hasText: '旁白與配樂也加好了' })).toBeVisible({
+    await expect(page.getByTestId('toast').filter({ hasText: '旁白加好了' })).toBeVisible({
       timeout: 60_000,
     })
     expect(await soundState(page)).toMatchObject({ narrated: 3, music: false, hasSound: true })
@@ -452,6 +455,23 @@ test.describe('畫布上的一句話（示範模式）', () => {
     })
     expect(await soundState(page)).toMatchObject({ narrated: 0, music: false, hasSound: false })
     expectAudio(audioOf(await exportedFinal(page)), 'silent')
+  })
+
+  test('示範模式拆出來的鏡頭沒有台詞：確認面板說旁白不會念，只加配樂，通知也說實話', async ({
+    page,
+  }) => {
+    const { confirmText } = await storyboardThenGenerateAll(
+      page,
+      { narration: true, music: true },
+      { dialogue: false },
+    )
+    expect(confirmText).toMatch(/接好片之後自動加配樂（約 US\$\d+\.\d\d）/)
+    expect(confirmText).toContain('旁白：目前沒有鏡頭有台詞，所以不會念')
+    expect(confirmText).not.toContain('自動加旁白')
+    await expect(
+      page.getByTestId('toast').filter({ hasText: '配樂加好了；沒有鏡頭有台詞，所以沒有旁白' }),
+    ).toBeVisible({ timeout: 60_000 })
+    expect(await soundState(page)).toMatchObject({ narrated: 0, music: true, hasSound: true })
   })
 
   test('加過就不再自動補：刪掉配樂再按全部生成，配樂不會回來；在卡片上重新勾就再加', async ({

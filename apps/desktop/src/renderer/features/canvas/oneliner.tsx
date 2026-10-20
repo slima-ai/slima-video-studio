@@ -202,7 +202,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
           className="lod-full text-[11px] leading-snug text-fg-muted"
           data-testid="oneliner-sound-note"
         >
-          旁白與配樂會在影片接好時自動加：「一次做完整支」做完就加；「先產生分鏡」的話，等你按右上角的「全部生成」。
+          旁白與配樂會在影片接好時自動加：「一次做完整支」做完就加；「先產生分鏡」的話，等你按右上角的「全部生成」。旁白只念有台詞的鏡頭。
         </p>
       ) : null}
       {growStory && picked ? (

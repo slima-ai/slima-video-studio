@@ -34,10 +34,11 @@ import {
 
 import { Button } from '../../components/button'
 import { Spinner } from '../../components/skeleton'
-import { useToast } from '../../components/toast'
+import { LONG_TOAST_MS, useToast } from '../../components/toast'
 import { useHistory } from '../../lib/history'
 import { useShots } from '../shots/use-shots'
 import { creditsPreferred } from '../../lib/export-credits'
+import { revealLabel } from '../../lib/reveal-label'
 import { call, errorText } from '../../lib/svs'
 import { useResolvedTheme } from '../../lib/theme'
 import {
@@ -1070,8 +1071,10 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             toast.show({
               key: 'final',
               message: `已匯出到專案的「匯出」資料夾：${name}`,
+              // 比一般提示久：第一次匯出的人要來得及看到檔名、按下去找檔案
+              ms: LONG_TOAST_MS,
               action: {
-                label: '打開資料夾',
+                label: revealLabel(),
                 onAction: () => {
                   call('files.reveal', { exportName: name }).catch(() => undefined)
                 },

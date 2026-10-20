@@ -55,6 +55,8 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
 
   const current = recent?.find((p) => p.current)
   const others = recent?.filter((p) => !p.current) ?? []
+  // 找不到的專案開不了，不算「已經有專案」
+  const hasProjects = recent?.some((p) => !p.missing) ?? false
 
   return (
     <Page title="首頁" hint="新專案、開啟舊專案、最近的專案。" width="narrow" testId="home-page">
@@ -194,19 +196,36 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
           </ul>
         </section>
 
-        <div className="border-t border-border pt-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            data-testid="home-skip"
-            onClick={() => {
-              onNavigate('canvas')
-            }}
-          >
-            先不建專案，直接進畫布
-          </Button>
-          <p className="mt-1 text-xs text-fg-muted">之後新增任何東西時，會自動建一個專案。</p>
-        </div>
+        {hasProjects ? (
+          // 已經有專案可以接：這不是主選項，只留一個小字連結
+          <div className="border-t border-border pt-3">
+            <button
+              type="button"
+              data-testid="home-skip"
+              title="之後新增任何東西時，會自動建一個專案。"
+              className="text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
+              onClick={() => {
+                onNavigate('canvas')
+              }}
+            >
+              先不建專案，直接進畫布
+            </button>
+          </div>
+        ) : (
+          <div className="border-t border-border pt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="home-skip"
+              onClick={() => {
+                onNavigate('canvas')
+              }}
+            >
+              先不建專案，直接進畫布
+            </Button>
+            <p className="mt-1 text-xs text-fg-muted">之後新增任何東西時，會自動建一個專案。</p>
+          </div>
+        )}
       </div>
     </Page>
   )
