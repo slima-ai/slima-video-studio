@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 
 import {
+  AI_TURN_UNDO_LABEL,
   AppError,
   type AppSettings,
   type ChatConversation,
@@ -81,7 +82,7 @@ const CHECK_TTL_MS = 60_000
 const DEFAULT_MAX_BUDGET_USD = 0.5
 /** 閒置多久關掉行程：十個對話就是十個常駐的 claude，沒在用的不該一直佔著。 */
 /** 一輪的復原名稱（復原按鈕旁、「已復原：…」的提示會用）。 */
-export const CHAT_UNDO_LABEL = 'Claude 這一輪的改動'
+export const CHAT_UNDO_LABEL = AI_TURN_UNDO_LABEL
 const DEFAULT_IDLE_MS = 10 * 60_000
 /** 改開新對話時帶過去的舊內容最多這麼多字（取最後面的）。 */
 const SEED_MAX_CHARS = 6000

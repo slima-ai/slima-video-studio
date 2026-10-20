@@ -1,3 +1,4 @@
+import { AI_TURN_UNDO_LABEL } from '@svs/schema'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -125,6 +126,61 @@ describe('HistoryProvider', () => {
     expect(text).toContain('Claude 正在改這個專案')
     expect(text).toContain('按停止')
     expect(text).not.toContain('沒有可以復原')
+  })
+
+  it('這一步後來又被改過、整步沒動：按了要有提示，說清楚略過了、再按會怎樣', async () => {
+    installFakeSvs({
+      'history.state': () => CAN_UNDO,
+      'history.undo': () => ({
+        applied: true,
+        label: '改名',
+        skipped: 'all',
+        state: { canUndo: true, canRedo: true, undoLabel: '新增一幕' },
+      }),
+    })
+    render(<Page />)
+    await screen.findByTestId('history-undo')
+    press(CTRL_Z)
+    const text = (await screen.findByTestId('toast')).textContent
+    expect(text).toContain('先略過')
+    expect(text).toContain('再按一次會復原更早的一步')
+    expect(text).not.toContain('已復原')
+  })
+
+  it('略過的那一步底下就是 Claude 那一輪：提示直說「會退回 Claude 那一輪」', async () => {
+    installFakeSvs({
+      'history.state': () => CAN_UNDO,
+      'history.undo': () => ({
+        applied: true,
+        label: '改名',
+        skipped: 'all',
+        state: { canUndo: true, canRedo: true, undoLabel: AI_TURN_UNDO_LABEL },
+      }),
+    })
+    render(<Page />)
+    await screen.findByTestId('history-undo')
+    press(CTRL_Z)
+    expect((await screen.findByTestId('toast')).textContent).toBe(
+      '這一步後來又被 Claude 改過，先略過；再按一次會退回 Claude 那一輪。',
+    )
+  })
+
+  it('只動了一部分：照常說「已復原」，另外說有些內容後來又被改過沒動', async () => {
+    installFakeSvs({
+      'history.state': () => CAN_UNDO,
+      'history.undo': () => ({
+        applied: true,
+        label: '改場',
+        skipped: 'some',
+        state: CAN_UNDO,
+      }),
+    })
+    render(<Page />)
+    await screen.findByTestId('history-undo')
+    press(CTRL_Z)
+    expect((await screen.findByTestId('toast')).textContent).toContain(
+      '已復原：改場（有些內容後來又被改過，沒動）',
+    )
   })
 
   it('不在大綱／分鏡表（enabled 為 false）時不接管快捷鍵', async () => {

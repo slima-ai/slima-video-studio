@@ -135,7 +135,13 @@ export function createHistoryService(deps: HistoryServiceDeps): HistoryService {
       const entry = direction === 'undo' ? history.undo() : history.redo()
       if (!entry) return { applied: false, state: history.state() }
       revision++
-      return { applied: true, label: entry.label, state: history.state() }
+      const skipped = entry.skipped === 0 ? undefined : entry.applied === 0 ? 'all' : 'some'
+      return {
+        applied: true,
+        label: entry.label,
+        state: history.state(),
+        ...(skipped === undefined ? {} : { skipped }),
+      }
     } finally {
       // 失敗時這筆紀錄已經作廢，也要讓畫面更新按鈕狀態
       announce()

@@ -475,10 +475,11 @@ describe('StructureHistory：group（Claude 一輪的改動併成一步）', () 
     expect(history.state().undoCount).toBe(2)
     expect(repos.outline.listActs()[0]?.title).toBe('D')
     // 第一次復原：使用者那一步。現在的值（D）已經不是他留下的值（C），欄位保護讓這一步不動它，也不丟錯
-    expect(() => history.undo()).not.toThrow()
+    expect(history.undo()).toMatchObject({ applied: 0, skipped: 1 })
     expect(repos.outline.listActs()[0]?.title).toBe('D')
     // 第二次：Claude 這一輪整個退，回到最早的 A
-    expect(history.undo()?.label).toBe('Claude 這一輪')
+    const second = history.undo()
+    expect(second).toMatchObject({ label: 'Claude 這一輪', skipped: 0 })
     expect(repos.outline.listActs()[0]?.title).toBe('A')
     expect(history.state().canUndo).toBe(false)
     // 重做兩次也不丟錯，最後回到 Claude 做完的 D
@@ -506,12 +507,33 @@ describe('StructureHistory：group（Claude 一輪的改動併成一步）', () 
     expect(repos.outline.listActs()).toHaveLength(0)
     expect(history.state().undoCount).toBe(1)
     // 復原：那一列已經不在，這一步什麼都不動、不丟錯、資料沒壞
-    expect(() => history.undo()).not.toThrow()
+    expect(history.undo()).toMatchObject({ applied: 0, skipped: 1 })
     expect(repos.outline.listActs()).toHaveLength(0)
     expect(history.state().canUndo).toBe(false)
     // 之後的新操作照常能記、能復原
     const again = history.record('新增一幕', () => repos.outline.addAct({ title: '之後的' }))
     history.undo()
     expect(repos.outline.listActs().some((a) => a.id === again.id)).toBe(false)
+  })
+
+  it('一步裡只有一部分欄位後來又被改過：動了能動的，略過的數量照實回報；整步都被改過就是 applied 0', () => {
+    const { repos, history } = setup()
+    const act = repos.outline.addAct({ title: '一' })
+    const scene = repos.outline.addScene(act.id, { title: '街角', mood: '安靜' })
+    history.clear()
+    history.record('改場', () =>
+      repos.outline.updateScene(scene.id, { title: '巷口', mood: '緊張' }),
+    )
+    // 之後別的地方又把氣氛改了
+    repos.outline.updateScene(scene.id, { mood: '熱鬧' })
+    const result = history.undo()
+    expect(result).toMatchObject({ applied: 1, skipped: 1 })
+    const [after] = repos.outline.listScenes()
+    expect(after?.title).toBe('街角')
+    expect(after?.mood).toBe('熱鬧')
+    // 整步都被改過
+    history.record('改名', () => repos.outline.updateScene(scene.id, { title: '碼頭' }))
+    repos.outline.updateScene(scene.id, { title: '倉庫' })
+    expect(history.undo()).toMatchObject({ applied: 0, skipped: 1 })
   })
 })
