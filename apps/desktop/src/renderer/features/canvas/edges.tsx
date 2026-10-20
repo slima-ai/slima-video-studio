@@ -7,8 +7,10 @@ import {
 } from '@xyflow/react'
 import { memo, useState } from 'react'
 
+import { useToast } from '../../components/toast'
 import { useCanvasActions } from './canvas-actions'
 import type { CanvasEdge } from './canvas-model'
+import { FIXED_EDGE_REASON } from './delete-plan'
 
 /** 滑過線的中點出現的「×」：點了就剪掉這條線。只在滑過或選取時才畫，平常不佔任何繪製成本。 */
 function DeleteDot({
@@ -23,18 +25,27 @@ function DeleteDot({
   cuttable: boolean
 }) {
   const { deleteEdge } = useCanvasActions()
-  if (!deleteEdge || !cuttable) return null
+  const toast = useToast()
+  if (!deleteEdge) return null
+  // 固定的線（鏡頭→圖→影片…）剪不掉：× 照樣顯示但標淡，滑過寫原因，按下去也會說明
   return (
     <EdgeLabelRenderer>
       <button
         type="button"
-        aria-label="剪掉這條線"
+        // 名字分開：「剪掉這條線」只有真的剪得掉的線才有，固定的線是另一個名字（找按鈕的人才不會碰到停用的）
+        aria-label={cuttable ? '剪掉這條線' : '這條線是固定的，剪不掉'}
+        aria-disabled={cuttable ? undefined : true}
         data-testid={`edge-delete-${id}`}
-        title="剪掉這條線（可以復原）"
-        className="svs-edge-cut nodrag nopan pointer-events-auto absolute flex size-6 items-center justify-center rounded-full border-2 border-danger bg-surface-raised text-sm font-bold leading-none text-danger shadow-card hover:bg-danger hover:text-surface"
+        data-tip={cuttable ? '剪掉這條線（可以復原）' : FIXED_EDGE_REASON}
+        className={`svs-edge-cut nodrag nopan pointer-events-auto absolute flex size-6 items-center justify-center rounded-full border-2 bg-surface-raised text-sm font-bold leading-none shadow-card ${
+          cuttable
+            ? 'border-danger text-danger hover:bg-danger hover:text-surface'
+            : 'cursor-not-allowed border-border text-fg-subtle'
+        }`}
         style={{ transform: `translate(-50%, -50%) translate(${String(x)}px, ${String(y)}px)` }}
         onClick={() => {
-          deleteEdge(id)
+          if (cuttable) deleteEdge(id)
+          else toast.show({ message: FIXED_EDGE_REASON })
         }}
       >
         ×

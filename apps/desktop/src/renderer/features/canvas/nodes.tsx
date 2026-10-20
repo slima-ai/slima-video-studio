@@ -1,12 +1,14 @@
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
-import { ChevronDown, ChevronRight, Lock } from 'lucide-react'
+import { ChevronDown, ChevronRight, Lock, Trash2 } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
 
 import { Spinner } from '../../components/skeleton'
+import { useToast } from '../../components/toast'
 import { assetUrl } from '../../lib/asset'
 import { cn } from '../../lib/cn'
 import { useCanvasActions, useConnectedPorts, useLinking, useLod } from './canvas-actions'
 import { choicesFor } from './connection-rules'
+import { blockedReason, deleteTip } from './delete-plan'
 import { KindIcon } from './kind-icon'
 import { OnelinerBody } from './oneliner'
 import { anchorOf } from './run-confirm'
@@ -120,6 +122,53 @@ export function runTipOf(data: CanvasNodeData): string {
   if (status === 'done') return '重做這一步：產生新的一版，舊的保留'
   if (status === 'stale') return '重跑影片：鏡頭改過了'
   return data.imageReady === true ? '生成影片' : '補跑第一張畫面後生成影片（2 步）'
+}
+
+/**
+ * 刪除鈕：選到或滑過這一格才出現（用鍵盤停在上面也會出現）。刪不掉的照樣顯示但停用，滑過寫具體原因，
+ * 按下去也會用提示再說一次；能刪的按下去就刪，提示附「復原」。
+ */
+function DeleteButton({
+  id,
+  data,
+  selected,
+  className,
+}: {
+  id: string
+  data: CanvasNodeData
+  selected: boolean
+  className?: string
+}) {
+  const { deleteNode } = useCanvasActions()
+  const toast = useToast()
+  if (!deleteNode) return null
+  const why = blockedReason({ data })
+  return (
+    <button
+      type="button"
+      aria-label="刪除"
+      aria-disabled={why === undefined ? undefined : true}
+      data-tip={why ?? deleteTip(data.kind)}
+      data-testid={`delete-${id}`}
+      className={cn(
+        'nodrag flex size-6 shrink-0 items-center justify-center rounded transition-opacity',
+        selected
+          ? 'opacity-100'
+          : 'opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100',
+        why === undefined
+          ? 'text-fg-muted hover:bg-danger/15 hover:text-danger'
+          : 'cursor-not-allowed text-fg-subtle',
+        className,
+      )}
+      onClick={(event) => {
+        event.stopPropagation()
+        if (why !== undefined) toast.show({ message: why })
+        else deleteNode(id)
+      }}
+    >
+      <Trash2 className="size-3.5" aria-hidden />
+    </button>
+  )
 }
 
 /** ▶ 執行；生成中換成 ■ 停止。說明用 data-tip（畫布統一顯示，確認面板打開時就收起來）。 */
@@ -320,7 +369,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
   const linkState = useLinkState(id)
   return (
     <div
-      className="relative size-full"
+      className="group/card relative size-full"
       data-testid={`node-${id}`}
       data-status={status}
       data-kind={data.kind}
@@ -365,6 +414,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
             ) : null}
             {generating || data.kind === 'shot' ? <OpenButton id={id} /> : null}
             {generating || data.kind === 'shot' ? <PlayButton id={id} data={data} /> : null}
+            <DeleteButton id={id} data={data} selected={selected} />
           </span>
         </div>
         {data.kind === 'shot' ? (
@@ -554,7 +604,7 @@ function StepImpl({ id, data }: NodeProps<CanvasNode>) {
   return (
     <div
       // 不能選、不能拖的格子 React Flow 會關掉滑鼠事件；裡面的 Prompt 和按鈕要能點，所以這裡打開
-      className="svs-card pointer-events-auto relative flex size-full flex-col gap-1.5 rounded-lg border border-dashed border-[var(--c)] bg-surface-raised px-3 py-2 text-fg shadow-card"
+      className="svs-card group/card pointer-events-auto relative flex size-full flex-col gap-1.5 rounded-lg border border-dashed border-[var(--c)] bg-surface-raised px-3 py-2 text-fg shadow-card"
       style={colorStyle('step')}
       data-testid={`node-${id}`}
       data-kind="step"
@@ -567,10 +617,13 @@ function StepImpl({ id, data }: NodeProps<CanvasNode>) {
         isConnectable={false}
         className="svs-handle svs-step-handle"
       />
-      <p className="flex items-center gap-1.5 text-xs font-semibold">
-        <KindIcon kind="step" />
-        {data.title}
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-xs font-semibold">
+          <KindIcon kind="step" />
+          {data.title}
+        </p>
+        <DeleteButton id={id} data={data} selected={false} />
+      </div>
       {step.stage === 'prompt' ? (
         <PromptStep shotKey={shotKey} prompt={step.prompt ?? ''} edited={step.edited === true} />
       ) : step.stage === 'refs' ? (
@@ -662,7 +715,7 @@ function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
   const linkState = useLinkState(id)
   return (
     <div
-      className="relative size-full"
+      className="group/card relative size-full"
       data-testid={`node-${id}`}
       data-status={data.status}
       data-linkstate={linkState}
@@ -701,6 +754,7 @@ function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                 ▶
               </button>
             ) : null}
+            <DeleteButton id={id} data={data} selected={selected} />
           </span>
         </div>
         <div
@@ -781,7 +835,7 @@ function FrameImpl({ id, data, selected }: NodeProps<CanvasNode>) {
   const linkState = useLinkState(id)
   return (
     <div
-      className="relative size-full"
+      className="group/card relative size-full"
       data-testid={`node-${id}`}
       data-born={data.born}
       data-linkstate={linkState}
@@ -801,6 +855,7 @@ function FrameImpl({ id, data, selected }: NodeProps<CanvasNode>) {
           {data.title}
           {data.summary ? `\u3000${data.summary}` : ''}
         </p>
+        <DeleteButton id={id} data={data} selected={selected} className="absolute right-3 top-2" />
         {/* 縮小時字會小到看不見：改成跟著縮放放大的「第 N 場」，一眼看得出結構 */}
         <p aria-hidden className="svs-frame-grip svs-frame-big">
           第 {data.sceneNo ?? ''} 場
@@ -884,7 +939,7 @@ function GroupImpl({ id, data, selected }: NodeProps<CanvasNode>) {
   const color = data.color ?? 'slate'
   return (
     <div
-      className="relative size-full"
+      className="group/card relative size-full"
       data-testid={`node-${id}`}
       data-color={color}
       style={{ '--c': GROUP_COLOR[color].hex } as CSSProperties}
@@ -915,6 +970,12 @@ function GroupImpl({ id, data, selected }: NodeProps<CanvasNode>) {
               ))}
             </span>
           ) : null}
+          <DeleteButton
+            id={id}
+            data={data}
+            selected={selected}
+            className={selected ? '' : 'ml-auto'}
+          />
         </div>
         {/* 縮小時字會小到看不見：改成跟著縮放放大的名字 */}
         <p aria-hidden className="svs-group-grip svs-group-big">

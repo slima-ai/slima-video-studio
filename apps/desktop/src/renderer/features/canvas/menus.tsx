@@ -180,6 +180,9 @@ export interface MenuEntry {
   /** 分隔線放在這一項前面。 */
   separated?: boolean
   hint?: string
+  /** 現在做不了：標淡，滑過寫原因；按下去照樣呼叫 `onSelect`（由它說明原因）。 */
+  disabled?: boolean
+  why?: string
 }
 
 /** 右鍵選單（節點上、空白處各一組）。 */
@@ -208,9 +211,12 @@ export function ContextMenu({
           <button
             type="button"
             role="menuitem"
+            aria-disabled={entry.disabled === true ? true : undefined}
+            title={entry.why}
             className={cn(
               'flex w-full items-center justify-between gap-3 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-accent/10',
               entry.danger && 'text-danger',
+              entry.disabled === true && 'opacity-45',
             )}
             onClick={() => {
               entry.onSelect()

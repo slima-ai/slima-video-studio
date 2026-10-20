@@ -24,15 +24,22 @@ describe('右鍵選單', () => {
       '複製成獨立的一格',
       '清掉採用中的版本',
     ])
-    // 還沒有影片：沒有東西可以清
-    expect(labels(node('shot:1:video', { kind: 'video', status: 'idle', inCut: false }))).toEqual([
+    // 還沒有影片：沒有東西可以清——這一項照樣列出來，但標淡並寫原因
+    const idle = nodeEntries(
+      node('shot:1:video', { kind: 'video', status: 'idle', inCut: false }),
+      [],
+    )
+    expect(idle.map((e) => e.label)).toEqual([
       '打開面板',
       '生成影片',
       '放回成品',
       '置中顯示',
       '複製',
       '複製成獨立的一格',
+      '清掉採用中的版本',
     ])
+    expect(idle.at(-1)).toMatchObject({ id: 'delete', disabled: true })
+    expect(idle.at(-1)?.why).toContain('影片還沒生成')
   })
 
   it('生成中不列執行；失敗的寫重試', () => {
@@ -65,18 +72,19 @@ describe('右鍵選單', () => {
     ])
   })
 
-  it('一句話：寫故事、置中、複製；剪輯：打開成品、全部生成再接成成品，不能複製也不能刪', () => {
+  it('一句話：寫故事、置中、複製、刪除；剪輯：不能複製，刪除標淡並說明它是場自動長出來的', () => {
     expect(labels(node('node:1', { kind: 'oneliner' }))).toEqual([
       '寫故事',
       '置中顯示',
       '複製',
       '再做一份',
+      '刪除',
     ])
-    expect(labels(node('cut', { kind: 'cut' }))).toEqual([
-      '打開成品',
-      '全部生成再接成成品',
-      '置中顯示',
-    ])
+    expect(nodeEntries(node('node:1', { kind: 'oneliner' }), []).at(-1)?.disabled).toBeUndefined()
+    const cut = nodeEntries(node('cut', { kind: 'cut' }), [])
+    expect(cut.map((e) => e.label)).toEqual(['打開成品', '全部生成再接成成品', '置中顯示', '刪除'])
+    expect(cut.at(-1)).toMatchObject({ id: 'delete', disabled: true, danger: true })
+    expect(cut.at(-1)?.why).toContain('由「場」自動長出來')
   })
 
   it('按在選取的一群格子上：對整群執行或刪除', () => {

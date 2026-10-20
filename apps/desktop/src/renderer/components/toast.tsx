@@ -16,6 +16,8 @@ export interface ToastOptions {
   tone?: 'info' | 'danger'
   /** 提示旁的一顆按鈕，例如復原之後的「重做」。 */
   action?: { label: string; onAction: () => void }
+  /** 這則提示停留多久（毫秒）；沒給是 `TOAST_MS`。 */
+  ms?: number
   /** 這則提示是哪一類（例如連續復原）；畫面上一次只留一則，key 只是標記。 */
   key?: string
 }
@@ -69,7 +71,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         id,
         setTimeout(() => {
           dismiss(id)
-        }, TOAST_MS),
+        }, toast.ms ?? TOAST_MS),
       )
     },
     [dismiss],

@@ -72,7 +72,9 @@ test.describe('畫布：複製、貼上、刪除', () => {
     await card(page, key).click({ position: { x: 60, y: 14 } })
     await page.keyboard.press('Delete')
     await expect(page.getByTestId('delete-confirm')).toHaveCount(0)
-    await expect(page.getByTestId('toast').filter({ hasText: '已清掉採用中的版本' })).toBeVisible()
+    await expect(
+      page.getByTestId('toast').filter({ hasText: '採用中的版本，版本還在生成紀錄裡' }),
+    ).toBeVisible()
     await expect
       .poll(async () => (await graphOf(page)).nodes.find((n) => n.key === key)?.assetHash)
       .toBeUndefined()

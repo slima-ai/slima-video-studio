@@ -116,7 +116,7 @@ test.describe('畫布：右鍵選單', () => {
     expect(Math.abs(box.y - at.y)).toBeLessThan(160)
   })
 
-  test('在選取的兩個鏡頭上按右鍵：刪除選取的 2 格，先確認', async ({ page }) => {
+  test('在選取的兩個鏡頭上按右鍵：刪除選取的 2 格，直接刪、提示寫後果', async ({ page }) => {
     const nodes = await ready(page)
     const [first, second] = nodes.filter((n) => n.data.kind === 'shot')
     if (!first || !second) throw new Error('鏡頭不夠')
@@ -131,6 +131,7 @@ test.describe('畫布：右鍵選單', () => {
     await menu(page)
       .getByRole('menuitem', { name: /刪除選取的 2 格/ })
       .click()
-    await expect(page.getByTestId('delete-confirm')).toContainText('2 個鏡頭')
+    await expect(page.getByTestId('toast')).toContainText('已刪除 2 個鏡頭')
+    await expect.poll(() => kindCount(page, 'shot')).toBe(1)
   })
 })
