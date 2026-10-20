@@ -433,6 +433,17 @@ describe('工具', () => {
     expect(data.guides).toEqual(['getting-started', 'storyboard', 'spending', 'sound'])
   })
 
+  it('load_guide spending：說的是設定頁卡片現在的名字「AI 工具的總額度」與「已用的歸零」', async () => {
+    const client = await connect(env)
+    const text = dataOf(
+      GuideSchema,
+      await client.callTool({ name: 'load_guide', arguments: { topic: 'spending' } }),
+    ).text
+    expect(text).toContain('AI 工具的總額度')
+    expect(text).toContain('已用的歸零')
+    expect(text).not.toContain('Settings → AI tools')
+  })
+
   it('load_guide：storyboard 用的是使用者設定的準則（改過就是改過的）', async () => {
     const client = await connect(env)
     const read = async () =>

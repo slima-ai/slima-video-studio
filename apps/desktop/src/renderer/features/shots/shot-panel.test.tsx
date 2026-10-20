@@ -254,13 +254,13 @@ describe('ShotPanel 修改與重新生成', () => {
   it('重新生成被拒絕（例如超過花費上限）→ 面板顯示原因，按鈕恢復可按', async () => {
     installFakeSvs({
       'shots.regenerate': () => {
-        throw appError('預估花費超過單次執行的上限。')
+        throw appError('預估花費超過「單次花費上限」。')
       },
     })
     renderPanel()
     fireEvent.click(screen.getByTestId('shot-regen-all'))
     expect((await screen.findByTestId('shot-action-error')).textContent).toBe(
-      '預估花費超過單次執行的上限。',
+      '預估花費超過「單次花費上限」。',
     )
     await waitFor(() => {
       expect(screen.getByTestId('shot-regen-all').hasAttribute('disabled')).toBe(false)

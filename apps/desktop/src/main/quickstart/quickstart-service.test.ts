@@ -77,7 +77,7 @@ describe('QuickStartService.check', () => {
     const result = service.check(request())
     expect(result.ok).toBe(false)
     expect(result.issues[0]).toMatchObject({ action: 'settings' })
-    expect(result.issues[0]?.message).toContain('超過單次執行的上限')
+    expect(result.issues[0]?.message).toContain('超過「單次花費上限」')
   })
 
   it('鏡頭越多預估越貴', () => {

@@ -1,7 +1,13 @@
 import { type Budget } from '@svs/schema'
 import { describe, expect, it } from 'vitest'
 
-import { MemoryCostLedger, checkBudget, estimateWorkflowCost, type CostEstimate } from './budget'
+import {
+  MemoryCostLedger,
+  budgetExceededError,
+  checkBudget,
+  estimateWorkflowCost,
+  type CostEstimate,
+} from './budget'
 import { Engine, type EngineEvent } from './runner'
 import { bodyOf, forEachWorkflow, testRegistry, wf } from './test-helpers'
 
@@ -119,12 +125,28 @@ describe('Engine 預算：執行前估算', () => {
     ])
   })
 
+  it('超過單次上限的訊息用設定頁的名字，並說到哪裡調；專案上限的訊息不提「單次花費上限」', () => {
+    const run = budgetExceededError({ scope: 'run', projectedUsd: 5.5, limitUsd: 5 }).userMessage
+    expect(run).toContain('超過「單次花費上限」 US$5.00')
+    expect(run).toContain('到「設定 → 一般」調高「單次花費上限」')
+    expect(run).not.toContain('單次執行')
+    const project = budgetExceededError({
+      scope: 'project',
+      projectedUsd: 12,
+      limitUsd: 10,
+    }).userMessage
+    expect(project).toContain('超過專案的上限 US$10.00')
+    expect(project).not.toContain('單次花費上限')
+  })
+
   it('預設單次上限是 US$5：5 元可以跑、5.5 元不行', async () => {
     const { engine } = setup()
     await expect(engine.run(wf([paid('a', 5)]))).resolves.toMatchObject({
       run: { status: 'succeeded', estimatedCostUsd: 5 },
     })
-    await expect(engine.run(wf([paid('a', 5.5)]))).rejects.toThrow(/US\$5\.50.*單次執行.*US\$5\.00/)
+    await expect(engine.run(wf([paid('a', 5.5)]))).rejects.toThrow(
+      /US\$5\.50.*「單次花費上限」.*US\$5\.00/,
+    )
   })
 
   it('專案累計花費加上這次預估超過專案上限也會擋下', async () => {

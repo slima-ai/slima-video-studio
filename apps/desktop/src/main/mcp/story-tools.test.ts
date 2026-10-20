@@ -268,8 +268,11 @@ describe('花錢的步驟與額度（真實模式、假的 OpenRouter 伺服器�
     const refused = await r.call('split_story_into_scenes', { story: '一隻貓找到家' })
     expect(refused.isError).toBe(true)
     const text = textOf(refused)
-    expect(text).toContain('AI 工具的額度只剩 US$0.00')
+    expect(text).toContain('AI 工具的總額度只剩 US$0.00')
     expect(text).toContain('設定 → AI 工具連線')
+    // 跟設定頁卡片的名字一致，使用者才找得到要調的那一張
+    expect(text).toContain('把「AI 工具的總額度」調高')
+    expect(text).not.toContain('額度調高')
     expect(text).toContain('只有人能改')
     expect(text).not.toMatch(/undefined|NaN|\.ts:|at .*\(/)
     expect(fake.requests.filter((q) => q.path === '/chat/completions')).toHaveLength(0)
