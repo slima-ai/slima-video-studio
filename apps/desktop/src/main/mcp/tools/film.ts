@@ -76,7 +76,7 @@ export function registerFilmTools(ctx: ToolContext): void {
     name: 'generate_first_frames',
     title: 'Generate the first-frame pictures',
     description:
-      'Generate the first-frame picture of each shot (the picture the video will start from), WITHOUT making any video yet, so you can look at them (view_first_frames) and fix problems before paying for video. Default: every shot that is in the cut and has no first frame yet; redo=true makes a NEW version for shots that already have one (the old one is kept; use adopt_version to go back). Runs in the background: this returns at once; call wait_for_generation. Calls the image model: counts against the spending allowance (estimate_cost first); free in demo mode.',
+      'Generate the first-frame picture of each shot (the picture the video will start from), WITHOUT making any video yet, so you can look at them (view_first_frames) and fix problems before paying for video. Default: every shot that is in the cut and has no first frame yet; redo=true makes a NEW version for shots that already have one (the old one is kept; use adopt_version to go back). Runs in the background: this returns at once; call wait_for_generation. Calls the image model: counts against the spending allowance: the app checks the estimate itself and refuses, saying the estimate, if the allowance is too small (estimate_cost does not cover this step; see load_guide("spending")); free in demo mode.',
     input: {
       shotIds: z
         .array(z.string().min(1))
@@ -107,7 +107,7 @@ export function registerFilmTools(ctx: ToolContext): void {
     name: 'generate_videos',
     title: 'Generate the videos',
     description:
-      'Generate the video of each shot from its ADOPTED first-frame picture (shots without a first frame are skipped; make them with generate_first_frames first). Default: every shot in the cut that has no video yet; redo=true makes a NEW video version for shots that already have one. Runs in the background: call wait_for_generation (it can take minutes). Calls the video model, the expensive step: it counts against the spending allowance (estimate_cost first); free in demo mode.',
+      'Generate the video of each shot from its ADOPTED first-frame picture (shots without a first frame are skipped; make them with generate_first_frames first). Default: every shot in the cut that has no video yet; redo=true makes a NEW video version for shots that already have one. Runs in the background: call wait_for_generation (it can take minutes). Calls the video model, the expensive step: it counts against the spending allowance: the app checks the estimate itself and refuses, saying the estimate, if the allowance is too small (estimate_cost does not cover this step; see load_guide("spending")); free in demo mode.',
     input: {
       shotIds: z
         .array(z.string().min(1))
