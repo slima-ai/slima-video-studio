@@ -441,7 +441,7 @@ describe('StructureHistory：group（Claude 一輪的改動併成一步）', () 
     history.record(
       '刪除鏡頭',
       () => {
-        repos.shots.delete([old.id])
+        repos.shots.delete(old.id)
       },
       turn,
     )
