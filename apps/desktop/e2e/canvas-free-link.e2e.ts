@@ -63,6 +63,32 @@ async function focusFirstShot(page: Page, shotKey: string): Promise<void> {
   await viewportSettled(page)
 }
 
+/** 把兩個節點的中間放到畫面中間（縮到 0.8），不管視窗多高都兩個一起看得到。 */
+async function centerOnBoth(page: Page, keyA: string, keyB: string): Promise<void> {
+  await page.evaluate(
+    ({ a, b }) => {
+      const rf = (
+        window as unknown as {
+          __svsCanvas?: {
+            getNode: (id: string) => { position: { x: number; y: number } } | undefined
+            setCenter: (x: number, y: number, o: object) => Promise<boolean>
+          }
+        }
+      ).__svsCanvas
+      const first = rf?.getNode(a)
+      const second = rf?.getNode(b)
+      if (!first || !second) return
+      return rf?.setCenter(
+        (first.position.x + second.position.x) / 2 + 100,
+        (first.position.y + second.position.y) / 2 + 100,
+        { zoom: 0.8, duration: 0 },
+      )
+    },
+    { a: keyA, b: keyB },
+  )
+  await viewportSettled(page)
+}
+
 /** 生一支 3 鏡的影片，再從左側面板放一張圖（放在畫面中間）。 */
 async function withPicture(app: ElectronApplication, page: Page, projectDir: string) {
   await generateAndOpenCanvas(page)
@@ -81,6 +107,9 @@ async function withPicture(app: ElectronApplication, page: Page, projectDir: str
   const picture = (await graphOf(page)).nodes.find((n) => n.kind === 'free_image')
   if (!picture) throw new Error('沒有圖片')
   await expect(page.getByTestId(`port-${picture.key}-free-img-out`)).toBeVisible()
+  // 圖放在離畫面中間最近的空位，矮視窗（13 吋筆電）上可能半截在上方列底下：
+  // 把圖和第 1 鏡的圖一起移到畫面中間，兩邊的連接點都點得到
+  await centerOnBoth(page, picture.key, `${shot.key}:image`)
   return { shot: shot.key, picture }
 }
 
