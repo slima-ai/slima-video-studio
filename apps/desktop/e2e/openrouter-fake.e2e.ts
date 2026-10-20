@@ -88,6 +88,7 @@ test.describe('只填 OpenRouter 一把 Key（假的 OpenRouter 伺服器）', (
     await page.getByTestId('key-openrouter').getByRole('button', { name: '儲存' }).click()
     await expect(page.getByTestId('key-openrouter-status')).toContainText('已設定')
 
+    await page.getByTestId('key-openrouter').getByTestId('setting-card-more').click()
     await page.getByTestId('key-openrouter').getByRole('button', { name: '測試連線' }).click()
     await expect(page.getByText('金鑰無效或已被停用，請重新複製一次。')).toBeVisible()
     await expect(page.locator('body')).not.toContainText('SECRETVALUE')

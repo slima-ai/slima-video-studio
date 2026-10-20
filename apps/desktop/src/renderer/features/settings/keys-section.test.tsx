@@ -6,6 +6,11 @@ import { KeysSection } from './keys-section'
 
 afterEach(cleanup)
 
+/** 測試連線、移除、取得金鑰的連結都收在卡片的「更多」裡：先全部展開。 */
+const openMore = (): void => {
+  for (const button of screen.getAllByTestId('setting-card-more')) fireEvent.click(button)
+}
+
 const STORAGE = { available: true, kind: 'os' } as const
 
 function renderSection(
@@ -76,6 +81,7 @@ describe('KeysSection', () => {
       { provider: 'fal', configured: false },
       { provider: 'openrouter', configured: true, last4: '1234' },
     ])
+    openMore()
     fireEvent.click(screen.getByRole('button', { name: '測試連線' }))
     await waitFor(() => {
       expect(screen.getByTestId('key-openrouter-feedback').textContent).toContain('US$12.50')
@@ -95,6 +101,7 @@ describe('KeysSection', () => {
       { provider: 'fal', configured: true, last4: 'abcd' },
       { provider: 'openrouter', configured: false },
     ])
+    openMore()
     fireEvent.click(screen.getByRole('button', { name: '測試連線' }))
     await waitFor(() => {
       expect(screen.getByTestId('key-fal-feedback').textContent).toContain('無效')
@@ -111,6 +118,7 @@ describe('KeysSection', () => {
       { provider: 'fal', configured: true, last4: 'abcd' },
       { provider: 'openrouter', configured: false },
     ])
+    openMore()
     fireEvent.click(screen.getByRole('button', { name: '移除金鑰' }))
     expect(screen.getByText(/確定嗎/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '不移除' }))
@@ -124,6 +132,7 @@ describe('KeysSection', () => {
       { provider: 'fal', configured: true, last4: 'abcd' },
       { provider: 'openrouter', configured: false },
     ])
+    openMore()
     fireEvent.click(screen.getByRole('button', { name: '移除金鑰' }))
     fireEvent.click(screen.getByTestId('key-fal-remove-confirm'))
     await waitFor(() => {
@@ -142,6 +151,7 @@ describe('KeysSection', () => {
   it('取得 Key 的連結用新視窗開（主行程會改用系統瀏覽器）', () => {
     installFakeSvs()
     renderSection()
+    openMore()
     const link = screen.getByRole('link', { name: '到 fal.ai 取得金鑰' })
     expect(link.getAttribute('href')).toBe('https://fal.ai/dashboard/keys')
     expect(link.getAttribute('target')).toBe('_blank')
