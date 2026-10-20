@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createLineParser, signalsOf } from './stream-events'
+import { createLineParser, signalsOf, splitNotes } from './stream-events'
 
 /** `expect.stringContaining` 回傳 any，包成字串型別才不會被 lint 擋。 */
 const contains = (text: string): string => expect.stringContaining(text) as string
@@ -152,5 +152,62 @@ describe('createLineParser', () => {
     push(':2}\n\nnot json\n{"c":3}')
     push('\n')
     expect(seen).toEqual([{ a: 1 }, { b: 2 }, { c: 3 }])
+  })
+})
+
+describe('文字區塊的開始，以及英文工作筆記收起來', () => {
+  const streamEvent = (event: object) => ({ type: 'stream_event', event })
+  it('文字區塊開始有訊號（思考區塊、工具呼叫的開始沒有文字訊號；區塊結束不再有訊號）', () => {
+    expect(
+      signalsOf(
+        streamEvent({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'text', text: '' },
+        }),
+      ),
+    ).toEqual([{ kind: 'text_start' }])
+    expect(
+      signalsOf(
+        streamEvent({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'thinking', thinking: '' },
+        }),
+      ),
+    ).toEqual([])
+    expect(signalsOf(streamEvent({ type: 'content_block_stop', index: 0 }))).toEqual([])
+  })
+
+  it('splitNotes：中文回覆裡夾的一句短英文收起來，段落之間空一行', () => {
+    expect(
+      splitNotes([
+        "Ignore the session USD budget note? It's the agent budget. Let's start.",
+        '我先建專案。',
+        'User explicitly asked; proceed.',
+        '好了。',
+      ]),
+    ).toEqual({
+      text: '我先建專案。\n\n好了。',
+      notes: [
+        "Ignore the session USD budget note? It's the agent budget. Let's start.",
+        'User explicitly asked; proceed.',
+      ],
+    })
+  })
+
+  it('splitNotes：整則回覆都是英文（使用者用英文聊）一段都不收，連提到預算的也不收', () => {
+    const reply = ['Your session budget is $5.', 'You have spent $0 so far.']
+    expect(splitNotes(reply)).toEqual({ text: reply.join('\n\n'), notes: [] })
+    expect(splitNotes(['USD budget: $0/$5; $5 remaining'])).toEqual({
+      text: 'USD budget: $0/$5; $5 remaining',
+      notes: [],
+    })
+  })
+
+  it('splitNotes：長的英文段落不收（是真的在講話）；有中文的段落都留著；空段落略過', () => {
+    const long = `Here is the plan. ${'x'.repeat(300)}`
+    expect(splitNotes(['好的。', long, '', 'Ok 好']).notes).toEqual([])
+    expect(splitNotes(['好的。', long, '', 'Ok 好']).text).toBe(`好的。\n\n${long}\n\nOk 好`)
   })
 })

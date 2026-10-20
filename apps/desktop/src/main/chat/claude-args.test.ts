@@ -138,6 +138,12 @@ describe('CHAT_SYSTEM_PROMPT', () => {
     expect(CHAT_SYSTEM_PROMPT).not.toMatch(/token|api[-_]?key|sk-/i)
   })
 
+  it('叫它不要把工作筆記和系統附的用量提示（USD budget）說出來', () => {
+    const line = CHAT_SYSTEM_PROMPT.split('\n')[1] ?? ''
+    expect(line).toContain('不要把工作筆記說出來')
+    expect(line).toContain('USD budget')
+  })
+
   it('寫到 estimate_cost 的那句：提到的動作名稱都是工具真的接受的值（工具改名了，提示不會再對不上）', () => {
     const line = CHAT_SYSTEM_PROMPT.split('\n').find((l) => l.includes('estimate_cost'))
     expect(line).toBeDefined()

@@ -63,6 +63,7 @@ export function sanitizeMessage(message: ChatPanelMessage): ChatPanelMessage {
     ...(message.state === undefined ? {} : { state: message.state }),
     ...(message.error === undefined ? {} : { error: message.error }),
     ...(message.resumable === true ? { resumable: true } : {}),
+    ...(message.notes !== undefined && message.notes.length > 0 ? { notes: message.notes } : {}),
   }
 }
 

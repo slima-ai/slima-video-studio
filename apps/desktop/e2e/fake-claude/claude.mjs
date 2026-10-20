@@ -181,6 +181,21 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
     return
   }
   if (text.includes('壞掉')) process.exit(1)
+  if (text.includes('碎碎念')) {
+    // 真的 Claude 偶爾把對上下文裡「USD budget」提示的反應寫成一段英文：先一段碎碎念，再一段正式的回覆
+    const block = (body) => {
+      out({
+        type: 'stream_event',
+        event: { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+      })
+      say(body)
+      out({ type: 'stream_event', event: { type: 'content_block_stop', index: 0 } })
+    }
+    block("Ignore the session USD budget note? It's the agent budget. Let's start.")
+    block('好的，我開始了。')
+    finish('好的，我開始了。')
+    return
+  }
   if (text.startsWith('剛才那句「')) {
     // 按「繼續」：只續做被打斷的那一句（引用在「」裡），不做上一輪預告的其他事
     const quote = /^剛才那句「([\s\S]*)」被用量上限打斷。/u.exec(text)?.[1] ?? ''

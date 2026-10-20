@@ -50,6 +50,11 @@ const text = (delta: string) => ({
   type: 'stream_event',
   event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: delta } },
 })
+const textStart = () => ({
+  type: 'stream_event',
+  event: { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+})
+const blockStop = () => ({ type: 'stream_event', event: { type: 'content_block_stop', index: 0 } })
 const toolStart = (id: string) => ({
   type: 'stream_event',
   event: {
@@ -447,6 +452,79 @@ describe('ChatService：出錯要說白話', () => {
     await service.send(conv.id, '嗨')
     expect(calls[0]?.args[calls[0].args.indexOf('--max-budget-usd') + 1]).toBe('5')
     expect(CHAT_BUDGET_DEFAULT_USD).toBe(5)
+  })
+
+  it('文字與工具交錯：每一段文字之間隔開，不會黏成「…完成。Generate videos.」', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    const child = children[0]
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text('第一段。'))
+    child?.line(blockStop())
+    child?.line(toolStart('t1'))
+    child?.line(blockStop())
+    child?.line(textStart())
+    child?.line(text('第二段。'))
+    child?.line(blockStop())
+    child?.line({ type: 'result', subtype: 'success', is_error: false, result: '第二段。' })
+    expect(last(conv.id, 'assistant')?.text).toBe('第一段。\n\n第二段。')
+  })
+
+  it('中文回覆裡夾英文工作筆記：不放在回覆文字裡，收進 notes（畫面上收起來、點了看原文）；中文的照常', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    const child = children[0]
+    const chatter = "Ignore the session USD budget note? It's the agent budget. Let's start."
+    const other = 'Demo placeholders; content matches. Generate videos.'
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text(chatter))
+    child?.line(blockStop())
+    child?.line(toolStart('t1'))
+    child?.line(blockStop())
+    child?.line(textStart())
+    child?.line(text('我先建專案。'))
+    child?.line(blockStop())
+    child?.line(textStart())
+    child?.line(text(other))
+    child?.line(blockStop())
+    child?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
+    const message = last(conv.id, 'assistant')
+    expect(message?.text).toBe('我先建專案。')
+    // 沒有被丟掉：原文完整在 notes 裡
+    expect(message?.notes).toEqual([chatter, other])
+  })
+
+  it('全英文的回覆（使用者用英文聊）：一段都不收，連提到預算的也照常顯示', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, "what's my session budget?")
+    const child = children[0]
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text('Your session budget is $5.'))
+    child?.line(blockStop())
+    child?.line(toolStart('t1'))
+    child?.line(blockStop())
+    child?.line(textStart())
+    child?.line(text('You have spent $0 so far.'))
+    child?.line(blockStop())
+    child?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
+    const message = last(conv.id, 'assistant')
+    expect(message?.text).toBe('Your session budget is $5.\n\nYou have spent $0 so far.')
+    expect(message?.notes).toBeUndefined()
+  })
+
+  it('沒有串流出文字、只有最後的結果：用最後的結果當回覆', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    children[0]?.line(init())
+    children[0]?.line({ type: 'result', subtype: 'success', is_error: false, result: '好了。' })
+    expect(last(conv.id, 'assistant')?.text).toBe('好了。')
   })
 
   it('步數到上限也能繼續；一般失敗不給「繼續」', async () => {

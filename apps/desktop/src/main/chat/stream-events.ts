@@ -5,6 +5,8 @@ import { bareToolName } from './tool-labels'
 export type StreamSignal =
   | { kind: 'init'; sessionId: string; mcpConnected: boolean }
   | { kind: 'text'; delta: string }
+  /** 一段新的文字開始（Claude 一輪裡文字與工具呼叫交錯，每一段文字是一個區塊）：畫面上兩段之間要隔開，不能黏在一起。 */
+  | { kind: 'text_start' }
   | { kind: 'tool_start'; id: string; tool: string }
   | { kind: 'tool_result'; id: string; ok: boolean; summary: string }
   | { kind: 'auth_failed' }
@@ -76,6 +78,7 @@ export function signalsOf(event: unknown): StreamSignal[] {
     // 工具一開始就顯示（參數還在長，不等完整訊息）
     if (inner.type === 'content_block_start' && isRecord(inner.content_block)) {
       const block = inner.content_block
+      if (block.type === 'text') return [{ kind: 'text_start' }]
       if (
         block.type === 'tool_use' &&
         typeof block.id === 'string' &&
@@ -169,4 +172,28 @@ export function createLineParser(onEvent: (event: unknown) => void): (chunk: str
       }
     }
   }
+}
+
+const CJK = /[\u3400-\u9fff\uf900-\ufaff]/u
+/** 一段文字最長這麼長才可能是「工作筆記」（長的是真的在回答使用者）。 */
+const NOTE_MAX_CHARS = 240
+
+/**
+ * Claude 一輪裡文字與工具交錯，每一段文字是一個區塊；它有時把工作筆記寫成一段英文
+ * （「Ignore the session USD budget note? …」「User explicitly asked; proceed.」）。
+ * 這一輪回覆的**其他段落有中文**、而這一段**很短、沒有中文**時，把它收成「工作筆記」（畫面上收起來、點了看原文）。
+ * 使用者用英文聊、整則回覆都是英文時，一段都不收（不然會把英文使用者的回答收掉）。
+ * 回傳：留在回覆文字裡的（段落之間空一行）與收起來的筆記（原文）。
+ */
+export function splitNotes(segments: readonly string[]): { text: string; notes: string[] } {
+  const hasCjk = segments.some((segment) => CJK.test(segment))
+  const kept: string[] = []
+  const notes: string[] = []
+  for (const segment of segments) {
+    const t = segment.trim()
+    if (t === '') continue
+    if (hasCjk && t.length <= NOTE_MAX_CHARS && !CJK.test(t)) notes.push(t)
+    else kept.push(t)
+  }
+  return { text: kept.join('\n\n'), notes }
 }
