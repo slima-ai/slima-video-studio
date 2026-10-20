@@ -14,6 +14,7 @@ export function Page({
   title,
   hint,
   actions,
+  shrinkActions = false,
   width = 'wide',
   testId,
   children,
@@ -23,6 +24,11 @@ export function Page({
   hint?: string
   /** 上方列右邊：這一頁的動作或篩選。 */
   actions?: ReactNode
+  /**
+   * 動作區可以縮得比內容窄：動作本身要自己能橫向捲動（設定頁的標籤列）才開。
+   * 預設不縮，按鈕不會被壓成一個字一行。
+   */
+  shrinkActions?: boolean
   /** narrow：表單類（設定）；wide：清單類；full：表格、故事板要用滿寬度。 */
   width?: 'narrow' | 'wide' | 'full'
   testId?: string
@@ -41,7 +47,11 @@ export function Page({
           </p>
         ) : null}
         <span className="flex-1" />
-        {actions ? <div className="flex min-w-0 items-center gap-2">{actions}</div> : null}
+        {actions ? (
+          <div className={cn('flex items-center gap-2', shrinkActions ? 'min-w-0' : 'shrink-0')}>
+            {actions}
+          </div>
+        ) : null}
       </header>
       <div
         className={cn(

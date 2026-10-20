@@ -536,4 +536,32 @@ describe('StructureHistory：group（Claude 一輪的改動併成一步）', () 
     repos.outline.updateScene(scene.id, { title: '倉庫' })
     expect(history.undo()).toMatchObject({ applied: 0, skipped: 1 })
   })
+
+  it('重做時也一樣：復原後這一列又被別處改過，重做整步略過（applied 0）；只有一部分被改過就動能動的', () => {
+    const { repos, history } = setup()
+    const scene = repos.outline.addScene(repos.outline.addAct({ title: '一' }).id, {
+      title: '街角',
+      mood: '安靜',
+    })
+    history.clear()
+    history.record('改名', () => repos.outline.updateScene(scene.id, { title: '巷口' }))
+    history.undo()
+    // 復原後別的地方把標題改了：重做要把標題從「街角」改成「巷口」，但現在的值已經不是「街角」
+    repos.outline.updateScene(scene.id, { title: '碼頭' })
+    expect(history.redo()).toMatchObject({ label: '改名', applied: 0, skipped: 1 })
+    expect(repos.outline.listScenes()[0]?.title).toBe('碼頭')
+    // 這一步照樣回到復原堆疊，沒有卡住
+    expect(history.state().canUndo).toBe(true)
+
+    history.clear()
+    history.record('改場', () =>
+      repos.outline.updateScene(scene.id, { title: '倉庫', mood: '緊張' }),
+    )
+    history.undo()
+    repos.outline.updateScene(scene.id, { mood: '熱鬧' })
+    expect(history.redo()).toMatchObject({ applied: 1, skipped: 1 })
+    const [after] = repos.outline.listScenes()
+    expect(after?.title).toBe('倉庫')
+    expect(after?.mood).toBe('熱鬧')
+  })
 })
