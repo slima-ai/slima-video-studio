@@ -225,7 +225,7 @@ const PORTS: Readonly<Record<Exclude<NodeKind, 'cut'>, readonly PortDef[]>> = {
       short: '現成圖',
       top: 100,
     },
-    { id: 'img-ref', side: 'in', tone: 'ref', type: 'ref', label: '參考', top: 130 },
+    { id: 'img-ref', side: 'in', tone: 'ref', type: 'ref', label: '參考圖', top: 130 },
     {
       id: 'img-out',
       side: 'out',

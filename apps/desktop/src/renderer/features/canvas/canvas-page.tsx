@@ -518,6 +518,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   // place：新節點想放的位置（畫布座標，節點上緣中間）；沒有就交給自動排版
   const [addMenu, setAddMenu] = useState<{ at: XY; place?: XY; from?: PortRef }>()
   const pendingReveal = useRef<string | undefined>(undefined)
+  const pendingFit = useRef(false)
   const bornTimer = useRef<number | undefined>(undefined)
   useEffect(
     () => () => {
@@ -538,8 +539,14 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     bornTimer.current = window.setTimeout(() => {
       setBorn(undefined)
     }, BORN_MS)
-    void revealNode(node)
-  }, [flow.nodes, revealNode])
+    if (pendingFit.current) {
+      pendingFit.current = false
+      // 等節點都進了畫布的內部狀態再算外框
+      window.setTimeout(() => {
+        fitAll(300)
+      }, 80)
+    } else void revealNode(node)
+  }, [flow.nodes, revealNode, fitAll])
   // 一句話生成中，資料每次重新載入就多幾個節點：新出現的播長出動畫
   const knownKeys = useRef<ReadonlySet<string> | undefined>(undefined)
   const growTimers = useRef<number[]>([])
@@ -586,7 +593,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       place?: XY,
       from?: PortRef,
       story?: string,
-      after?: { open?: boolean; message?: string },
+      after?: { fit?: boolean; empty?: boolean; message?: string },
     ): void => {
       // 鏡頭放進游標所在的場；角色與地點放在想放的位置，被佔住就挪到最近的空位
       const sceneKey = kind === 'shot' && place ? sceneAt(flow.nodes, place)?.id : undefined
@@ -610,9 +617,11 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       }
       if (kind === 'group') {
         // 有選取的格子：群組框住它們（選到場框就框住整場）；沒有就放一個空的在這裡
-        // 鏡頭連同它的圖與影片一起框（它們本來就一起動）
+        // 鏡頭連同它的圖與影片一起框（它們本來就一起動）。
+        // 從左邊面板或選單「新增」的（empty）永遠是空的：剛新增的節點會自動被選取，
+        // 不然新的群組框會蓋在它上面，也壓到旁邊的場框；要框住選取的用 Ctrl+G
         const picked = flow.nodes.flatMap((n) =>
-          !selected.has(n.id) || isGroup(n)
+          after?.empty === true || !selected.has(n.id) || isGroup(n)
             ? []
             : isFrame(n)
               ? membersOf(flow.nodes, n.id)
@@ -652,8 +661,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           }
           pendingReveal.current = result.key
           onChanged()
-          // 從空白畫布「自己一步一步來」加的第一個鏡頭：直接打開它的面板
-          if (after?.open === true) setPanel(panelTargetOf(result.key))
+          // 從空白畫布「自己一步一步來」加的第一個鏡頭：不自動打開右邊的面板（會蓋住畫布右半邊的
+          // 剪輯節點），改成把整串節點放進畫面，要寫描述就雙擊卡片
+          if (after?.fit === true) pendingFit.current = true
           // 新增的都能用 Cmd/Ctrl+Z 收回
           toast.show({
             key: 'canvas-add',
@@ -888,7 +898,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       return
     }
     const kind = addKindOf(choice.kind)
-    if (kind) addNode(kind, menu.place, menu.from)
+    if (kind) addNode(kind, menu.place, menu.from, undefined, { empty: true })
   }
   // ── 放上圖片或影片：「上傳」選檔，或從檔案總管拖進來 ──
   /** 放在想放的地方；被佔住就挪到最近的空位（不然自動排版的場會被推開）。 */
@@ -1754,7 +1764,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                     return
                   }
                   const added = addKindOf(kind)
-                  if (added) addNode(added)
+                  if (added) addNode(added, undefined, undefined, undefined, { empty: true })
                 }}
               />
               {menu ? (
@@ -1922,9 +1932,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                   busy={split.busy}
                   onManual={() => {
                     addNode('shot', undefined, undefined, undefined, {
-                      open: true,
+                      fit: true,
                       message:
-                        '已加上第一個鏡頭（放在新的場裡）。在右邊面板寫畫面描述，寫好按 ▶ 生成',
+                        '已加上第一個鏡頭（放在新的場裡）。雙擊卡片上的描述寫畫面，寫好按 ▶ 生成；要更多設定按卡片右上的 ↗',
                     })
                   }}
                   onSplit={split.start}
