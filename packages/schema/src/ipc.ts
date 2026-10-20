@@ -11,6 +11,14 @@ import {
   TurnaroundViewSchema,
   TurnaroundsStateSchema,
 } from './domain/characters'
+import {
+  CHAT_TEXT_MAX,
+  ChatConversationSchema,
+  ChatEventSchema,
+  ChatPanelMessageSchema,
+  ChatPrereqSchema,
+  ChatTitleSchema,
+} from './domain/chat'
 import { AspectRatioSchema, IdSchema } from './domain/common'
 import {
   OUTLINE_TEXT_MAX,
@@ -975,6 +983,44 @@ export const ipcContract = {
     request: z.object({ locationId: IdSchema }),
     response: LocationCardViewSchema,
   },
+  /**
+   * 右下角 Claude 對話（實驗功能）。以下 `chat.*` 都只給畫面用，不開放給 MCP：
+   * Claude 自己是透過 MCP 在改專案，不能再叫它去開別的對話。
+   * 現在能不能開始：功能開關、AI 工具連線、有沒有裝 Claude Code、版本、有沒有登入。
+   */
+  'chat.status': {
+    request: z.object({}),
+    response: ChatPrereqSchema,
+  },
+  'chat.list': {
+    request: z.object({}),
+    response: z.object({ conversations: z.array(ChatConversationSchema) }),
+  },
+  'chat.create': {
+    request: z.object({}),
+    response: ChatConversationSchema,
+  },
+  'chat.rename': {
+    request: z.object({ conversationId: z.uuid(), title: ChatTitleSchema }),
+    response: ChatConversationSchema,
+  },
+  'chat.messages': {
+    request: z.object({ conversationId: z.uuid() }),
+    response: z.object({ messages: z.array(ChatPanelMessageSchema) }),
+  },
+  /** 送一則訊息；Claude 的回覆用 `chat.event` 一路推過來。這個對話已經有一輪在進行就說明稍等。 */
+  'chat.send': {
+    request: z.object({
+      conversationId: z.uuid(),
+      text: z.string().trim().min(1).max(CHAT_TEXT_MAX),
+    }),
+    response: z.object({}),
+  },
+  /** 停止這一輪（停止鈕、Esc）：已經送出去的生成任務不會跟著取消。 */
+  'chat.stop': {
+    request: z.object({ conversationId: z.uuid() }),
+    response: z.object({}),
+  },
 } as const
 
 /** 視窗上方選單（macOS）選了哪一項：畫面收到就做同一件事（跟專案列的選單、快捷鍵是同一批動作）。 */
@@ -1022,6 +1068,8 @@ export const ipcEvents = {
   'menu.action': MenuActionSchema,
   /** 有新的模型通知（例如選的模型下架、自動換掉）：畫面用 `models.notices` 取走。 */
   'models.noticed': z.object({}),
+  /** Claude 對話有新的內容（整則訊息或整個對話的最新樣子）。 */
+  'chat.event': ChatEventSchema,
 } as const
 
 export type IpcContract = typeof ipcContract

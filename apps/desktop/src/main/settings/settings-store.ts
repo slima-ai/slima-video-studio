@@ -52,6 +52,9 @@ export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSe
       ? {}
       : { storyboardGuide: patch.storyboardGuide.trim() }),
     ...(patch.mcp === undefined ? {} : { mcp: { ...current.mcp, ...definedOnly(patch.mcp) } }),
+    ...(patch.experiments === undefined
+      ? {}
+      : { experiments: { ...current.experiments, ...definedOnly(patch.experiments) } }),
     models,
     audio: { voices },
   })

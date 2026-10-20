@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { AppLayout, type AppView } from './components/app-layout'
 import { Spinner } from './components/skeleton'
 import { ToastProvider } from './components/toast'
+import { ChatProvider } from './features/chat/chat-context'
+import { ChatDrawer } from './features/chat/chat-drawer'
 import { CharactersPage } from './features/characters/characters-page'
 import { CanvasPage } from './features/canvas/canvas-page'
 import { FilesPage } from './features/files/files-page'
@@ -70,52 +72,55 @@ export function App() {
   return (
     <ToastProvider>
       <ModelNotices onOpenSettings={openSettings} />
-      <HistoryProvider enabled={view === 'canvas' || view === 'outline' || view === 'storyboard'}>
-        <AppLayout
-          view={view}
-          onNavigate={setView}
-          queue={<QueuePanel />}
-          showSlima={slima !== undefined && slima.state !== 'no_token'}
-          header={
-            <ProjectBar
-              onNavigate={setView}
-              demoMode={state.status === 'ready' ? state.data.settings.demoMode : undefined}
-              hasKey={
-                state.status === 'ready' ? state.data.keys.some((k) => k.configured) : undefined
-              }
-            />
-          }
-        >
-          {view === 'home' ? (
-            <HomePage onNavigate={setView} />
-          ) : view === 'settings' ? (
-            <SettingsPage state={state} reload={reload} />
-          ) : view === 'characters' ? (
-            <CharactersPage />
-          ) : view === 'locations' ? (
-            <LocationsPage />
-          ) : view === 'slima' ? (
-            <SlimaImportPage
-              onOpenSettings={() => {
-                setView('settings')
-              }}
-              onNavigate={setView}
-            />
-          ) : view === 'records' ? (
-            <RecordsPage onNavigate={setView} />
-          ) : view === 'files' ? (
-            <FilesPage />
-          ) : view === 'projects' ? (
-            <ProjectsPage onNavigate={setView} />
-          ) : view === 'outline' ? (
-            <OutlinePage />
-          ) : view === 'storyboard' ? (
-            <StoryboardPage />
-          ) : (
-            <CanvasPage />
-          )}
-        </AppLayout>
-      </HistoryProvider>
+      <ChatProvider>
+        <HistoryProvider enabled={view === 'canvas' || view === 'outline' || view === 'storyboard'}>
+          <AppLayout
+            drawer={view === 'canvas' ? <ChatDrawer /> : undefined}
+            view={view}
+            onNavigate={setView}
+            queue={<QueuePanel />}
+            showSlima={slima !== undefined && slima.state !== 'no_token'}
+            header={
+              <ProjectBar
+                onNavigate={setView}
+                demoMode={state.status === 'ready' ? state.data.settings.demoMode : undefined}
+                hasKey={
+                  state.status === 'ready' ? state.data.keys.some((k) => k.configured) : undefined
+                }
+              />
+            }
+          >
+            {view === 'home' ? (
+              <HomePage onNavigate={setView} />
+            ) : view === 'settings' ? (
+              <SettingsPage state={state} reload={reload} />
+            ) : view === 'characters' ? (
+              <CharactersPage />
+            ) : view === 'locations' ? (
+              <LocationsPage />
+            ) : view === 'slima' ? (
+              <SlimaImportPage
+                onOpenSettings={() => {
+                  setView('settings')
+                }}
+                onNavigate={setView}
+              />
+            ) : view === 'records' ? (
+              <RecordsPage onNavigate={setView} />
+            ) : view === 'files' ? (
+              <FilesPage />
+            ) : view === 'projects' ? (
+              <ProjectsPage onNavigate={setView} />
+            ) : view === 'outline' ? (
+              <OutlinePage />
+            ) : view === 'storyboard' ? (
+              <StoryboardPage />
+            ) : (
+              <CanvasPage />
+            )}
+          </AppLayout>
+        </HistoryProvider>
+      </ChatProvider>
     </ToastProvider>
   )
 }
