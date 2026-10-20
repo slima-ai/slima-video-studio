@@ -95,6 +95,8 @@ export interface AppLayoutProps {
   queue?: ReactNode
   /** 有連上（或設定了）Slima 才顯示「從 Slima 匯入」。 */
   showSlima?: boolean
+  /** 最上面一條，每一頁都在（專案名、存檔狀態、模式、花費）。 */
+  header?: ReactNode
 }
 
 /**
@@ -107,6 +109,7 @@ export function AppLayout({
   onNavigate,
   queue,
   showSlima = false,
+  header,
 }: AppLayoutProps) {
   // 右側面板：頁面用 <SidePanel> 把內容放進來，有選取才滑入
   const [panelElement, setPanelElement] = useState<HTMLElement | null>(null)
@@ -128,6 +131,7 @@ export function AppLayout({
   return (
     <PanelHostContext.Provider value={host}>
       <div className="flex h-full flex-col" data-testid="app-layout">
+        {header}
         <div className="relative flex min-h-0 flex-1 overflow-clip">
           <nav
             aria-label="主導覽"

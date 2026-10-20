@@ -1,12 +1,12 @@
 import { AppError } from '@svs/schema'
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { env, newProject, reopen, tempDir } from './__tests__/helpers'
 import { MIGRATIONS } from './migrations.generated'
-import { createProject, openProject } from './project-folder'
+import { createProject, openProject, projectModifiedAt } from './project-folder'
 
 const expectCode = (fn: () => unknown, code: string): void => {
   try {
@@ -153,5 +153,23 @@ describe('openProject', () => {
     b.close()
     writeFileSync(join(a.dir, 'project.json'), readFileSync(join(b.dir, 'project.json')))
     expectCode(() => openProject(a.dir, env), 'project_invalid')
+  })
+})
+
+describe('projectModifiedAt', () => {
+  it('專案開著時資料寫在 -wal：取 -wal 與主檔較新的那個', () => {
+    const handle = newProject()
+    const db = join(handle.dir, 'project.sqlite')
+    const wal = `${db}-wal`
+    expect(existsSync(wal)).toBe(true)
+    const old = new Date('2026-01-01T00:00:00Z')
+    const recent = new Date('2026-10-20T04:05:06Z')
+    utimesSync(db, old, old)
+    utimesSync(wal, recent, recent)
+    expect(projectModifiedAt(handle.dir).toISOString()).toBe(recent.toISOString())
+    // 整理回主檔之後 -wal 沒了，就看主檔
+    handle.close()
+    utimesSync(db, old, old)
+    expect(projectModifiedAt(handle.dir).toISOString()).toBe(old.toISOString())
   })
 })

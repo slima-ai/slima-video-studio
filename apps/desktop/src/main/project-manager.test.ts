@@ -1,5 +1,5 @@
 import { AppError } from '@svs/schema'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -67,5 +67,36 @@ describe('ProjectManager', () => {
     expect(() => m.open(join(base, 'missing.svsproj'))).toThrow(AppError)
     expect(m.info()).toBeNull()
     expect(m.current()).toBeUndefined()
+  })
+
+  it('改名：資料庫與 project.json 兩份一起改，重開還是新名字；資料夾不變', () => {
+    const m = manager()
+    const dir = join(tmp(), '短片.svsproj')
+    m.create(dir, '短片')
+    expect(m.rename('新名字')).toMatchObject({ name: '新名字', dir })
+    const file = JSON.parse(readFileSync(join(dir, 'project.json'), 'utf8')) as { name: string }
+    expect(file.name).toBe('新名字')
+    m.close()
+    expect(m.open(dir).name).toBe('新名字')
+  })
+
+  it('沒有開著的專案：改名丟 project_not_found，狀態是 null', () => {
+    const m = manager()
+    expect(m.status()).toBeNull()
+    try {
+      m.rename('x')
+      throw new Error('預期丟出錯誤')
+    } catch (error) {
+      expect((error as AppError).code).toBe('project_not_found')
+    }
+  })
+
+  it('狀態：名字、資料夾、最後寫入時間、花費（新專案是 0）', () => {
+    const m = manager()
+    const dir = join(tmp(), '短片.svsproj')
+    m.create(dir, '短片')
+    const status = m.status()
+    expect(status).toMatchObject({ name: '短片', dir, spentUsd: 0 })
+    expect(Number.isNaN(Date.parse(status?.savedAt ?? ''))).toBe(false)
   })
 })

@@ -6,6 +6,7 @@ import { ToastProvider } from './components/toast'
 import { CharactersPage } from './features/characters/characters-page'
 import { CanvasPage } from './features/canvas/canvas-page'
 import { FilesPage } from './features/files/files-page'
+import { ProjectBar } from './features/projects/project-bar'
 import { ProjectsPage } from './features/projects/projects-page'
 import { RecordsPage } from './features/records/records-page'
 import { LocationsPage } from './features/locations/locations-page'
@@ -58,6 +59,15 @@ export function App() {
           onNavigate={setView}
           queue={<QueuePanel />}
           showSlima={slima !== undefined && slima.state !== 'no_token'}
+          header={
+            <ProjectBar
+              onNavigate={setView}
+              demoMode={state.status === 'ready' ? state.data.settings.demoMode : undefined}
+              hasKey={
+                state.status === 'ready' ? state.data.keys.some((k) => k.configured) : undefined
+              }
+            />
+          }
         >
           {view === 'settings' ? (
             <SettingsPage state={state} reload={reload} />
