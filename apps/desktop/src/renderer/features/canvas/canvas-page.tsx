@@ -80,6 +80,7 @@ import { PerfOverlay } from './perf-overlay'
 import { NODE_TYPES } from './nodes'
 import { RenameBox, isRenamable, type RenameTarget } from './rename-box'
 import { SceneLabels } from './scene-labels'
+import { GettingStartedDialog } from '../help/getting-started-dialog'
 import { ShortcutsDialog } from './shortcuts-dialog'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
 import { HoverTip } from './hover-tip'
@@ -1254,14 +1255,22 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
 
   // ── 右鍵選單：格子上（依種類）、空白處各一組 ──
   const [menu, setMenu] = useState<{ at: XY; entries: MenuEntry[] }>()
-  // 「？」選單：鍵盤快捷鍵、效能自測
+  // 「？」選單：怎麼開始、鍵盤快捷鍵、效能自測
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [gettingStartedOpen, setGettingStartedOpen] = useState(false)
   const [perfOpen, setPerfOpen] = useState(false)
   const openHelp = (anchor: ConfirmAnchor): void => {
     setAddMenu(undefined)
     setMenu({
       at: { x: anchor.right - CONTEXT_W, y: anchor.bottom + 6 },
       entries: [
+        {
+          label: '怎麼開始',
+          hint: '三個步驟',
+          onSelect: () => {
+            setGettingStartedOpen(true)
+          },
+        },
         {
           label: '鍵盤快捷鍵',
           onSelect: () => {
@@ -1718,6 +1727,13 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                   onSeeded={onDemoSeeded}
                   onClose={() => {
                     setPerfOpen(false)
+                  }}
+                />
+              ) : null}
+              {gettingStartedOpen ? (
+                <GettingStartedDialog
+                  onClose={() => {
+                    setGettingStartedOpen(false)
                   }}
                 />
               ) : null}

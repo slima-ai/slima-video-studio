@@ -103,7 +103,7 @@ export interface TopBarProps {
   /** 正在生成：做完幾步／共幾步（一句話生成時沒有步數）；有值時「全部生成」換成進度與停止。 */
   running?: { done: number; total: number } | 'grow' | undefined
   onStop?: () => void
-  /** 「？」：鍵盤快捷鍵、效能自測。 */
+  /** 「？」：怎麼開始、鍵盤快捷鍵、效能自測。 */
   onHelp?: (anchor: ConfirmAnchor) => void
 }
 
@@ -213,7 +213,7 @@ export function TopBar(props: TopBarProps) {
           type="button"
           className={button}
           aria-label="說明與工具"
-          title="鍵盤快捷鍵、效能自測"
+          title="怎麼開始、鍵盤快捷鍵、效能自測"
           data-testid="help-menu"
           onClick={(event) => {
             props.onHelp?.(anchorOf(event.currentTarget))
