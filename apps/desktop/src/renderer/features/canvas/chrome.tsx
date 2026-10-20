@@ -1,4 +1,5 @@
 import { useReactFlow, useStore } from '@xyflow/react'
+import { Sparkles } from 'lucide-react'
 import { useState, type DragEvent } from 'react'
 
 import { Spinner } from '../../components/skeleton'
@@ -237,7 +238,14 @@ export function TopBar(props: TopBarProps) {
 }
 
 /** 右下角縮放控制：＋、－、全部顯示。右側面板開著時往左讓開（`right` 是離畫布右邊的距離）。 */
-export function ZoomControls({ right = 12 }: { right?: number }) {
+export function ZoomControls({
+  right = 12,
+  aiFollow,
+}: {
+  right?: number
+  /** AI 工具改過東西之後才出現：畫面要不要跟著 AI 移動。 */
+  aiFollow?: { on: boolean; onChange: (next: boolean) => void }
+}) {
   const { zoomIn, zoomOut } = useReactFlow()
   const fitAll = useFitAll()
   const focusEntry = useFocusEntry()
@@ -250,6 +258,26 @@ export function ZoomControls({ right = 12 }: { right?: number }) {
       className="absolute bottom-3 z-20 flex gap-1.5 transition-[right] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
       style={{ right }}
     >
+      {aiFollow ? (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={aiFollow.on}
+          data-testid="follow-ai"
+          title="AI 在改東西時，畫面跟著移到它正在改的地方（你自己在拖曳或縮放時不會搶畫面）"
+          className={cn(
+            button,
+            'flex items-center gap-1',
+            aiFollow.on ? 'border-accent/50 bg-accent/10 text-accent' : 'text-fg-muted',
+          )}
+          onClick={() => {
+            aiFollow.onChange(!aiFollow.on)
+          }}
+        >
+          <Sparkles aria-hidden className="size-3.5" />
+          跟著 AI{aiFollow.on ? '：開' : '：關'}
+        </button>
+      ) : null}
       {unreadable ? (
         <button
           type="button"

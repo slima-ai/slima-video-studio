@@ -89,6 +89,7 @@ import { GettingStartedDialog } from '../help/getting-started-dialog'
 import { ShortcutsDialog } from './shortcuts-dialog'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
 import { HoverTip } from './hover-tip'
+import { useAiFollow } from './use-ai-follow'
 import { useAiMarks } from './use-ai-marks'
 import { RunPlanConfirm } from './run-confirm-plan'
 import { useCanvas } from './use-canvas'
@@ -233,6 +234,13 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   useEffect(() => {
     aiSeen(selected)
   }, [selected, aiSeen])
+  // 「跟著 AI」：AI 在改東西時，畫面平順地移到正在改的地方（使用者自己在動畫布時不搶）
+  const aiFollow = useAiFollow({
+    latest: aiMarks.latest,
+    nodes: flow.nodes,
+    container: containerRef,
+    margin: REVEAL_MARGIN,
+  })
   // 還標著「AI 剛改」的節點之後內容又變了（例如 AI 叫的生成做完）：再亮一次
   const aiPrints = useRef(new Map<string, string>())
   useEffect(() => {
@@ -1803,6 +1811,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 <DragOverlay guides={drag.guides} dropTarget={drag.dropTarget} />
                 <ZoomControls
                   right={panelOpen ? FLOAT_PANEL.width + FLOAT_PANEL.inset * 2 : FLOAT_PANEL.inset}
+                  {...(aiMarks.latest
+                    ? { aiFollow: { on: aiFollow.follow, onChange: aiFollow.setFollow } }
+                    : {})}
                 />
               </ReactFlow>
               <NodePalette
