@@ -95,7 +95,7 @@ Besides clicking, you can let an AI assistant such as **Claude Code** or **Claud
 
 _The real settings page of the app, with the main switch on. The picture at the top shows what is connected: a solid line means connected, a dashed line not yet. The manual command with the token is inside "更多" (More) on the Claude Code card; the token stays hidden until you press "顯示 token"._
 
-**Connect in one click** (needs v0.2.0 or later; the app must be open):
+**Connect in one click** (needs v0.3.0 or later; the app must be open):
 
 1. Open the app → **Settings (設定)** and pick **AI 工具連線** (AI tool connection) in the row of tags at the top.
 2. Press **連接** (Connect) on the **Claude Code** card or on the **Claude Desktop** card (the button then reads "重新連接"; the light next to the name changes from "還沒連接" to "已設定"; if the app does not find Claude on this computer, the light says "沒偵測到"). This also switches on the main switch **允許 AI 工具連線** (Allow AI tools to connect). For Claude Desktop, quit it completely (⌘Q) and open it again; the app backs up Claude Desktop's configuration file before adding one entry and leaves your other servers untouched.
