@@ -36,6 +36,7 @@ const SPENDING = `# Spending
 - Demo mode never spends money. In real mode, every tool that calls an AI model (text, image or video) first estimates its cost and reserves it from the spending allowance.
 - The allowance is the card 「AI 工具的總額度」 under 設定 → AI 工具連線 in the app's Settings page; the person sets it and it starts at US$0. You cannot change it. If a tool says the allowance is too small, tell the user the estimate and ask them to raise 「AI 工具的總額度」 there.
 - Reserved money is not refunded if the real cost turns out lower; the user can reset what has been used with 「已用的歸零」 on that card.
+- Moving from demo to real AI is something only the user can do, in two places: paste a service key (OpenRouter or fal.ai) on the card of that service under 設定 → 服務金鑰 and press 儲存, then switch off 示範模式 under 設定 → 一般. 設定 → AI 工具連線 is NOT where keys go: it only lets AI tools like you connect to the app, and holds 「AI 工具的總額度」. If the user asks how to use real AI, tell them exactly this.
 - Never try to work around a refusal.
 `
 
