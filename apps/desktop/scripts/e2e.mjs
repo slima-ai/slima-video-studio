@@ -1,6 +1,7 @@
 // pnpm test:e2e：建置 → （Linux 無顯示器時，每個 worker 起一個自己的 Xvfb）→ 跑 Playwright。
 // SVS_SKIP_BUILD=1 可略過建置（CI 的 build 步驟已經做過時使用）。
 import { spawn, spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 
 const run = (cmd, args, env = {}) =>
   spawnSync(cmd, args, { stdio: 'inherit', env: { ...process.env, ...env } })
@@ -45,8 +46,9 @@ if (needsXvfb) {
     console.error('找不到 DISPLAY，也沒有安裝 Xvfb（apt install xvfb）。')
     process.exit(1)
   }
-  // 要和 playwright.config.ts 的 workers 一樣多（命令列另外給 --workers 變多時，多出來的 worker 會輪流共用）
-  const workers = Number(process.env.SVS_E2E_WORKERS ?? '2')
+  // 和 playwright.config.ts 的 workers 一樣多（命令列另外給 --workers 變多時，多出來的 worker 會輪流共用）
+  const config = readFileSync(new URL('../playwright.config.ts', import.meta.url), 'utf8')
+  const workers = Number(/workers:\s*(\d+)/.exec(config)?.[1] ?? '2')
   const servers = await Promise.all(Array.from({ length: workers }, startXvfb))
   process.on('exit', () => {
     for (const { child } of servers) child.kill()
