@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { defineTool, type ToolContext } from './define'
 
 const ACTIVE = new Set(['queued', 'running', 'submitted', 'polling'])
+/** 查詢間隔從 POLL_MIN_MS 起、每次加倍，最長 POLL_MS：很快就好的生成馬上回報，長的生成不會一直查。 */
+const POLL_MIN_MS = 100
 const POLL_MS = 1500
 /** 一次最多等這麼久：MCP 客戶端的單次工具呼叫有逾時，所以分段等、沒好就再叫一次。 */
 export const MAX_WAIT_SEC = 45
@@ -60,8 +62,12 @@ export function registerGenerationTools(ctx: ToolContext): void {
     run: async ({ maxSeconds }) => {
       const deadline = Date.now() + maxSeconds * 1000
       let current = await status(ctx)
-      while (current.busy && Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, POLL_MS))
+      for (
+        let wait = POLL_MIN_MS;
+        current.busy && Date.now() < deadline;
+        wait = Math.min(wait * 2, POLL_MS)
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, wait))
         current = await status(ctx)
       }
       return { finished: !current.busy, ...current }

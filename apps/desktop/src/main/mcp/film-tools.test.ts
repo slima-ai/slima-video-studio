@@ -188,25 +188,26 @@ describe('影片線：首幀圖 → 看 → 影片 → 接片 → 匯出（示�
       imageBlocks(await r.call('view_video_stills', { finalCut: true, count: 2 })),
     ).toHaveLength(2)
     expect(dataOf(ShotList, await r.call('list_shots')).hasFinalCut).toBe(true)
-    const exported = JSON.parse(textOf(await r.call('export_film'))) as { fileName: string }
-    expect(exported.fileName).toMatch(/\.mp4$/)
-    expect(exported.fileName).not.toContain('/')
-    expect(textOf(await r.call('export_film'))).not.toContain(r.h.root)
     // 片尾字卡：不帶參數＝加；credits:true＝加；credits:false＝不加（而且根本不去畫字卡）。
     // 用假字卡畫家，回報的 creditsAdded 才真的反映 credits 有沒有傳到匯出那一層。
+    // 每次匯出都要重新編碼整支影片（CI 上一次要好幾秒），所以第一次匯出（不帶參數）一併檢查檔名與路徑。
     interface Exported {
       fileName: string
       creditsAdded: boolean
     }
-    const rendered = cardsRendered
-    const byDefault = JSON.parse(textOf(await r.call('export_film'))) as Exported
+    const firstText = textOf(await r.call('export_film'))
+    const byDefault = JSON.parse(firstText) as Exported
+    expect(byDefault.fileName).toMatch(/\.mp4$/)
+    expect(byDefault.fileName).not.toContain('/')
+    expect(firstText).not.toContain(r.h.root)
     expect(byDefault.creditsAdded).toBe(true)
+    expect(cardsRendered).toBe(1)
     const withCard = JSON.parse(textOf(await r.call('export_film', { credits: true }))) as Exported
     expect(withCard.creditsAdded).toBe(true)
-    expect(cardsRendered).toBe(rendered + 2)
+    expect(cardsRendered).toBe(2)
     const noCard = JSON.parse(textOf(await r.call('export_film', { credits: false }))) as Exported
     expect(noCard.creditsAdded).toBe(false)
-    expect(cardsRendered).toBe(rendered + 2)
+    expect(cardsRendered).toBe(2)
     expect(noCard.fileName).toMatch(/\.mp4$/)
   })
 
