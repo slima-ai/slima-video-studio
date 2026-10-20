@@ -44,7 +44,6 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
   return (
     <Page
       title="設定"
-      hint="單次花費上限、AI 工具連線、服務金鑰、模型"
       width="narrow"
       testId="settings-page"
       actions={<SettingsTags tags={TAGS} />}

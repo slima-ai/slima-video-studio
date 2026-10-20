@@ -80,6 +80,13 @@ describe('SettingsPage 骨架', () => {
     expect(screen.getByTestId('settings-tag-general').getAttribute('aria-current')).toBeNull()
   })
 
+  it('頁面標題旁沒有殘留的舊副標（曾經寫「單次花費上限、AI 工具連線、服務金鑰、模型」，少了實驗功能）', () => {
+    render(<SettingsPage state={{ status: 'ready', data: DATA }} reload={vi.fn()} />)
+    const header = screen.getByTestId('page-header')
+    expect(header.textContent).not.toContain('單次花費上限、')
+    expect(header.querySelector('p')).toBeNull()
+  })
+
   it('讀取中與出錯：不顯示區，出錯有重試', () => {
     const reload = vi.fn()
     render(<SettingsPage state={{ status: 'loading' }} reload={reload} />)

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { MODELS, SETTINGS, appError, installFakeSvs } from '../../test/fake-svs'
-import { ModelsSection } from './models-section'
+import { channelText, ModelsSection } from './models-section'
 
 afterEach(cleanup)
 
@@ -95,6 +95,18 @@ describe('ModelsSection', () => {
       />,
     )
     expect(screen.getByTestId('model-t2i-channel').textContent).toBe('透過 fal.ai')
+  })
+
+  it('走哪一家：英文名字前面留一個空格（透過 fal.ai），中文名字直接接（透過示範，不是「透過 示範」）', () => {
+    const base = MODELS[0]
+    if (!base) throw new Error('沒有測試用的模型')
+    expect(channelText({ ...base, providerName: 'OpenRouter', otherChannels: [] })).toBe(
+      '透過 OpenRouter',
+    )
+    expect(channelText({ ...base, providerName: '示範', otherChannels: [] })).toBe('透過示範')
+    expect(channelText({ ...base, providerName: '示範', otherChannels: ['fal.ai'] })).toBe(
+      '透過示範（fal.ai 也有，會自動走比較便宜的那家）',
+    )
   })
 
   it('同一種用途有好幾個模型標推薦時，只亮第一個（就是沒選時會用的那個）', () => {
