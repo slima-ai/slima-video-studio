@@ -99,4 +99,34 @@ describe('NewProjectDialog：新專案只問名字', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(fake.payloadsOf('project.createAt')).toEqual([])
   })
+
+  it('另存為模式：說明複製的是什麼、名字用給的預設、送 project.saveAs（有選位置才帶 parentDir）', async () => {
+    const onCreated = vi.fn()
+    const fake = installFakeSvs({
+      'project.list': library,
+      'project.pickFolder': () => ({ dir: '/Volumes/外接' }),
+      'project.saveAs': (payload: { name: string }) => created(payload.name),
+    })
+    render(
+      <NewProjectDialog
+        mode="saveAs"
+        initialName="貓 副本"
+        onClose={vi.fn()}
+        onCreated={onCreated}
+      />,
+    )
+    expect(screen.getByTestId('save-as-dialog')).toBeTruthy()
+    expect(screen.getByText(/連同圖片、影片/)).toBeTruthy()
+    expect(screen.getByTestId<HTMLInputElement>('new-project-name').value).toBe('貓 副本')
+    fireEvent.click(screen.getByTestId('new-project-change-folder'))
+    await screen.findByText('存在：/Volumes/外接')
+    fireEvent.click(screen.getByRole('button', { name: '另存' }))
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalledTimes(1)
+    })
+    expect(fake.payloadsOf('project.saveAs')).toEqual([
+      { name: '貓 副本', parentDir: '/Volumes/外接' },
+    ])
+    expect(fake.payloadsOf('project.createAt')).toEqual([])
+  })
 })

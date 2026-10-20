@@ -549,6 +549,7 @@ describe('金鑰與不開放的功能', () => {
       'project.rename',
       'project.createAt',
       'project.pickFolder',
+      'project.saveAs',
       'project.recent',
       'project.openRecent',
       'project.forgetRecent',

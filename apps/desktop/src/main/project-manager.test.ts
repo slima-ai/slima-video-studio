@@ -1,5 +1,5 @@
 import { AppError } from '@svs/schema'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -98,5 +98,45 @@ describe('ProjectManager', () => {
     const status = m.status()
     expect(status).toMatchObject({ name: '短片', dir, spentUsd: 0 })
     expect(Number.isNaN(Date.parse(status?.savedAt ?? ''))).toBe(false)
+  })
+
+  it('另存為：複本有一樣的資料、換成新名字並開著；原本的資料夾沒動，還能再打開', async () => {
+    const m = manager()
+    const dir = join(tmp(), '原本.svsproj')
+    m.create(dir, '原本')
+    m.current()?.repos.characters.create('阿鐵')
+    const copyDir = join(tmp(), '複本.svsproj')
+    const info = await m.saveAs(copyDir, '複本')
+    expect(info).toMatchObject({ name: '複本', dir: copyDir })
+    expect(m.info()).toEqual(info)
+    expect(
+      m
+        .current()
+        ?.repos.characters.list()
+        .map((c) => c.name),
+    ).toEqual(['阿鐵'])
+    // 原本的：名字沒變、資料還在
+    expect(m.open(dir).name).toBe('原本')
+    expect(
+      m
+        .current()
+        ?.repos.characters.list()
+        .map((c) => c.name),
+    ).toEqual(['阿鐵'])
+  })
+
+  it('另存失敗：目前的專案照開、沒留下半個資料夾；沒有專案時丟 project_not_found', async () => {
+    const m = manager()
+    await expect(m.saveAs(join(tmp(), 'x.svsproj'), 'x')).rejects.toMatchObject({
+      code: 'project_not_found',
+    })
+    const dir = join(tmp(), '原本.svsproj')
+    m.create(dir, '原本')
+    const root = tmp()
+    mkdirSync(join(root, '已有的.svsproj'))
+    await expect(m.saveAs(join(root, '已有的.svsproj'), 'x')).rejects.toMatchObject({
+      code: 'project_exists',
+    })
+    expect(m.info()?.dir).toBe(dir)
   })
 })
