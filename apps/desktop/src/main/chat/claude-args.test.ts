@@ -151,7 +151,9 @@ describe('CHAT_SYSTEM_PROMPT', () => {
     const scope = lines[3] ?? ''
     expect(scope).toContain('只做使用者講的事')
     expect(scope).toContain('改了描述或刪了鏡頭之後')
-    expect(scope).toContain('要不要重新生成圖片或影片、要不要重新接片或匯出，先問一句，除非他明講要重做')
+    expect(scope).toContain(
+      '要不要重新生成圖片或影片、要不要重新接片或匯出，先問一句，除非他明講要重做',
+    )
     // 示範模式不花錢也一樣：被改動的東西不能在使用者沒說的情況下被重做、重新匯出
     expect(scope).toContain('示範模式也一樣')
     // 門檻那句只管「使用者講明要做的生成」，並指回上一行
