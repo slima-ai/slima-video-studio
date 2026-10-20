@@ -145,6 +145,8 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     projects.close()
     return {}
   })
+  registry.registerHandler('project.status', () => projects.status())
+  registry.registerHandler('project.rename', ({ name }) => projects.rename(name))
   registry.registerHandler('project.list', () => library.list())
   registry.registerHandler('project.createNew', ({ name }) => library.createNew(name))
   registry.registerHandler('dev.seedDemo', ({ shots: count }) => {

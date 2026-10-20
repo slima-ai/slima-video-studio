@@ -226,3 +226,17 @@ export function openProject(dir: string, env: ProjectEnv): ProjectHandle {
 }
 
 export { getSchemaVersion }
+
+/**
+ * 專案最後一次寫入的時間。專案開著時資料先寫進 WAL（project.sqlite-wal），要等整理回主檔才會動到
+ * project.sqlite 的修改時間；所以兩個檔取較新的。都沒有（空資料夾）就用資料夾本身的時間。
+ */
+export function projectModifiedAt(dir: string): Date {
+  const times = [DB_FILE_NAME, `${DB_FILE_NAME}-wal`]
+    .map((name) => join(dir, name))
+    .filter((path) => existsSync(path))
+    .map((path) => statSync(path).mtime)
+  return times.length > 0
+    ? new Date(Math.max(...times.map((t) => t.getTime())))
+    : statSync(dir).mtime
+}

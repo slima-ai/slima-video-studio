@@ -1,5 +1,12 @@
-import { createProject, openProject, type ProjectHandle } from '@svs/db'
-import type { ProjectInfo } from '@svs/schema'
+import {
+  createProject,
+  openProject,
+  projectModifiedAt,
+  readProjectFile,
+  writeProjectFile,
+  type ProjectHandle,
+} from '@svs/db'
+import { AppError, type ProjectInfo, type ProjectStatus } from '@svs/schema'
 
 /** 目前開啟的專案。一次只開一個；開新的會先關掉舊的。 */
 export class ProjectManager {
@@ -25,6 +32,29 @@ export class ProjectManager {
 
   info(): ProjectInfo | null {
     return this.handle ? toInfo(this.handle) : null
+  }
+
+  /** 改目前專案的名字：資料庫和 project.json 各存了一份，兩份一起改（資料夾的名字不變）。 */
+  rename(name: string): ProjectInfo {
+    const { handle } = this
+    if (!handle) {
+      throw new AppError({ code: 'project_not_found', userMessage: '請先開啟或建立一個專案。' })
+    }
+    handle.repos.projects.update({ name })
+    writeProjectFile(handle.dir, { ...readProjectFile(handle.dir), name })
+    return toInfo(handle)
+  }
+
+  /** 上方專案列用：名字、最後一次寫入的時間、花費（示範模式的假結果不算）。沒開專案是 null。 */
+  status(): ProjectStatus | null {
+    const { handle } = this
+    if (!handle) return null
+    return {
+      name: handle.repos.projects.get().name,
+      dir: handle.dir,
+      savedAt: projectModifiedAt(handle.dir).toISOString(),
+      spentUsd: handle.repos.costs.totalUsd(handle.projectId, { excludeProviders: ['mock'] }),
+    }
   }
 
   /** 專案開啟、關閉或換掉時通知（開啟時帶 handle，關閉時是 undefined）。回傳取消訂閱函式。 */

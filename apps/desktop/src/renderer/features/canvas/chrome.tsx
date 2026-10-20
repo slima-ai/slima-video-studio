@@ -80,7 +80,6 @@ export function NodePalette({
 }
 
 export interface TopBarProps {
-  projectName: string
   /** 復原／重做的筆數（雛形用）；沒給就只看 canUndo／canRedo。 */
   undoCount?: number
   redoCount?: number
@@ -101,7 +100,6 @@ export interface TopBarProps {
   allDone?: boolean
   /** 素材都生成好了，只剩把成品接起來（或重新接）。 */
   joinOnly?: boolean
-  spentUsd?: number
   /** 正在生成：做完幾步／共幾步（一句話生成時沒有步數）；有值時「全部生成」換成進度與停止。 */
   running?: { done: number; total: number } | 'grow' | undefined
   onStop?: () => void
@@ -123,9 +121,6 @@ export function TopBar(props: TopBarProps) {
       data-testid="canvas-topbar"
       className="absolute inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-surface-raised/80 px-4 backdrop-blur"
     >
-      <span className="mr-2 text-sm font-semibold" data-testid="project-name">
-        {props.projectName === '' ? '未命名專案' : props.projectName}
-      </span>
       {/* 復原／重做：數字是還可以退幾步、進幾步 */}
       <button
         type="button"
@@ -173,15 +168,6 @@ export function TopBar(props: TopBarProps) {
         </button>
       ) : null}
       <span className="flex-1" />
-      {props.spentUsd === undefined ? null : (
-        <span
-          data-testid="spent"
-          title="這個專案到目前為止花的錢（示範模式不花錢）"
-          className="rounded-full border border-border bg-surface-raised px-3 py-0.5 text-xs text-success"
-        >
-          已花 US${props.spentUsd.toFixed(2)}
-        </span>
-      )}
       {props.running !== undefined ? (
         <span
           role="status"

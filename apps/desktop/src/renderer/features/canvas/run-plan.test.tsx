@@ -160,7 +160,7 @@ describe('TopBar 全部生成', () => {
     allDone?: boolean
     joinOnly?: boolean
     onRunAll?: () => void
-  }) => render(<TopBar projectName="短片" onUndo={vi.fn()} onRedo={vi.fn()} {...props} />)
+  }) => render(<TopBar onUndo={vi.fn()} onRedo={vi.fn()} {...props} />)
 
   it('有還沒生成的：顯示預估花費，按下去帶著按鈕位置', () => {
     const onRunAll = vi.fn()

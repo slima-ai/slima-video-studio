@@ -175,6 +175,17 @@ export const ProjectSummarySchema = z.object({
 })
 export type ProjectSummary = z.infer<typeof ProjectSummarySchema>
 
+/** 上方專案列要的：現在開著的專案，與它最後一次寫入的時間、花了多少。 */
+export const ProjectStatusSchema = z.object({
+  name: z.string(),
+  dir: z.string(),
+  /** 最後一次寫進專案的時間（資料庫與它的 -wal 檔，較新的那個）。 */
+  savedAt: z.string(),
+  /** 這個專案到目前為止花的錢（示範模式的假結果不算）。 */
+  spentUsd: z.number().nonnegative(),
+})
+export type ProjectStatus = z.infer<typeof ProjectStatusSchema>
+
 /** 供應商 ID（小寫英數與 - _），也是 ModelCard.provider。 */
 export const KeyProviderIdSchema = z
   .string()
@@ -265,6 +276,16 @@ export const ipcContract = {
   'project.reveal': {
     request: z.object({ dir: z.string().min(1).optional() }),
     response: z.object({}),
+  },
+  /** 上方專案列：目前專案的名字、最後存檔時間、花費；沒開專案是 null。只給畫面用，不開放給 MCP。 */
+  'project.status': {
+    request: z.object({}),
+    response: ProjectStatusSchema.nullable(),
+  },
+  /** 改目前專案的名字（專案資料夾的名字不變）。只給畫面用，不開放給 MCP。 */
+  'project.rename': {
+    request: z.object({ name: z.string().trim().min(1).max(60) }),
+    response: ProjectInfoSchema,
   },
   'keys.list': {
     request: z.object({}),

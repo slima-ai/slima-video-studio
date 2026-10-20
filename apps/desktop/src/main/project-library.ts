@@ -1,6 +1,6 @@
-import { DB_FILE_NAME, readProjectFile } from '@svs/db'
+import { projectModifiedAt, readProjectFile } from '@svs/db'
 import { AppError, type ProjectInfo, type ProjectSummary } from '@svs/schema'
-import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { safeFileName, stamp } from './ensure-project'
@@ -33,8 +33,7 @@ export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
   const summaryOf = (dir: string, currentDir: string | undefined): ProjectSummary | undefined => {
     try {
       const file = readProjectFile(dir)
-      const db = join(dir, DB_FILE_NAME)
-      const updated = existsSync(db) ? statSync(db).mtime : statSync(dir).mtime
+      const updated = projectModifiedAt(dir)
       return {
         dir,
         name: file.name,

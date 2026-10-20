@@ -146,7 +146,6 @@ declare global {
 
 interface CanvasProps {
   graph: CanvasGraph
-  projectName: string
   /** 新增之後馬上重新讀資料（不等事件）。 */
   onChanged: () => void
   /** 馬上重新讀資料，讀完才完成。 */
@@ -156,7 +155,7 @@ interface CanvasProps {
   onExpanded: (next: ReadonlySet<string>) => void
 }
 
-function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded }: CanvasProps) {
+function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasProps) {
   const rf = useReactFlow<CanvasNode, CanvasEdge>()
   const fitAll = useFitAll()
   useEffect(() => {
@@ -1587,7 +1586,6 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
                 />
               ) : null}
               <TopBar
-                projectName={projectName}
                 {...(hasShots
                   ? {
                       steps: {
@@ -1621,7 +1619,6 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
                 pendingCostUsd={pendingCost.usd}
                 allDone={pendingCost.done}
                 joinOnly={pendingCost.joinOnly}
-                {...(graph.spentUsd === undefined ? {} : { spentUsd: graph.spentUsd })}
                 running={
                   grow.running !== undefined
                     ? 'grow'
@@ -1753,20 +1750,6 @@ function Canvas({ graph, projectName, onChanged, onRefresh, expanded, onExpanded
 export function CanvasPage() {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
   const { state, reload, refresh } = useCanvas(expanded)
-  const [projectName, setProjectName] = useState('')
-  const graph = state.status === 'ready' ? state.graph : undefined
-  // 第一次新增內容時會自動建專案，名字要跟著更新
-  useEffect(() => {
-    let alive = true
-    call('project.current', {})
-      .then((info) => {
-        if (alive) setProjectName(info?.name ?? '')
-      })
-      .catch(() => undefined)
-    return () => {
-      alive = false
-    }
-  }, [graph])
 
   if (state.status === 'loading') {
     return (
@@ -1790,7 +1773,6 @@ export function CanvasPage() {
     <ReactFlowProvider>
       <Canvas
         graph={state.graph}
-        projectName={projectName}
         onChanged={reload}
         onRefresh={refresh}
         expanded={expanded}
