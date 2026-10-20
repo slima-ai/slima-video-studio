@@ -58,7 +58,9 @@ const Sound = z.looseObject({
 })
 const Plan = z.looseObject({
   ok: z.boolean(),
-  items: z.array(z.looseObject({ kind: z.string(), shotId: z.string().optional() })),
+  items: z.array(
+    z.looseObject({ kind: z.string(), shotId: z.string().optional(), estimatedUsd: z.number() }),
+  ),
   totalUsd: z.number(),
   demoMode: z.boolean(),
 })
@@ -117,6 +119,9 @@ describe('聲音工具（示範模式）', () => {
     expect(plan.demoMode).toBe(true)
     expect(plan.items.filter((i) => i.kind === 'narration').map((i) => i.shotId)).toEqual([first])
     expect(plan.items.some((i) => i.kind === 'music')).toBe(true)
+    // 回的是金額：每一項有估價，總額大於 0（getting-started 說聲音用 plan_sound 看估價）
+    expect(plan.items.every((i) => i.estimatedUsd >= 0)).toBe(true)
+    expect(plan.totalUsd).toBeGreaterThan(0)
 
     const v1 = dataOf(Made, await r.call('generate_narration', { shotId: first }))
     expect(v1.clip).toMatchObject({ kind: 'narration', version: 1, adopted: true })
