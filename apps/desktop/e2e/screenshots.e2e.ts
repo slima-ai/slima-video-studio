@@ -1,7 +1,7 @@
 import { copyFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-import type { Page, TestInfo } from '@playwright/test'
+import type { Locator, Page, TestInfo } from '@playwright/test'
 
 import {
   canvasNodes,
@@ -492,3 +492,107 @@ for (const theme of THEMES) {
     })
   })
 }
+
+/** 元素截圖：跟 shoot 一樣存在 test-results，有設 SVS_SCREENSHOT_DIR 就另外複製一份。 */
+async function shootElement(locator: Locator, testInfo: TestInfo, name: string): Promise<void> {
+  const path = testInfo.outputPath(name)
+  await locator.screenshot({ path })
+  const dir = process.env.SVS_SCREENSHOT_DIR
+  if (dir) {
+    mkdirSync(dir, { recursive: true })
+    copyFileSync(path, join(dir, name))
+  }
+}
+
+/** 新專案：從專案選單回首頁，按「新專案」、取名字、建立。 */
+async function createProject(page: Page, name: string): Promise<void> {
+  await page.getByTestId('project-menu-button').click()
+  await page.getByTestId('menu-home').click()
+  await page.getByTestId('home-new').click()
+  await page.getByTestId('new-project-name').fill(name)
+  await page.getByTestId('new-project-create').click()
+  await expect(page.getByTestId('project-name')).toHaveText(name)
+}
+
+/**
+ * README 用的圖（淺色，跟 docs/images 裡其他的一樣是 App 真實的畫面）：
+ * 要更新時 `SVS_SCREENSHOT_DIR=docs/images pnpm test:e2e e2e/screenshots.e2e.ts -g "README 用的圖"`，
+ * 或從 CI 的 e2e-report 下載同名的檔案。檔名的編號接在 01、08、09 後面。
+ */
+test.describe('README 用的圖', () => {
+  test('10 首頁、11 空白畫布的三種開始方式', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1600, height: 1000 })
+    await chooseTheme(page, THEMES[1])
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await createProject(page, '雨夜的貓')
+    await createProject(page, '海邊的早晨')
+    // 現在開著的是「海邊的早晨」，「雨夜的貓」在最近的專案
+    await page.getByTestId('project-menu-button').click()
+    await page.getByTestId('menu-home').click()
+    await expect(page.getByTestId('home-current')).toBeVisible()
+    await expect(page.getByTestId('home-recent')).toHaveCount(1)
+    await shoot(page, testInfo, '10-home.png')
+
+    await page.getByTestId('home-current').getByRole('button').first().click()
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-empty')).toBeVisible()
+    await viewportSettled(page)
+    await shoot(page, testInfo, '11-canvas-start.png')
+  })
+
+  test('12 一句話卡片', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1600, height: 1000 })
+    await chooseTheme(page, THEMES[1])
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await page.getByTestId('empty-add-oneliner').click()
+    await page.getByTestId('oneliner-story').fill('一隻貓在下雨的夜晚找到溫暖的家')
+    await page.getByTestId('oneliner-story').blur()
+    await pick(page, 'oneliner-shots', '3')
+    await pick(page, 'oneliner-duration', '3')
+    await viewportSettled(page)
+    await shootElement(
+      page.locator('.react-flow__node[data-id^="node:"]').first(),
+      testInfo,
+      '12-oneliner-card.png',
+    )
+  })
+
+  test('13 ▶ 旁的選單', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1600, height: 1000 })
+    await chooseTheme(page, THEMES[1])
+    await generateAndOpenCanvas(page)
+    const video = (await canvasNodes(page)).find((n) => n.data.kind === 'video')
+    if (!video) throw new Error('沒有影片節點')
+    await centerOn(page, video.id)
+    await page.getByTestId(`run-mode-${video.id}`).click()
+    const menu = page.getByTestId('run-mode-menu')
+    await expect(menu).toBeVisible()
+    for (const scope of ['this', 'from-here', 'chain']) {
+      await expect(menu.getByTestId(`run-mode-${scope}`)).toContainText('約 US$')
+    }
+    // 只留影片節點與它的選單（整個畫面太雜：節點面板、提示都在）
+    const boxes = [
+      await page.locator(`.react-flow__node[data-id="${video.id}"]`).boundingBox(),
+      await menu.boundingBox(),
+    ].filter((box) => box !== null)
+    const left = Math.min(...boxes.map((box) => box.x)) - 24
+    const top = Math.min(...boxes.map((box) => box.y)) - 24
+    const right = Math.max(...boxes.map((box) => box.x + box.width)) + 24
+    const bottom = Math.max(...boxes.map((box) => box.y + box.height)) + 24
+    const path = testInfo.outputPath('13-run-modes.png')
+    await page.screenshot({
+      path,
+      clip: {
+        x: Math.max(0, left),
+        y: Math.max(0, top),
+        width: right - left,
+        height: bottom - top,
+      },
+    })
+    const dir = process.env.SVS_SCREENSHOT_DIR
+    if (dir) {
+      mkdirSync(dir, { recursive: true })
+      copyFileSync(path, join(dir, '13-run-modes.png'))
+    }
+  })
+})
