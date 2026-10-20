@@ -9,6 +9,7 @@ import {
 
 import type { Logger } from '../logger'
 import type { ShotRunItem, ShotService } from '../shots/shot-service'
+import type { RunSound } from './canvas-run-sound'
 import { sceneKey, shotKey } from './projection'
 
 export interface CanvasRunnerDeps {
@@ -16,6 +17,8 @@ export interface CanvasRunnerDeps {
   /** 背景做完事（例如自動接片）時通知畫面。 */
   notify: (notice: CanvasNotice) => void
   log: Pick<Logger, 'info' | 'warn'>
+  /** 「全部生成」之後照一句話卡片記住的聲音勾選自動加旁白與配樂；沒給就不加。 */
+  runSound?: RunSound
 }
 
 export interface CanvasRunner {
@@ -37,7 +40,7 @@ interface Target {
  * 已經有結果的不重跑，只有直接按在單一個已完成的圖或影片上才會重做那個節點。
  */
 export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
-  const { shots, notify, log } = deps
+  const { shots, notify, log, runSound } = deps
 
   const resolve = (request: CanvasRunRequest): Target => {
     const views = shots.list().shots
@@ -82,6 +85,13 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
     return final === undefined || final.stale || videoShotIds.some((id) => inCut.has(id))
   }
 
+  /** 這批要生成影片的鏡頭，要不要在接好片之後加旁白與配樂。 */
+  const soundWanted = (videoShotIds: readonly string[]) => {
+    if (!runSound || videoShotIds.length === 0) return undefined
+    const ids = new Set(videoShotIds)
+    return runSound.wanted(shots.list().shots.filter((view) => ids.has(view.id)))
+  }
+
   return {
     plan(request) {
       const target = resolve(request)
@@ -98,6 +108,12 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         target.rejoin ||
         (target.all &&
           joinAfterAll(check.entries.filter((entry) => entry.video).map((entry) => entry.shot.id)))
+      // 全部生成而且會接片：生成完照一句話卡片記住的聲音勾選加旁白與配樂，花費也算進這一次
+      const soundWant =
+        check.ok && rejoin && target.all
+          ? soundWanted(check.entries.filter((entry) => entry.video).map((entry) => entry.shot.id))
+          : undefined
+      const soundPlan = soundWant && runSound?.plan(soundWant)
       const steps: CanvasRunStep[] = []
       const highlight = new Set<string>()
       /** 重做時：現在用第幾版、這次產生第幾版。 */
@@ -157,6 +173,8 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
       const { entries, ...rest } = check
       return {
         ...rest,
+        estimatedUsd: rest.estimatedUsd + (soundPlan?.usd ?? 0),
+        ...(soundPlan ? { sound: soundPlan } : {}),
         steps: check.ok ? steps : [],
         highlightKeys: [...highlight],
         shotCount: entries.length,
@@ -168,15 +186,12 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
     async run(request) {
       const target = resolve(request)
       const { items } = target
-      const rejoin =
-        target.rejoin ||
-        (target.all &&
-          joinAfterAll(
-            shots
-              .planRun(items, request.quality)
-              .entries.filter((entry) => entry.video)
-              .map((entry) => entry.shot.id),
-          ))
+      const videoShotIds = shots
+        .planRun(items, request.quality)
+        .entries.filter((entry) => entry.video)
+        .map((entry) => entry.shot.id)
+      const rejoin = target.rejoin || (target.all && joinAfterAll(videoShotIds))
+      const soundWant = rejoin && target.all ? soundWanted(videoShotIds) : undefined
       const result =
         items.length > 0
           ? await shots.run(items, request.quality)
@@ -186,8 +201,21 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         void shots
           .whenIdle()
           .then(() => shots.rejoin())
-          .then(() => {
-            notify({ tone: 'success', message: '成品接好了' })
+          .then(async () => {
+            if (!soundWant || !runSound) {
+              notify({ tone: 'success', message: '成品接好了' })
+              return
+            }
+            notify({ tone: 'success', message: '成品接好了，正在加旁白與配樂…' })
+            const problem = await runSound.add(soundWant)
+            notify(
+              problem === undefined
+                ? { tone: 'success', message: '旁白與配樂也加好了' }
+                : {
+                    tone: 'danger',
+                    message: `聲音沒加成（${problem}）：可以在成品面板的「聲音」區再試`,
+                  },
+            )
           })
           .catch((error: unknown) => {
             log.warn(`畫布接片失敗：${String(error)}`)

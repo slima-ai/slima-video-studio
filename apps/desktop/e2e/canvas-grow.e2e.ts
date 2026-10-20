@@ -1,4 +1,7 @@
 import type { Page } from '@playwright/test'
+import { spawnSync } from 'node:child_process'
+
+import ffmpegPath from 'ffmpeg-static'
 
 import { canvasEdges, canvasNodes, kindCount, viewportOf, viewportSettled } from './canvas-helpers'
 import { expect, test } from './fixtures'
@@ -53,6 +56,92 @@ const finished = async (page: Page): Promise<void> => {
   })
   await expect(page.getByTestId('toast').filter({ hasText: '短片生成好了' })).toBeVisible()
 }
+
+/**
+ * 成品的音軌：有幾條、平均音量（dB，用 ffmpeg 的 volumedetect 量；沒有音軌是 undefined，全靜音約 -91）。
+ * 不用 ffprobe：打包版沒有，開發版也不一定找得到。
+ */
+function audioOf(file: string): { tracks: number; meanDb: number | undefined } {
+  const run = (args: string[]) =>
+    spawnSync(ffmpegPath ?? 'ffmpeg', ['-hide_banner', '-i', file, ...args], { encoding: 'utf8' })
+  const info = run([])
+  if (!info.stderr.includes('Duration:')) throw new Error(`讀不到影片：${info.stderr.slice(-200)}`)
+  const tracks = info.stderr.split('\n').filter((l) => /Stream #\d+:\d+.*: Audio:/.test(l)).length
+  if (tracks === 0) return { tracks, meanDb: undefined }
+  const mean = /mean_volume: (-?[\d.]+|-inf) dB/.exec(
+    run(['-af', 'volumedetect', '-f', 'null', '-']).stderr,
+  )
+  return { tracks, meanDb: mean?.[1] === undefined ? undefined : Number(mean[1]) }
+}
+
+/** 接片一定會留一條音軌：旁白與配樂加上去之後聽得到（平均音量高於 -60 dB），沒加就是靜音（約 -91 dB）。 */
+function expectAudio(audio: ReturnType<typeof audioOf>, want: 'audible' | 'silent'): void {
+  expect(audio.tracks).toBe(1)
+  if (want === 'audible') expect(audio.meanDb ?? -Infinity).toBeGreaterThan(-60)
+  else expect(audio.meanDb ?? 0).toBeLessThan(-80)
+}
+
+/**
+ * 先產生分鏡（卡片上的聲音照 `sound` 勾）→ 每一鏡寫上台詞（分鏡寫好後使用者看過、改好）→ 按右上角「全部生成」。
+ * 回傳按下之前確認面板的文字，跟做完之後的聲音狀態與成品檔。
+ */
+async function storyboardThenGenerateAll(
+  page: Page,
+  sound: { narration: boolean; music: boolean },
+): Promise<{ confirmText: string }> {
+  await prepare(page)
+  // 影片原聲關掉：成品裡有沒有音軌，完全看旁白與配樂有沒有加
+  await page.getByTestId('oneliner-sound-native').uncheck()
+  for (const key of ['narration', 'music'] as const) {
+    if (!sound[key]) await page.getByTestId(`oneliner-sound-${key}`).uncheck()
+  }
+  await page.getByTestId('oneliner-storyboard').click()
+  await page.getByTestId('run-confirm-ok').click()
+  await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false', {
+    timeout: 60_000,
+  })
+  await expect.poll(() => kindCount(page, 'shot')).toBe(3)
+  await page.evaluate(async () => {
+    const list = await window.svs.invoke('shots.list', {})
+    if (!list.ok) throw new Error(list.error.userMessage)
+    for (const shot of list.data.shots) {
+      const done = await window.svs.invoke('shots.update', {
+        shotId: shot.id,
+        patch: { dialogue: `第 ${String(shot.number)} 鏡的台詞。` },
+      })
+      if (!done.ok) throw new Error(done.error.userMessage)
+    }
+  })
+  await page.getByTestId('run-all').click()
+  const confirm = page.getByTestId('run-confirm')
+  await expect(confirm).toBeVisible()
+  const confirmText = await confirm.innerText()
+  await page.getByTestId('run-confirm-ok').click()
+  await expect(confirm).toHaveCount(0)
+  return { confirmText }
+}
+
+const soundState = (page: Page) =>
+  page.evaluate(async () => {
+    const result = await window.svs.invoke('sound.get', {})
+    if (!result.ok) throw new Error(result.error.userMessage)
+    const { shots, music, final } = result.data
+    return {
+      narrated: shots.filter((s) => s.narration !== undefined).length,
+      shots: shots.length,
+      music: music !== undefined,
+      hasSound: final?.hasSound,
+      finalVersion: final?.version,
+    }
+  })
+
+/** 匯出最新成品（不加片尾字卡）並回傳檔案路徑。 */
+const exportedFinal = (page: Page): Promise<string> =>
+  page.evaluate(async () => {
+    const result = await window.svs.invoke('quickstart.export', { credits: false })
+    if (!result.ok) throw new Error(result.error.userMessage)
+    return result.data.path
+  })
 
 test.describe('畫布上的一句話（示範模式）', () => {
   test('寫一句話 → 確認花費 → 畫布長出場、鏡頭、圖、影片和剪輯，一句話連到新的場', async ({
@@ -118,10 +207,8 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await expect(confirm).toContainText('下一步才生圖片和影片')
     await expect(confirm).toContainText('全部生成')
     await expect(confirm).toContainText('準確的預估')
-    await expect(confirm).toContainText('旁白與配樂不在這一步')
-    await expect(page.getByTestId('oneliner-sound-note')).toContainText(
-      '只在「一次做完整支」時自動加',
-    )
+    await expect(confirm).toContainText('旁白與配樂也不在這一步')
+    await expect(page.getByTestId('oneliner-sound-note')).toContainText('按右上角的「全部生成」')
     await expect(confirm).toContainText('示範模式')
     // 兩個價錢都寫出來：這一步、下一步
     await expect(confirm).toContainText(/約 US\$\d+\.\d\d/)
@@ -323,5 +410,43 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await page.getByTestId('oneliner-generate').click()
     await expect(page.getByTestId('toast').filter({ hasText: '請到設定填入' })).toBeVisible()
     await expect(page.getByTestId('run-confirm')).toHaveCount(0)
+  })
+
+  test('先產生分鏡 → 全部生成：照卡片勾的旁白與配樂，預估含聲音，成品聽得到聲音', async ({
+    page,
+  }) => {
+    const { confirmText } = await storyboardThenGenerateAll(page, { narration: true, music: true })
+    expect(confirmText).toMatch(/接好片之後自動加旁白與配樂（約 US\$\d+\.\d\d）/)
+    await expect(page.getByTestId('toast').filter({ hasText: '旁白與配樂也加好了' })).toBeVisible({
+      timeout: 60_000,
+    })
+    const state = await soundState(page)
+    expect(state).toMatchObject({ narrated: 3, shots: 3, music: true, hasSound: true })
+    // 影片原聲關著（沒加聲音的對照是靜音），所以聽得到聲音就是旁白與配樂混出來的
+    expectAudio(audioOf(await exportedFinal(page)), 'audible')
+  })
+
+  test('先產生分鏡時只勾旁白：全部生成只念旁白，不生配樂', async ({ page }) => {
+    const { confirmText } = await storyboardThenGenerateAll(page, { narration: true, music: false })
+    expect(confirmText).toContain('接好片之後自動加旁白（約')
+    expect(confirmText).not.toContain('配樂')
+    await expect(page.getByTestId('toast').filter({ hasText: '旁白與配樂也加好了' })).toBeVisible({
+      timeout: 60_000,
+    })
+    expect(await soundState(page)).toMatchObject({ narrated: 3, music: false, hasSound: true })
+    expectAudio(audioOf(await exportedFinal(page)), 'audible')
+  })
+
+  test('先產生分鏡時旁白與配樂都沒勾：全部生成不加聲音，成品是靜音的', async ({ page }) => {
+    const { confirmText } = await storyboardThenGenerateAll(page, {
+      narration: false,
+      music: false,
+    })
+    expect(confirmText).not.toContain('自動加')
+    await expect(page.getByTestId('toast').filter({ hasText: '成品接好了' })).toBeVisible({
+      timeout: 60_000,
+    })
+    expect(await soundState(page)).toMatchObject({ narrated: 0, music: false, hasSound: false })
+    expectAudio(audioOf(await exportedFinal(page)), 'silent')
   })
 })

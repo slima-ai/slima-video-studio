@@ -228,3 +228,125 @@ describe('canvas.run', { timeout: 30_000 }, () => {
     expect(await h.canvas.run({ keys: [], all: true })).toEqual({ started: 0, failed: [] })
   })
 })
+
+// 「先產生分鏡」之後按「全部生成」：照一句話卡片記住的聲音勾選，接好片後自動加旁白與配樂
+describe('全部生成加聲音', { timeout: 60_000 }, () => {
+  const ALL_ON = { native: false, narration: true, music: true }
+
+  /** 一句話卡片勾好聲音 → 先產生分鏡 → 每個鏡頭寫上台詞（分鏡寫好後使用者看過、改好）。 */
+  async function storyboarded(sound: { native: boolean; narration: boolean; music: boolean }) {
+    const harness = createStudioHarness()
+    harnesses.push(harness)
+    const oneliner = harness.canvas.add({ kind: 'oneliner' })
+    harness.canvas.updateOneliner({ key: oneliner.key, patch: { sound } })
+    await harness.quickstart.run({
+      story: '一隻貓在雨天裡找到溫暖的家',
+      style: 'anime',
+      shotCount: 3,
+      durationSec: 3,
+      aspectRatio: '16:9',
+      variation: 0,
+      mode: 'append',
+      sourceKey: oneliner.key,
+      sound,
+      stage: 'storyboard',
+    })
+    await harness.finished()
+    for (const shot of harness.shots.list().shots) {
+      harness.shots.update(shot.id, { dialogue: `第 ${String(shot.number)} 鏡的台詞。` })
+    }
+    return { h: harness, oneliner }
+  }
+
+  const noticesOf = (h: Awaited<ReturnType<typeof storyboarded>>['h']): string[] =>
+    h.events
+      .filter((e) => e.name === 'canvas.notice')
+      .map((e) => (e.payload as { message: string }).message)
+
+  const settled = async (h: Awaited<ReturnType<typeof storyboarded>>['h'], text: string) => {
+    await vi.waitFor(
+      () => {
+        expect(noticesOf(h)).toContain(text)
+      },
+      { timeout: 30_000, interval: 20 },
+    )
+  }
+
+  it('預估多出旁白與配樂的錢，確認面板能列出來；差額就是聲音那一份', async () => {
+    const { h, oneliner } = await storyboarded(ALL_ON)
+    const withSound = h.canvas.runPlan({ keys: [], all: true })
+    expect(withSound.sound).toMatchObject({ narration: true, music: true })
+    expect(withSound.sound?.usd).toBeGreaterThan(0)
+    // 把卡片上的旁白與配樂都關掉：同一批鏡頭的預估少了聲音那一份，也不再有 sound
+    h.canvas.updateOneliner({
+      key: oneliner.key,
+      patch: { sound: { native: false, narration: false, music: false } },
+    })
+    const without = h.canvas.runPlan({ keys: [], all: true })
+    expect(without.sound).toBeUndefined()
+    expect(withSound.estimatedUsd - without.estimatedUsd).toBeCloseTo(withSound.sound?.usd ?? -1, 6)
+  })
+
+  it('全部生成：影片接好後自動念每一鏡的台詞、生一首配樂，成品混進聲音', async () => {
+    const { h } = await storyboarded(ALL_ON)
+    await h.canvas.run({ keys: [], all: true })
+    await settled(h, '旁白與配樂也加好了')
+    const state = h.sound.state()
+    expect(state.shots.every((s) => s.narration !== undefined)).toBe(true)
+    expect(state.music).toBeDefined()
+    expect(state.final?.hasSound).toBe(true)
+    // 先說接好了、正在加聲音，最後才說加好
+    expect(noticesOf(h)).toEqual(['成品接好了，正在加旁白與配樂…', '旁白與配樂也加好了'])
+  })
+
+  it('沒勾的不加：只勾配樂就只有配樂，沒有任何旁白', async () => {
+    const { h } = await storyboarded({ native: false, narration: false, music: true })
+    const plan = h.canvas.runPlan({ keys: [], all: true })
+    expect(plan.sound).toMatchObject({ narration: false, music: true })
+    await h.canvas.run({ keys: [], all: true })
+    await settled(h, '旁白與配樂也加好了')
+    const state = h.sound.state()
+    expect(state.music).toBeDefined()
+    expect(state.shots.every((s) => s.narration === undefined)).toBe(true)
+  })
+
+  it('旁白與配樂都沒勾：不加聲音，還是只說成品接好了', async () => {
+    const { h } = await storyboarded({ native: false, narration: false, music: false })
+    expect(h.canvas.runPlan({ keys: [], all: true }).sound).toBeUndefined()
+    await h.canvas.run({ keys: [], all: true })
+    await settled(h, '成品接好了')
+    expect(h.sound.state().music).toBeUndefined()
+    expect(h.sound.state().final?.hasSound).toBe(false)
+  })
+
+  it('自己一步一步做的鏡頭（沒有一句話連著）：全部生成不自動加聲音', async () => {
+    const h = await setup()
+    h.shots.create({})
+    const plan = h.canvas.runPlan({ keys: [], all: true })
+    expect(plan.rejoin).toBe(true)
+    expect(plan.sound).toBeUndefined()
+  })
+
+  it('已經有配樂就不再生一首：再補跑一次只補缺的旁白', async () => {
+    const { h } = await storyboarded(ALL_ON)
+    await h.canvas.run({ keys: [], all: true })
+    await settled(h, '旁白與配樂也加好了')
+    const firstMusic = h.sound.state().music?.id
+    // 新增一個鏡頭、寫上台詞，再按全部生成
+    const extra = h.shots.create({ sceneId: h.shots.list().shots[0]?.sceneId })
+    h.shots.update(extra.id, { dialogue: '多出來的一鏡。' })
+    const plan = h.canvas.runPlan({ keys: [], all: true })
+    expect(plan.sound).toMatchObject({ narration: true, music: false })
+    await h.canvas.run({ keys: [], all: true })
+    // 第二輪的兩則通知也出現了（第一輪留下的「加好了」不能算）
+    await vi.waitFor(
+      () => {
+        expect(noticesOf(h)).toHaveLength(4)
+      },
+      { timeout: 30_000, interval: 20 },
+    )
+    expect(noticesOf(h).at(-1)).toBe('旁白與配樂也加好了')
+    expect(h.sound.state().music?.id).toBe(firstMusic)
+    expect(h.sound.state().shots.every((s) => s.narration !== undefined)).toBe(true)
+  })
+})

@@ -281,6 +281,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
       models,
       projectsDir: options.projectsDir,
       log,
+      sound: () => soundRef.current,
       ...(options.pickFiles ? { pickFiles: options.pickFiles } : {}),
     }),
     records: createRecordsService({ projects, shots, models }),

@@ -67,6 +67,14 @@ function okLabelOf(plan: CanvasRunPlan): string {
   return '重做（產生新的一版，舊的保留）'
 }
 
+/** 生成完之後會自動加的旁白與配樂（照一句話卡片上勾的）。 */
+function soundLine(sound: NonNullable<CanvasRunPlan['sound']>): string {
+  const what = [sound.narration ? '旁白' : '', sound.music ? '配樂' : ''].filter(Boolean).join('與')
+  return sound.issue === undefined
+    ? `接好片之後自動加${what}（約 US$${sound.usd.toFixed(2)}）`
+    : `接好片之後想自動加${what}，但現在加不成：${sound.issue}`
+}
+
 /** 這次會跑的每一步（重做的註明版本），加上用哪個模型、略過幾鏡、示範模式的說明。 */
 export function runLines(plan: CanvasRunPlan): string[] {
   const models = [plan.models.image, plan.models.video].filter(
@@ -82,6 +90,7 @@ export function runLines(plan: CanvasRunPlan): string[] {
           }）`
         : step.label,
     ),
+    ...(plan.sound ? [soundLine(plan.sound)] : []),
     ...(models.length > 0 && plan.shotCount > 0 ? [`用：${models.join('、')}`] : []),
     ...(plan.skippedBusy > 0 ? [`${String(plan.skippedBusy)} 個鏡頭正在生成，先略過`] : []),
     ...(plan.demoMode && plan.shotCount > 0 ? ['示範模式：不會真的花錢，結果是假的'] : []),
