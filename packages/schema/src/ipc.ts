@@ -38,6 +38,7 @@ import {
   CanvasGetSchema,
   CanvasPasteSchema,
   CanvasPasteResultSchema,
+  CanvasAiChangedSchema,
   CanvasNoticeSchema,
   CanvasRunPlanSchema,
   CanvasRunRequestSchema,
@@ -1060,6 +1061,8 @@ export const ipcEvents = {
   'canvas.changed': CanvasChangedSchema,
   /** 背景做完事的一行通知（例如生成完自動接片）。 */
   'canvas.notice': CanvasNoticeSchema,
+  /** AI 工具（MCP）剛改了畫布上的哪些節點：畫面亮一下、標「AI 剛改」、提示刪了什麼。 */
+  'canvas.aiChanged': CanvasAiChangedSchema,
   /** 復原／重做的狀態有變動（編輯、復原、重做、換專案）。 */
   'history.changed': HistoryChangedSchema,
   /** Slima 連線狀態改變了。 */

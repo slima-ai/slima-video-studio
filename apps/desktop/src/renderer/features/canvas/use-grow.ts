@@ -57,8 +57,8 @@ export function useGrow(options: {
     const off = window.svs.on('quickstart.progress', (progress) => {
       if (progress.status === 'running') {
         // 影片接好之後正在加旁白與配樂：畫布仍顯示生成中，提示說明在做什麼
-        if (progress.phase === 'sound') {
-          toast.show({ key: 'grow', message: '正在加旁白與配樂…' })
+        if (progress.phase === 'sound' && progress.soundStart !== undefined) {
+          toast.show({ key: 'grow', message: progress.soundStart })
         }
         return
       }
@@ -88,7 +88,9 @@ export function useGrow(options: {
             key: 'grow',
             message: progress.soundFailed
               ? '短片生成好了，但聲音沒加成，可以在成品面板再試'
-              : '短片生成好了',
+              : progress.soundDone !== undefined && progress.soundDone !== '成品接好了'
+                ? `短片生成好了（${progress.soundDone}）`
+                : '短片生成好了',
             action,
           })
         } else if (progress.status === 'failed') {

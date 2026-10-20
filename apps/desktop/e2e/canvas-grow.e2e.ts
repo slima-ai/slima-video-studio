@@ -457,6 +457,20 @@ test.describe('畫布上的一句話（示範模式）', () => {
     expectAudio(audioOf(await exportedFinal(page)), 'silent')
   })
 
+  test('一次做完整支（示範模式、沒有台詞）：完成的提示說實話——配樂加好了、沒有旁白', async ({
+    page,
+  }) => {
+    await prepare(page)
+    await generate(page)
+    await finished(page)
+    await expect(
+      page
+        .getByTestId('toast')
+        .filter({ hasText: '短片生成好了（配樂加好了；沒有鏡頭有台詞，所以沒有旁白）' }),
+    ).toBeVisible()
+    expect(await soundState(page)).toMatchObject({ narrated: 0, music: true, hasSound: true })
+  })
+
   test('示範模式拆出來的鏡頭沒有台詞：確認面板說旁白不會念，只加配樂，通知也說實話', async ({
     page,
   }) => {

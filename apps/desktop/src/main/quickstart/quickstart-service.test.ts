@@ -1,5 +1,9 @@
 import { encodePng } from '@svs/providers'
-import { DEFAULT_STORYBOARD_GUIDE, type QuickStartRequest } from '@svs/schema'
+import {
+  DEFAULT_STORYBOARD_GUIDE,
+  type QuickStartProgress,
+  type QuickStartRequest,
+} from '@svs/schema'
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -156,6 +160,24 @@ describe('QuickStartService.run（示範模式，不連網、不用 Key）', () 
     )
     // 之後用一般的「生成」補上圖片和影片
     expect(list.every((shot) => shot.status !== 'done')).toBe(true)
+  })
+
+  describe('一次做完整支的聲音通知：只說真的會做、做了的事', () => {
+    const SOUND = { native: false, narration: true, music: true }
+    const lastWith = (progress: () => QuickStartProgress[], key: 'soundStart' | 'soundDone') =>
+      [...progress()].reverse().find((p) => p[key] !== undefined)?.[key]
+
+    it('示範模式拆出來的鏡頭沒有台詞：進行中只說配樂，完成說配樂加好了、沒有旁白', async () => {
+      const { service, finished, progress, sound } = setup()
+      await service.run(request({ sound: SOUND }))
+      const done = await finished()
+      expect(done.status).toBe('succeeded')
+      expect(lastWith(progress, 'soundStart')).toBe('成品接好了，正在加配樂…')
+      expect(done.soundDone).toBe('配樂加好了；沒有鏡頭有台詞，所以沒有旁白')
+      const state = sound.state()
+      expect(state.music).toBeDefined()
+      expect(state.shots.every((shot) => shot.narration === undefined)).toBe(true)
+    })
   })
 
   it('分鏡準則會帶進拆鏡的提示；改了準則就不再沿用舊的拆鏡結果', async () => {

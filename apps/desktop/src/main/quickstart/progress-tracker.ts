@@ -37,20 +37,23 @@ export class ProgressTracker {
   }
 
   /** 影片接好了，開始加旁白與配樂（狀態仍是進行中，畫布一直顯示生成中）。 */
-  startSound(): QuickStartProgress | undefined {
-    return this.update({ phase: 'sound' })
+  startSound(text?: string): QuickStartProgress | undefined {
+    return this.update({ phase: 'sound', ...(text === undefined ? {} : { soundStart: text }) })
   }
 
   /** 加聲音做完：成品換成混好的那一版；沒加成功就記下來（完成訊息會說）。 */
   finishSound(result: {
     finalVideoHash?: string
     failed: boolean
+    /** 加完聲音那一句（沒加成功時不會有）。 */
+    done?: string
   }): QuickStartProgress | undefined {
     if (!this.state) return undefined
     const next = {
       ...this.state,
       ...(result.finalVideoHash === undefined ? {} : { finalVideoHash: result.finalVideoHash }),
       ...(result.failed ? { soundFailed: true } : {}),
+      ...(result.done === undefined ? {} : { soundDone: result.done }),
     }
     this.state = next
     return this.state
