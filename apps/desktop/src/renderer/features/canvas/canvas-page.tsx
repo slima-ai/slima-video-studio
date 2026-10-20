@@ -59,7 +59,7 @@ import { choicesFor, type AddChoice } from './connection-rules'
 import { nodeEntries, paneEntries, type ContextEntry } from './context-menu'
 import { DELETE_TOAST_MS, FIXED_EDGE_REASON, planDelete, type DeletePlan } from './delete-plan'
 import { DetailPanel, keyOfTarget, panelTargetOf, type PanelTarget } from './detail-panel'
-import { READABLE_ZOOM, openViewport, useFitAll } from './fit-all'
+import { READABLE_ZOOM, openViewport, useFitAll, useFitAllAsync } from './fit-all'
 import { FLOAT_PANEL } from './floating-panel'
 import { DragOverlay } from './drag-overlay'
 import { ConnectionLine, EDGE_TYPES } from './edges'
@@ -173,6 +173,7 @@ interface CanvasProps {
 function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasProps) {
   const rf = useReactFlow<CanvasNode, CanvasEdge>()
   const fitAll = useFitAll()
+  const fitAllAsync = useFitAllAsync()
   useEffect(() => {
     window.__svsCanvas = rf
   }, [rf])
@@ -313,27 +314,23 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     },
     [rf],
   )
-  // 這次生成是從哪個一句話按的（長完時連它一起放進畫面）
-  const growSource = useRef<string | undefined>(undefined)
   // 就地改名的函式在後面才定義：畫布動作（卡片上的雙擊）用 ref 呼叫它
   const startRenameRef = useRef<(nodeId: string) => void>(undefined)
   const grow = useGrow({
-    onFinished: async () => {
-      // 長完了：讀最後的資料，再一次把「一句話＋新的那一場」放進畫面。
+    onFinished: async (status) => {
+      // 長完了：讀最後的資料，再把整串放進畫面。
       // 長的過程中畫面不動（不然節點一個個冒出來時畫面一直跳），只在這裡動一次
       const key = grownScene.current
-      const source = growSource.current
       grownScene.current = undefined
-      growSource.current = undefined
       await onRefresh()
       await new Promise((resolve) => window.setTimeout(resolve, 120))
-      const ids = [key, source].filter(
-        (id): id is string => id !== undefined && latestFlow.current.nodes.some((n) => n.id === id),
-      )
+      // 長完要一眼看到整串（一句話、場、鏡頭、圖、影片到剪輯）：用「全部顯示」。
+      // 只框一句話和場的話，場的框只包住鏡頭那一欄，圖、影片和剪輯會跑到畫面右邊外面。
+      // 「先產生分鏡」的節點是長完才一起出現的（過程中沒有新節點），不能只靠「長的過程中記下新的場」，
+      // 所以成功就一定放；中途停下或失敗，有長出新的場才放
+      const grewScene = key !== undefined && latestFlow.current.nodes.some((n) => n.id === key)
       // 等這次動畫做完才算長完（data-growing 這時才變 false、才跳「短片生成好了」）
-      if (key !== undefined && ids.includes(key)) {
-        await rf.fitView({ ...FIT_OPTIONS, nodes: ids.map((id) => ({ id })), duration: 400 })
-      }
+      if (status === 'succeeded' || grewScene) await fitAllAsync(400)
     },
   })
   const { start: startGrow, stop: stopGrow } = grow
@@ -1243,7 +1240,6 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       },
       growStory: (nodeId, params, anchor, stage) => {
         grownScene.current = undefined
-        growSource.current = nodeId
         startGrow(
           nodeId,
           params,

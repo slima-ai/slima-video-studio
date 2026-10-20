@@ -77,10 +77,10 @@ export function overflowViewport(
 }
 
 /**
- * 「全部顯示」：一般就是 fitView；裝不下（縮到看得清楚的程度也放不進畫面，例如 27 鏡、250 鏡）時，
- * 停在那個縮放、從第一場開始看，其他的往下、往右捲動或拖曳。
+ * 「全部顯示」，等視角動畫做完才完成（回傳 Promise）。一般就是 fitView；裝不下（縮到看得清楚的程度
+ * 也放不進畫面，例如 27 鏡、250 鏡）時，停在那個縮放、從第一場開始看，其他的往下、往右捲動或拖曳。
  */
-export function useFitAll(): (duration?: number) => void {
+export function useFitAllAsync(): (duration?: number) => Promise<unknown> {
   const rf = useReactFlow<CanvasNode, CanvasEdge>()
   const store = useStoreApi<CanvasNode, CanvasEdge>()
   return useCallback(
@@ -96,10 +96,22 @@ export function useFitAll(): (duration?: number) => void {
               Math.max(minZoom, READABLE_ZOOM),
             )
           : undefined
-      if (overflow) void rf.setViewport(overflow, { duration })
-      else void rf.fitView({ ...FIT_OPTIONS, duration })
+      return overflow
+        ? rf.setViewport(overflow, { duration })
+        : rf.fitView({ ...FIT_OPTIONS, duration })
     },
     [rf, store],
+  )
+}
+
+/** 「全部顯示」（不等動畫做完）。 */
+export function useFitAll(): (duration?: number) => void {
+  const fit = useFitAllAsync()
+  return useCallback(
+    (duration = 300) => {
+      void fit(duration)
+    },
+    [fit],
   )
 }
 

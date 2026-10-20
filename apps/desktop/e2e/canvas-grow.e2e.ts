@@ -194,6 +194,42 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await expect(page.getByTestId('oneliner-generate')).toHaveText('一次做完整支')
   })
 
+  test('長完之後一眼看到整串：1440×900 的視窗，先產生分鏡，剪輯在畫面內，縮放不低於看得清楚的下限', async ({
+    app,
+    page,
+  }) => {
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(1440, 900)
+    })
+    // 預設的 4 個鏡頭（第一次用的人不會去改）
+    await page.getByTestId('empty-add-oneliner').click()
+    await expect(oneliner(page)).toBeVisible()
+    await page.getByTestId('oneliner-story').fill('一隻貓在下雨的夜晚找到溫暖的家')
+    await page.getByTestId('oneliner-story').blur()
+    await page.getByTestId('oneliner-storyboard').click()
+    await page.getByTestId('run-confirm-ok').click()
+    await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false', {
+      timeout: 60_000,
+    })
+    await expect.poll(() => kindCount(page, 'shot')).toBe(4)
+    await viewportSettled(page)
+    // 一句話、第一鏡、最後一鏡的影片、剪輯，整串都在畫面內（以前停在 100%，剪輯在右邊外面）
+    const nodes = await canvasNodes(page)
+    const lastVideo = nodes.filter((n) => n.data.kind === 'video').at(-1)
+    if (!lastVideo) throw new Error('沒有影片格子')
+    for (const id of [
+      nodes.find((n) => n.data.kind === 'oneliner')?.id ?? '',
+      lastVideo.id,
+      'cut',
+    ]) {
+      await expect(page.locator(`.react-flow__node[data-id="${id}"]`)).toBeInViewport({
+        ratio: 0.9,
+      })
+    }
+    // 縮到看不清楚（卡片只剩色塊）就失去意義：不低於 50%
+    expect((await viewportOf(page)).zoom).toBeGreaterThanOrEqual(0.5)
+  })
+
   test('主按鈕「先產生分鏡」：白話說兩步各多少錢 → 只長出場與鏡頭，沒有圖片、影片和成品', async ({
     page,
   }) => {
