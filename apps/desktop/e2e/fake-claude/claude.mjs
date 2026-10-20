@@ -13,7 +13,12 @@ if (args[0] === '--version') {
   process.exit(0)
 }
 if (args[0] === 'auth' && args[1] === 'status') {
-  console.log(JSON.stringify({ loggedIn: process.env.FAKE_CLAUDE_LOGGED_OUT !== '1', authMethod: 'claude.ai' }))
+  console.log(
+    JSON.stringify({
+      loggedIn: process.env.FAKE_CLAUDE_LOGGED_OUT !== '1',
+      authMethod: 'claude.ai',
+    }),
+  )
   process.exit(0)
 }
 
@@ -30,12 +35,22 @@ let mcp
 let nextId = 1
 const pending = new Map()
 function startMcp() {
-  mcp = spawn(bridge.command, bridge.args, { env: { ...process.env, ...bridge.env }, stdio: ['pipe', 'pipe', 'inherit'] })
+  mcp = spawn(bridge.command, bridge.args, {
+    env: { ...process.env, ...bridge.env },
+    stdio: ['pipe', 'pipe', 'inherit'],
+  })
   readline.createInterface({ input: mcp.stdout }).on('line', (line) => {
     let message
-    try { message = JSON.parse(line) } catch { return }
+    try {
+      message = JSON.parse(line)
+    } catch {
+      return
+    }
     const waiter = pending.get(message.id)
-    if (waiter) { pending.delete(message.id); waiter(message) }
+    if (waiter) {
+      pending.delete(message.id)
+      waiter(message)
+    }
   })
 }
 const rpc = (method, params) =>
@@ -47,7 +62,11 @@ const rpc = (method, params) =>
 async function callTool(name, input) {
   if (!mcp) {
     startMcp()
-    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'fake-claude', version: '1' } })
+    await rpc('initialize', {
+      protocolVersion: '2024-11-05',
+      capabilities: {},
+      clientInfo: { name: 'fake-claude', version: '1' },
+    })
     mcp.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`)
   }
   const reply = await rpc('tools/call', { name, arguments: input })
@@ -69,23 +88,60 @@ let toolCount = 0
 const PREFIX = 'mcp__slima-video-studio__'
 async function useTool(name, input) {
   const id = `toolu_fake_${++toolCount}`
-  out({ type: 'stream_event', event: { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id, name: PREFIX + name, input: {} } } })
+  out({
+    type: 'stream_event',
+    event: {
+      type: 'content_block_start',
+      index: 0,
+      content_block: { type: 'tool_use', id, name: PREFIX + name, input: {} },
+    },
+  })
   const result = await callTool(name, input)
-  out({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, is_error: result.isError, content: result.content }] } })
+  out({
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [
+        { type: 'tool_result', tool_use_id: id, is_error: result.isError, content: result.content },
+      ],
+    },
+  })
 }
 const say = (text) => {
   for (const piece of text.match(/.{1,4}/gu) ?? []) {
-    out({ type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: piece } } })
+    out({
+      type: 'stream_event',
+      event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: piece } },
+    })
   }
 }
-const finish = (text) => out({ type: 'result', subtype: 'success', is_error: false, result: text, session_id: sessionId, total_cost_usd: 0.01 })
+const finish = (text) =>
+  out({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    result: text,
+    session_id: sessionId,
+    total_cost_usd: 0.01,
+  })
 
 let interruptWaiter
 readline.createInterface({ input: process.stdin }).on('line', async (line) => {
   let message
-  try { message = JSON.parse(line) } catch { return }
+  try {
+    message = JSON.parse(line)
+  } catch {
+    return
+  }
   if (message.type === 'control_request' && message.request?.subtype === 'interrupt') {
-    out({ type: 'control_response', response: { subtype: 'success', request_id: message.request_id, response: { still_queued: [] } } })
+    out({
+      type: 'control_response',
+      response: {
+        subtype: 'success',
+        request_id: message.request_id,
+        response: { still_queued: [] },
+      },
+    })
     if (interruptWaiter) interruptWaiter()
     return
   }
@@ -93,10 +149,30 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
   const text = String(message.message?.content ?? '')
   if (text.includes('很久')) {
     // 一個要做很久的工作：等使用者按停止
-    out({ type: 'stream_event', event: { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'toolu_slow', name: `${PREFIX}wait_for_generation`, input: {} } } })
-    await new Promise((resolve) => { interruptWaiter = resolve })
+    out({
+      type: 'stream_event',
+      event: {
+        type: 'content_block_start',
+        index: 0,
+        content_block: {
+          type: 'tool_use',
+          id: 'toolu_slow',
+          name: `${PREFIX}wait_for_generation`,
+          input: {},
+        },
+      },
+    })
+    await new Promise((resolve) => {
+      interruptWaiter = resolve
+    })
     interruptWaiter = undefined
-    out({ type: 'result', subtype: 'error_during_execution', is_error: true, terminal_reason: 'aborted_streaming', session_id: sessionId })
+    out({
+      type: 'result',
+      subtype: 'error_during_execution',
+      is_error: true,
+      terminal_reason: 'aborted_streaming',
+      session_id: sessionId,
+    })
     return
   }
   if (text.includes('壞掉')) process.exit(1)
