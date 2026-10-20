@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
 
-import { canvasNodes, centerOn } from './canvas-helpers'
+import { canvasNodes, centerOn, viewportOf, viewportSettled } from './canvas-helpers'
 import { expect, test } from './fixtures'
 
 const freePort = (): Promise<number> =>
@@ -110,6 +110,72 @@ test.describe('畫布：AI 剛改過', () => {
       .toBe(true)
     await page.waitForTimeout(500)
     await expect(page.locator('[data-testid^="ai-badge-"]')).toHaveCount(0)
+    await ai.close()
+  })
+
+  test('跟著 AI：AI 改到畫面外的東西，畫面平順移過去；可以關掉；使用者按著滑鼠時不搶畫面', async ({
+    page,
+    userDataDir,
+  }) => {
+    const ai = await connectAi(page, userDataDir)
+    await ai.callTool({ name: 'create_project', arguments: { name: '跟著 AI' } })
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const shotId = idOf(await ai.callTool({ name: 'create_shot', arguments: {} }))
+    const shot = `shot:${shotId}`
+    await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === shot)).toBe(true)
+    // AI 動過之後，右下角才出現「跟著 AI」開關，預設開
+    const toggle = page.getByTestId('follow-ai')
+    await expect(toggle).toBeVisible()
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+    const awayFromShot = async (): Promise<void> => {
+      await page.evaluate(() => {
+        const rf = (
+          window as unknown as {
+            __svsCanvas?: { setViewport: (v: object) => Promise<boolean> }
+          }
+        ).__svsCanvas
+        void rf?.setViewport({ x: -6000, y: -6000, zoom: 1 })
+      })
+      await viewportSettled(page)
+    }
+
+    // 開著：AI 改了這個鏡頭，畫面移過去，鏡頭看得到
+    await awayFromShot()
+    await expect(page.getByTestId(`node-${shot}`)).not.toBeInViewport()
+    await ai.callTool({
+      name: 'update_shot',
+      arguments: { shotId, description: '貓跳上窗台' },
+    })
+    await expect(page.getByTestId(`node-${shot}`)).toBeInViewport({ ratio: 0.9 })
+    await viewportSettled(page)
+
+    // 使用者按著滑鼠的時候不搶畫面
+    await awayFromShot()
+    const before = await viewportOf(page)
+    await page.mouse.move(700, 500)
+    await page.mouse.down()
+    await ai.callTool({
+      name: 'update_shot',
+      arguments: { shotId, description: '貓跳上窗台，看著雨' },
+    })
+    await page.waitForTimeout(1200)
+    expect(await viewportOf(page)).toEqual(before)
+    await page.mouse.up()
+
+    // 關掉：AI 改了也不動
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', 'false')
+    await page.waitForTimeout(1700)
+    await awayFromShot()
+    const parked = await viewportOf(page)
+    await ai.callTool({
+      name: 'update_shot',
+      arguments: { shotId, description: '貓睡著了' },
+    })
+    await page.waitForTimeout(1200)
+    expect(await viewportOf(page)).toEqual(parked)
     await ai.close()
   })
 })
