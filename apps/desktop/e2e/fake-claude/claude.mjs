@@ -176,6 +176,24 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
     return
   }
   if (text.includes('壞掉')) process.exit(1)
+  if (text.includes('用量')) {
+    // 這個行程的用量用完了：沒做完就停
+    say('做到一半…')
+    out({
+      type: 'result',
+      subtype: 'error_max_budget_usd',
+      is_error: true,
+      session_id: sessionId,
+    })
+    return
+  }
+  if (text.includes('接著剛才')) {
+    // 新的行程用 --resume 接回同一個對話
+    const reply = `接著做完了（${flag('--resume') === undefined ? '新的對話' : '接回同一個對話'}）。`
+    say(reply)
+    finish(reply)
+    return
+  }
   if (text.includes('表格')) {
     // 真的 Claude 常回 Markdown：表格、粗體、清單，還有不該被執行的 HTML
     const reply = [

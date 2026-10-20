@@ -42,6 +42,8 @@ export interface ChatServiceDeps {
   emitThrottleMs?: number
   /** 按了停止、對方這麼久還沒結束這一輪，就改用 SIGINT。 */
   interruptGraceMs?: number
+  /** 對話閒置這麼久（毫秒）就把它的 claude 行程關掉；下次講話再用 --resume 接上。 */
+  idleMs?: number
 }
 
 export interface ChatService {
@@ -62,6 +64,8 @@ const TITLE_FROM_TEXT_MAX = 20
 const CHECK_TTL_MS = 60_000
 /** Claude 自己的用量上限：一個對話行程最多這麼多美金（保守值；訂閱使用者這只是用量的參考）。 */
 const DEFAULT_MAX_BUDGET_USD = 0.5
+/** 閒置多久關掉行程：十個對話就是十個常駐的 claude，沒在用的不該一直佔著。 */
+const DEFAULT_IDLE_MS = 10 * 60_000
 
 interface Turn {
   assistant: ChatPanelMessage
@@ -77,6 +81,9 @@ interface Conversation {
   started: boolean
   proc?: ClaudeProcess | undefined
   turn?: Turn | undefined
+  /** 上一輪是因為用量／步數到上限停的：下一則要換新行程（新的用量額度）才接得下去。 */
+  recycle?: boolean | undefined
+  idleTimer?: NodeJS.Timeout | undefined
 }
 
 const invalid = (userMessage: string): AppError =>
@@ -91,6 +98,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
   const newId = deps.newId ?? randomUUID
   const throttleMs = deps.emitThrottleMs ?? 60
   const graceMs = deps.interruptGraceMs ?? 4000
+  const idleMs = deps.idleMs ?? DEFAULT_IDLE_MS
   const conversations = new Map<string, Conversation>()
   let cached: { at: number; value: ClaudeCheck } | undefined
 
@@ -146,10 +154,33 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     conv.info.updatedAt = now().toISOString()
   }
 
+  const clearIdle = (conv: Conversation): void => {
+    if (conv.idleTimer) clearTimeout(conv.idleTimer)
+    conv.idleTimer = undefined
+  }
+
+  /** 這個對話沒在做事了：開始倒數，閒置夠久就關掉行程（下次講話用 --resume 接回同一個對話）。 */
+  const armIdle = (conv: Conversation): void => {
+    clearIdle(conv)
+    if (idleMs <= 0 || !conv.proc) return
+    conv.idleTimer = setTimeout(() => {
+      conv.idleTimer = undefined
+      if (conv.turn || !conv.proc) return
+      deps.log.info('Claude 對話閒置太久，關掉行程（下次講話會接回同一個對話）')
+      conv.proc.close()
+    }, idleMs)
+    conv.idleTimer.unref()
+  }
+
   /** 這一輪結束（成功、被停止、出錯）：整理最後的樣子、推給畫面。 */
   const finishTurn = (
     conv: Conversation,
-    outcome: { state: 'done' | 'stopped' | 'error'; error?: string; text?: string },
+    outcome: {
+      state: 'done' | 'stopped' | 'error'
+      error?: string
+      text?: string
+      resumable?: boolean
+    },
   ): void => {
     const { turn } = conv
     if (!turn) return
@@ -165,10 +196,13 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     )
     message.state = outcome.state
     if (outcome.error !== undefined) message.error = outcome.error
+    if (outcome.resumable === true) message.resumable = true
+    conv.recycle = outcome.resumable === true
     conv.info.running = false
     touch(conv)
     emitMessage(conv, message)
     emitConversation(conv)
+    armIdle(conv)
   }
 
   const onSignal = (conv: Conversation, proc: ClaudeProcess, signal: StreamSignal): void => {
@@ -223,7 +257,13 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
         if (!turn) return
         if (signal.ok) finishTurn(conv, { state: 'done', text: signal.text })
         else if (signal.interrupted) finishTurn(conv, { state: 'stopped' })
-        else finishTurn(conv, { state: 'error', error: signal.error ?? LOST })
+        else {
+          finishTurn(conv, {
+            state: 'error',
+            error: signal.error ?? LOST,
+            ...(signal.resumable === true ? { resumable: true } : {}),
+          })
+        }
         return
     }
   }
@@ -235,6 +275,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
   ): void => {
     if (conv.proc !== proc) return
     conv.proc = undefined
+    clearIdle(conv)
     if (conv.turn) {
       // 行程自己當掉或被中斷後退出：說明一聲；stderr 只進紀錄，不給使用者看
       deps.log.warn(
@@ -245,6 +286,13 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
   }
 
   const ensureProcess = (conv: Conversation, claudePath: string): ClaudeProcess => {
+    // 上一輪因為用量到上限停下來：舊行程的額度用完了，關掉換新的（--resume 接回同一個對話）
+    if (conv.recycle && conv.proc) {
+      const old = conv.proc
+      conv.proc = undefined
+      old.close()
+    }
+    conv.recycle = false
     if (conv.proc && !conv.proc.exited) return conv.proc
     mkdirSync(deps.workDir, { recursive: true })
     const args = buildClaudeArgs({
@@ -252,7 +300,10 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       resume: conv.started,
       bridge: deps.bridge,
       systemPrompt: CHAT_SYSTEM_PROMPT,
-      maxBudgetUsd: deps.maxBudgetUsd ?? DEFAULT_MAX_BUDGET_USD,
+      maxBudgetUsd:
+        deps.settings.get().experiments.claudeBudgetUsd ??
+        deps.maxBudgetUsd ??
+        DEFAULT_MAX_BUDGET_USD,
     })
     const proc: ClaudeProcess = startClaudeProcess({
       spawn: deps.spawn,
@@ -321,6 +372,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       if (!enabled()) throw invalid('Claude 對話是實驗功能，現在沒有打開。到設定可以打開它。')
       if (!deps.settings.get().mcp.enabled) throw invalid(NO_MCP)
       if (conv.turn) throw invalid('Claude 還在做上一則，等它做完，或先按停止。')
+      clearIdle(conv)
       conv.turn = {
         assistant: {
           id: newId(),
@@ -390,6 +442,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
 
     dispose() {
       for (const conv of conversations.values()) {
+        clearIdle(conv)
         if (conv.turn) {
           if (conv.turn.emitTimer) clearTimeout(conv.turn.emitTimer)
           if (conv.turn.interruptTimer) clearTimeout(conv.turn.interruptTimer)

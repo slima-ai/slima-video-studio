@@ -18,6 +18,8 @@ export type StreamSignal =
       text: string
       /** 沒做完時的白話原因。 */
       error?: string
+      /** 是因為用量或步數到上限才停：換新行程接著做就能繼續。 */
+      resumable?: boolean
     }
 
 const SUMMARY_MAX = 200
@@ -122,17 +124,31 @@ export function signalsOf(event: unknown): StreamSignal[] {
       return [{ kind: 'result', ok: true, interrupted: false, text }]
     }
     if (interrupted) return [{ kind: 'result', ok: false, interrupted: true, text }]
-    return [{ kind: 'result', ok: false, interrupted: false, text, error: resultError(subtype) }]
+    return [
+      {
+        kind: 'result',
+        ok: false,
+        interrupted: false,
+        text,
+        error: resultError(subtype),
+        ...(isResumable(subtype) ? { resumable: true } : {}),
+      },
+    ]
   }
   return []
 }
 
+/** 用量或步數到上限：不是壞了，換一個新行程（--resume 接回同一個對話）就能接著做。 */
+const isResumable = (subtype: string): boolean =>
+  subtype === 'error_max_budget_usd' || subtype === 'error_max_turns'
+
 /** 沒做完的一輪，用白話說原因（不貼原始錯誤文字給使用者）。 */
 function resultError(subtype: string): string {
   if (subtype === 'error_max_budget_usd') {
-    return '這個對話的 Claude 用量到上限了。開一個新對話，或之後再試。'
+    return '這一段用量到上限了（跟生成圖片、影片的額度是兩回事）。按「繼續」，Claude 會接著剛才的做下去。'
   }
-  if (subtype === 'error_max_turns') return 'Claude 這次做了太多步，先停下來了。可以請它接著做。'
+  if (subtype === 'error_max_turns')
+    return 'Claude 這次做了太多步，先停下來了。按「繼續」，它會接著做。'
   return 'Claude 這次沒有做完，請再試一次。'
 }
 

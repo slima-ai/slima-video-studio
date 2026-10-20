@@ -35,8 +35,12 @@ export type McpSettings = z.infer<typeof McpSettingsSchema>
  * 實驗功能（App 層級）。`claudeChat`＝畫布右下角的 Claude 對話：沒設就依版本——開發版開、打包版關
  * （條款還沒決定，公開發佈前的保險）；使用者在設定頁一動，就用他選的。
  */
+export const CHAT_BUDGET_MIN_USD = 0.1
+export const CHAT_BUDGET_MAX_USD = 20
 export const ExperimentsSettingsSchema = z.object({
   claudeChat: z.boolean().optional(),
+  /** Claude 對話每一段（一個行程）的用量上限，美金；沒設就用預設。到上限時畫面給「繼續」。 */
+  claudeBudgetUsd: z.number().min(CHAT_BUDGET_MIN_USD).max(CHAT_BUDGET_MAX_USD).optional(),
 })
 export type ExperimentsSettings = z.infer<typeof ExperimentsSettingsSchema>
 
@@ -104,7 +108,18 @@ export const AppSettingsPatchSchema = z.object({
     })
     .optional(),
   /** 實驗功能開關：逐項合併。 */
-  experiments: z.object({ claudeChat: z.boolean().optional() }).optional(),
+  experiments: z
+    .object({
+      claudeChat: z.boolean().optional(),
+      /** null＝改回預設。 */
+      claudeBudgetUsd: z
+        .number()
+        .min(CHAT_BUDGET_MIN_USD)
+        .max(CHAT_BUDGET_MAX_USD)
+        .nullable()
+        .optional(),
+    })
+    .optional(),
 })
 export type AppSettingsPatch = z.infer<typeof AppSettingsPatchSchema>
 

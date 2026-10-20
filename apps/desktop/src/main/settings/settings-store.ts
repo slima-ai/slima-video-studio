@@ -26,6 +26,18 @@ function definedOnly<T extends object>(value: T): Partial<T> {
   return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>
 }
 
+/** 實驗功能逐項合併；用量上限傳 null＝改回預設（把那一項拿掉）。 */
+function patchExperiments(
+  current: AppSettings,
+  patch: AppSettingsPatch,
+): AppSettings['experiments'] {
+  const { claudeBudgetUsd, ...rest } = patch.experiments ?? {}
+  const merged: AppSettings['experiments'] = { ...current.experiments, ...definedOnly(rest) }
+  if (claudeBudgetUsd === null) Reflect.deleteProperty(merged, 'claudeBudgetUsd')
+  else if (claudeBudgetUsd !== undefined) merged.claudeBudgetUsd = claudeBudgetUsd
+  return merged
+}
+
 /** 把局部更新套到目前設定上：models 逐項合併（null = 改回推薦），其他欄位整塊替換。 */
 export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSettings {
   const models = { ...current.models }
@@ -52,9 +64,7 @@ export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSe
       ? {}
       : { storyboardGuide: patch.storyboardGuide.trim() }),
     ...(patch.mcp === undefined ? {} : { mcp: { ...current.mcp, ...definedOnly(patch.mcp) } }),
-    ...(patch.experiments === undefined
-      ? {}
-      : { experiments: { ...current.experiments, ...definedOnly(patch.experiments) } }),
+    ...(patch.experiments === undefined ? {} : { experiments: patchExperiments(current, patch) }),
     models,
     audio: { voices },
   })

@@ -7,6 +7,9 @@ import { useChatDock } from './chat-context'
 import { MessageView } from './message-view'
 import { PrereqCard } from './prereq-card'
 
+/** 按「繼續」時送出的話：Claude 用 --resume 接回同一個對話，看得到剛才做到哪。 */
+const CONTINUE_TEXT = '請接著剛才的做下去。'
+
 /** 對話框空的時候給的幾個起手式：點一下填進輸入框，不會自己送出。 */
 const STARTERS = [
   '幫我新增三個鏡頭：清晨的街角、公車進站、主角抬頭看天空',
@@ -116,8 +119,19 @@ function StarterFill({
 
 /** 右邊滑出的對話面板內容：上面是對話切換與新對話，中間是訊息，下面是輸入框。 */
 export function ChatPanel() {
-  const { prereq, recheck, setOpen, conversations, activeId, select, newConversation, messages } =
-    useChatDock()
+  const {
+    prereq,
+    recheck,
+    setOpen,
+    conversations,
+    activeId,
+    select,
+    newConversation,
+    messages,
+    active,
+    send,
+  } = useChatDock()
+  const running = active?.running === true
   const end = useRef<HTMLDivElement>(null)
   // 有新內容就捲到最底
   useEffect(() => {
@@ -193,7 +207,15 @@ export function ChatPanel() {
                 </p>
               </div>
             ) : (
-              messages.map((message) => <MessageView key={message.id} message={message} />)
+              messages.map((message, index) => (
+                <MessageView
+                  key={message.id}
+                  message={message}
+                  {...(index === messages.length - 1 && !running
+                    ? { onContinue: () => void send(CONTINUE_TEXT) }
+                    : {})}
+                />
+              ))
             )}
             <div ref={end} />
           </div>
