@@ -20,15 +20,27 @@ export function LooseBanner({
     <div
       data-testid="loose-banner"
       role="status"
-      className="absolute left-1/2 top-[68px] z-20 flex max-w-[640px] -translate-x-1/2 items-center gap-3 rounded-xl border border-warning/60 bg-surface-raised px-4 py-2 text-sm shadow-panel"
+      className="absolute left-1/2 top-[68px] z-20 flex max-w-[760px] -translate-x-1/2 items-center gap-3 rounded-xl border border-warning/60 bg-surface-raised px-4 py-2 text-sm shadow-panel"
     >
       <span className="leading-snug">
         有 <b>{count}</b> 個鏡頭還沒歸到任何場：沒歸場的鏡頭不會接進成品（排在最右邊一欄）。
       </span>
-      <Button size="sm" variant="secondary" data-testid="loose-show" onClick={onShow}>
+      <Button
+        size="sm"
+        variant="secondary"
+        className="shrink-0 whitespace-nowrap"
+        data-testid="loose-show"
+        onClick={onShow}
+      >
         看它們
       </Button>
-      <Button size="sm" variant="primary" data-testid="loose-assign" onClick={onAssign}>
+      <Button
+        size="sm"
+        variant="primary"
+        className="shrink-0 whitespace-nowrap"
+        data-testid="loose-assign"
+        onClick={onAssign}
+      >
         {sceneName === undefined ? '歸進一個新的場' : `歸進「${sceneName}」`}
       </Button>
     </div>
