@@ -24,7 +24,7 @@ import {
   quickStartItemCounts,
   registerQuickStartNodes,
 } from '@svs/workflows'
-import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -415,7 +415,10 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       const dir = join(handle.dir, 'exports')
       mkdirSync(dir, { recursive: true })
       const title = safeFileName(tracker.snapshot()?.title ?? '', '短片')
-      const path = join(dir, `${title}-${stamp(now())}.mp4`)
+      // 檔名的時間戳只到秒：同一秒匯出兩次（例如先有字卡、再取消字卡）不能蓋掉前一個，後面的加 -2、-3…
+      const base = `${title}-${stamp(now())}`
+      let path = join(dir, `${base}.mp4`)
+      for (let n = 2; existsSync(path); n++) path = join(dir, `${base}-${String(n)}.mp4`)
       // 片尾字卡：列出這個專案用了哪些 AI 服務（預設加；只加在匯出的檔案上，專案裡的成品不變）
       let credits = false
       const tool = tools()
