@@ -1,5 +1,6 @@
 import { DEFAULT_STORYBOARD_GUIDE } from '@svs/schema'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SETTINGS, appError, installFakeSvs } from '../../test/fake-svs'
@@ -7,12 +8,18 @@ import { StoryboardGuideSection } from './storyboard-guide-section'
 
 afterEach(cleanup)
 
+/** 準則的編輯區收在卡片的「更多」裡：畫出來後先展開。 */
+const show = (ui: ReactElement): void => {
+  render(ui)
+  fireEvent.click(screen.getByTestId('setting-card-more'))
+}
+
 const box = (): HTMLTextAreaElement => screen.getByTestId<HTMLTextAreaElement>('storyboard-guide')
 
 describe('StoryboardGuideSection', () => {
   it('沒自訂時顯示內建預設，儲存與恢復預設都是停用的', () => {
     installFakeSvs()
-    render(<StoryboardGuideSection settings={SETTINGS} onChanged={vi.fn()} />)
+    show(<StoryboardGuideSection settings={SETTINGS} onChanged={vi.fn()} />)
     expect(box().value).toBe(DEFAULT_STORYBOARD_GUIDE)
     expect(screen.getByRole<HTMLButtonElement>('button', { name: '儲存' }).disabled).toBe(true)
     expect(screen.getByRole<HTMLButtonElement>('button', { name: '恢復預設' }).disabled).toBe(true)
@@ -21,7 +28,7 @@ describe('StoryboardGuideSection', () => {
   it('改了內容才能儲存，送出的是修改後的文字', async () => {
     const svs = installFakeSvs()
     const onChanged = vi.fn()
-    render(<StoryboardGuideSection settings={SETTINGS} onChanged={onChanged} />)
+    show(<StoryboardGuideSection settings={SETTINGS} onChanged={onChanged} />)
     fireEvent.change(box(), { target: { value: '多用遠景。' } })
     fireEvent.click(screen.getByRole('button', { name: '儲存' }))
     await waitFor(() => {
@@ -33,7 +40,7 @@ describe('StoryboardGuideSection', () => {
 
   it('改回跟預設一樣再儲存，存成空字串（之後預設更新才會跟著更新）', async () => {
     const svs = installFakeSvs()
-    render(
+    show(
       <StoryboardGuideSection
         settings={{ ...SETTINGS, storyboardGuide: '多用遠景。' }}
         onChanged={vi.fn()}
@@ -49,7 +56,7 @@ describe('StoryboardGuideSection', () => {
 
   it('恢復預設：輸入框換回預設並送出空字串', async () => {
     const svs = installFakeSvs()
-    render(
+    show(
       <StoryboardGuideSection
         settings={{ ...SETTINGS, storyboardGuide: '多用遠景。' }}
         onChanged={vi.fn()}
@@ -65,7 +72,7 @@ describe('StoryboardGuideSection', () => {
 
   it('超過字數上限時不能儲存', () => {
     installFakeSvs()
-    render(<StoryboardGuideSection settings={SETTINGS} onChanged={vi.fn()} />)
+    show(<StoryboardGuideSection settings={SETTINGS} onChanged={vi.fn()} />)
     fireEvent.change(box(), { target: { value: 'a'.repeat(4001) } })
     expect(screen.getByRole<HTMLButtonElement>('button', { name: '儲存' }).disabled).toBe(true)
     expect(screen.getByText(/太長了/)).toBeTruthy()
@@ -77,7 +84,7 @@ describe('StoryboardGuideSection', () => {
         throw appError('寫不進設定檔')
       },
     })
-    render(<StoryboardGuideSection settings={SETTINGS} onChanged={vi.fn()} />)
+    show(<StoryboardGuideSection settings={SETTINGS} onChanged={vi.fn()} />)
     fireEvent.change(box(), { target: { value: '多用遠景。' } })
     fireEvent.click(screen.getByRole('button', { name: '儲存' }))
     await waitFor(() => {

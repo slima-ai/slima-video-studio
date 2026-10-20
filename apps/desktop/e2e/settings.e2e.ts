@@ -64,7 +64,7 @@ test.describe('第一次使用的引導與設定頁', () => {
     )
     await expect(page.getByTestId('voice-tts')).toContainText('青澀青年男聲')
     await page.getByTestId('model-tts').scrollIntoViewIfNeeded()
-    await page.getByTestId('models-section').screenshot({
+    await page.locator('#models').screenshot({
       path: testInfo.outputPath('settings-tts-music-voice.png'),
     })
 

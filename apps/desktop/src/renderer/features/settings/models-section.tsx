@@ -201,7 +201,9 @@ export function ModelsSection({
               icon={ICONS[capability]}
               title={LABELS[capability].title}
               testId={`model-card-${capability}`}
-              status={candidates.length === 0 ? { tone: 'warn', label: '要先填金鑰' } : undefined}
+              {...(candidates.length === 0
+                ? { status: { tone: 'warn' as const, label: '要先填金鑰' } }
+                : {})}
               summary={`${LABELS[capability].hint}。`}
               body={
                 candidates.length === 0 ? (
