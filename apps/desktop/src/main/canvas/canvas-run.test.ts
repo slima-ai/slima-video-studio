@@ -298,7 +298,10 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
   const ALL_ON = { native: false, narration: true, music: true }
 
   /** 一句話卡片勾好聲音 → 先產生分鏡 → 每個鏡頭寫上台詞（分鏡寫好後使用者看過、改好）。 */
-  async function storyboarded(sound: { native: boolean; narration: boolean; music: boolean }) {
+  async function storyboarded(
+    sound: { native: boolean; narration: boolean; music: boolean },
+    withDialogue = true,
+  ) {
     const harness = createStudioHarness()
     harnesses.push(harness)
     const oneliner = harness.canvas.add({ kind: 'oneliner' })
@@ -316,7 +319,7 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
       stage: 'storyboard',
     })
     await harness.finished()
-    for (const shot of harness.shots.list().shots) {
+    for (const shot of withDialogue ? harness.shots.list().shots : []) {
       harness.shots.update(shot.id, { dialogue: `第 ${String(shot.number)} 鏡的台詞。` })
     }
     return { h: harness, oneliner }
@@ -368,10 +371,34 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
     const plan = h.canvas.runPlan({ keys: [], all: true })
     expect(plan.sound).toMatchObject({ narration: false, music: true })
     await h.canvas.run({ keys: [], all: true })
-    await settled(h, '旁白與配樂也加好了')
+    await settled(h, '配樂加好了')
     const state = h.sound.state()
     expect(state.music).toBeDefined()
     expect(state.shots.every((s) => s.narration === undefined)).toBe(true)
+  })
+
+  it('示範模式拆出來的鏡頭沒有台詞：預估說旁白不會念，只加配樂；通知也說實話', async () => {
+    const { h } = await storyboarded(ALL_ON, false)
+    const plan = h.canvas.runPlan({ keys: [], all: true })
+    expect(plan.sound).toMatchObject({
+      narration: true,
+      music: true,
+      narrationShots: 0,
+      dialogueShots: 0,
+    })
+    await h.canvas.run({ keys: [], all: true })
+    await settled(h, '配樂加好了；沒有鏡頭有台詞，所以沒有旁白')
+    const state = h.sound.state()
+    expect(state.music).toBeDefined()
+    expect(state.shots.every((s) => s.narration === undefined)).toBe(true)
+  })
+
+  it('有台詞的鏡頭：預估寫幾個鏡頭會念', async () => {
+    const { h } = await storyboarded(ALL_ON)
+    expect(h.canvas.runPlan({ keys: [], all: true }).sound).toMatchObject({
+      narrationShots: 3,
+      dialogueShots: 3,
+    })
   })
 
   it('旁白與配樂都沒勾：不加聲音，還是只說成品接好了', async () => {
@@ -410,7 +437,7 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
       },
       { timeout: 30_000, interval: 20 },
     )
-    expect(noticesOf(h).at(-1)).toBe('旁白與配樂也加好了')
+    expect(noticesOf(h).at(-1)).toBe('旁白加好了')
     expect(h.sound.state().music?.id).toBe(firstMusic)
     expect(h.sound.state().shots.every((s) => s.narration !== undefined)).toBe(true)
   })

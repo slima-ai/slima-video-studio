@@ -33,6 +33,9 @@ export interface ToastApi {
 /** 提示停留的時間。 */
 export const TOAST_MS = 5000
 
+/** 要讓人來得及看完、動手的提示（例如匯出完成、要找檔案）停留的時間。 */
+export const LONG_TOAST_MS = 12_000
+
 const ToastContext = createContext<ToastApi>({ show: () => undefined })
 
 /** 顯示一則短暫的提示（沒有 ToastProvider 的地方，例如單獨測試的元件，什麼都不做）。 */

@@ -35,6 +35,34 @@ describe('HomePage：新專案、開啟舊專案、最近的專案', () => {
     expect(go).toHaveBeenCalledWith('canvas')
   })
 
+  it('已經有專案可以接：「先不建專案，直接進畫布」退成小字連結；沒有專案時維持原樣的按鈕與說明', async () => {
+    const go = vi.fn()
+    installFakeSvs({ 'project.recent': () => ({ projects: [row('貓', { current: true })] }) })
+    const first = render(<HomePage onNavigate={go} />)
+    await screen.findByTestId('home-current')
+    const link = screen.getByTestId('home-skip')
+    expect(link.className).toContain('underline')
+    expect(link.className).toContain('text-xs')
+    // 說明收進提示，不再佔一行
+    expect(screen.queryByText('之後新增任何東西時，會自動建一個專案。')).toBeNull()
+    fireEvent.click(link)
+    expect(go).toHaveBeenCalledWith('canvas')
+    first.unmount()
+
+    installFakeSvs({ 'project.recent': () => ({ projects: [] }) })
+    render(<HomePage onNavigate={go} />)
+    await screen.findByTestId('home-recent-empty')
+    expect(screen.getByTestId('home-skip').className).not.toContain('underline')
+    expect(screen.getByText('之後新增任何東西時，會自動建一個專案。')).toBeTruthy()
+  })
+
+  it('只剩找不到的專案：開不了，不算已經有專案，仍是原樣的按鈕', async () => {
+    installFakeSvs({ 'project.recent': () => ({ projects: [row('舊', { missing: true })] }) })
+    render(<HomePage onNavigate={vi.fn()} />)
+    await screen.findAllByTestId('home-recent')
+    expect(screen.getByTestId('home-skip').className).not.toContain('underline')
+  })
+
   it('新專案：跳出問名字的視窗，建好進畫布', async () => {
     const go = vi.fn()
     const fake = installFakeSvs({

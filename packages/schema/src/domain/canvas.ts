@@ -468,6 +468,10 @@ export type CanvasRunStep = z.infer<typeof CanvasRunStepSchema>
 export const CanvasRunSoundPlanSchema = z.object({
   narration: z.boolean(),
   music: z.boolean(),
+  /** 這次會念旁白的鏡頭數（有台詞、還沒有旁白的才念）。 */
+  narrationShots: z.number().int().nonnegative(),
+  /** 現在有台詞的鏡頭數（沒有台詞的鏡頭不會念旁白，示範模式拆出來的鏡頭都沒有台詞）。 */
+  dialogueShots: z.number().int().nonnegative(),
   /** 旁白與配樂預估要多花多少（算進整次的預估）；加不成時是 0。 */
   usd: z.number().nonnegative(),
   /** 現在加不成的原因（沒有可用的模型、超過預算上限）；有值時整次的預估不含聲音。 */

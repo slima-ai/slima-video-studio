@@ -62,6 +62,59 @@ describe('FinalCutPanel：匯出的片尾字卡', () => {
     })
   })
 
+  it('以前匯出過：面板一打開就寫「最近一次匯出：檔名」，附「在資料夾顯示」，按下去帶檔名', async () => {
+    const svs = installFakeSvs({
+      'files.list': () => ({
+        files: [],
+        exports: [
+          {
+            name: '短片-新.mp4',
+            path: '/p/exports/短片-新.mp4',
+            bytes: 10,
+            modifiedAt: '2026-10-20T08:00:00.000Z',
+          },
+          {
+            name: '短片-舊.mp4',
+            path: '/p/exports/短片-舊.mp4',
+            bytes: 10,
+            modifiedAt: '2026-10-19T08:00:00.000Z',
+          },
+        ],
+        totalBytes: 20,
+      }),
+      'files.reveal': () => ({}),
+    })
+    render(<FinalCutPanel finalVideoHash={'a'.repeat(64)} canRejoin={false} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('final-cut-last-export').textContent).toContain(
+        '最近一次匯出：短片-新.mp4',
+      )
+    })
+    fireEvent.click(screen.getByTestId('final-cut-reveal'))
+    await waitFor(() => {
+      expect(svs.payloadsOf('files.reveal')).toEqual([{ exportName: '短片-新.mp4' }])
+    })
+  })
+
+  it('沒匯出過就不顯示；剛匯出完顯示完整路徑，也能在資料夾顯示', async () => {
+    const svs = installFakeSvs({
+      'quickstart.export': () => ({ path: '/p/exports/短片.mp4', credits: true }),
+      'files.reveal': () => ({}),
+    })
+    render(<FinalCutPanel finalVideoHash={'a'.repeat(64)} canRejoin={false} />)
+    expect(screen.queryByTestId('final-cut-last-export')).toBeNull()
+    fireEvent.click(screen.getByTestId('final-cut-export'))
+    await waitFor(() => {
+      expect(screen.getByTestId('final-cut-exported').textContent).toBe(
+        '已匯出到 /p/exports/短片.mp4',
+      )
+    })
+    fireEvent.click(screen.getByTestId('final-cut-reveal'))
+    await waitFor(() => {
+      expect(svs.payloadsOf('files.reveal')).toEqual([{ exportName: '短片.mp4' }])
+    })
+  })
+
   it('還沒有成品時不顯示這個勾選', () => {
     installFakeSvs()
     render(<FinalCutPanel finalVideoHash={undefined} canRejoin={false} />)

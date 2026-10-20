@@ -198,6 +198,8 @@ test.describe('首頁（不帶 SVS_DISABLE_HOME、不跳過引導：真正的第
     await page.getByTestId('project-menu-button').click()
     await page.getByTestId('menu-home').click()
     await expect(page.getByTestId('home-current')).toContainText('第二支')
+    // 已經有專案：「先不建專案」退成小字連結，不跟「新專案」「開啟舊專案」一樣搶眼
+    await expect(page.getByTestId('home-skip')).toHaveClass(/underline/)
     await expect(page.getByTestId('home-recent')).toHaveCount(1)
     await expect(page.getByTestId('home-recent')).toContainText('第一支')
 

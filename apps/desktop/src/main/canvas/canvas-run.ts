@@ -9,7 +9,7 @@ import {
 
 import type { Logger } from '../logger'
 import type { ShotRunItem, ShotService } from '../shots/shot-service'
-import type { RunSound } from './canvas-run-sound'
+import { soundDoneNotice, type RunSound } from './canvas-run-sound'
 import { sceneKey, shotKey } from './projection'
 
 export interface CanvasRunnerDeps {
@@ -228,15 +228,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
               return
             }
             notify({ tone: 'success', message: '成品接好了，正在加旁白與配樂…' })
-            const problem = await runSound.add(soundWant)
-            notify(
-              problem === undefined
-                ? { tone: 'success', message: '旁白與配樂也加好了' }
-                : {
-                    tone: 'danger',
-                    message: `聲音沒加成（${problem}）：可以在成品面板的「聲音」區再試`,
-                  },
-            )
+            notify(soundDoneNotice(await runSound.add(soundWant)))
           })
           .catch((error: unknown) => {
             log.warn(`畫布接片失敗：${String(error)}`)
