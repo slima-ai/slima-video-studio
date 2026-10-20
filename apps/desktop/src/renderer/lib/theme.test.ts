@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { applyTheme, resolveTheme, useResolvedTheme } from './theme'
+import { applyTheme, resolveTheme, restoreTheme, useResolvedTheme } from './theme'
 
 function mockSystem(light: boolean): void {
   vi.stubGlobal(
@@ -16,6 +16,7 @@ function mockSystem(light: boolean): void {
 
 afterEach(() => {
   applyTheme('system')
+  window.localStorage.clear()
   vi.unstubAllGlobals()
 })
 
@@ -60,5 +61,45 @@ describe('theme', () => {
       applyTheme('light')
     })
     expect(result.current).toBe('light')
+  })
+})
+
+describe('開機時先套上次的外觀（不閃一下淺色）', () => {
+  it('applyTheme 記下選的外觀；restoreTheme 在設定讀回來之前就先套好', () => {
+    mockSystem(true)
+    applyTheme('dark')
+    expect(window.localStorage.getItem('svs-theme')).toBe('dark')
+    // 模擬下次開機：html 是乾淨的
+    document.documentElement.removeAttribute('data-theme')
+    restoreTheme()
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+  })
+
+  it('先套好之後，設定讀到同一個值不算「切換」：不加 theme-changing（沒有淺到深的漸變）', () => {
+    mockSystem(true)
+    applyTheme('dark')
+    document.documentElement.removeAttribute('data-theme')
+    document.documentElement.classList.remove('theme-changing')
+    restoreTheme()
+    applyTheme('dark')
+    expect(document.documentElement.classList.contains('theme-changing')).toBe(false)
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+  })
+
+  it('沒記過、或記的是「跟隨系統」：什麼都不做；localStorage 讀不到也不丟錯', () => {
+    mockSystem(true)
+    window.localStorage.clear()
+    restoreTheme()
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
+    applyTheme('system')
+    restoreTheme()
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    expect(() => {
+      restoreTheme()
+    }).not.toThrow()
+    vi.restoreAllMocks()
   })
 })
