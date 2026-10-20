@@ -162,6 +162,20 @@ describe('CHAT_SYSTEM_PROMPT', () => {
     expect(price.indexOf('以下只管使用者講明要做的生成')).toBeLessThan(price.indexOf('US$1 以下'))
   })
 
+  it('使用者說要先知道價錢（或先不要做）：只估價、說出金額、等回答，優先於 US$1 門檻；「好」「做吧」沒講範圍而前面提過多個選項：問是哪一個', () => {
+    const line = CHAT_SYSTEM_PROMPT.split('\n')[4] ?? ''
+    const first = '使用者說要先知道價錢，或說先不要做：就只估價、說出金額，等他回答，不要生成'
+    expect(line).toContain(first)
+    expect(line).toContain('這一句優先於下面的 US$1 門檻，示範模式也一樣')
+    // 優先句要在門檻句之前，Claude 才會先讀到
+    expect(line.indexOf(first)).toBeLessThan(line.indexOf('US$1 以下'))
+    expect(line).toContain(
+      '只回「好」「做吧」，沒講範圍，而你前面提過不只一個選項）：問一個短問題，問他是哪一個，不要猜',
+    )
+    // 仍是 7 行（不能為了加句子多開一行）
+    expect(CHAT_SYSTEM_PROMPT.split('\n')).toHaveLength(7)
+  })
+
   it('寫到 estimate_cost 的那句：提到的動作名稱都是工具真的接受的值（工具改名了，提示不會再對不上）', () => {
     const line = CHAT_SYSTEM_PROMPT.split('\n').find((l) => l.includes('estimate_cost'))
     expect(line).toBeDefined()
@@ -183,7 +197,7 @@ describe('CHAT_SYSTEM_PROMPT', () => {
     expect(line).toContain(
       '估價超過 US$1，或一次做很多鏡（例如「全部生成」）：先用一句話報價、等他說好再做',
     )
-    expect(line).toContain('問一個短問題，不要猜')
+    expect(line).toContain('問一個短問題，問他是哪一個，不要猜')
     expect(line).toContain('示範模式不花錢，使用者講明要做的可以直接做')
     // 舊的「說了直接做就不用再問」不留：現在超過門檻一定先報價
     expect(line).not.toContain('他已經說了直接做，就不用再問')
