@@ -76,10 +76,10 @@ function NavButton({
       aria-current={active ? 'page' : undefined}
       data-active={active}
       onClick={onClick}
-      className={`group relative h-auto w-[3.25rem] flex-col gap-0.5 px-0 py-1.5 ${active ? 'bg-surface-overlay text-fg' : ''}`}
+      className={`group relative h-auto w-12 flex-col gap-0.5 px-0 py-1.5 ${active ? 'bg-surface-overlay text-fg' : ''}`}
     >
       {active ? (
-        <span aria-hidden className="absolute -left-1.5 top-2 h-5 w-[3px] rounded-r bg-accent" />
+        <span aria-hidden className="absolute -left-1 top-2 h-5 w-[3px] rounded-r bg-accent" />
       ) : null}
       <Icon className="size-5" />
       <span aria-hidden className="text-[10px] font-normal leading-none">
@@ -147,7 +147,7 @@ export function AppLayout({
           <nav
             aria-label="主導覽"
             data-testid="layout-nav"
-            className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-border bg-surface-raised py-2"
+            className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-border bg-surface-raised py-2"
           >
             {NAV_ITEMS.filter((item) => item.always || showSlima).map(
               ({ label, short, icon, view: target }) => (
