@@ -74,6 +74,8 @@ import {
   panToReveal,
   rectOf,
   sceneAt,
+  visibleRect,
+  type Rect,
 } from './geometry'
 import { StartCards } from './canvas-start'
 import { GrowConfirm } from './grow-confirm'
@@ -131,6 +133,8 @@ const BORN_MS = 700
 const TOPBAR_H = 56
 /** 新節點要避開上方列與左側節點面板（面板約 236px 寬）。 */
 const REVEAL_MARGIN = { top: TOPBAR_H + 24, left: 260, right: 48, bottom: 48 } as const
+/** 新節點放的位置要在這之內：再讓出右下角的縮放列（高約 48）。 */
+const PLACE_MARGIN = { ...REVEAL_MARGIN, bottom: 72 } as const
 
 /** 沒指定位置時，一句話放在角色與地點那一欄的左邊、第一個場的高度（自動排版的內容從它右邊長出來）。 */
 const ONELINER_HOME = { x: -150, y: 110 } as const
@@ -637,6 +641,18 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       y: (rect?.top ?? 0) + (rect?.height ?? 600) / 2,
     })
   }, [flowPointOf])
+  /** 現在畫面上看得到、沒被上方列、左側面板、右側面板、縮放列蓋住的範圍（畫布座標）。 */
+  const placeArea = useCallback((): Rect | undefined => {
+    const el = containerRef.current
+    if (!el) return undefined
+    return visibleRect(
+      rf.getViewport(),
+      { width: el.clientWidth, height: el.clientHeight },
+      panelOpen
+        ? { ...PLACE_MARGIN, right: FLOAT_PANEL.width + FLOAT_PANEL.inset * 2 + 24 }
+        : PLACE_MARGIN,
+    )
+  }, [rf, panelOpen])
   const addNode = useCallback(
     (
       kind: CanvasAddKind,
@@ -661,7 +677,16 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         (kind === 'character' || kind === 'location' || kind === 'oneliner' || kind === 'note')
       ) {
         const size = NODE_SIZE[kind]
-        const free = freeSpot(obstaclesNow(), size, { x: at.x - size.w / 2, y: at.y - 20 })
+        const free = freeSpot(
+          obstaclesNow(),
+          size,
+          { x: at.x - size.w / 2, y: at.y - 20 },
+          undefined,
+          undefined,
+          // 只有沒指定位置的新增才找看得到的空位；指定了位置（拖放、右鍵、點的地方）就照那裡，
+          // 一句話放在固定的起點（自動排版的內容從它右邊長出來），也不跟著畫面挪
+          place === undefined && kind !== 'oneliner' ? placeArea() : undefined,
+        )
         spot = { x: snap(free.x), y: snap(free.y) }
         rememberPlaced(spot, size)
       }
@@ -687,10 +712,14 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           : (() => {
               // 沒有選取：放一個空的群組框在這裡；那裡被別的格子佔住就挪到空位（不然框出一堆不相干的格子）
               const size = { w: 480, h: 300 }
-              const free = freeSpot(obstaclesNow(), size, {
-                x: (at?.x ?? 0) - 240,
-                y: (at?.y ?? 0) - 150,
-              })
+              const free = freeSpot(
+                obstaclesNow(),
+                size,
+                { x: (at?.x ?? 0) - 240, y: (at?.y ?? 0) - 150 },
+                undefined,
+                undefined,
+                place === undefined ? placeArea() : undefined,
+              )
               rememberPlaced({ x: snap(free.x), y: snap(free.y) }, size)
               return { x: snap(free.x), y: snap(free.y), ...size }
             })()
@@ -728,7 +757,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           toast.show({ message: errorText(error), tone: 'danger' })
         })
     },
-    [flow.nodes, selected, centerOfView, history.undo, onChanged, toast],
+    [flow.nodes, selected, centerOfView, placeArea, history.undo, onChanged, toast],
   )
   // ── 貼一段故事拆分鏡（空白畫布的入口之一） ──
   const split = useStorySplit({ onChanged })
@@ -953,23 +982,30 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   // ── 放上圖片或影片：「上傳」選檔，或從檔案總管拖進來 ──
   /** 放在想放的地方；被佔住就挪到最近的空位（不然自動排版的場會被推開）。 */
   const mediaSpot = useCallback(
-    (at: XY): XY => {
+    (at: XY, inView: boolean): XY => {
       const size = NODE_SIZE.freeImage
-      const free = freeSpot(obstaclesNow(), size, {
-        x: at.x - size.w / 2,
-        y: at.y - size.h / 2,
-      })
+      const free = freeSpot(
+        obstaclesNow(),
+        size,
+        { x: at.x - size.w / 2, y: at.y - size.h / 2 },
+        undefined,
+        undefined,
+        // 只有沒指定位置（上傳按鈕）才限制在看得到的範圍；拖進來的照放開的地方
+        inView ? placeArea() : undefined,
+      )
       const spot = { x: snap(free.x), y: snap(free.y) }
       rememberPlaced(spot, size)
       return spot
     },
-    [obstaclesNow, rememberPlaced],
+    [obstaclesNow, rememberPlaced, placeArea],
   )
   const reportImport = useCallback(
     (result: CanvasImportResult): void => {
       if (result.added.length > 0) {
         onChanged()
         const [only] = result.added
+        // 放上來的圖、影片跟其他新增的一樣：不在看得到的地方就平移過去
+        pendingReveal.current = only?.key
         toast.show({
           key: 'canvas-import',
           message:
@@ -998,7 +1034,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         .filter((n) => !isGroup(n))
         .map(rectOf)
         .filter((r) => r.w > 0 && r.h > 0)
-      const spot = mediaSpot(at)
+      const spot = mediaSpot(at, place === undefined)
       call('canvas.importFiles', {
         ...spot,
         ...(connectTo ? { connectTo } : {}),
@@ -1043,7 +1079,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             name: file.name,
             mime,
             bytes,
-            ...mediaSpot({ x: at.x + index * 240, y: at.y }),
+            ...mediaSpot({ x: at.x + index * 240, y: at.y }, false),
           }),
         )
       } catch (error) {

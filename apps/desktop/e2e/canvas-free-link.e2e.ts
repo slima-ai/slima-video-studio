@@ -63,29 +63,40 @@ async function focusFirstShot(page: Page, shotKey: string): Promise<void> {
   await viewportSettled(page)
 }
 
-/** 把兩個節點的中間放到畫面中間（縮到 0.8），不管視窗多高都兩個一起看得到。 */
-async function centerOnBoth(page: Page, keyA: string, keyB: string): Promise<void> {
-  await page.evaluate(
-    ({ a, b }) => {
-      const rf = (
-        window as unknown as {
-          __svsCanvas?: {
-            getNode: (id: string) => { position: { x: number; y: number } } | undefined
-            setCenter: (x: number, y: number, o: object) => Promise<boolean>
-          }
+/** 把這幾個節點的外框中心放到畫面中間（縮到 0.8），不管視窗多高都一起看得到。 */
+async function centerOn(page: Page, keys: string[]): Promise<void> {
+  await page.evaluate((ids) => {
+    const rf = (
+      window as unknown as {
+        __svsCanvas?: {
+          getNode: (
+            id: string,
+          ) =>
+            | { position: { x: number; y: number }; measured?: { width?: number; height?: number } }
+            | undefined
+          setCenter: (x: number, y: number, o: object) => Promise<boolean>
         }
-      ).__svsCanvas
-      const first = rf?.getNode(a)
-      const second = rf?.getNode(b)
-      if (!first || !second) return
-      return rf?.setCenter(
-        (first.position.x + second.position.x) / 2 + 100,
-        (first.position.y + second.position.y) / 2 + 100,
-        { zoom: 0.8, duration: 0 },
-      )
-    },
-    { a: keyA, b: keyB },
-  )
+      }
+    ).__svsCanvas
+    const boxes = ids.flatMap((id) => {
+      const node = rf?.getNode(id)
+      if (!node) return []
+      return [
+        {
+          x: node.position.x,
+          y: node.position.y,
+          w: node.measured?.width ?? 300,
+          h: node.measured?.height ?? 200,
+        },
+      ]
+    })
+    if (boxes.length === 0) return
+    const left = Math.min(...boxes.map((b) => b.x))
+    const top = Math.min(...boxes.map((b) => b.y))
+    const right = Math.max(...boxes.map((b) => b.x + b.w))
+    const bottom = Math.max(...boxes.map((b) => b.y + b.h))
+    return rf?.setCenter((left + right) / 2, (top + bottom) / 2, { zoom: 0.8, duration: 0 })
+  }, keys)
   await viewportSettled(page)
 }
 
@@ -107,9 +118,34 @@ async function withPicture(app: ElectronApplication, page: Page, projectDir: str
   const picture = (await graphOf(page)).nodes.find((n) => n.kind === 'free_image')
   if (!picture) throw new Error('沒有圖片')
   await expect(page.getByTestId(`port-${picture.key}-free-img-out`)).toBeVisible()
-  // 圖放在離畫面中間最近的空位，矮視窗（13 吋筆電）上可能半截在上方列底下：
-  // 把圖和第 1 鏡的圖一起移到畫面中間，兩邊的連接點都點得到
-  await centerOnBoth(page, picture.key, `${shot.key}:image`)
+  // 圖放在畫面上離中間最近的空位，會因為視窗大小落在不同的地方；這幾條測試要量線的中點，
+  // 所以把圖搬到第 1 鏡上方（線不會穿過別的格子），再把圖和第 1 鏡的圖一起移到畫面中間
+  const place = (await graphOf(page)).nodes.find((n) => n.key === shot.key)
+  const target = (await graphOf(page)).nodes.find((n) => n.key === `${shot.key}:image`)
+  if (!place || !target) throw new Error('找不到第 1 鏡')
+  await page.evaluate((move) => window.svs.invoke('canvas.move', { moves: [move] }), {
+    key: picture.key,
+    x: target.x,
+    y: place.y - 300,
+  })
+  await expect
+    .poll(async () => (await graphOf(page)).nodes.find((n) => n.key === picture.key)?.y)
+    .toBe(place.y - 300)
+  // 畫面（不只是資料）也要已經搬過去，再量位置
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (key) =>
+          (
+            window as unknown as {
+              __svsCanvas?: { getNode: (id: string) => { position: { y: number } } | undefined }
+            }
+          ).__svsCanvas?.getNode(key)?.position.y,
+        picture.key,
+      ),
+    )
+    .toBe(place.y - 300)
+  await centerOn(page, [picture.key, `${shot.key}:image`, `${shot.key}:video`])
   return { shot: shot.key, picture }
 }
 

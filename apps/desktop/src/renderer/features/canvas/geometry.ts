@@ -168,6 +168,8 @@ export function freeSpot(
   want: { x: number; y: number },
   step = 40,
   gap = 16,
+  /** 只找這一塊裡面的空位（畫面上看得到、沒被上方列等蓋住的那塊）；裡面放不下才不限制。 */
+  within?: Rect,
 ): { x: number; y: number } {
   // 群組只是一個框，新的格子可以放進去
   const blockers = nodes
@@ -178,7 +180,14 @@ export function freeSpot(
     const box = { x: at.x - gap, y: at.y - gap, w: size.w + gap * 2, h: size.h + gap * 2 }
     return !blockers.some((r) => overlaps(box, r))
   }
-  if (free(want)) return want
+  const inside = (at: { x: number; y: number }): boolean =>
+    within === undefined ||
+    (at.x >= within.x &&
+      at.y >= within.y &&
+      at.x + size.w <= within.x + within.w &&
+      at.y + size.h <= within.y + within.h)
+  const usable = (at: { x: number; y: number }): boolean => inside(at) && free(at)
+  if (usable(want)) return want
   for (let ring = 1; ring <= 60; ring++) {
     const candidates: { x: number; y: number }[] = []
     for (let dx = -ring; dx <= ring; dx++) {
@@ -190,10 +199,11 @@ export function freeSpot(
     candidates.sort(
       (a, b) => Math.hypot(a.x - want.x, a.y - want.y) - Math.hypot(b.x - want.x, b.y - want.y),
     )
-    const found = candidates.find(free)
+    const found = candidates.find(usable)
     if (found) return found
   }
-  return want
+  // 看得到的範圍裡放不下（畫面太小、拉得太近）：退回不限範圍，由呼叫的人再平移到看得見
+  return within === undefined ? want : freeSpot(nodes, size, want, step, gap)
 }
 
 export const contains = (rect: Rect, point: { x: number; y: number }): boolean =>
@@ -267,6 +277,23 @@ export interface RevealMargin {
   left: number
   right: number
   bottom: number
+}
+
+/** 畫面上看得到、沒被上方列與浮在畫布上的面板蓋住的那一塊，換成畫布座標；塊太小就回 undefined。 */
+export function visibleRect(
+  viewport: { x: number; y: number; zoom: number },
+  size: { width: number; height: number },
+  margin: RevealMargin,
+): Rect | undefined {
+  const w = size.width - margin.left - margin.right
+  const h = size.height - margin.top - margin.bottom
+  if (w <= 0 || h <= 0) return undefined
+  return {
+    x: (margin.left - viewport.x) / viewport.zoom,
+    y: (margin.top - viewport.y) / viewport.zoom,
+    w: w / viewport.zoom,
+    h: h / viewport.zoom,
+  }
 }
 
 /** 讓一個節點在目前的視角裡看得見所需的最小平移；已經看得見就回 undefined。 */
