@@ -5,7 +5,8 @@ export default defineConfig({
   testMatch: '**/*.e2e.ts',
   outputDir: './test-results',
   fullyParallel: true,
-  workers: 2,
+  // scripts/e2e.mjs 依這個數字替每個 worker 起一個自己的 Xvfb
+  workers: Number(process.env.SVS_E2E_WORKERS ?? '2'),
   retries: process.env.CI ? 1 : 0,
   timeout: 60_000,
   expect: { timeout: 10_000 },

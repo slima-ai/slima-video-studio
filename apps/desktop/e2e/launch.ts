@@ -21,6 +21,16 @@ export function ciArgs(env: NodeJS.ProcessEnv = process.env): string[] {
     : []
 }
 
+/**
+ * 這個 worker 專用的顯示器（`pnpm test:e2e` 在 Linux 沒有 DISPLAY 時，每個 worker 起一個自己的 Xvfb，
+ * 編號放在 SVS_E2E_DISPLAYS；原因見 scripts/e2e.mjs）。沒設就用環境原本的 DISPLAY。
+ */
+export function workerDisplay(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const displays = (env.SVS_E2E_DISPLAYS ?? '').split(',').filter((item) => item !== '')
+  if (displays.length === 0) return undefined
+  return displays[Number(env.TEST_PARALLEL_INDEX ?? '0') % displays.length]
+}
+
 export interface LaunchOptions {
   /** 測試專用 userData；沒給就建暫存資料夾 */
   userDataDir?: string
@@ -35,6 +45,7 @@ export interface LaunchedApp {
 
 export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedApp> {
   const userDataDir = options.userDataDir ?? mkdtempSync(join(tmpdir(), 'svs-e2e-userdata-'))
+  const display = workerDisplay()
   const app = await electron.launch({
     executablePath: electronPath,
     args: [APP_ROOT, ...ciArgs()],
@@ -51,6 +62,7 @@ export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedAp
       // CI（xvfb）沒有使用者的桌面可以打擾，而且開了之後整套 E2E 慢了一倍以上、撐到逾時，所以 CI 不開；
       // 要驗安靜模式本身的測試（window-mode）自己用 test.use({ appEnv }) 開。
       SVS_QUIET_WINDOWS: process.env.SVS_E2E_VISIBLE === '1' || isHeadless() ? '' : '1',
+      ...(display === undefined ? {} : { DISPLAY: display }),
       ...options.env,
       // E2E 絕不碰作業系統的鑰匙圈：放在最後，測試的 appEnv 想改也改不掉
       SVS_REAL_VAULT: '',
