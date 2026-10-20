@@ -89,6 +89,7 @@ export function BatchConfirm({ shotIds, onCancel, onStarted, onError }: BatchCon
           }}
         />
         先出草稿
+        <span className="text-xs text-fg-muted">（用經濟級的模型：便宜、快）</span>
       </label>
       {check?.ok ? (
         <Button

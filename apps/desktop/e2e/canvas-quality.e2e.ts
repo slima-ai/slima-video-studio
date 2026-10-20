@@ -28,12 +28,18 @@ test.describe('生成鈕旁的品質：高品質／平衡／經濟', () => {
     const dialog = page.getByTestId('run-confirm')
     await expect(dialog).toContainText('Kling 3.0 Standard')
     await expect(page.getByTestId('quality-default')).toHaveAttribute('aria-checked', 'true')
+    // 每一級在切換下面各有一句說明（價錢、速度）
+    await expect(page.getByTestId('quality-hint')).toContainText('用設定裡選的模型')
     const balanced = await costOf(page)
 
     await page.getByTestId('quality-premium').click()
     await expect(dialog).toContainText('Kling 3.0 Pro')
     await expect(page.getByTestId('quality-premium')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('quality-hint')).toContainText('比較貴、比較慢')
     await expect.poll(() => costOf(page)).toBeGreaterThan(balanced)
+    await page.getByTestId('quality-budget').click()
+    await expect(page.getByTestId('quality-hint')).toContainText('便宜、快')
+    await page.getByTestId('quality-premium').click()
 
     await page.getByTestId('quality-balanced').click()
     await expect(dialog).toContainText('Kling 3.0 Standard')

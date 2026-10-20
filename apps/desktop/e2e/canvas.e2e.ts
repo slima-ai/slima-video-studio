@@ -130,7 +130,9 @@ test.describe('畫布首頁（示範模式）', () => {
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'false')
-    await expect(page.getByTestId('toast')).toContainText('第 1 鏡不放進成品：接成品時會跳過這一鏡')
+    await expect(page.getByTestId('toast')).toContainText(
+      '第 1 鏡不放進成品：接成成品時會跳過這一鏡',
+    )
     await expect(page.getByTestId('node-cut')).toContainText('2/3 鏡')
     await page.getByTestId('toast-action').click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')

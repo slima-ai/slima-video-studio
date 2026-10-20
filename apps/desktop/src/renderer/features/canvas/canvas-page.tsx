@@ -1030,7 +1030,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         onExpanded(next)
       },
       rejoinFinal: () => {
-        toast.show({ key: 'final', message: '重新接片中…' })
+        toast.show({ key: 'final', message: '接成成品中…' })
         call('shots.rejoin', {})
           .then(() => {
             onChanged()
@@ -1175,8 +1175,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             toast.show({
               key: 'canvas-incut',
               message: on
-                ? `${name}放回成品：接成品時會用到它。`
-                : `${name}不放進成品：接成品時會跳過這一鏡，剪輯的鏡數跟著少一。`,
+                ? `${name}放回成品：接成成品時會用到它。`
+                : `${name}不放進成品：接成成品時會跳過這一鏡，剪輯的鏡數跟著少一。`,
               action: { label: '復原', onAction: history.undo },
             })
           })

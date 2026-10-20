@@ -39,7 +39,7 @@ export const LABELS: Record<PickableCapability, { title: string; hint: string }>
 const TIERS: { tier: ModelTier; label: string; tone: BadgeTone }[] = [
   { tier: 'premium', label: '高品質', tone: 'premium' },
   { tier: 'balanced', label: '平衡', tone: 'info' },
-  { tier: 'budget', label: '經濟實惠', tone: 'success' },
+  { tier: 'budget', label: '經濟', tone: 'success' },
 ]
 
 /**
@@ -77,11 +77,11 @@ export function channelText(model: ModelOption): string {
   return `透過 ${model.providerName}（${model.otherChannels.join('、')} 也有，會自動走比較便宜的那家）`
 }
 
-/** 沒選時挑預設的順序（跟主行程 SettingsService.resolveModel 一樣）：平衡、高品質、經濟實惠。 */
+/** 沒選時挑預設的順序（跟主行程 SettingsService.resolveModel 一樣）：平衡、高品質、經濟。 */
 const DEFAULT_ORDER: readonly ModelTier[] = ['balanced', 'premium', 'budget']
 
 /**
- * 每種用途只推薦一個：就是沒選時實際會用的那個（依平衡、高品質、經濟實惠的順序，第一個標了推薦的）。
+ * 每種用途只推薦一個：就是沒選時實際會用的那個（依平衡、高品質、經濟的順序，第一個標了推薦的）。
  * 資料裡同一種用途可能有好幾個模型標推薦，全部亮出來就等於沒推薦。
  */
 export function toOptions(models: ModelOption[], locked: ModelOption[] = []): ListOption[] {
@@ -158,6 +158,10 @@ export function ModelsSection({
       title="使用的模型"
       description="所有專案預設用這些，不確定的話保持預設就好。標「估算」的價格還沒有跟官方核對過，實際以服務商帳單為準。"
     >
+      <p data-testid="tier-legend" className="mb-3 text-xs leading-snug text-fg-muted">
+        等級：高品質＝畫面最好、比較貴比較慢；平衡＝畫面、價錢、速度都中等（沒特別選就用這一級）；
+        經濟＝便宜、快，適合先出草稿，滿意的鏡頭再用高品質重做。
+      </p>
       {models.length === 0 ? (
         <EmptyState
           testId="models-empty"

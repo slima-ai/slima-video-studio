@@ -39,7 +39,7 @@ const finalSrc = async (page: Page): Promise<string> => {
 /** 在成品面板按「重新接片」，等它接好。 */
 async function rejoin(page: Page): Promise<void> {
   await page.getByTestId('final-cut-rejoin').click()
-  await expect(page.getByTestId('final-cut-rejoin')).toHaveText('重新接片', { timeout: 30_000 })
+  await expect(page.getByTestId('final-cut-rejoin')).toHaveText('接成成品', { timeout: 30_000 })
 }
 
 const waitIdle = async (page: Page): Promise<void> => {
@@ -47,7 +47,7 @@ const waitIdle = async (page: Page): Promise<void> => {
 }
 
 test.describe('逐鏡調整（示範模式）', () => {
-  test('改第 3 鏡 → 重新生成只多出它的新版本 → 切回舊版本 → 重新接片用舊版本', async ({ page }) => {
+  test('改第 3 鏡 → 重新生成只多出它的新版本 → 切回舊版本 → 接成成品用舊版本', async ({ page }) => {
     await generateAndOpenCanvas(page)
     await openCut(page)
     const original = await finalSrc(page)

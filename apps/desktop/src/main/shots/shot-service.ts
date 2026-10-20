@@ -1571,7 +1571,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
 
     async rejoin() {
       const s = need()
-      if (s.quick) throw invalid('整支影片正在生成，等它完成再重新接片。')
+      if (s.quick) throw invalid('整支影片正在生成，等它完成再接成成品。')
       const { handle } = s
       if (handle.repos.shots.list().length === 0) throw invalid('還沒有鏡頭可以接。')
       // 只接「放進成品」的鏡頭
@@ -1597,7 +1597,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       if (!queue || !tool) {
         throw new AppError({
           code: 'internal_error',
-          userMessage: '找不到影片處理工具（FFmpeg），沒辦法接片。',
+          userMessage: '找不到影片處理工具（FFmpeg），沒辦法接成成品。',
         })
       }
       const joined = await createStudioServices({
