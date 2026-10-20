@@ -462,6 +462,29 @@ test.describe('畫布上的一句話（示範模式）', () => {
     expectAudio(audioOf(await exportedFinal(page)), 'silent')
   })
 
+  test('一次做完整支：完成的提示照實說——勾了旁白與配樂就是「旁白與配樂也加好了」（示範的鏡頭有台詞）', async ({
+    page,
+  }) => {
+    await prepare(page)
+    await generate(page)
+    await finished(page)
+    await expect(
+      page.getByTestId('toast').filter({ hasText: '短片生成好了（旁白與配樂也加好了）' }),
+    ).toBeVisible()
+    expect(await soundState(page)).toMatchObject({ narrated: 3, music: true, hasSound: true })
+  })
+
+  test('一次做完整支沒勾旁白：不寫台詞，完成的提示說配樂加好了、沒有提到旁白', async ({ page }) => {
+    await prepare(page)
+    await page.getByTestId('oneliner-sound-narration').uncheck()
+    await generate(page)
+    await finished(page)
+    await expect(
+      page.getByTestId('toast').filter({ hasText: '短片生成好了（配樂加好了）' }),
+    ).toBeVisible()
+    expect(await soundState(page)).toMatchObject({ narrated: 0, music: true, hasSound: true })
+  })
+
   test('不勾旁白：先產生分鏡不寫台詞，鏡頭卡上沒有旁白，確認面板說旁白不會念，只加配樂', async ({
     page,
   }) => {

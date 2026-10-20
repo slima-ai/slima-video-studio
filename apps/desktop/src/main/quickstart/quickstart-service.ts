@@ -31,7 +31,7 @@ import { join } from 'node:path'
 
 import type { Logger } from '../logger'
 import type { ProjectManager } from '../project-manager'
-import { markSoundAutoAdded } from '../canvas/canvas-run-sound'
+import { markSoundAutoAdded, soundDoneNotice, soundStartNotice } from '../canvas/canvas-run-sound'
 import { lockedAnchors, referenceEditModel } from '../characters/anchors'
 import { ensureProject, safeFileName, stamp } from '../ensure-project'
 import { createProjectEngine } from '../project-engine'
@@ -63,7 +63,7 @@ export interface QuickStartDeps {
   /** 找 FFmpeg（接片用）。預設到系統找。 */
   tools?: () => MediaTools | undefined
   /** 聲音服務（完成後自動加旁白與配樂用）；沒給就不加。聲音服務在快速開始之後才建，所以用函式取。 */
-  sound?: () => Pick<SoundService, 'addAll'> | undefined
+  sound?: () => Pick<SoundService, 'addAll' | 'plan' | 'state'> | undefined
   /** 把片尾字卡畫成圖（Electron 離屏視窗）；沒給就匯出時不加字卡。 */
   renderCreditsCard?: CardRenderer
   /** 畫字卡最多等幾毫秒（預設 20 秒）；測試縮短用。 */
@@ -351,15 +351,42 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
           const want = request.sound
           const sound = deps.sound?.()
           let failed = false
+          let doneText: string | undefined
           if (sound && want) {
-            const started = myTracker.startSound()
+            // 開始與完成的說明都只寫真的會做的、做了的：沒有台詞（示範模式拆出來的鏡頭都沒有）就不說旁白
+            const planned = sound.plan({
+              ...(want.narration ? { narration: {} } : {}),
+              ...(want.music ? { music: {} } : {}),
+            })
+            const started = myTracker.startSound(
+              soundStartNotice({
+                narration: want.narration,
+                music: want.music,
+                narrationShots: planned.items.filter((item) => item.kind === 'narration').length,
+                dialogueShots: 0,
+                usd: 0,
+              })?.message,
+            )
             if (started && myTracker === tracker) broadcast('quickstart.progress', started)
             try {
-              await sound.addAll({
+              const added = await sound.addAll({
                 narration: want.narration,
                 music: want.music,
                 signal: controller.signal,
               })
+              doneText = soundDoneNotice({
+                narrations: added.narrations,
+                music: added.music,
+                ...(want.narration && added.narrations === 0
+                  ? {
+                      noNarrationBecause: {
+                        dialogueShots: sound
+                          .state()
+                          .shots.filter((shot) => shot.dialogue.trim() !== '').length,
+                      },
+                    }
+                  : {}),
+              }).message
             } catch (error) {
               failed = !controller.signal.aborted
               log.warn(`快速開始完成後加聲音失敗：${String(error)}`)
@@ -373,6 +400,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
           myTracker.finishSound({
             ...(mixedHash === undefined ? {} : { finalVideoHash: mixedHash }),
             failed,
+            ...(doneText === undefined ? {} : { done: doneText }),
           })
           // 加聲音的途中按了停止：算停止（做好的部分留著）
           const closing: typeof finish = controller.signal.aborted
