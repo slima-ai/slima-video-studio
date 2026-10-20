@@ -14,6 +14,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   breakdownNode,
   composeShotPrompts,
+  frameFillSuffix,
+  withoutFrameFillSuffix,
   ShotItemSchema,
   concatNode,
   dialogueOf,
@@ -504,12 +506,46 @@ describe('節點：首幀圖、圖生影片、接片', () => {
     expect(out.image).toEqual(image)
     expect(requests[0]).toMatchObject({
       capability: 't2i',
-      prompt: '一隻貓',
+      prompt: `一隻貓${frameFillSuffix('9:16')}`,
       aspectRatio: '9:16',
       seed: 2,
       count: 1,
     })
     expect(costs[0]).toMatchObject({ provider: 'fal', amountUsd: 0.08 })
+  })
+
+  it('首幀圖的 Prompt 後面補「滿版、單一連續畫面」：不是拼貼、分格、上下兩格，上下沒有黑色橫條；比例照節點的設定', () => {
+    const suffix = frameFillSuffix('16:9')
+    expect(suffix).toContain('16:9 滿版畫面')
+    expect(suffix).toContain('單一連續畫面，不是拼貼、分格或上下兩格')
+    expect(suffix).toContain('上下沒有黑色橫條')
+    expect(frameFillSuffix('9:16')).toContain('9:16 滿版畫面')
+  })
+
+  it('withoutFrameFillSuffix：把補上的滿版描述拿掉（每種比例都認得）；沒有就原樣', () => {
+    for (const ratio of ['16:9', '9:16', '1:1', '4:3', '21:9']) {
+      expect(withoutFrameFillSuffix(`一隻貓${frameFillSuffix(ratio)}`)).toBe('一隻貓')
+    }
+    expect(withoutFrameFillSuffix('一隻貓')).toBe('一隻貓')
+    // 圖片編輯：參考圖提醒在滿版描述前面，兩段都要能拿掉（由 records-service 的 cleanPrompt 依序處理）
+    const edit = `阿鐵走路${REFERENCE_PROMPT_SUFFIX}${frameFillSuffix('16:9')}`
+    expect(withoutFrameFillSuffix(edit)).toBe(`阿鐵走路${REFERENCE_PROMPT_SUFFIX}`)
+  })
+
+  it('首幀圖的請求帶 trimLetterbox：存進素材庫之前由任務佇列自動裁掉模型畫的黑邊（節點不用管）', async () => {
+    const { studio, requests } = fakeStudio([assets(image, 0.08)])
+    const { out } = await runNode(imageNode, {
+      params: { aspectRatio: '21:9' },
+      inputs: { prompt: '一隻貓' },
+      modelId: 'm',
+      studio,
+    })
+    expect(requests[0]).toMatchObject({
+      capability: 't2i',
+      aspectRatio: '21:9',
+      trimLetterbox: true,
+    })
+    expect(out.image).toEqual(image)
   })
 
   it('圖生影片：有運鏡就帶進請求，空字串或沒給就不帶', async () => {
@@ -737,7 +773,7 @@ describe('自動挑參考圖', () => {
     expect(requests[0]).toMatchObject({
       capability: 'edit',
       modelId: 'fal/edit',
-      prompt: `阿鐵走路${REFERENCE_PROMPT_SUFFIX}`,
+      prompt: `阿鐵走路${REFERENCE_PROMPT_SUFFIX}${frameFillSuffix('16:9')}`,
       referenceAssets: [HASH('c'), HASH('d')],
     })
     expect(edited.costs[0]).toMatchObject({ modelId: 'fal/edit' })
@@ -749,7 +785,11 @@ describe('自動挑參考圖', () => {
       modelId: 'fal/t2i',
       studio,
     })
-    expect(requests[1]).toMatchObject({ capability: 't2i', modelId: 'fal/t2i', prompt: '空鏡頭' })
+    expect(requests[1]).toMatchObject({
+      capability: 't2i',
+      modelId: 'fal/t2i',
+      prompt: `空鏡頭${frameFillSuffix('16:9')}`,
+    })
     expect(requests[1]).toMatchObject({ referenceAssets: [] })
   })
 

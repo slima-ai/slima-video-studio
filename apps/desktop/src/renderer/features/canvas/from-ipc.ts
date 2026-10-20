@@ -34,6 +34,9 @@ const KIND: Readonly<Record<CanvasNodeKind, NodeKind>> = {
 const thumbOf = (hash: string | undefined): string | undefined =>
   hash === undefined ? undefined : `url("${assetUrl(hash)}") center / cover no-repeat`
 
+/** 首幀被自動裁掉黑邊時，卡片底部那一行的說明。 */
+export const LETTERBOX_NOTE = '已自動裁掉黑邊，畫質可能較差，想要更好的畫面可以重新生成。'
+
 /** 影片長度：「0:15」「1:05」。 */
 export const clockOf = (sec: number): string => {
   const whole = Math.round(sec)
@@ -47,6 +50,7 @@ function usageTextOf(usage: IpcNode['usage']): string | undefined {
   return [
     line ? `${line}${usage.costEstimated === true ? '（估算）' : ''}` : undefined,
     timeAgo(usage.createdAt),
+    usage.letterboxTrimmed === true ? '已自動裁掉黑邊' : undefined,
   ]
     .filter(Boolean)
     .join('・')
@@ -78,6 +82,7 @@ function toNode(n: IpcNode): CanvasNode {
     step: n.step,
     expanded: n.expanded,
     usageText: usageTextOf(n.usage),
+    ...(n.usage?.letterboxTrimmed === true ? { usageNote: LETTERBOX_NOTE } : {}),
     footer:
       n.version === undefined
         ? undefined

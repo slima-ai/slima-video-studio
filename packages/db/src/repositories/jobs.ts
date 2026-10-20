@@ -11,6 +11,8 @@ export interface AssetUsage {
   costUsd?: number
   /** 花費是估算的（供應商沒有回報實際金額）。 */
   costEstimated?: boolean
+  /** 這張圖是自動裁掉黑邊之後的版本（花費與時間算的是裁之前那次生成）。 */
+  letterboxTrimmed?: boolean
 }
 
 export interface JobListFilter {
@@ -64,10 +66,12 @@ export class JobsRepository {
     const usage = new Map<string, AssetUsage>()
     if (hashes.length === 0) return usage
     const hash = sql<string | null>`json_extract(${jobs.output}, '$.assets[0].hash')`
+    const trimmed = sql<number | null>`json_extract(${jobs.output}, '$.assets[0].letterboxTrimmed')`
     const rows = this.db
       .select({
         id: jobs.id,
         hash,
+        trimmed,
         costUsd: jobs.costUsd,
         createdAt: jobs.createdAt,
         updatedAt: jobs.updatedAt,
@@ -107,6 +111,7 @@ export class JobsRepository {
         durationMs:
           Number.isFinite(started) && Number.isFinite(ended) ? Math.max(0, ended - started) : 0,
         ...(spent ? { costUsd: spent.usd, costEstimated: spent.estimated } : {}),
+        ...(row.trimmed ? { letterboxTrimmed: true } : {}),
       })
     }
     return usage
