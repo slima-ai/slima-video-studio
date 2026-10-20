@@ -184,14 +184,10 @@ test.describe('畫布：每一種節點都刪得掉', () => {
     interface Sound {
       shots: { shotId: string; narration?: { id: string; version: number; assetHash: string } }[]
     }
-    // 示範模式的拆鏡沒有台詞，所以先替第一鏡寫一句台詞、念成旁白（走和面板一樣的通道）
+    // 一句話勾了旁白：拆鏡就寫了台詞，全部生成之後會自動念成旁白（第 1 版）
     const shots0 = (await invoke<Shots>(page, 'shots.list')).shots
     const first = shots0[0]
     if (!first) throw new Error('沒有鏡頭')
-    await page.evaluate(async (shotId) => {
-      await window.svs.invoke('shots.update', { shotId, patch: { dialogue: '黑藤爬滿了斷橋。' } })
-      await window.svs.invoke('sound.generateNarration', { shotId })
-    }, first.id)
     await expect
       .poll(async () => (await invoke<Sound>(page, 'sound.get')).shots[0]?.narration?.version)
       .toBe(1)
