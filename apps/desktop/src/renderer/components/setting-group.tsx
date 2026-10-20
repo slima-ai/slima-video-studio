@@ -27,7 +27,10 @@ export function SettingGroup({ id, title, hint, testId, children }: SettingGroup
         </h2>
         <p className="mt-0.5 text-sm text-fg-muted">{hint}</p>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">{children}</div>
+      {/* 欄寬用 minmax(0, 1fr)：預設的 auto 欄會被裡面寫不下的內容（輸入框、圖）撐寬，窄視窗就超出右邊 */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[repeat(2,minmax(0,1fr))]">
+        {children}
+      </div>
     </section>
   )
 }

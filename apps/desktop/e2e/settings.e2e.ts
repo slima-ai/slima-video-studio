@@ -234,6 +234,35 @@ test.describe('第一次使用的引導與設定頁', () => {
     await expect(page.getByTestId('model-t2i').getByTestId('model-name')).toContainText('Seedream')
   })
 
+  test('390 寬：五區的卡片、連線圖都不超出區的右邊，內容區不能橫向捲動', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.getByRole('button', { name: '設定' }).click()
+    await expect(page.getByTestId('settings-tags')).toBeVisible()
+    const result = await page.evaluate(() => {
+      const groups: Record<string, number> = {}
+      for (const id of ['general', 'connections', 'keys', 'models', 'experiments']) {
+        const group = document.getElementById(id)
+        if (!group) continue
+        const right = group.getBoundingClientRect().right
+        let over = 0
+        for (const el of group.querySelectorAll('*')) {
+          const box = el.getBoundingClientRect()
+          if (box.width > 0) over = Math.max(over, box.right - right)
+        }
+        groups[id] = Math.round(over)
+      }
+      let scroller: HTMLElement | null = document.getElementById('general')?.parentElement ?? null
+      while (scroller && !['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY)) {
+        scroller = scroller.parentElement
+      }
+      return { groups, sideways: scroller ? scroller.scrollWidth - scroller.clientWidth : -1 }
+    })
+    expect(result).toEqual({
+      groups: { general: 0, connections: 0, keys: 0, models: 0, experiments: 0 },
+      sideways: 0,
+    })
+  })
+
   test('390 寬：標籤列可以左右滑，捲到哪一區亮的標籤就在可視範圍內', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.getByRole('button', { name: '設定' }).click()
