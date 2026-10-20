@@ -24,6 +24,8 @@ export interface ProjectLibrary {
   /** `parentDir` 只有畫面用的 `project.createAt` 會給；MCP 的 `project.createNew` 永遠放預設資料夾。 */
   createNew: (name?: string, parentDir?: string) => ProjectInfo
   pickFolder: () => Promise<string | undefined>
+  /** 另存為：複製目前的專案（含素材）到 `parentDir`（沒給就是預設資料夾），改名，切過去開那一份。 */
+  saveAs: (name: string, parentDir?: string) => Promise<ProjectInfo>
   /** 最近的專案（最多 10 個）：記住的加上專案資料夾裡的，找不到的標出來。 */
   recent: () => RecentProject[]
   /** 打開最近的專案清單裡的一個；只接受清單裡的路徑。 */
@@ -51,6 +53,18 @@ const invalid = (userMessage: string): AppError =>
  */
 export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
   const { projects, projectsDir } = deps
+
+  /** 新專案（或另存的複本）的資料夾：放在指定位置（要是已存在的絕對路徑資料夾）或預設的專案資料夾。 */
+  const newProjectDir = (title: string, parentDir: string | undefined): string => {
+    if (parentDir === undefined) {
+      mkdirSync(projectsDir, { recursive: true })
+    } else if (!isAbsolute(parentDir) || !isDirectory(parentDir)) {
+      // 指定的位置一定要是已經存在的資料夾（選資料夾的視窗選出來的），不替人建一串不存在的路徑
+      throw invalid('找不到這個資料夾，請重新選一個存放的位置。')
+    }
+    const at = deps.now?.() ?? new Date()
+    return join(parentDir ?? projectsDir, `${safeFileName(title, '我的短片')}-${stamp(at)}.svsproj`)
+  }
 
   const summaryOf = (dir: string, currentDir: string | undefined): ProjectSummary | undefined => {
     try {
@@ -127,17 +141,13 @@ export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
     createNew(name, parentDir) {
       const trimmed = name?.trim() ?? ''
       const title = trimmed === '' ? '我的短片' : trimmed
-      if (parentDir === undefined) {
-        mkdirSync(projectsDir, { recursive: true })
-      } else if (!isAbsolute(parentDir) || !isDirectory(parentDir)) {
-        // 指定的位置一定要是已經存在的資料夾（選資料夾的視窗選出來的），不替人建一串不存在的路徑
-        throw invalid('找不到這個資料夾，請重新選一個存放的位置。')
-      }
-      const at = deps.now?.() ?? new Date()
-      return projects.create(
-        join(parentDir ?? projectsDir, `${safeFileName(title, '我的短片')}-${stamp(at)}.svsproj`),
-        title,
-      )
+      return projects.create(newProjectDir(title, parentDir), title)
+    },
+
+    async saveAs(name, parentDir) {
+      const title = name.trim()
+      if (title === '') throw invalid('請給這一份一個名字。')
+      return projects.saveAs(newProjectDir(title, parentDir), title)
     },
 
     pickFolder: async () => (await deps.pickFolder?.('save')) ?? undefined,

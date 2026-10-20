@@ -103,6 +103,33 @@ describe('專案清單', () => {
     }).toThrow('找不到這個專案')
   })
 
+  describe('另存為', () => {
+    it('放在預設資料夾或指定的位置：複本開著、原本留著；名字空白、位置不存在就拒絕，原本的專案照開', async () => {
+      const { library, projects, root } = setup()
+      const original = library.createNew('原本')
+      projects.current()?.repos.characters.create('阿鐵')
+      const saved = await library.saveAs('  副本  ')
+      expect(saved.name).toBe('副本')
+      expect(saved.dir.startsWith(join(root, 'projects'))).toBe(true)
+      expect(projects.info()?.dir).toBe(saved.dir)
+      expect(projects.current()?.repos.characters.list()).toHaveLength(1)
+
+      const elsewhere = join(root, '別處')
+      mkdirSync(elsewhere)
+      const away = await library.saveAs('別處的副本', elsewhere)
+      expect(away.dir.startsWith(`${elsewhere}/`)).toBe(true)
+
+      await expect(library.saveAs('   ')).rejects.toThrow('請給這一份一個名字')
+      await expect(library.saveAs('x', join(root, '沒有這個資料夾'))).rejects.toThrow(
+        '找不到這個資料夾',
+      )
+      expect(projects.info()?.dir).toBe(away.dir)
+      expect(library.list().projects.map((p) => p.dir)).toEqual(
+        expect.arrayContaining([original.dir, saved.dir, away.dir]),
+      )
+    })
+  })
+
   describe('最近的專案', () => {
     const withRecent = (picked?: string) => {
       const root = mkdtempSync(join(tmpdir(), 'svs-library-recent-'))

@@ -153,6 +153,9 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('project.pickFolder', async () => ({
     dir: (await library.pickFolder()) ?? null,
   }))
+  registry.registerHandler('project.saveAs', ({ name, parentDir }) =>
+    library.saveAs(name, parentDir),
+  )
   registry.registerHandler('project.recent', () => ({ projects: library.recent() }))
   registry.registerHandler('project.openRecent', ({ dir }) => library.openRecent(dir))
   registry.registerHandler('project.forgetRecent', ({ dir }) => {

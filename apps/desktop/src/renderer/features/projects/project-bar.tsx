@@ -1,16 +1,32 @@
-import type { RecentProject } from '@svs/schema'
-import { ChevronDown, Clapperboard, FolderOpen, FolderPlus, House, Pencil } from 'lucide-react'
+import type { ProjectStatus, RecentProject } from '@svs/schema'
+import {
+  ChevronDown,
+  Clapperboard,
+  Copy,
+  FolderOpen,
+  FolderPlus,
+  House,
+  Pencil,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import type { AppView } from '../../components/app-layout'
 import { call, errorText } from '../../lib/svs'
 import { pickAndOpenProject } from './home-page'
 import { NewProjectDialog } from './new-project-dialog'
+import { useToast } from '../../components/toast'
 import { clockTime, useProjectStatus } from './use-project-status'
 
 const RECENT_COUNT = 5
 
 const usd = (n: number): string => `US$${n.toFixed(2)}`
+
+/** 「儲存」的提示：專案是自動儲存的，告訴使用者最後一次是幾點。⌘S 與（之後）檔案選單的「儲存」都用它。 */
+export function saveHint(status: ProjectStatus | null | undefined): string {
+  return status
+    ? `專案會自動儲存，最後一次 ${clockTime(status.savedAt)}`
+    : '還沒有專案。新增任何東西時會自動建立，之後都會自動儲存。'
+}
 
 const barButton =
   'inline-flex h-7 items-center gap-1 rounded-md px-2 text-[13px] hover:bg-surface-overlay focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50'
@@ -34,12 +50,33 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [savingAs, setSavingAs] = useState(false)
+  const toast = useToast()
   const [recent, setRecent] = useState<RecentProject[]>([])
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
 
   const name = status?.name ?? ''
   const hasProject = status !== null && status !== undefined
+
+  // ⌘S／Ctrl+S：專案是自動儲存的，沒有東西要存；習慣按的人會看到這句，知道已經存好了
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.shiftKey &&
+        !event.altKey &&
+        event.key.toLowerCase() === 's'
+      ) {
+        event.preventDefault()
+        toast.show({ message: saveHint(status), key: 'save-hint' })
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [status, toast])
 
   const finishWith = (work: Promise<unknown>, thenCanvas: boolean): void => {
     setBusy(true)
@@ -140,6 +177,10 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
               setMenuOpen(false)
               onNavigate('projects')
             }}
+            onSaveAs={() => {
+              setMenuOpen(false)
+              setSavingAs(true)
+            }}
             onRename={() => {
               setMenuOpen(false)
               setRenaming(true)
@@ -160,6 +201,21 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
             setCreating(false)
             onNavigate('canvas')
             refresh()
+          }}
+        />
+      ) : null}
+
+      {savingAs ? (
+        <NewProjectDialog
+          mode="saveAs"
+          initialName={`${name} 副本`}
+          onClose={() => {
+            setSavingAs(false)
+          }}
+          onCreated={(saved) => {
+            setSavingAs(false)
+            refresh()
+            toast.show({ message: `已另存為「${saved.name}」，現在開著的是這一份。` })
           }}
         />
       ) : null}
@@ -279,6 +335,7 @@ function ProjectMenu({
   onOpenOld,
   onHome,
   onAll,
+  onSaveAs,
   onRename,
   onReveal,
 }: {
@@ -291,6 +348,7 @@ function ProjectMenu({
   onOpenOld: () => void
   onHome: () => void
   onAll: () => void
+  onSaveAs: () => void
   onRename: () => void
   onReveal: () => void
 }) {
@@ -389,6 +447,17 @@ function ProjectMenu({
       </button>
       {hasProject ? (
         <>
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="menu-save-as"
+            className={menuItem}
+            disabled={busy}
+            onClick={onSaveAs}
+          >
+            <Copy className="size-4" aria-hidden />
+            另存為…
+          </button>
           <button
             type="button"
             role="menuitem"

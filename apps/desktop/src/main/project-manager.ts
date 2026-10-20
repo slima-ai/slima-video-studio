@@ -1,4 +1,5 @@
 import {
+  copyProject,
   createProject,
   openProject,
   projectModifiedAt,
@@ -24,6 +25,19 @@ export class ProjectManager {
     // 重新開啟「目前這個」專案時要先放掉自己的鎖
     this.close()
     return this.adopt(openProject(dir, { appVersion: this.appVersion }))
+  }
+
+  /**
+   * 另存為：把開著的專案（含素材）複製到 `destDir`，改名，然後切過去開那一份。
+   * 原本的專案原封不動留在原處；複製失敗就什麼都沒變（目前專案照開）。
+   */
+  async saveAs(destDir: string, name: string): Promise<ProjectInfo> {
+    const { handle } = this
+    if (!handle) {
+      throw new AppError({ code: 'project_not_found', userMessage: '請先開啟或建立一個專案。' })
+    }
+    await copyProject(handle, destDir, { name, env: { appVersion: this.appVersion } })
+    return this.open(destDir)
   }
 
   current(): ProjectHandle | undefined {
