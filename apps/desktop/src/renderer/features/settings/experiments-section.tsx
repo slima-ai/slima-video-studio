@@ -1,4 +1,9 @@
-import { CHAT_BUDGET_MAX_USD, CHAT_BUDGET_MIN_USD, type AppSettings } from '@svs/schema'
+import {
+  CHAT_BUDGET_DEFAULT_USD,
+  CHAT_BUDGET_MAX_USD,
+  CHAT_BUDGET_MIN_USD,
+  type AppSettings,
+} from '@svs/schema'
 import { MessagesSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -128,7 +133,7 @@ function BudgetField({
         type="text"
         inputMode="decimal"
         value={text}
-        placeholder="0.5"
+        placeholder={String(CHAT_BUDGET_DEFAULT_USD)}
         className="w-20 rounded-md border border-border bg-surface px-2 py-1"
         onChange={(event) => {
           setText(event.target.value)
@@ -142,7 +147,7 @@ function BudgetField({
         花的是你自己的 Claude 用量，跟「單次花費上限」「AI 工具的總額度」不同。一段＝連續使用，閒置
         10
         分鐘或按「繼續」就算新的一段；到上限時對話會停下並出現「繼續」，按了再用同樣的量。留空用預設（約
-        US$0.50）。
+        US${String(CHAT_BUDGET_DEFAULT_USD)}）。
       </span>
     </div>
   )

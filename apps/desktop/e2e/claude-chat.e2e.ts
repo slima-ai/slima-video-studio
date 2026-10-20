@@ -163,9 +163,18 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(page.getByTestId('chat-error')).toContainText('用量到上限')
     await expect(page.getByTestId('chat-continue')).toBeVisible()
     await page.getByTestId('chat-continue').click()
-    await expect(page.getByTestId('chat-message-assistant').last()).toContainText(
-      '接著做完了（接回同一個對話）',
-    )
+    const reply = page.getByTestId('chat-message-assistant').last()
+    await expect(reply).toContainText('只續做被打斷的那一句「做很多事，用量會用完」')
+    await expect(reply).toContainText('接回同一個對話')
+    // 只做被打斷那一句的事：一個步驟；沒有去做上一輪預告的影片、配樂、匯出
+    await expect(reply.getByTestId('chat-step')).toHaveCount(1)
+    await expect(reply).not.toContainText('影片')
+    await expect(reply).not.toContainText('匯出')
+    // 送出的話是「剛才那句「…」被用量上限打斷…不要做那句以外的事」，不是「接著剛才的做下去」
+    const sent = page.getByTestId('chat-message-user').last()
+    await expect(sent).toContainText('剛才那句「做很多事，用量會用完」被用量上限打斷')
+    await expect(sent).toContainText('不要做那句以外的事')
+    await expect(sent).not.toContainText('接著剛才')
     // 做完之後按鈕不見；對話還是同一個
     await expect(page.getByTestId('chat-continue')).toHaveCount(0)
     await expect(page.getByTestId('chat-message-user')).toHaveCount(2)

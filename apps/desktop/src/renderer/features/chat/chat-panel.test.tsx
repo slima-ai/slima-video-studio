@@ -354,12 +354,14 @@ describe('Claude 對話面板：講話與串流', () => {
     emit(message({ id: 'a', state: 'error', error: '連線中斷了。' }))
     expect(screen.queryByTestId('chat-continue')).toBeNull()
     // 用量到上限：有
+    emit(message({ id: 'u', role: 'user', text: '第 2 鏡改成近景' }))
     emit(message({ id: 'b', state: 'error', error: '這一段用量到上限了。', resumable: true }))
     fireEvent.click(screen.getByTestId('chat-continue'))
     await waitFor(() => {
+      // 只續做被打斷的那一句，不是「接著剛才的做下去」
       expect(fake.calls.find((c) => c.channel === 'chat.send')?.payload).toEqual({
         conversationId: ID,
-        text: '請接著剛才的做下去。',
+        text: '剛才那句「第 2 鏡改成近景」被用量上限打斷。先看專案現在的狀態，把那句還沒做完的部分做完；不要做那句以外的事。',
       })
     })
     // 後面又有新的一則：舊的那則不再有按鈕

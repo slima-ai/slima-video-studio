@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs'
 import {
   AI_TURN_UNDO_LABEL,
   AppError,
+  CHAT_BUDGET_DEFAULT_USD,
   type AppSettings,
   type ChatConversation,
   type ChatEvent,
@@ -78,8 +79,6 @@ export interface ChatService {
 export const DEFAULT_CHAT_TITLE = '新對話'
 const TITLE_FROM_TEXT_MAX = 20
 const CHECK_TTL_MS = 60_000
-/** Claude 自己的用量上限：一個對話行程最多這麼多美金（保守值；訂閱使用者這只是用量的參考）。 */
-const DEFAULT_MAX_BUDGET_USD = 0.5
 /** 閒置多久關掉行程：十個對話就是十個常駐的 claude，沒在用的不該一直佔著。 */
 /** 一輪的復原名稱（復原按鈕旁、「已復原：…」的提示會用）。 */
 export const CHAT_UNDO_LABEL = AI_TURN_UNDO_LABEL
@@ -425,7 +424,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       maxBudgetUsd:
         deps.settings.get().experiments.claudeBudgetUsd ??
         deps.maxBudgetUsd ??
-        DEFAULT_MAX_BUDGET_USD,
+        CHAT_BUDGET_DEFAULT_USD,
     })
     const proc: ClaudeProcess = startClaudeProcess({
       spawn: deps.spawn,

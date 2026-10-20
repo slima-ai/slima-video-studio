@@ -37,6 +37,8 @@ export type McpSettings = z.infer<typeof McpSettingsSchema>
  */
 export const CHAT_BUDGET_MIN_USD = 0.1
 export const CHAT_BUDGET_MAX_USD = 20
+/** 沒設定時的預設：US$0.5 太低（讀指南、呼叫幾個工具的一輪就超過），一段就被切斷。 */
+export const CHAT_BUDGET_DEFAULT_USD = 5
 export const ExperimentsSettingsSchema = z.object({
   claudeChat: z.boolean().optional(),
   /** Claude 對話每一段（一個行程）的用量上限，美金；沒設就用預設。到上限時畫面給「繼續」。 */
