@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { McpToolError } from '../bridge'
 import { defineTool, type ToolContext } from './define'
+import { GENERATION_RESERVE_FACTOR, estimateBatch } from './film'
 import { TEXT_RESERVE_FACTOR, reserveSpending } from './spend'
 
 const shotView = (s: {
@@ -113,12 +114,19 @@ export function registerStoryTools(ctx: ToolContext): void {
     name: 'estimate_cost',
     title: 'Estimate the cost of a step',
     description:
-      "Ask what a step would cost before doing it. Does not spend or reserve anything. Returns the app's estimate, how much the allowance would reserve (the estimate × " +
+      "Ask what a step would cost before doing it. Does not spend or reserve anything. Steps: split_story_into_scenes and split_scene_into_shots (text), generate_first_frames and generate_videos (pictures and videos; the same numbers the app shows in its own 'generate all' confirmation, for the shots you name or every shot in the cut). Returns the app's estimate, how much the allowance would reserve (the estimate × " +
       String(TEXT_RESERVE_FACTOR) +
-      ' for text steps, because reasoning models often cost more than estimated), the allowance left, and whether it fits.',
+      ' for text steps, because reasoning models often cost more than estimated; × ' +
+      String(GENERATION_RESERVE_FACTOR) +
+      ' for pictures and videos), the allowance left, and whether it fits. possible=false (with an issue) means the step cannot start now, for example videos before any first frame exists. For sound use plan_sound.',
     input: {
       action: z
-        .enum(['split_story_into_scenes', 'split_scene_into_shots'])
+        .enum([
+          'split_story_into_scenes',
+          'split_scene_into_shots',
+          'generate_first_frames',
+          'generate_videos',
+        ])
         .describe('Which step to estimate'),
       story: z
         .string()
@@ -126,9 +134,35 @@ export function registerStoryTools(ctx: ToolContext): void {
         .optional()
         .describe('For split_story_into_scenes: the story text'),
       sceneId: z.string().optional().describe('For split_scene_into_shots: the scene id'),
+      shotIds: z
+        .array(z.string().min(1))
+        .max(100)
+        .optional()
+        .describe(
+          'For generate_first_frames and generate_videos: only these shots (default: all shots in the cut)',
+        ),
+      redo: z
+        .boolean()
+        .default(false)
+        .describe(
+          'For generate_first_frames and generate_videos: price new versions even where one exists',
+        ),
+      draft: z
+        .boolean()
+        .default(false)
+        .describe('For generate_first_frames and generate_videos: the cheaper "draft" model tier'),
     },
     hints: { readOnly: true },
-    run: async ({ action, story, sceneId }) => {
+    run: async ({ action, story, sceneId, shotIds, redo, draft }) => {
+      if (action === 'generate_first_frames' || action === 'generate_videos') {
+        return estimateBatch(
+          ctx,
+          action === 'generate_first_frames' ? 'frame' : 'video',
+          shotIds,
+          redo,
+          draft,
+        )
+      }
       const check =
         action === 'split_story_into_scenes'
           ? await ctx.caller.call('outline.splitCheck', { text: story ?? '' })
