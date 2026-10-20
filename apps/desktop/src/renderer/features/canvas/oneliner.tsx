@@ -170,7 +170,11 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
           data-testid="oneliner-sound"
         >
           <legend className="sr-only">聲音</legend>
-          <span className={FIELD_LABEL} aria-hidden title="只有「一次做完整支」會自動加">
+          <span
+            className={FIELD_LABEL}
+            aria-hidden
+            title="旁白與配樂：一次做完整支，或之後按「全部生成」，影片接好時自動加"
+          >
             聲音
           </span>
           {SOUND_CHOICES.map(({ key, label, hint }) => (
@@ -198,7 +202,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
           className="lod-full text-[11px] leading-snug text-fg-muted"
           data-testid="oneliner-sound-note"
         >
-          聲音只在「一次做完整支」時自動加；先產生分鏡的話，影片生成後到成品面板的「聲音」區加。
+          旁白與配樂會在影片接好時自動加：「一次做完整支」做完就加；「先產生分鏡」的話，等你按右上角的「全部生成」。
         </p>
       ) : null}
       {growStory && picked ? (
@@ -242,7 +246,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
             type="button"
             data-testid="oneliner-generate"
             disabled={running || story.trim() === ''}
-            title="分鏡、圖片、影片一次都生成（圖片和影片會花錢），上面勾的聲音也在這一條才會用到"
+            title="分鏡、圖片、影片一次都生成（圖片和影片會花錢），上面勾的聲音也一起加"
             className="rounded-lg border border-border px-3 py-1 text-xs hover:bg-fg/10 disabled:opacity-50"
             onClick={(event) => {
               growStory(

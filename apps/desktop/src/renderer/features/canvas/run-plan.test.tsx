@@ -39,6 +39,38 @@ describe('RunPlanConfirm', () => {
     expect(dialog.textContent).toContain('已經有結果的不會重跑')
   })
 
+  it('接好片之後會自動加旁白與配樂：列出來並寫約多少錢；加不成就寫原因', () => {
+    const { unmount } = render(
+      <RunPlanConfirm
+        plan={plan({
+          rejoin: true,
+          estimatedUsd: 0.52,
+          sound: { narration: true, music: true, usd: 0.1 },
+        })}
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('run-confirm').textContent).toContain(
+      '接好片之後自動加旁白與配樂（約 US$0.10）',
+    )
+    unmount()
+    render(
+      <RunPlanConfirm
+        plan={plan({
+          sound: { narration: false, music: true, usd: 0, issue: '還沒有可用的配樂模型。' },
+        })}
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('run-confirm').textContent).toContain(
+      '接好片之後想自動加配樂，但現在加不成：還沒有可用的配樂模型。',
+    )
+  })
+
   it('重做已完成的節點：標明會產生第幾版、舊的保留，確認鈕也這樣寫；不說「不會重跑」', () => {
     const redo = plan({
       steps: [

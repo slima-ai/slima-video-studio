@@ -31,6 +31,7 @@ import type { Readable } from 'node:stream'
 
 import { ensureProject } from '../ensure-project'
 import type { Logger } from '../logger'
+import type { SoundService } from '../sound/sound-service'
 import type { ProjectManager } from '../project-manager'
 import type { Broadcast } from '../runtime/project-runtime'
 import type { CharacterService } from '../characters/character-service'
@@ -39,6 +40,7 @@ import type { ModelRegistry } from '@svs/providers'
 import { NODE_TYPES } from '@svs/workflows'
 import { createCanvasAdder, type CanvasAdderDeps } from './canvas-add'
 import { createCanvasRunner } from './canvas-run'
+import { createRunSound } from './canvas-run-sound'
 import { UPLOAD_MODEL } from '../shots/shot-service'
 import { createCanvasCopier } from './canvas-copy'
 import { createFreeLinker } from './canvas-free-link'
@@ -119,6 +121,8 @@ export interface CanvasServiceDeps extends Omit<CanvasAdderDeps, 'freeNodes'>, C
   projectsDir?: string
   log: Pick<Logger, 'info' | 'warn'>
   now?: () => Date
+  /** 聲音服務（「全部生成」之後照一句話卡片的勾選自動加旁白與配樂）；沒給就不加。 */
+  sound?: () => Pick<SoundService, 'plan' | 'addAll' | 'state'> | undefined
   /** 「上傳」的選檔視窗：回傳選到的檔案路徑（取消就是空的）。沒給就當作取消（測試用）。 */
   pickFiles?: () => Promise<string[]>
 }
@@ -161,6 +165,11 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
   const runner = createCanvasRunner({
     shots: deps.shots,
     log: deps.log,
+    runSound: createRunSound({
+      projects,
+      log: deps.log,
+      ...(deps.sound ? { sound: deps.sound } : {}),
+    }),
     notify: (notice) => {
       broadcast('canvas.notice', notice)
     },
@@ -472,7 +481,11 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
           userMessage: '找不到這個「一句話」，可能已經被刪掉了。',
         })
       }
-      handle.repos.canvas.updateNodeParams(node.id, patch)
+      // 改了聲音勾選＝重新決定要不要自動加：之後的「全部生成」再照新的勾選加
+      handle.repos.canvas.updateNodeParams(
+        node.id,
+        patch.sound === undefined ? patch : { ...patch, soundAutoAddedAt: undefined },
+      )
       revision += 1
       broadcast('canvas.changed', { revision })
     },

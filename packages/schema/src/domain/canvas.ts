@@ -109,6 +109,11 @@ export const OnelinerParamsSchema = z.object({
   aspectRatio: z.enum(['16:9', '9:16']),
   /** 聲音三個勾選；舊的節點沒有這個欄位，畫面上當成全開。 */
   sound: QuickStartSoundSchema.optional(),
+  /**
+   * 旁白與配樂已經自動加過的時間（ISO）。有值就不再自動補（使用者刪掉的配樂不會又冒出來）；
+   * 在卡片上改聲音勾選、或重新產生分鏡，就清掉，之後的「全部生成」再照勾選加。
+   */
+  soundAutoAddedAt: z.string().optional(),
 })
 export type OnelinerParams = z.infer<typeof OnelinerParamsSchema>
 
@@ -459,6 +464,17 @@ export const CanvasRunStepSchema = z.object({
 })
 export type CanvasRunStep = z.infer<typeof CanvasRunStepSchema>
 
+/** 「全部生成」生成完之後會自動加的旁白與配樂：照一句話卡片上記住的聲音勾選。 */
+export const CanvasRunSoundPlanSchema = z.object({
+  narration: z.boolean(),
+  music: z.boolean(),
+  /** 旁白與配樂預估要多花多少（算進整次的預估）；加不成時是 0。 */
+  usd: z.number().nonnegative(),
+  /** 現在加不成的原因（沒有可用的模型、超過預算上限）；有值時整次的預估不含聲音。 */
+  issue: z.string().optional(),
+})
+export type CanvasRunSoundPlan = z.infer<typeof CanvasRunSoundPlanSchema>
+
 /** 執行之前的檢查：會跑哪些步驟、預估花費、哪些節點要標亮（「執行到這裡」）。 */
 export const CanvasRunPlanSchema = z.object({
   ok: z.boolean(),
@@ -478,6 +494,8 @@ export const CanvasRunPlanSchema = z.object({
   rejoin: z.boolean(),
   /** 接片時會接幾段（放進成品的鏡頭數）。 */
   segments: z.number().int().nonnegative().default(0),
+  /** 生成完接好片之後會自動加旁白與配樂（「全部生成」，而且這批鏡頭是從有勾聲音的一句話來的）。 */
+  sound: CanvasRunSoundPlanSchema.optional(),
 })
 export type CanvasRunPlan = z.infer<typeof CanvasRunPlanSchema>
 
