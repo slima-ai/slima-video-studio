@@ -57,9 +57,9 @@ export function StartCards({
   return (
     <div
       data-testid="canvas-empty"
-      className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center pl-[264px]"
+      className="pointer-events-none absolute inset-0 z-10 flex overflow-auto pl-[264px]"
     >
-      <div className="pointer-events-auto flex flex-col items-center gap-4">
+      <div className="pointer-events-auto m-auto flex flex-col items-center gap-4 pb-4 pt-16">
         <div className="flex flex-col items-center gap-1 text-center">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Mascot size={32} mood="idle" />
@@ -69,7 +69,7 @@ export function StartCards({
             三種都可以，挑順手的；之後隨時能從左邊的「新增」加場、鏡頭、角色、地點，或上傳圖片。
           </p>
         </div>
-        <div className="flex items-stretch gap-3">
+        <div className="flex flex-wrap items-stretch justify-center gap-3">
           <StartCard
             icon={<PenLine className="size-4 text-accent" aria-hidden />}
             title="自己一步一步來"

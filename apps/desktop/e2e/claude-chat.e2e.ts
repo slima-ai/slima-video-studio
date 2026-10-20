@@ -180,6 +180,48 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(page.getByTestId('chat-message-user')).toHaveCount(2)
   })
 
+  test('面板開著：空白畫布的三張開始卡都在面板左邊看得到（會換行，不被切掉）；提示往左讓開，不蓋住輸入欄與送出鈕', async ({
+    page,
+  }, testInfo) => {
+    // 筆電常見的寬度：面板（380）一開，畫布只剩不到 850，三張卡排不下一行
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await useFreeMcpPort(page)
+    await openChat(page)
+    await expect(page.getByTestId('canvas-empty')).toBeVisible()
+    const drawer = await page.getByTestId('chat-drawer').boundingBox()
+    if (!drawer) throw new Error('沒有面板')
+    // 面板滑出的動畫播完（寬度是 380）
+    await expect
+      .poll(async () => (await page.getByTestId('chat-drawer').boundingBox())?.width)
+      .toBe(380)
+    const left = (await page.getByTestId('chat-drawer').boundingBox())?.x ?? 0
+    // 三張卡（一步一步來、貼一段故事、一句話）每一張都完整在面板左邊
+    for (const id of ['empty-manual', 'empty-paste-go', 'empty-add-oneliner']) {
+      const card = page.getByTestId(id)
+      await card.scrollIntoViewIfNeeded()
+      const box = await card.boundingBox()
+      expect(box, id).not.toBeNull()
+      expect((box?.x ?? 0) + (box?.width ?? 0), `${id} 不被面板切掉`).toBeLessThanOrEqual(left + 1)
+      expect(box?.x ?? -1, `${id} 不被左邊切掉`).toBeGreaterThanOrEqual(0)
+    }
+    // 提示：沒東西可以復原，按 ⌘Z 會跳「沒有可以復原的動作」；它不能蓋在面板上
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z')
+    const toast = page.getByTestId('toast').first()
+    await expect(toast).toBeVisible()
+    await expect
+      .poll(async () => {
+        const box = await toast.boundingBox()
+        return (box?.x ?? 0) + (box?.width ?? 0)
+      })
+      .toBeLessThanOrEqual(left + 1)
+    await page.screenshot({ path: testInfo.outputPath('chat-open-empty-canvas.png') })
+    // 面板收起來之後，提示回到右下角
+    await page.getByRole('button', { name: '收起 Claude 對話' }).click()
+    await expect
+      .poll(async () => page.evaluate(() => document.documentElement.dataset.chatDrawer))
+      .toBeUndefined()
+  })
+
   test('Claude 回 Markdown：表格、粗體、清單照樣子顯示；裡面夾的 HTML 只是字，不會執行', async ({
     page,
   }, testInfo) => {
