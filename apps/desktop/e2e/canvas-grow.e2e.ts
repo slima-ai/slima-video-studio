@@ -36,7 +36,7 @@ async function prepare(page: Page, story = '一隻貓在下雨的夜晚找到溫
   await pick(page, 'oneliner-duration', '3')
 }
 
-/** 按「生成影片」→ 看確認面板 → 確認。 */
+/** 按「一次做完整支」→ 看確認面板 → 確認。 */
 async function generate(page: Page, options: { replace?: boolean } = {}): Promise<void> {
   await page.getByTestId('oneliner-generate').click()
   await expect(page.getByTestId('run-confirm')).toBeVisible()
@@ -104,7 +104,67 @@ test.describe('畫布上的一句話（示範模式）', () => {
     )
     // 生成好了，按鈕回到可以再生成（畫面可能已經平移到新的場，先把一句話拉回來）
     await focusOneliner(page)
-    await expect(page.getByTestId('oneliner-generate')).toHaveText('生成影片')
+    await expect(page.getByTestId('oneliner-generate')).toHaveText('一次做完整支')
+  })
+
+  test('主按鈕「先產生分鏡」：白話說兩步各多少錢 → 只長出場與鏡頭，沒有圖片、影片和成品', async ({
+    page,
+  }) => {
+    await prepare(page)
+    await expect(page.getByTestId('oneliner-storyboard')).toHaveText('先產生分鏡')
+    await page.getByTestId('oneliner-storyboard').click()
+    const confirm = page.getByTestId('run-confirm')
+    await expect(confirm).toContainText('這一步只寫分鏡')
+    await expect(confirm).toContainText('下一步才生圖片和影片')
+    await expect(confirm).toContainText('全部生成')
+    await expect(confirm).toContainText('準確的預估')
+    await expect(confirm).toContainText('旁白與配樂不在這一步')
+    await expect(page.getByTestId('oneliner-sound-note')).toContainText(
+      '只在「一次做完整支」時自動加',
+    )
+    await expect(confirm).toContainText('示範模式')
+    // 兩個價錢都寫出來：這一步、下一步
+    await expect(confirm).toContainText(/約 US\$\d+\.\d\d/)
+    await expect(confirm.getByText(/下一步才生圖片和影片：.*約 US\$\d+\.\d\d/)).toBeVisible()
+    await expect(confirm).not.toContainText('接成一支完整的片子')
+    await page.getByTestId('run-confirm-ok').click()
+    await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'true')
+    await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false', {
+      timeout: 60_000,
+    })
+    const done = page.getByTestId('toast').filter({ hasText: '分鏡寫好了' })
+    await expect(done).toBeVisible()
+    // 分鏡寫好之後，畫面上提到「全部生成」的價錢只有一個來源：右上角那顆；提示不寫數字
+    await expect(done).not.toContainText('US$')
+    await expect(page.getByTestId('run-all')).toContainText(/全部生成（約 US\$\d+\.\d\d/)
+    const prices = await page.evaluate(() => {
+      const found = new Set<string>()
+      for (const el of document.querySelectorAll(
+        '[data-testid="toast"], [data-testid="run-all"]',
+      )) {
+        const text = el.textContent
+        if (!text.includes('全部生成')) continue
+        for (const m of text.matchAll(/US\$\d+\.\d\d/g)) found.add(m[0])
+      }
+      return [...found]
+    })
+    expect(prices).toHaveLength(1)
+    await expect.poll(() => kindCount(page, 'scene')).toBe(1)
+    expect(await kindCount(page, 'shot')).toBe(3)
+    // 圖片、影片、成品都還沒生成
+    const nodes = await canvasNodes(page)
+    expect(nodes.filter((n) => n.data.kind === 'video' && n.data.status === 'done')).toHaveLength(0)
+    expect(nodes.filter((n) => n.data.kind === 'image' && n.data.status === 'done')).toHaveLength(0)
+    expect(nodes.find((n) => n.data.kind === 'cut')?.data.status).not.toBe('done')
+    // 一句話的線連到新的場；按鈕回到可以再按
+    const one = nodes.find((n) => n.data.kind === 'oneliner')
+    const scene = nodes.find((n) => n.data.kind === 'scene')
+    expect(await canvasEdges(page)).toContainEqual(
+      expect.objectContaining({ source: one?.id, target: scene?.id }),
+    )
+    await focusOneliner(page)
+    await expect(page.getByTestId('oneliner-storyboard')).toHaveText('先產生分鏡')
+    await expect(page.getByTestId('oneliner-storyboard')).toBeEnabled()
   })
 
   test('選幾鏡就長出幾鏡：5 鏡的描述照故事分段、全是中文；剪輯顯示 5/5 鏡', async ({ page }) => {
@@ -251,7 +311,7 @@ test.describe('畫布上的一句話（示範模式）', () => {
       await page.getByTestId('run-stop').click()
       await expect(page.getByTestId('toast').filter({ hasText: '已經停止生成' })).toBeVisible()
       await focusOneliner(page)
-      await expect(page.getByTestId('oneliner-generate')).toHaveText('生成影片')
+      await expect(page.getByTestId('oneliner-generate')).toHaveText('一次做完整支')
     })
   })
 

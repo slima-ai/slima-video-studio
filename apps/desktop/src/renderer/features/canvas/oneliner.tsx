@@ -39,7 +39,7 @@ const ASPECT_OPTIONS = [
 ]
 
 /**
- * 一句話節點的內容：寫故事、選畫風／鏡頭數／秒數／比例，按「生成影片」就在畫布上長出整支短片。
+ * 一句話節點的內容：寫故事、選畫風／鏡頭數／秒數／比例，按「先產生分鏡」先在畫布上長出場與鏡頭（只用文字模型），看過、改好再生圖片和影片；也可以按「一次做完整支」。
  * 文字離開輸入框時存起來；下拉選了就存。生成中顯示「生成中…」與「停止」。
  */
 export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData }) {
@@ -52,7 +52,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
   useEffect(() => {
     if (!focused.current) setStory(saved)
   }, [saved])
-  // 畫風、鏡頭數、秒數、比例：選了馬上換（不等存好、重新載入），按「生成影片」用的就是畫面上看到的
+  // 畫風、鏡頭數、秒數、比例：選了馬上換（不等存好、重新載入），按下去用的就是畫面上看到的
   const [picked, setPicked] = useState(params)
   // 剛選了、還沒存好的設定：重新載入讀到的舊值不能蓋掉它（不然選 5 鏡馬上按生成，可能用到上一次存的 3 鏡）
   const unsaved = useRef<Partial<OnelinerParams>>({})
@@ -170,7 +170,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
           data-testid="oneliner-sound"
         >
           <legend className="sr-only">聲音</legend>
-          <span className={FIELD_LABEL} aria-hidden>
+          <span className={FIELD_LABEL} aria-hidden title="只有「一次做完整支」會自動加">
             聲音
           </span>
           {SOUND_CHOICES.map(({ key, label, hint }) => (
@@ -193,40 +193,71 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
           ))}
         </fieldset>
       ) : null}
+      {picked ? (
+        <p
+          className="lod-full text-[11px] leading-snug text-fg-muted"
+          data-testid="oneliner-sound-note"
+        >
+          聲音只在「一次做完整支」時自動加；先產生分鏡的話，影片生成後到成品面板的「聲音」區加。
+        </p>
+      ) : null}
       {growStory && picked ? (
-        <div className="nodrag lod-full flex gap-1.5">
+        <div className="nodrag lod-full flex flex-col gap-1.5">
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              data-testid="oneliner-storyboard"
+              disabled={running || story.trim() === ''}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-accent-fg disabled:opacity-50"
+              onClick={(event) => {
+                growStory(
+                  id,
+                  { ...picked, sound: picked.sound ?? DEFAULT_QUICK_START_SOUND, story },
+                  anchorOf(event.currentTarget),
+                  'storyboard',
+                )
+              }}
+            >
+              {running ? (
+                <>
+                  <Spinner label="生成中" />
+                  生成中…
+                </>
+              ) : (
+                '先產生分鏡'
+              )}
+            </button>
+            {running && stopGrow ? (
+              <button
+                type="button"
+                data-testid="oneliner-stop"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-fg/10"
+                onClick={stopGrow}
+              >
+                停止
+              </button>
+            ) : null}
+          </div>
           <button
             type="button"
             data-testid="oneliner-generate"
             disabled={running || story.trim() === ''}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-accent-fg disabled:opacity-50"
+            title="分鏡、圖片、影片一次都生成（圖片和影片會花錢），上面勾的聲音也在這一條才會用到"
+            className="rounded-lg border border-border px-3 py-1 text-xs hover:bg-fg/10 disabled:opacity-50"
             onClick={(event) => {
               growStory(
                 id,
                 { ...picked, sound: picked.sound ?? DEFAULT_QUICK_START_SOUND, story },
                 anchorOf(event.currentTarget),
+                'full',
               )
             }}
           >
-            {running ? (
-              <>
-                <Spinner label="生成中" />
-                生成中…
-              </>
-            ) : (
-              '生成影片'
-            )}
+            一次做完整支
           </button>
-          {running && stopGrow ? (
-            <button
-              type="button"
-              data-testid="oneliner-stop"
-              className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-fg/10"
-              onClick={stopGrow}
-            >
-              停止
-            </button>
-          ) : null}
+          <p className="text-[11px] leading-snug text-fg-muted">
+            先只寫分鏡（文字模型、花得少）：看過、改好，再生圖片和影片。
+          </p>
         </div>
       ) : null}
       {running ? (
@@ -239,7 +270,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
         </p>
       ) : story.trim() === '' ? (
         <p data-testid="oneliner-locked" className="lod-full text-[11px] text-fg-muted">
-          先寫下故事，才能生成
+          先寫下故事，才能產生分鏡
         </p>
       ) : null}
     </>

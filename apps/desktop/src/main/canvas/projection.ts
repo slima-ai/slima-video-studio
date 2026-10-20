@@ -120,7 +120,7 @@ const LEFT_PITCH = 240
 const EMPTY_SCENE: { w: number; h: number } = { w: 400, h: 300 }
 /** 自由方塊的大小（和畫面上的卡片一致，見 renderer canvas-model 的 NODE_SIZE）。 */
 const FREE_SIZE: Readonly<Record<string, { w: number; h: number }>> = {
-  oneliner: { w: 300, h: 340 },
+  oneliner: { w: 300, h: 440 },
   free_image: { w: 200, h: 170 },
   free_video: { w: 200, h: 170 },
   upload: { w: 200, h: 170 },
