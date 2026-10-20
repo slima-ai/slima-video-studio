@@ -194,7 +194,7 @@ describe('讓新節點進到看得見的地方', () => {
     const graph = makeDemo(4)
     const shot = graph.nodes.find((n) => n.id === 'shot:0')
     if (!shot) throw new Error('沒有鏡頭')
-    expect(rectOf(shot)).toMatchObject({ w: 230, h: 140 })
+    expect(rectOf(shot)).toMatchObject({ w: 230, h: 160 })
   })
 })
 

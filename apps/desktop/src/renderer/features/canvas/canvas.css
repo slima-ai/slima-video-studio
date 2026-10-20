@@ -129,7 +129,8 @@
 .react-flow__handle.svs-handle {
   width: 12px;
   height: 12px;
-  background: var(--c);
+  /* 主線的圓點用傳的東西的顏色（--port-c，nodes.tsx 設）；沒設就用這一格的分類色 */
+  background: var(--port-c, var(--c));
   border: 2px solid var(--surface);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
   transition:

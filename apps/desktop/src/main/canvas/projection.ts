@@ -90,9 +90,9 @@ const STEP_TITLES = { prompt: '整理 Prompt', refs: '挑參考圖', model: '送
 
 // ── 自動排版（尺寸與間距和畫面上的節點卡片一致，見 uiux-spec §3、§12） ──
 const SIZE = {
-  shot: { w: 230, h: 140 },
-  image: { w: 230, h: 230 },
-  video: { w: 230, h: 230 },
+  shot: { w: 230, h: 160 },
+  image: { w: 230, h: 246 },
+  video: { w: 230, h: 246 },
 } as const
 /** 場框的內距。 */
 const PAD = { x: 24, top: 44, bottom: 24 } as const
@@ -101,7 +101,7 @@ const ROW_PITCH = 256
 const STEP_STAGES = ['prompt', 'refs', 'model'] as const
 const STEP_H = { prompt: 150, refs: 104, model: 92 } as const
 const STEP_GAP = 28
-/** 第一格離鏡頭上緣多遠（鏡頭卡片高 140，再空一點）。 */
+/** 第一格離鏡頭上緣多遠（鏡頭卡片高 160，再空一點）。 */
 const STEP_TOP = 176
 /** 展開的那一列多佔的高度：下面的列整體往下讓開。 */
 const STEPS_EXTRA =

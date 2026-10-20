@@ -103,6 +103,8 @@ test.describe('畫布上的詳情面板（示範模式）', () => {
     // 場：欄位；沒有試跑
     const scene = (await canvasNodes(page)).find((n) => n.data.kind === 'scene')
     if (!scene) throw new Error('沒有場')
+    // 場的標題可能落在上方列底下（一句話的卡片高度會影響整理後的畫面位置）：先置中再點
+    await centerOn(page, scene.id)
     await page
       .locator(`.react-flow__node[data-id="${scene.id}"] .svs-frame-title`)
       .click({ position: { x: 40, y: 12 } })
