@@ -72,6 +72,7 @@ describe('ExperimentsSection：Claude 對話每一段的用量上限', () => {
     const fake = installFakeSvs({ 'app.getInfo': info(true), 'settings.update': () => ({}) })
     const onChanged = vi.fn()
     render(<ExperimentsSection settings={withFlag()} onChanged={onChanged} />)
+    fireEvent.click(await screen.findByTestId('setting-card-more'))
     const input = await screen.findByTestId<HTMLInputElement>('experiment-claude-budget')
     fireEvent.change(input, { target: { value: '1.5' } })
     fireEvent.blur(input)
@@ -88,6 +89,7 @@ describe('ExperimentsSection：Claude 對話每一段的用量上限', () => {
         onChanged={onChanged}
       />,
     )
+    fireEvent.click(await screen.findByTestId('setting-card-more'))
     const filled = await screen.findByTestId<HTMLInputElement>('experiment-claude-budget')
     expect(filled.value).toBe('2')
     fireEvent.change(filled, { target: { value: '' } })
@@ -102,6 +104,7 @@ describe('ExperimentsSection：Claude 對話每一段的用量上限', () => {
   it('不是數字或超出範圍：說明範圍、不送出', async () => {
     const fake = installFakeSvs({ 'app.getInfo': info(true), 'settings.update': () => ({}) })
     render(<ExperimentsSection settings={withFlag()} onChanged={vi.fn()} />)
+    fireEvent.click(await screen.findByTestId('setting-card-more'))
     const input = await screen.findByTestId<HTMLInputElement>('experiment-claude-budget')
     for (const bad of ['abc', '0', '999']) {
       fireEvent.change(input, { target: { value: bad } })

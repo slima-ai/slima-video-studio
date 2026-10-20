@@ -16,6 +16,8 @@ export interface SettingCardProps {
   summary: string
   /** 卡右上角的主要動作（開關或按鈕），最多一個；其他操作放進 `details`。 */
   action?: ReactNode
+  /** 卡片中間、一句白話下面放一個行內控制項（三選一、一個數字欄位）；它算這張卡的那「一個動作」，不要再放 `action`。 */
+  body?: ReactNode
   /** 「更多」展開後才看得到的設定細節；沒給就沒有「更多」。 */
   details?: ReactNode
   /** 一開始就展開（例如需要使用者馬上處理的卡）。 */
@@ -34,6 +36,7 @@ export function SettingCard({
   status,
   summary,
   action,
+  body,
   details,
   defaultOpen = false,
   testId,
@@ -66,6 +69,7 @@ export function SettingCard({
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
+      {body ? <div className="pl-12">{body}</div> : null}
       {details ? (
         <div>
           <button

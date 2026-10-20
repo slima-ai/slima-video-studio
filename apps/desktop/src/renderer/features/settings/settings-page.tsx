@@ -62,10 +62,8 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
         ) : null}
         {state.status === 'ready' ? (
           <>
-            <SettingGroup id="general" title="一般" hint="外觀、示範模式與花費上限。">
-              <div className="space-y-6 md:col-span-2">
-                <GeneralSection settings={state.data.settings} onChanged={reload} />
-              </div>
+            <SettingGroup id="general" title="一般" hint="示範模式、外觀與每次生成的花費上限。">
+              <GeneralSection settings={state.data.settings} onChanged={reload} />
             </SettingGroup>
             <SettingGroup
               id="connections"
@@ -106,9 +104,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
               </div>
             </SettingGroup>
             <SettingGroup id="experiments" title="實驗功能" hint="還在試的功能，可能隨時改變。">
-              <div className="md:col-span-2">
-                <ExperimentsSection settings={state.data.settings} onChanged={reload} />
-              </div>
+              <ExperimentsSection settings={state.data.settings} onChanged={reload} />
             </SettingGroup>
           </>
         ) : null}
