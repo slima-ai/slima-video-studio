@@ -313,6 +313,17 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ dir: z.string().nullable() }),
   },
+  /**
+   * 另存為：把目前的專案（含素材）複製成另一份，名字與（可選的）存放資料夾照給的，然後切過去開那一份；
+   * 原本的留在原處。只給畫面用，不開放給 MCP。
+   */
+  'project.saveAs': {
+    request: z.object({
+      name: z.string().trim().min(1).max(60),
+      parentDir: z.string().min(1).optional(),
+    }),
+    response: ProjectInfoSchema,
+  },
   /** 最近的專案（最多 10 個，包含放在預設資料夾以外的）。只給畫面用，不開放給 MCP。 */
   'project.recent': {
     request: z.object({}),

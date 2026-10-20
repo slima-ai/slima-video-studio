@@ -2,6 +2,7 @@ import type { ProjectStatus } from '@svs/schema'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ToastProvider } from '../../components/toast'
 import { appError, installFakeSvs } from '../../test/fake-svs'
 import { ProjectBar } from './project-bar'
 
@@ -269,5 +270,94 @@ describe('ProjectBar：每頁最上面的專案列', () => {
       '這個資料夾不是 Slima Video Studio 的專案。',
     )
     expect(go).not.toHaveBeenCalled()
+  })
+
+  it('⌘S／Ctrl+S：專案自動儲存，跳出「專案會自動儲存，最後一次 12:03」；沒有專案也有說明；不會被當成真的存檔', async () => {
+    installFakeSvs({ 'project.status': () => status() })
+    const { unmount } = render(
+      <ToastProvider>
+        <ProjectBar onNavigate={vi.fn()} demoMode />
+      </ToastProvider>,
+    )
+    await screen.findByText('貓的故事')
+    const event = new KeyboardEvent('keydown', { key: 's', metaKey: true, cancelable: true })
+    act(() => {
+      window.dispatchEvent(event)
+    })
+    expect(event.defaultPrevented).toBe(true)
+    expect((await screen.findByTestId('toast')).textContent).toContain(
+      '專案會自動儲存，最後一次 12:03',
+    )
+    // Ctrl+S 一樣；Shift+S（另存為的快捷鍵）不是這個提示
+    const ctrl = new KeyboardEvent('keydown', { key: 'S', ctrlKey: true, cancelable: true })
+    act(() => {
+      window.dispatchEvent(ctrl)
+    })
+    expect(ctrl.defaultPrevented).toBe(true)
+    const shift = new KeyboardEvent('keydown', {
+      key: 'S',
+      metaKey: true,
+      shiftKey: true,
+      cancelable: true,
+    })
+    act(() => {
+      window.dispatchEvent(shift)
+    })
+    expect(shift.defaultPrevented).toBe(false)
+    unmount()
+
+    installFakeSvs({ 'project.status': () => null })
+    render(
+      <ToastProvider>
+        <ProjectBar onNavigate={vi.fn()} demoMode />
+      </ToastProvider>,
+    )
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true }))
+    })
+    expect((await screen.findByTestId('toast')).textContent).toContain('還沒有專案')
+  })
+
+  it('專案選單：另存為…——名字預設「<專案名> 副本」，另存後提示現在開著的是新的這一份', async () => {
+    const fake = installFakeSvs({
+      'project.status': () => status(),
+      'project.recent': () => ({ projects: [] }),
+      'project.list': () => ({ folder: '/tmp', projects: [] }),
+      'project.saveAs': (payload: { name: string }) => ({
+        id: 'p1',
+        name: payload.name,
+        dir: '/tmp/copy.svsproj',
+        aspectRatio: '16:9',
+      }),
+    })
+    render(
+      <ToastProvider>
+        <ProjectBar onNavigate={vi.fn()} demoMode />
+      </ToastProvider>,
+    )
+    await screen.findByText('貓的故事')
+    fireEvent.click(screen.getByTestId('project-menu-button'))
+    fireEvent.click(await screen.findByTestId('menu-save-as'))
+    expect(await screen.findByTestId('save-as-dialog')).toBeTruthy()
+    expect(screen.getByTestId<HTMLInputElement>('new-project-name').value).toBe('貓的故事 副本')
+    fireEvent.click(screen.getByTestId('new-project-create'))
+    await waitFor(() => {
+      expect(fake.payloadsOf('project.saveAs')).toEqual([{ name: '貓的故事 副本' }])
+    })
+    expect((await screen.findByTestId('toast')).textContent).toContain(
+      '已另存為「貓的故事 副本」，現在開著的是這一份。',
+    )
+    expect(screen.queryByTestId('save-as-dialog')).toBeNull()
+  })
+
+  it('沒有專案：選單沒有「另存為…」', async () => {
+    installFakeSvs({
+      'project.status': () => null,
+      'project.recent': () => ({ projects: [] }),
+    })
+    render(<ProjectBar onNavigate={vi.fn()} demoMode />)
+    fireEvent.click(screen.getByTestId('project-menu-button'))
+    await screen.findByTestId('project-menu')
+    expect(screen.queryByTestId('menu-save-as')).toBeNull()
   })
 })

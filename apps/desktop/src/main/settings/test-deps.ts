@@ -244,6 +244,7 @@ export function testSettingsDeps(
         throw new Error('測試用的專案清單不能開新專案')
       },
       pickFolder: () => Promise.resolve(undefined),
+      saveAs: () => Promise.reject(new Error('測試用的專案清單不能另存')),
       recent: () => [],
       openRecent: () => {
         throw new Error('測試用的專案清單不能開專案')

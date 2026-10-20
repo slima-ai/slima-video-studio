@@ -44,6 +44,7 @@ export const CHANGE_EVENTS: Partial<Record<IpcChannel, readonly DataEvent[]>> = 
   'project.open': ALL,
   'project.createNew': ALL,
   'project.close': ALL,
+  'project.saveAs': ALL,
   'dev.seedDemo': ALL,
   'history.undo': ALL,
   'history.redo': ALL,

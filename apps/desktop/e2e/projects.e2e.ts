@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, renameSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { generateAndOpenCanvas, kindCount } from './canvas-helpers'
@@ -78,6 +78,78 @@ test.describe('專案頁', () => {
     await page.getByTestId('menu-recent').click()
     await expect(page.getByTestId('project-name')).toHaveText('雨夜的貓')
     await expect.poll(() => kindCount(page, 'shot')).toBe(3)
+  })
+})
+
+test.describe('另存為與儲存提示（示範模式）', () => {
+  test.describe.configure({ timeout: 120_000 })
+
+  test('另存為：開新的那份，鏡頭、圖、影片都在；原本的那份沒動；⌘S 只是說「專案會自動儲存」', async ({
+    page,
+    userDataDir,
+  }) => {
+    await generateAndOpenCanvas(page)
+    await expect.poll(() => kindCount(page, 'shot')).toBe(3)
+    const summary = () =>
+      page.evaluate(async () => {
+        const shots = await window.svs.invoke('shots.list', {})
+        const files = await window.svs.invoke('files.list', {})
+        if (!shots.ok || !files.ok) throw new Error('讀不到鏡頭或檔案')
+        return {
+          takes: shots.data.shots.map((s) => [s.firstFrames.length, s.videos.length]),
+          files: files.data.files.length,
+        }
+      })
+    const before = await summary()
+    // 一句話生成完：每一鏡都有第一張畫面與影片
+    expect(before.takes).toEqual([
+      [1, 1],
+      [1, 1],
+      [1, 1],
+    ])
+    expect(before.files).toBeGreaterThanOrEqual(6)
+    const originalName = await page.getByTestId('project-name').innerText()
+
+    // ⌘S：沒有東西要存，只是說一聲
+    await page.keyboard.press('ControlOrMeta+s')
+    await expect(page.getByTestId('toast')).toContainText(/^專案會自動儲存，最後一次 \d{2}:\d{2}$/)
+
+    await page.getByTestId('project-menu-button').click()
+    await page.getByTestId('menu-save-as').click()
+    await expect(page.getByTestId('new-project-name')).toHaveValue(`${originalName} 副本`)
+    await page.getByTestId('new-project-name').fill('另存的那份')
+    await page.getByTestId('new-project-name').press('Enter')
+    await expect(page.getByTestId('project-name')).toHaveText('另存的那份')
+    await expect(page.getByTestId('toast')).toContainText('已另存為「另存的那份」')
+
+    // 開著的是複本：鏡頭、圖、影片、檔案數都一樣
+    await expect.poll(() => kindCount(page, 'shot')).toBe(3)
+    expect(await summary()).toEqual(before)
+
+    // 硬碟上兩份各自成立：素材檔案一模一樣（照內容雜湊），複本的 project.json 是新名字
+    const projects = join(userDataDir, 'projects')
+    const folders = readdirSync(projects).filter((name) => name.endsWith('.svsproj'))
+    expect(folders).toHaveLength(2)
+    const nameOf = (folder: string): string =>
+      (JSON.parse(readFileSync(join(projects, folder, 'project.json'), 'utf8')) as { name: string })
+        .name
+    const copyFolder = folders.find((folder) => nameOf(folder) === '另存的那份')
+    const originalFolder = folders.find((folder) => nameOf(folder) === originalName)
+    if (!copyFolder || !originalFolder) throw new Error('找不到原本或複本的資料夾')
+    const assetsOf = (folder: string): string[] =>
+      readdirSync(join(projects, folder, 'assets'), { recursive: true })
+        .map(String)
+        .filter((entry) => !entry.startsWith('.tmp'))
+        .sort()
+    expect(assetsOf(copyFolder)).toEqual(assetsOf(originalFolder))
+    expect(assetsOf(copyFolder).length).toBeGreaterThanOrEqual(6)
+
+    // 原本那份還在最近的專案裡：打開，一樣是三鏡、全部生成好
+    await page.getByTestId('project-menu-button').click()
+    await page.getByTestId('menu-recent').filter({ hasText: originalName }).click()
+    await expect(page.getByTestId('project-name')).toHaveText(originalName)
+    await expect.poll(() => kindCount(page, 'shot')).toBe(3)
+    expect(await summary()).toEqual(before)
   })
 })
 

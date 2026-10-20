@@ -26,6 +26,7 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'project.reveal': [{}],
   'project.createAt': [{ name: 'x', parentDir: '/nonexistent/dir' }],
   'project.pickFolder': [{}],
+  'project.saveAs': [{ name: 'x', parentDir: '/nonexistent/dir' }],
   'project.recent': [{}],
   'project.openRecent': [{ dir: '/nonexistent/dir/z.svsproj' }],
   'project.forgetRecent': [{ dir: '/nonexistent/dir/z.svsproj' }],

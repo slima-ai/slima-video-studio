@@ -14,11 +14,17 @@ export const DEFAULT_PROJECT_NAME = '我的短片'
 export function NewProjectDialog({
   onClose,
   onCreated,
+  mode = 'new',
+  initialName = DEFAULT_PROJECT_NAME,
 }: {
   onClose: () => void
   onCreated: (project: ProjectInfo) => void
+  /** new：新專案；saveAs：另存為（複製目前的專案，名字與位置另外選）。 */
+  mode?: 'new' | 'saveAs'
+  initialName?: string
 }) {
-  const [name, setName] = useState(DEFAULT_PROJECT_NAME)
+  const saveAs = mode === 'saveAs'
+  const [name, setName] = useState(initialName)
   // 預設的專案資料夾；使用者按「更改…」選了別處就換成那裡
   const [defaultFolder, setDefaultFolder] = useState<string>()
   const [chosenFolder, setChosenFolder] = useState<string>()
@@ -47,10 +53,11 @@ export function NewProjectDialog({
     if (trimmed === '' || busy) return
     setBusy(true)
     setError(undefined)
-    call('project.createAt', {
-      name: trimmed,
-      ...(chosenFolder === undefined ? {} : { parentDir: chosenFolder }),
-    })
+    const where = chosenFolder === undefined ? {} : { parentDir: chosenFolder }
+    ;(saveAs
+      ? call('project.saveAs', { name: trimmed, ...where })
+      : call('project.createAt', { name: trimmed, ...where })
+    )
       .then(onCreated)
       .catch((e: unknown) => {
         setError(errorText(e))
@@ -70,7 +77,12 @@ export function NewProjectDialog({
   }
 
   return (
-    <Modal label="新專案" onClose={onClose} dismissible={!busy} testId="new-project-dialog">
+    <Modal
+      label={saveAs ? '另存為' : '新專案'}
+      onClose={onClose}
+      dismissible={!busy}
+      testId={saveAs ? 'save-as-dialog' : 'new-project-dialog'}
+    >
       <form
         className="w-[28rem] max-w-full space-y-4 p-5"
         onSubmit={(event) => {
@@ -78,10 +90,15 @@ export function NewProjectDialog({
           create()
         }}
       >
-        <h2 className="text-base font-semibold">新專案</h2>
+        <h2 className="text-base font-semibold">{saveAs ? '另存為' : '新專案'}</h2>
+        {saveAs ? (
+          <p className="text-sm text-fg-muted">
+            把現在的專案（連同圖片、影片）複製成另一份，之後做的會存在新的這一份；原本的那份留在原處。
+          </p>
+        ) : null}
         <div className="space-y-1">
           <label className="block text-sm font-medium" htmlFor="new-project-name">
-            專案名字
+            {saveAs ? '新的這一份的名字' : '專案名字'}
           </label>
           <input
             id="new-project-name"
@@ -124,7 +141,7 @@ export function NewProjectDialog({
             data-testid="new-project-create"
             disabled={busy || trimmed === ''}
           >
-            建立
+            {saveAs ? '另存' : '建立'}
           </Button>
         </div>
       </form>

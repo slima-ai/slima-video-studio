@@ -136,6 +136,7 @@ export function RunConfirm({
   okLabel = '執行',
   danger = false,
   cachedNote = true,
+  costLabel = '預估約',
   extra,
   free = false,
   onOk,
@@ -153,6 +154,8 @@ export function RunConfirm({
   danger?: boolean
   /** 花費後面註明「已經有結果的不會重跑」；會重做已有結果的動作要關掉。 */
   cachedNote?: boolean
+  /** 花費那一行開頭的字（預設「預估約」）。 */
+  costLabel?: string
   /** 清單下方多放的選項或說明。 */
   extra?: ReactNode
   /** 不花錢的動作（例如只在本機接成品）：不顯示預估花費那一行。 */
@@ -231,7 +234,7 @@ export function RunConfirm({
       {extra}
       {free ? null : (
         <p className="text-sm">
-          預估約 <b className="font-semibold">US${costUsd.toFixed(2)}</b>
+          {costLabel} <b className="font-semibold">US${costUsd.toFixed(2)}</b>
           {lowerBound ? '（至少，實際可能更多）' : ''}
           {cachedNote ? '（已經有結果的不會重跑）' : ''}
         </p>

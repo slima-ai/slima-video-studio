@@ -521,6 +521,14 @@ describe('快速開始模板', () => {
     now: '2026-10-12T08:00:00.000Z',
   }
 
+  it('只寫分鏡（storyboardOnly）：只有拆鏡這一個節點，沒有圖片、影片、接片，預估的鏡頭數也不用給', () => {
+    const flow = buildQuickStart({ ...options, storyboardOnly: true })
+    expect(flow.nodes.map((n) => [n.id, n.type])).toEqual([['breakdown', 'story.breakdown']])
+    expect(flow.edges).toEqual([])
+    expect(quickStartItemCounts({ shotCount: 5, storyboardOnly: true })).toEqual({})
+    expect(quickStartItemCounts({ shotCount: 5 })).toEqual({ each: 5 })
+  })
+
   it('產出一般的 Workflow：拆鏡 → 對每鏡執行 → 接片，模型與畫風帶到各節點', () => {
     const flow = buildQuickStart(options)
     expect(flow.nodes.map((n) => [n.id, n.type, n.modelId])).toEqual([

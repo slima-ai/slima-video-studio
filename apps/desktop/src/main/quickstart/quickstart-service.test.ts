@@ -127,6 +127,37 @@ describe('QuickStartService.run（示範模式，不連網、不用 Key）', () 
     expect(second?.finalVideoHash).toBe(first.finalVideoHash)
   })
 
+  it('只寫分鏡（stage: storyboard）：長出場和鏡頭，不生圖片、影片、成品，也不加聲音；預估只有拆鏡', async () => {
+    const { shots, outline, service, finished } = setup()
+    const full = service.check(request())
+    const storyboard = service.check(request({ stage: 'storyboard' }))
+    expect(storyboard.ok).toBe(true)
+    expect(storyboard.estimatedUsd).toBeGreaterThan(0)
+    expect(storyboard.estimatedUsd).toBeLessThan(full.estimatedUsd)
+
+    await service.run(
+      request({
+        stage: 'storyboard',
+        mode: 'append',
+        sound: { native: true, narration: true, music: true },
+      }),
+    )
+    const done = await finished()
+    expect(done).toMatchObject({ status: 'succeeded', phase: 'done' })
+    expect(done.finalVideoHash).toBeUndefined()
+    // 長出一個場、三個鏡頭，都還沒有圖和影片
+    const scenes = outline.get().acts.flatMap((act) => act.scenes)
+    expect(scenes).toHaveLength(1)
+    const list = shots.list().shots
+    expect(list).toHaveLength(3)
+    expect(list.every((shot) => shot.sceneId === scenes[0]?.id)).toBe(true)
+    expect(list.every((shot) => shot.firstFrames.length === 0 && shot.videos.length === 0)).toBe(
+      true,
+    )
+    // 之後用一般的「生成」補上圖片和影片
+    expect(list.every((shot) => shot.status !== 'done')).toBe(true)
+  })
+
   it('分鏡準則會帶進拆鏡的提示；改了準則就不再沿用舊的拆鏡結果', async () => {
     const systems: string[] = []
     const { service, finished, progress, settings } = setup({

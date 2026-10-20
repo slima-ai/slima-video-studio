@@ -5,7 +5,8 @@ import type { GrowConfirm as Pending } from './use-grow'
 import { RunConfirm } from './run-confirm'
 
 /**
- * 「生成影片」的花費確認：列出會做什麼；專案裡已有內容時，可以選刪掉現有內容重新生成，
+ * 一句話的花費確認。「先產生分鏡」用白話分兩段說：這一步只寫分鏡約多少錢、下一步才生圖片和影片約多少錢；
+ * 「一次做完整支」列出每一步。列出會做什麼；專案裡已有內容時，可以選刪掉現有內容重新生成，
  * 勾了就說清楚會刪掉幾個場、幾個鏡頭，以及可以用「復原」全部找回來。
  */
 export function GrowConfirm({
@@ -20,25 +21,46 @@ export function GrowConfirm({
   const [replace, setReplace] = useState(false)
   const { params, check } = pending
   const n = params.shotCount
+  const storyboard = pending.stage === 'storyboard'
   const models = [check.models.llm, check.models.image, check.models.video].filter(
     (name): name is string => name !== undefined,
   )
   return (
     <RunConfirm
       anchor={pending.anchor}
-      count={1 + n * 3}
-      title={replace ? '刪掉現有內容，重新生成' : '生成一支新的短片'}
-      lines={[
-        `寫分鏡：拆成 ${String(n)} 個鏡頭`,
-        `${String(n)} 張第一張畫面`,
-        `${String(n)} 支影片（每支 ${String(params.durationSec)} 秒）`,
-        '接成一支完整的片子',
-        ...(models.length > 0 ? [`用：${models.join('、')}`] : []),
-        ...(check.demoMode ? ['示範模式：不會真的花錢，結果是假的'] : []),
-      ]}
+      count={storyboard ? 1 : 1 + n * 3}
+      title={
+        replace
+          ? '刪掉現有內容，重新' + (storyboard ? '產生分鏡' : '生成')
+          : storyboard
+            ? '先產生分鏡'
+            : '一次做完整支短片'
+      }
+      lines={
+        storyboard
+          ? [
+              `這一步只寫分鏡：把故事拆成 ${String(n)} 個鏡頭，約 US$${check.estimatedUsd.toFixed(2)}（只用文字模型）`,
+              pending.nextUsd === undefined
+                ? '下一步才生圖片和影片'
+                : `下一步才生圖片和影片：${String(n)} 張第一張畫面、${String(n)} 支影片，約 US$${pending.nextUsd.toFixed(2)}`,
+              '分鏡寫好後你可以先看、先改，要生成時再按右上角的「全部生成」，那裡會給準確的預估',
+              '旁白與配樂不在這一步：影片生成後到成品面板的「聲音」區加',
+              ...(check.models.llm === undefined ? [] : [`這一步用：${check.models.llm}`]),
+              ...(check.demoMode ? ['示範模式：不會真的花錢，結果是假的'] : []),
+            ]
+          : [
+              `寫分鏡：拆成 ${String(n)} 個鏡頭`,
+              `${String(n)} 張第一張畫面`,
+              `${String(n)} 支影片（每支 ${String(params.durationSec)} 秒）`,
+              '接成一支完整的片子',
+              ...(models.length > 0 ? [`用：${models.join('、')}`] : []),
+              ...(check.demoMode ? ['示範模式：不會真的花錢，結果是假的'] : []),
+            ]
+      }
       costUsd={check.estimatedUsd}
       lowerBound={check.estimateIsLowerBound}
-      okLabel={replace ? '刪掉並生成' : '生成'}
+      {...(storyboard ? { costLabel: '這一步預估約', cachedNote: false } : {})}
+      okLabel={replace ? '刪掉並生成' : storyboard ? '產生分鏡' : '全部做完'}
       danger={replace}
       extra={
         pending.hasContent ? (

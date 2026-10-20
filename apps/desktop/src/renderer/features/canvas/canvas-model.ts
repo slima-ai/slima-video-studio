@@ -103,7 +103,7 @@ export interface Graph {
 export const NODE_SIZE: Readonly<
   Record<Exclude<NodeKind, 'scene' | 'cut' | 'group' | 'step'>, { w: number; h: number }>
 > = {
-  oneliner: { w: 300, h: 340 },
+  oneliner: { w: 300, h: 440 },
   shot: { w: 230, h: 160 },
   image: { w: 230, h: 246 },
   video: { w: 230, h: 246 },
