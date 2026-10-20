@@ -24,8 +24,16 @@ export interface CanvasActions {
   /** 雙擊標題：置中並縮放到 100%。 */
   focusNode: (nodeId: string) => void
   toggleInCut: (nodeId: string) => void
-  /** 一句話節點的「生成影片」：先確認花費，再接著現有的場長出新的場與鏡頭。沒提供就不顯示。 */
-  growStory?: (nodeId: string, params: OnelinerParams, anchor: ConfirmAnchor) => void
+  /**
+   * 一句話節點的「先產生分鏡」（stage = storyboard，只用文字模型）與「一次做完整支」（stage = full）：
+   * 先確認花費，再接著現有的場長出新的場與鏡頭。沒提供就不顯示。
+   */
+  growStory?: (
+    nodeId: string,
+    params: OnelinerParams,
+    anchor: ConfirmAnchor,
+    stage: 'storyboard' | 'full',
+  ) => void
   /** 一句話節點的設定改了（故事、畫風、鏡頭數…），存起來。 */
   updateOneliner?: (nodeId: string, patch: Partial<OnelinerParams>) => void
   /** 停止正在生成的短片。 */

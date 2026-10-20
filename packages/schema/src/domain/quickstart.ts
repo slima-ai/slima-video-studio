@@ -65,6 +65,11 @@ export const QuickStartRequestSchema = z.object({
   sourceKey: z.string().min(1).optional(),
   /** 要不要帶聲音；沒給就不自動加。 */
   sound: QuickStartSoundSchema.optional(),
+  /**
+   * 做到哪一步（沒給＝full，一次做完整支）：storyboard＝只用文字模型寫分鏡（長出場和鏡頭），
+   * 不生成圖片和影片、不接片、不加聲音；看過、改好之後再用「全部生成」做後面的。
+   */
+  stage: z.enum(['storyboard', 'full']).optional(),
 })
 export type QuickStartRequest = z.infer<typeof QuickStartRequestSchema>
 

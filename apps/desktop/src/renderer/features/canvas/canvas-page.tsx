@@ -1002,18 +1002,24 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             toast.show({ message: errorText(error), tone: 'danger' })
           })
       },
-      growStory: (nodeId, params, anchor) => {
+      growStory: (nodeId, params, anchor, stage) => {
         grownScene.current = undefined
         growSource.current = nodeId
-        startGrow(nodeId, params, anchor, {
-          hasContent: flow.nodes.some((n) => n.data.kind === 'shot'),
-          existing: {
-            scenes: flow.nodes.filter((n) => n.data.kind === 'scene').length,
-            shots: flow.nodes.filter((n) => n.data.kind === 'shot').length,
+        startGrow(
+          nodeId,
+          params,
+          anchor,
+          {
+            hasContent: flow.nodes.some((n) => n.data.kind === 'shot'),
+            existing: {
+              scenes: flow.nodes.filter((n) => n.data.kind === 'scene').length,
+              shots: flow.nodes.filter((n) => n.data.kind === 'shot').length,
+            },
+            // 同一個一句話第幾次生成：換一批新的結果
+            variation: flow.edges.filter((e) => e.source === nodeId).length,
           },
-          // 同一個一句話第幾次生成：換一批新的結果
-          variation: flow.edges.filter((e) => e.source === nodeId).length,
-        })
+          stage,
+        )
       },
       updateOneliner: (nodeId, patch) => {
         call('canvas.updateOneliner', { key: nodeId, patch })

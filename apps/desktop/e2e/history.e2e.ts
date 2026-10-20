@@ -122,14 +122,14 @@ test.describe('復原與重做', () => {
 })
 
 test.describe('Esc 與對話框的鍵盤操作', () => {
-  test('畫布一句話的確認面板：焦點在「確認」；Esc 關閉、不會開始生成；焦點回到「生成影片」', async ({
+  test('畫布一句話的確認面板：焦點在「確認」；Esc 關閉、不會開始生成；焦點回到「先產生分鏡」', async ({
     page,
   }) => {
     await page.getByTestId('empty-add-oneliner').click()
     await page.getByTestId('oneliner-story').fill('一隻貓在下雨的夜晚找到溫暖的家')
     await page.getByTestId('oneliner-story').blur()
     await pick(page, 'oneliner-shots', '3')
-    await page.getByTestId('oneliner-generate').click()
+    await page.getByTestId('oneliner-storyboard').click()
     const confirm = page.getByTestId('run-confirm')
     await expect(confirm).toBeVisible()
     await expect(page.getByTestId('run-confirm-ok')).toBeFocused()
@@ -139,7 +139,7 @@ test.describe('Esc 與對話框的鍵盤操作', () => {
     // 沒有開始生成
     await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false')
     await expect(page.getByTestId('run-progress')).toHaveCount(0)
-    await expect(page.getByTestId('oneliner-generate')).toBeFocused()
+    await expect(page.getByTestId('oneliner-storyboard')).toBeFocused()
   })
 
   test('「確定刪除這一幕？」按 Esc 等於不刪；側面板也還在', async ({ page }) => {

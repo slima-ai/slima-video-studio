@@ -9,8 +9,14 @@ import type { ConfirmAnchor } from './run-confirm'
 /** 還沒回報是哪個節點在生成（例如離開畫布再回來）時，所有一句話節點都顯示生成中。 */
 export const ANY_ONELINER = '*'
 
+/** 這次做到哪：只寫分鏡（文字模型），或一次做完整支（分鏡、圖片、影片、接片）。 */
+export type GrowStage = 'storyboard' | 'full'
+
 export interface GrowConfirm {
   nodeId: string
+  stage: GrowStage
+  /** 只寫分鏡時：下一步（生圖片和影片）大概多少錢，已經扣掉寫分鏡這一步。 */
+  nextUsd?: number
   params: OnelinerParams
   anchor: ConfirmAnchor
   check: QuickStartCheck
@@ -41,6 +47,9 @@ export function useGrow(options: {
   const [finishing, setFinishing] = useState(false)
   const runningRef = useRef(running)
   runningRef.current = running
+  // 正在跑的是哪一步（結束時的提示不同）、以及下一步大概多少錢
+  const stageRef = useRef<GrowStage>('full')
+  const nextUsdRef = useRef<number | undefined>(undefined)
   const onFinished = useRef(options.onFinished)
   onFinished.current = options.onFinished
 
@@ -67,7 +76,17 @@ export function useGrow(options: {
             undoRef.current()
           },
         }
-        if (progress.status === 'succeeded') {
+        if (progress.status === 'succeeded' && stageRef.current === 'storyboard') {
+          const next = nextUsdRef.current
+          toast.show({
+            key: 'grow',
+            message: `分鏡寫好了，圖片和影片還沒生成。看過、改好，再按右上角的「全部生成」${
+              next === undefined ? '' : `（約 US$${next.toFixed(2)}）`
+            }`,
+            action,
+            ms: 12_000,
+          })
+        } else if (progress.status === 'succeeded') {
           toast.show({
             key: 'grow',
             message: progress.soundFailed
@@ -103,29 +122,49 @@ export function useGrow(options: {
     params: OnelinerParams,
     variation: number,
     replace: boolean,
+    stage: GrowStage,
   ): QuickStartRequest => ({
     ...params,
     variation,
     mode: replace ? 'replace' : 'append',
     sourceKey: nodeId,
+    stage,
   })
 
-  /** 按下「生成影片」：先檢查，沒問題才跳出確認。 */
+  /** 按下「先產生分鏡」或「一次做完整支」：先檢查，沒問題才跳出確認。 */
   const start = useCallback(
     (
       nodeId: string,
       params: OnelinerParams,
       anchor: ConfirmAnchor,
       context: Pick<GrowConfirm, 'hasContent' | 'existing' | 'variation'>,
+      stage: GrowStage = 'full',
     ): void => {
-      call('quickstart.check', request(nodeId, params, context.variation, false))
-        .then((check) => {
+      // 只寫分鏡時多問一次整支的預估：確認面板要說下一步（圖片和影片）大概多少錢
+      const checks = Promise.all([
+        call('quickstart.check', request(nodeId, params, context.variation, false, stage)),
+        stage === 'storyboard'
+          ? call('quickstart.check', request(nodeId, params, context.variation, false, 'full'))
+          : Promise.resolve(undefined),
+      ])
+      checks
+        .then(([check, full]) => {
           const [issue] = check.issues
           if (!check.ok || issue) {
             toast.show({ message: issue?.message ?? '現在不能生成。', tone: 'danger' })
             return
           }
-          setConfirm({ nodeId, params, anchor, check, ...context })
+          const nextUsd =
+            full === undefined ? undefined : Math.max(0, full.estimatedUsd - check.estimatedUsd)
+          setConfirm({
+            nodeId,
+            stage,
+            params,
+            anchor,
+            check,
+            ...(nextUsd === undefined ? {} : { nextUsd }),
+            ...context,
+          })
         })
         .catch((error: unknown) => {
           toast.show({ message: errorText(error), tone: 'danger' })
@@ -140,9 +179,11 @@ export function useGrow(options: {
       setConfirm(undefined)
       if (!pending) return
       setRunning(pending.nodeId)
+      stageRef.current = pending.stage
+      nextUsdRef.current = pending.nextUsd
       call(
         'quickstart.run',
-        request(pending.nodeId, pending.params, pending.variation, replace),
+        request(pending.nodeId, pending.params, pending.variation, replace, pending.stage),
       ).catch((error: unknown) => {
         setRunning(undefined)
         toast.show({ message: errorText(error), tone: 'danger' })

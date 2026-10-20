@@ -40,6 +40,8 @@ export interface QuickStartOptions {
   storyboardGuide?: string
   /** 見 ShotWorkflowOptions.editModel。 */
   editModel?: { id: string; referenceLimit: number }
+  /** 只拆鏡（文字模型）：不生成圖片和影片、不接片。之後的步驟用畫布的「生成」補上。 */
+  storyboardOnly?: boolean
   /** 工作流的 id 與時間戳（測試要固定時傳入）。 */
   id?: string
   now?: string
@@ -182,41 +184,48 @@ export function buildQuickStart(options: QuickStartOptions): Workflow {
   })
 
   const { breakdown, each, join } = QUICK_START_IDS
+  const breakdownWorkflowNode = node(
+    breakdown,
+    NODE_TYPES.breakdown,
+    {
+      story: options.story,
+      shotCount: options.shotCount,
+      durationSec: options.durationSec,
+      style: options.style,
+      variation,
+      knownCharacters: [...(options.knownCharacters ?? [])],
+      guide: options.storyboardGuide ?? '',
+    },
+    options.models.llm,
+    breakdownNode.version,
+  )
   return {
     id: options.id ?? 'quickstart',
-    name: '快速開始',
+    name: options.storyboardOnly === true ? '只寫分鏡' : '快速開始',
     version: 1,
     createdAt: stamp,
     updatedAt: stamp,
-    nodes: [
-      node(
-        breakdown,
-        NODE_TYPES.breakdown,
-        {
-          story: options.story,
-          shotCount: options.shotCount,
-          durationSec: options.durationSec,
-          style: options.style,
-          variation,
-          knownCharacters: [...(options.knownCharacters ?? [])],
-          guide: options.storyboardGuide ?? '',
-        },
-        options.models.llm,
-        breakdownNode.version,
-      ),
-      node(each, 'forEach', { body, concurrency: 2 }),
-      node(join, NODE_TYPES.concat),
-    ],
-    edges: [
-      edge('e1', [breakdown, 'shots'], [each, 'items']),
-      edge('e2', [each, 'results'], [join, 'videos']),
-    ],
+    nodes:
+      options.storyboardOnly === true
+        ? [breakdownWorkflowNode]
+        : [
+            breakdownWorkflowNode,
+            node(each, 'forEach', { body, concurrency: 2 }),
+            node(join, NODE_TYPES.concat),
+          ],
+    edges:
+      options.storyboardOnly === true
+        ? []
+        : [
+            edge('e1', [breakdown, 'shots'], [each, 'items']),
+            edge('e2', [each, 'results'], [join, 'videos']),
+          ],
   }
 }
 
 /** 預估花費用：「對每個鏡頭執行」節點最多會跑幾個項目。 */
 export function quickStartItemCounts(
-  options: Pick<QuickStartOptions, 'shotCount'>,
+  options: Pick<QuickStartOptions, 'shotCount' | 'storyboardOnly'>,
 ): Record<string, number> {
-  return { [QUICK_START_IDS.each]: options.shotCount }
+  return options.storyboardOnly === true ? {} : { [QUICK_START_IDS.each]: options.shotCount }
 }

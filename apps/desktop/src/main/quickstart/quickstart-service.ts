@@ -162,6 +162,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
     id ? (models.get(id)?.displayName ?? id) : undefined
 
   const check = (request: QuickStartRequest): QuickStartCheck => {
+    const storyboardOnly = request.stage === 'storyboard'
     const { budget, demoMode } = settings.get()
     const issues: QuickStartCheck['issues'] = []
     const chosen = picked()
@@ -194,6 +195,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
     if (chosen.llm && chosen.image && chosen.video) {
       const flow = buildQuickStart({
         ...request,
+        storyboardOnly,
         models: { llm: chosen.llm, image: chosen.image, video: chosen.video },
         // 預估要算進原聲的加價（有開才算）
         audio:
@@ -203,10 +205,13 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       })
       const estimate = estimateWorkflowCost(flow, registry, {
         priceLookup: (id, usage) => models.estimate(id, usage),
-        itemCounts: quickStartItemCounts(request),
+        itemCounts: quickStartItemCounts({ ...request, storyboardOnly }),
       })
-      estimatedUsd = estimate.totalUsd + soundEstimate(request)
-      lowerBound = estimate.uncertainNodeIds.length > 0 || request.sound?.narration === true
+      // 只寫分鏡：不生圖片和影片、不加聲音，預估只有拆鏡的文字模型
+      estimatedUsd = estimate.totalUsd + (storyboardOnly ? 0 : soundEstimate(request))
+      lowerBound =
+        estimate.uncertainNodeIds.length > 0 ||
+        (!storyboardOnly && request.sound?.narration === true)
       const handle = projects.current()
       const exceeded = checkBudget({
         budget,
@@ -269,8 +274,10 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       if (request.sound) handle.repos.sound.updateSettings({ nativeAudio: request.sound.native })
       const anchors = lockedAnchors(handle)
       const editModel = referenceEditModel(anchors, settingsService, models)
+      const storyboardOnly = request.stage === 'storyboard'
       const flow = buildQuickStart({
         ...request,
+        storyboardOnly,
         models: { llm: chosen.llm, image: chosen.image, video: chosen.video },
         audio: handle.repos.sound.getSettings().nativeAudio,
         anchors,
@@ -298,6 +305,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       })
 
       const wantSound =
+        !storyboardOnly &&
         request.sound !== undefined &&
         (request.sound.narration || request.sound.music) &&
         deps.sound?.() !== undefined
@@ -306,7 +314,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
         .run(flow, {
           projectId: handle.projectId,
           signal: controller.signal,
-          itemCounts: quickStartItemCounts(request),
+          itemCounts: quickStartItemCounts({ ...request, storyboardOnly }),
           budget,
         })
         .catch((error: unknown) => {

@@ -65,23 +65,28 @@ describe('OnelinerBody', () => {
       'node:one',
       expect.objectContaining({ sound: { native: true, narration: true, music: false } }),
       expect.anything(),
+      'full',
     )
   })
 
-  it('沒有故事不能生成；有故事時按「生成影片」帶著目前的設定和按鈕位置', () => {
+  it('沒有故事不能生成；有故事時主按鈕「先產生分鏡」帶著目前的設定、按鈕位置和 storyboard', () => {
     const growStory = vi.fn()
     renderBody({ growStory, updateOneliner: vi.fn() })
-    const button = screen.getByTestId('oneliner-generate')
+    const button = screen.getByTestId('oneliner-storyboard')
+    expect(button.textContent).toBe('先產生分鏡')
     expect(button.hasAttribute('disabled')).toBe(true)
+    expect(screen.getByTestId('oneliner-generate').hasAttribute('disabled')).toBe(true)
 
     fireEvent.change(screen.getByTestId('oneliner-story'), { target: { value: '貓找到家' } })
     expect(button.hasAttribute('disabled')).toBe(false)
     fireEvent.click(button)
-    const [id, params, anchor] = growStory.mock.calls[0] as [
+    const [id, params, anchor, stage] = growStory.mock.calls[0] as [
       string,
       OnelinerParams,
       { right: number },
+      string,
     ]
+    expect(stage).toBe('storyboard')
     expect(id).toBe('node:one')
     // 聲音勾選預設全開，生成時一併帶著
     expect(params).toEqual({
@@ -90,6 +95,16 @@ describe('OnelinerBody', () => {
       sound: { native: true, narration: true, music: true },
     })
     expect(typeof anchor.right).toBe('number')
+  })
+
+  it('次要選項「一次做完整支」留著：帶 full', () => {
+    const growStory = vi.fn()
+    renderBody({ growStory, updateOneliner: vi.fn() })
+    fireEvent.change(screen.getByTestId('oneliner-story'), { target: { value: '貓找到家' } })
+    const full = screen.getByTestId('oneliner-generate')
+    expect(full.textContent).toBe('一次做完整支')
+    fireEvent.click(full)
+    expect((growStory.mock.calls[0] as unknown[])[3]).toBe('full')
   })
 
   it('生成中：輸入框與選項都鎖住，按鈕顯示生成中，可以停止', () => {
@@ -103,7 +118,8 @@ describe('OnelinerBody', () => {
       }),
     )
     expect(screen.getByTestId('oneliner-story').hasAttribute('disabled')).toBe(true)
-    expect(screen.getByTestId('oneliner-generate').textContent).toContain('生成中')
+    expect(screen.getByTestId('oneliner-storyboard').textContent).toContain('生成中')
+    expect(screen.getByTestId('oneliner-storyboard').hasAttribute('disabled')).toBe(true)
     expect(screen.getByTestId('oneliner-generate').hasAttribute('disabled')).toBe(true)
     fireEvent.click(screen.getByTestId('oneliner-stop'))
     expect(stopGrow).toHaveBeenCalled()
@@ -165,6 +181,7 @@ const check = (patch: Partial<QuickStartCheck> = {}): QuickStartCheck => ({
 })
 const pending = (patch: Partial<Pending> = {}): Pending => ({
   nodeId: 'node:one',
+  stage: 'full',
   params: { ...ONELINER_DEFAULTS, story: '貓找到家', shotCount: 4, durationSec: 5 },
   anchor: { left: 700, right: 800, top: 300, bottom: 340 },
   check: check(),
@@ -204,6 +221,38 @@ describe('GrowConfirm', () => {
     expect(screen.getByTestId('run-confirm-ok').textContent).toBe('刪掉並生成')
     fireEvent.click(screen.getByTestId('run-confirm-ok'))
     expect(onOk).toHaveBeenLastCalledWith(true)
+  })
+
+  it('先產生分鏡：白話說這一步只寫分鏡約多少錢、下一步才生圖片和影片約多少錢', () => {
+    const onOk = vi.fn()
+    render(
+      <GrowConfirm
+        pending={pending({
+          stage: 'storyboard',
+          check: check({ estimatedUsd: 0.04 }),
+          nextUsd: 3.2,
+        })}
+        onOk={onOk}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('heading').textContent).toBe('先產生分鏡')
+    expect(screen.getByText(/這一步只寫分鏡：把故事拆成 4 個鏡頭，約 US\$0\.04/)).toBeTruthy()
+    expect(
+      screen.getByText(/下一步才生圖片和影片：4 張第一張畫面、4 支影片，約 US\$3\.20/),
+    ).toBeTruthy()
+    expect(screen.getByText(/全部生成/)).toBeTruthy()
+    // 不會出現整支的步驟
+    expect(screen.queryByText('接成一支完整的片子')).toBeNull()
+    expect(screen.getByTestId('run-confirm-ok').textContent).toBe('產生分鏡')
+    fireEvent.click(screen.getByTestId('run-confirm-ok'))
+    expect(onOk).toHaveBeenCalledWith(false)
+  })
+
+  it('一次做完整支：照舊列出每一步，確認鈕寫「全部做完」', () => {
+    render(<GrowConfirm pending={pending()} onOk={vi.fn()} onCancel={vi.fn()} />)
+    expect(screen.getByRole('heading').textContent).toBe('一次做完整支短片')
+    expect(screen.getByTestId('run-confirm-ok').textContent).toBe('全部做完')
   })
 
   it('有些步驟估不出來 → 註明至少；示範模式註明不會花錢', () => {
