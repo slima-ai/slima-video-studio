@@ -92,6 +92,30 @@ describe('removedMessage：AI 刪了東西的提示', () => {
     )
   })
 
+  it('連著好幾次刪除合成的一則：鏡頭不寫號碼（每次刪完重新編號，後面記的號碼不是原本的），只靠描述開頭；場只留名字', () => {
+    // 刪第 1 鏡「開場」，原本的第 2 鏡變成第 1 鏡，再被刪：兩筆記下來的號碼都是「第 1 鏡」
+    const text = removedMessage(
+      [shot(1, { summary: '開場：小機器人' }), shot(1, { key: 'shot:b', summary: '第 2 段：花' })],
+      true,
+      true,
+    )
+    expect(text).toBe(
+      'AI 刪了鏡頭「開場：小機器人」、鏡頭「第 2 段：花」，按「復原」可以找回來（這一輪 AI 做的其他改動也會一起退回）',
+    )
+    expect(text).not.toContain('第 1 鏡')
+    expect(
+      removedMessage(
+        [{ key: 'scene:a', title: '第 2 場・黑藤裂谷', kind: 'scene' as const }],
+        false,
+        true,
+      ),
+    ).toBe('AI 刪了場景「黑藤裂谷」，按「復原」可以找回來')
+    // 只刪一次（號碼是對的）照舊寫「第 N 鏡「…」」
+    expect(removedMessage([shot(3, { summary: '看見暖光' })], true, false)).toContain(
+      '第 3 鏡「看見暖光」',
+    )
+  })
+
   it('只有跟著不見的圖與影片：不用提示', () => {
     expect(removedMessage([{ key: 'shot:a:image', title: 'x', kind: 'image' }])).toBeUndefined()
   })

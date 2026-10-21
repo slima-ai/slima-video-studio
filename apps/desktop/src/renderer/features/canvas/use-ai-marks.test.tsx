@@ -10,11 +10,17 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-const removed = (key: string, title: string, empty = true): CanvasAiChanged['removed'][number] => ({
+const removed = (
+  key: string,
+  title: string,
+  empty = true,
+  summary?: string,
+): CanvasAiChanged['removed'][number] => ({
   key,
   title,
   kind: 'shot',
   empty,
+  ...(summary === undefined ? {} : { summary }),
 })
 const event = (...nodes: CanvasAiChanged['removed']): CanvasAiChanged => ({
   at: '2026-10-21T00:00:00.000Z',
@@ -102,6 +108,45 @@ describe('useAiMarks：AI 刪了東西的提示（Claude 對話那一輪）', ()
     expect(onRemoved).toHaveBeenLastCalledWith(
       'AI 刪了第 2 鏡，按「復原」可以找回來（這一輪 AI 做的其他改動也會一起退回）',
     )
+  })
+})
+
+describe('useAiMarks：對話那一輪連刪有內容的鏡頭，名字不重複', () => {
+  it('刪第 1 鏡、原第 2 鏡變成第 1 鏡再被刪：合成的提示不寫兩個「第 1 鏡」，改寫「鏡頭「…」」', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false })
+    const svs = installFakeSvs()
+    const onRemoved = vi.fn()
+    renderHook(() => useAiMarks(onRemoved, () => true))
+    act(() => {
+      svs.emit('canvas.aiChanged', event(removed('shot:a', '第 1 鏡', false, '開場：小機器人')))
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    act(() => {
+      svs.emit('canvas.aiChanged', event(removed('shot:b', '第 1 鏡', false, '第 2 段：花')))
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(onRemoved).toHaveBeenCalledTimes(1)
+    const text = String(onRemoved.mock.calls[0]?.[0])
+    expect(text).toContain('鏡頭「開場：小機器人」、鏡頭「第 2 段：花」')
+    expect(text).not.toContain('第 1 鏡')
+  })
+
+  it('只刪一次（號碼是對的）：照舊寫「第 N 鏡「…」」', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false })
+    const svs = installFakeSvs()
+    const onRemoved = vi.fn()
+    renderHook(() => useAiMarks(onRemoved, () => true))
+    act(() => {
+      svs.emit('canvas.aiChanged', event(removed('shot:a', '第 3 鏡', false, '看見暖光')))
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(String(onRemoved.mock.calls[0]?.[0])).toContain('第 3 鏡「看見暖光」')
   })
 })
 

@@ -46,9 +46,11 @@ export function useAiMarks(
   const batch = useRef<{
     removed: CanvasAiChanged['removed']
     wholeTurn: boolean
+    /** 這一批合了幾次刪除（超過一次，鏡頭編號就不是原本的了）。 */
+    deletions: number
     flush?: number
     reset?: number
-  }>({ removed: [], wholeTurn: false })
+  }>({ removed: [], wholeTurn: false, deletions: 0 })
 
   const stopFlash = useCallback((key: string): void => {
     window.clearTimeout(timers.current.get(key))
@@ -90,7 +92,7 @@ export function useAiMarks(
         // 所以每次刪除各出一則，說的就是剛刪的這幾個，不跟前面的合在一起
         window.clearTimeout(batch.current.flush)
         window.clearTimeout(batch.current.reset)
-        batch.current = { removed: [], wholeTurn: false }
+        batch.current = { removed: [], wholeTurn: false, deletions: 0 }
         const message = removedMessage(event.removed)
         if (message !== undefined) removedRef.current(message)
       } else if (event.removed.length > 0) {
@@ -100,12 +102,17 @@ export function useAiMarks(
         const known = new Set(now.removed.map((node) => node.key))
         now.removed = [...now.removed, ...event.removed.filter((node) => !known.has(node.key))]
         now.wholeTurn = now.wholeTurn || turnRef.current()
+        now.deletions += 1
         now.flush = window.setTimeout(() => {
-          const message = removedMessage(batch.current.removed, batch.current.wholeTurn)
+          const message = removedMessage(
+            batch.current.removed,
+            batch.current.wholeTurn,
+            batch.current.deletions > 1,
+          )
           if (message !== undefined) removedRef.current(message)
         }, REMOVED_MERGE_MS)
         now.reset = window.setTimeout(() => {
-          batch.current = { removed: [], wholeTurn: false }
+          batch.current = { removed: [], wholeTurn: false, deletions: 0 }
         }, REMOVED_BATCH_MS)
       }
     })
@@ -143,7 +150,7 @@ export function useAiMarks(
         // 使用者復原了：刪掉的東西回來了，之後的刪除另外算一批
         window.clearTimeout(batch.current.flush)
         window.clearTimeout(batch.current.reset)
-        batch.current = { removed: [], wholeTurn: false }
+        batch.current = { removed: [], wholeTurn: false, deletions: 0 }
       }),
     [seen],
   )

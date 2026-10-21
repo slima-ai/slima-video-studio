@@ -181,6 +181,28 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
     })
     return
   }
+  if (text.includes('刪兩個鏡頭')) {
+    // 建三個有描述的鏡頭，再分兩次呼叫各刪一個（先刪第 1 鏡，原本的第 2 鏡變成第 1 鏡再被刪）：
+    // 測「AI 刪了…」提示合成一則時，名字不會出現兩個「第 1 鏡」
+    await useTool('create_project', { name: 'Claude 建的短片' })
+    const ids = []
+    for (const description of ['看見暖光', '貓跳上窗台', '雨停了，天亮']) {
+      const created = await useTool('create_shot', {})
+      const id = /"id":\s*"([^"]+)"/.exec(
+        JSON.stringify(created.content).replaceAll('\\"', '"'),
+      )?.[1]
+      if (id) {
+        ids.push(id)
+        await useTool('update_shot', { shotId: id, description })
+      }
+    }
+    await useTool('delete_shots', { shotIds: [ids[0]] })
+    await useTool('delete_shots', { shotIds: [ids[1]] })
+    const reply = '刪掉了前兩個鏡頭。'
+    say(reply)
+    finish(reply)
+    return
+  }
   if (text.includes('清掉鏡頭')) {
     // 建三個空鏡頭，再一個一個刪掉（三次工具呼叫）：測「AI 刪了…」提示在對話那一輪合成一則
     await useTool('create_project', { name: 'Claude 建的短片' })

@@ -46,14 +46,20 @@ const KIND_NAME: Readonly<Record<string, string>> = {
 const HINT_CHARS = 8
 
 /** 提示用的名字：鏡頭「第 3 鏡」後面帶描述的開頭；場本來就叫「第 N 場・名字」；其他加上種類。 */
-function nameOf(node: Removed): string {
-  if (node.kind === 'scene') return node.title
+function nameOf(node: Removed, renumbered: boolean): string {
+  if (node.kind === 'scene') {
+    // 連著刪好幾次時，後面幾次的「第 N 場」是前面刪掉之後重新編的號，跟畫面上原本看到的不一樣：只留名字
+    if (!renumbered) return node.title
+    const name = node.title.replace(/^第 \d+ 場・?/, '')
+    return name === '' ? '場景' : `場景「${name}」`
+  }
   if (node.kind === 'shot') {
     const text = (node.summary ?? '').trim()
-    if (text === '') return node.title
+    const label = renumbered ? '鏡頭' : node.title
+    if (text === '') return label
     const chars = Array.from(text)
     const hint = chars.length > HINT_CHARS ? `${chars.slice(0, HINT_CHARS).join('')}…` : text
-    return `${node.title}「${hint}」`
+    return `${label}「${hint}」`
   }
   const label = KIND_NAME[node.kind] ?? '圖片或影片'
   return node.title === '' ? label : `${label}「${node.title}」`
@@ -72,6 +78,11 @@ export function removedMessage(
   removed: CanvasAiChanged['removed'],
   /** 這是右下角 Claude 對話正在做的一輪：復原會把這一輪的改動一起退回。 */
   wholeTurn = false,
+  /**
+   * 這是連著好幾次刪除合成的一則：每次刪完都會重新編號，後面幾次記下的「第 N 鏡」不是原本的號碼
+   * （刪掉第 1 鏡後，原本的第 2 鏡就叫第 1 鏡），所以鏡頭不寫號碼，只靠描述開頭分辨。
+   */
+  renumbered = false,
 ): string | undefined {
   const reported = removed.filter((node) => REPORTED_KINDS.has(node.kind))
   if (reported.length === 0) return undefined
@@ -79,7 +90,10 @@ export function removedMessage(
   const blanks = reported.filter((node) => node.empty === true)
   const parts: string[] = []
   if (named.length > 0) {
-    const names = named.slice(0, MAX_NAMES).map(nameOf).join('、')
+    const names = named
+      .slice(0, MAX_NAMES)
+      .map((node) => nameOf(node, renumbered))
+      .join('、')
     parts.push(named.length > MAX_NAMES ? `${names}等 ${String(named.length)} 個` : names)
   }
   const counts = new Map<string, number>()
