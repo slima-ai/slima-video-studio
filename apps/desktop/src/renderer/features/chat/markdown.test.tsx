@@ -147,8 +147,12 @@ describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段�
     // 輸入是標記和一般的字混在一起：標記那邊和「每個字」那邊的 n² 都量得到
     const mixed = (n: number): string =>
       `*a **b ~~c \`d [e](f) ![g](h) ${'字'.repeat(30)}`.repeat(n)
+    // 渲染端的型別沒有 node 的 process；測試是在 node 裡跑的，用得到
+    const { process: nodeProcess } = globalThis as unknown as {
+      process: { cpuUsage: () => { user: number; system: number } }
+    }
     const cpuMs = (): number => {
-      const { user, system } = process.cpuUsage()
+      const { user, system } = nodeProcess.cpuUsage()
       return (user + system) / 1000
     }
     const fastest = (n: number): number => {
