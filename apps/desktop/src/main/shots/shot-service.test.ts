@@ -284,7 +284,7 @@ describe('shots.regenerate', { timeout: 30_000 }, () => {
     })
   }, 30_000)
 
-  it('AI 叫的生成被取消或失敗：不通知', async () => {
+  it('AI 叫的生成被取消：不通知', async () => {
     const { shots, runQuickStart, events, idle } = setup()
     await runQuickStart()
     const target = shots.list().shots[0]
@@ -293,6 +293,21 @@ describe('shots.regenerate', { timeout: 30_000 }, () => {
     await runAsAi(() => shots.regenerate(target.id, 'all'))
     shots.cancel(target.id)
     await idle(target.id)
+    expect(events.filter((e) => e.name === 'canvas.aiChanged')).toEqual([])
+  }, 30_000)
+
+  it('AI 叫的生成有節點失敗：不通知（engine.run 失敗是正常回傳，不會丟錯），畫面照樣顯示錯誤', async () => {
+    const { shots, runQuickStart, events, idle } = setup({ mockRejectText: '【拒絕】' })
+    await runQuickStart()
+    const target = shots.list().shots[0]
+    if (!target) throw new Error('沒有鏡頭')
+    shots.update(target.id, { description: '【拒絕】這一鏡會被拒絕' })
+    events.length = 0
+
+    await runAsAi(() => shots.regenerate(target.id, 'frame'))
+    await idle(target.id)
+    // 真的失敗了：鏡頭上有錯誤
+    expect(shots.list().shots.find((s) => s.id === target.id)?.error).toBeTruthy()
     expect(events.filter((e) => e.name === 'canvas.aiChanged')).toEqual([])
   }, 30_000)
 

@@ -1187,9 +1187,12 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         changed(s)
         releaseIdle(s)
       })
-      .then(() => {
-        // AI 叫的生成在背景做完了（成功才通知；失敗畫面本來就會顯示錯誤）：告訴畫面哪些格子有新結果
+      .then((result) => {
+        // AI 叫的生成在背景做完了（成功才通知）：告訴畫面哪些格子有新結果。
+        // 節點失敗時 engine.run 不會丟錯，是正常回傳、run.status 是 'failed'，所以要看狀態：
+        // 失敗的那一格畫面本來就顯示錯誤，不能再標「AI 剛改」
         if (!fromAi || handle.closed || controller.signal.aborted) return
+        if (result.run.status !== 'succeeded') return
         broadcast('canvas.aiChanged', {
           at: (deps.now?.() ?? new Date()).toISOString(),
           channel: 'generation.done',
