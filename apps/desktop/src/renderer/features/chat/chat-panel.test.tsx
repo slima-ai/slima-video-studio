@@ -225,6 +225,12 @@ describe('Claude 對話面板：還不能開始時的說明卡', () => {
       </ChatProvider>,
     )
     await openPanel()
+    // 說明的標點：句號後面沒有多的空格、不留兩個破折號
+    const explain = (await screen.findByTestId('chat-prereq')).querySelector('p')?.textContent ?? ''
+    expect(explain).toContain('提供的工具。會花錢的步驟')
+    expect(explain).not.toMatch(/。 /)
+    expect(explain).not.toContain('——')
+    expect(explain).toContain('預設是 US$0；示範模式不花錢')
     fireEvent.click(await screen.findByText('打開 AI 工具連線'))
     expect(await screen.findByTestId('chat-input')).toBeTruthy()
     expect(fake.calls.find((c) => c.channel === 'settings.update')?.payload).toEqual({

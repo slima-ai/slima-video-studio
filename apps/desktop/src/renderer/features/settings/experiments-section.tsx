@@ -99,6 +99,7 @@ function BudgetField({
   onError: (message: string | undefined) => void
 }) {
   const [text, setText] = useState(value === undefined ? '' : String(value))
+  const [saved, setSaved] = useState(false)
   useEffect(() => {
     setText(value === undefined ? '' : String(value))
   }, [value])
@@ -117,7 +118,10 @@ function BudgetField({
     }
     if (next === value) return
     call('settings.update', { experiments: { claudeBudgetUsd: next ?? null } })
-      .then(onChanged)
+      .then(() => {
+        onChanged()
+        setSaved(true)
+      })
       .catch((e: unknown) => {
         onError(errorText(e))
       })
@@ -137,12 +141,18 @@ function BudgetField({
         className="w-20 rounded-md border border-border bg-surface px-2 py-1"
         onChange={(event) => {
           setText(event.target.value)
+          setSaved(false)
         }}
         onBlur={save}
         onKeyDown={(event) => {
           if (event.key === 'Enter') save()
         }}
       />
+      {saved ? (
+        <span role="status" data-testid="experiment-claude-budget-saved" className="text-success">
+          已儲存
+        </span>
+      ) : null}
       <span className="text-xs text-fg-muted">
         花的是你自己的 Claude 用量，跟「單次花費上限」「AI 工具的總額度」不同。一段＝連續使用，閒置
         10
