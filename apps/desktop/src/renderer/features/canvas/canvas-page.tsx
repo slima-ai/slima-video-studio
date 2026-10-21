@@ -59,7 +59,7 @@ import { choicesFor, type AddChoice } from './connection-rules'
 import { nodeEntries, paneEntries, type ContextEntry } from './context-menu'
 import { DELETE_TOAST_MS, FIXED_EDGE_REASON, planDelete, type DeletePlan } from './delete-plan'
 import { DetailPanel, keyOfTarget, panelTargetOf, type PanelTarget } from './detail-panel'
-import { READABLE_ZOOM, openViewport, useFitAll } from './fit-all'
+import { READABLE_ZOOM, growView, openViewport, useFitAll, useFitAllAsync } from './fit-all'
 import { FLOAT_PANEL } from './floating-panel'
 import { DragOverlay } from './drag-overlay'
 import { ConnectionLine, EDGE_TYPES } from './edges'
@@ -173,6 +173,7 @@ interface CanvasProps {
 function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasProps) {
   const rf = useReactFlow<CanvasNode, CanvasEdge>()
   const fitAll = useFitAll()
+  const fitAllAsync = useFitAllAsync()
   useEffect(() => {
     window.__svsCanvas = rf
   }, [rf])
@@ -271,7 +272,6 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const [born, setBorn] = useState<string | undefined>()
   // 一句話生成中陸續長出來的節點（節點與連到它們的線各播一次長出動畫）
   const [grown, setGrown] = useState<ReadonlySet<string>>(new Set())
-  const grownScene = useRef<string | undefined>(undefined)
   const latestFlow = useRef(flow)
   latestFlow.current = flow
   // 剛放下、資料還沒重新讀回來的格子：連按好幾次「新增」時，後面的要避開前面的（畫面上的節點還沒更新）
@@ -313,26 +313,33 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     },
     [rf],
   )
-  // 這次生成是從哪個一句話按的（長完時連它一起放進畫面）
-  const growSource = useRef<string | undefined>(undefined)
   // 就地改名的函式在後面才定義：畫布動作（卡片上的雙擊）用 ref 呼叫它
   const startRenameRef = useRef<(nodeId: string) => void>(undefined)
+  // 這次生成開始之前畫布上有哪些節點（長完時比對出新長的）
+  const growBefore = useRef<ReadonlySet<string> | undefined>(undefined)
   const grow = useGrow({
     onFinished: async () => {
-      // 長完了：讀最後的資料，再一次把「一句話＋新的那一場」放進畫面。
+      // 長完了：讀最後的資料，再把整串放進畫面。
       // 長的過程中畫面不動（不然節點一個個冒出來時畫面一直跳），只在這裡動一次
-      const key = grownScene.current
-      const source = growSource.current
-      grownScene.current = undefined
-      growSource.current = undefined
+      const before = growBefore.current
+      growBefore.current = undefined
       await onRefresh()
       await new Promise((resolve) => window.setTimeout(resolve, 120))
-      const ids = [key, source].filter(
-        (id): id is string => id !== undefined && latestFlow.current.nodes.some((n) => n.id === id),
-      )
+      const el = containerRef.current
+      if (!before || !el) return
+      // 長完要一眼看到整串（一句話、場、鏡頭、圖、影片到剪輯）：全部放得下就「全部顯示」；
+      // 裝不下（專案已經很大）就只框這次新長出來的，不然新的那一場可能在畫面外、使用者以為沒長出來。
+      // 「先產生分鏡」的節點是長完才一起出現的，所以比對長之前與長之後的節點，不靠長的過程中記下的場。
       // 等這次動畫做完才算長完（data-growing 這時才變 false、才跳「短片生成好了」）
-      if (key !== undefined && ids.includes(key)) {
-        await rf.fitView({ ...FIT_OPTIONS, nodes: ids.map((id) => ({ id })), duration: 400 })
+      const view = growView(before, latestFlow.current.nodes, {
+        width: el.clientWidth,
+        height: el.clientHeight,
+      })
+      if (view.kind === 'all') await fitAllAsync(400)
+      else if (view.kind === 'new') {
+        if (view.overflow) await rf.setViewport(view.overflow, { duration: 400 })
+        else
+          await rf.fitView({ ...FIT_OPTIONS, nodes: view.ids.map((id) => ({ id })), duration: 400 })
       }
     },
   })
@@ -626,9 +633,6 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     const fresh = flow.nodes.filter((n) => !previous.has(n.id))
     if (fresh.length === 0) return
     const ids = fresh.map((n) => n.id)
-    // 記住新的場，長完時才把它帶進畫面；長的過程中不移動畫面
-    const frame = fresh.find((n) => n.type === 'frame')
-    if (frame && grownScene.current === undefined) grownScene.current = frame.id
     setGrown((current) => new Set([...current, ...ids]))
     growTimers.current.push(
       window.setTimeout(() => {
@@ -1242,8 +1246,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           })
       },
       growStory: (nodeId, params, anchor, stage) => {
-        grownScene.current = undefined
-        growSource.current = nodeId
+        growBefore.current = new Set(latestFlow.current.nodes.map((n) => n.id))
         startGrow(
           nodeId,
           params,

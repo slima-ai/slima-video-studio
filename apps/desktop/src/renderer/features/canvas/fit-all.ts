@@ -76,11 +76,39 @@ export function overflowViewport(
   }
 }
 
+/** 一句話長完之後視角要怎麼動。 */
+export type GrowView =
+  /** 什麼都沒長出來：視角不動。 */
+  | { kind: 'none' }
+  /** 全部放得進畫面（而且看得清楚）：全部顯示。 */
+  | { kind: 'all' }
+  /**
+   * 全部裝不下：只框這次新長出來的節點（全部顯示會停在最小縮放、從第一場看起，新長的可能在畫面外，
+   * 使用者會以為沒長出來）。新長的自己也裝不下時，`overflow` 是看得清楚的縮放、從新長的左上角看起。
+   */
+  | { kind: 'new'; ids: string[]; overflow?: Viewport }
+
 /**
- * 「全部顯示」：一般就是 fitView；裝不下（縮到看得清楚的程度也放不進畫面，例如 27 鏡、250 鏡）時，
- * 停在那個縮放、從第一場開始看，其他的往下、往右捲動或拖曳。
+ * 長完之後選哪一種視角。`before` 是長之前的節點 id（「先產生分鏡」的節點是長完才一起出現的，
+ * 長的過程中沒有新節點可以記，所以要比對長之前與長之後）。
  */
-export function useFitAll(): (duration?: number) => void {
+export function growView(
+  before: ReadonlySet<string>,
+  nodes: readonly CanvasNode[],
+  size: { width: number; height: number },
+): GrowView {
+  const added = nodes.filter((n) => !before.has(n.id))
+  if (added.length === 0) return { kind: 'none' }
+  if (!overflowViewport(boundsOf(nodes), size, READABLE_ZOOM)) return { kind: 'all' }
+  const overflow = overflowViewport(boundsOf(added), size, READABLE_ZOOM)
+  return { kind: 'new', ids: added.map((n) => n.id), ...(overflow ? { overflow } : {}) }
+}
+
+/**
+ * 「全部顯示」，等視角動畫做完才完成（回傳 Promise）。一般就是 fitView；裝不下（縮到看得清楚的程度
+ * 也放不進畫面，例如 27 鏡、250 鏡）時，停在那個縮放、從第一場開始看，其他的往下、往右捲動或拖曳。
+ */
+export function useFitAllAsync(): (duration?: number) => Promise<unknown> {
   const rf = useReactFlow<CanvasNode, CanvasEdge>()
   const store = useStoreApi<CanvasNode, CanvasEdge>()
   return useCallback(
@@ -96,10 +124,22 @@ export function useFitAll(): (duration?: number) => void {
               Math.max(minZoom, READABLE_ZOOM),
             )
           : undefined
-      if (overflow) void rf.setViewport(overflow, { duration })
-      else void rf.fitView({ ...FIT_OPTIONS, duration })
+      return overflow
+        ? rf.setViewport(overflow, { duration })
+        : rf.fitView({ ...FIT_OPTIONS, duration })
     },
     [rf, store],
+  )
+}
+
+/** 「全部顯示」（不等動畫做完）。 */
+export function useFitAll(): (duration?: number) => void {
+  const fit = useFitAllAsync()
+  return useCallback(
+    (duration = 300) => {
+      void fit(duration)
+    },
+    [fit],
   )
 }
 
