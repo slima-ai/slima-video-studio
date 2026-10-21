@@ -213,7 +213,9 @@ test.describe('成品的聲音（示範模式）', () => {
     await page.screenshot({ path: testInfo.outputPath('undo-back-to-old-version.png') })
 
     // 重做：回到刪旁白那一版，一樣不重混、不加版本號
-    await page.keyboard.press('Meta+Shift+z')
+    // 提示條上的「重做」（不用快捷鍵：Mac 與 Linux 的重做快捷鍵不一樣）
+    await expect(page.getByTestId('toast-action')).toHaveText('重做')
+    await page.getByTestId('toast-action').click()
     await expect
       .poll(async () => (await soundOf(page)).shots.filter((s) => s.narration).length, {
         timeout: 30_000,
