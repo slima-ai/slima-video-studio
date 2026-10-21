@@ -74,6 +74,7 @@ describe('ExperimentsSection：Claude 對話每一段的用量上限', () => {
     render(<ExperimentsSection settings={withFlag()} onChanged={onChanged} />)
     fireEvent.click(await screen.findByTestId('setting-card-more'))
     const input = await screen.findByTestId<HTMLInputElement>('experiment-claude-budget')
+    expect(screen.queryByTestId('experiment-claude-budget-saved')).toBeNull()
     fireEvent.change(input, { target: { value: '1.5' } })
     fireEvent.blur(input)
     await waitFor(() => {
@@ -81,6 +82,10 @@ describe('ExperimentsSection：Claude 對話每一段的用量上限', () => {
         experiments: { claudeBudgetUsd: 1.5 },
       })
     })
+    // 存好之後看得到「已儲存」（不另外加儲存鈕）；再改又消失
+    expect((await screen.findByTestId('experiment-claude-budget-saved')).textContent).toBe('已儲存')
+    fireEvent.change(input, { target: { value: '2' } })
+    expect(screen.queryByTestId('experiment-claude-budget-saved')).toBeNull()
     cleanup()
     const again = installFakeSvs({ 'app.getInfo': info(true), 'settings.update': () => ({}) })
     render(
