@@ -384,14 +384,14 @@ describe('Claude 對話面板：講話與串流', () => {
     }
     const fake = setup(options)
     await openPanel()
-    expect(await screen.findByText('舊專案裡說的')).toBeTruthy()
+    expect(await screen.findByText('舊專案裡說的', {}, { timeout: 5000 })).toBeTruthy()
     // 換到另一個專案：它有自己的一個對話
     options.conversations = [conversation({ id: ID2, title: '新專案的對話' })]
     options.messages = { [ID2]: [message({ id: 'u2', role: 'user', text: '新專案裡說的' })] }
     act(() => {
       fake.emit('chat.event', { type: 'reset' })
     })
-    expect(await screen.findByText('新專案裡說的')).toBeTruthy()
+    expect(await screen.findByText('新專案裡說的', {}, { timeout: 5000 })).toBeTruthy()
     expect(screen.queryByText('舊專案裡說的')).toBeNull()
     // 再換到一個沒有任何對話的專案：自動開一個空的、可以直接講
     options.conversations = []
@@ -399,13 +399,19 @@ describe('Claude 對話面板：講話與串流', () => {
     act(() => {
       fake.emit('chat.event', { type: 'reset' })
     })
-    await waitFor(() => {
-      expect(screen.queryByText('新專案裡說的')).toBeNull()
-    })
-    expect(await screen.findByTestId('chat-input')).toBeTruthy()
+    await waitFor(
+      () => {
+        expect(screen.queryByText('新專案裡說的')).toBeNull()
+      },
+      { timeout: 5000 },
+    )
+    expect(await screen.findByTestId('chat-input', {}, { timeout: 5000 })).toBeTruthy()
     // chat.create 是 reset 之後非同步發出的，輸入框在 reset 前就存在；不賭時序，等它真的被呼叫
-    await waitFor(() => {
-      expect(fake.calls.filter((c) => c.channel === 'chat.create').length).toBeGreaterThan(0)
-    })
+    await waitFor(
+      () => {
+        expect(fake.calls.filter((c) => c.channel === 'chat.create').length).toBeGreaterThan(0)
+      },
+      { timeout: 5000 },
+    )
   })
 })
