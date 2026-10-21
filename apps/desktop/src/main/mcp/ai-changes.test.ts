@@ -35,6 +35,50 @@ describe('diffMarks：AI 前後的畫布差在哪', () => {
   })
 })
 
+describe('diffMarks：只標真的有新內容的格子（不標只是跟著上游變了狀態的）', () => {
+  const video = (over: Partial<CanvasNode> = {}): CanvasNode =>
+    node('shot:a:video', { kind: 'video', title: '第 1 鏡・影片', status: 'idle', ...over })
+
+  it('被 AI 直接改的格子（鏡頭描述）照標', () => {
+    const before = marks(node('shot:a', { summary: '舊的描述' }))
+    const after = marks(node('shot:a', { summary: '小機器人坐在旋轉木馬旁' }))
+    expect(diffMarks(before, after).changed).toEqual(['shot:a'])
+  })
+
+  it('有新結果的格子（首幀做完：縮圖、版本、模型、花費）照標，狀態跟著變也一樣標', () => {
+    const before = marks(node('shot:a:image', { kind: 'image', status: 'running' }))
+    const after = marks(
+      node('shot:a:image', {
+        kind: 'image',
+        status: 'done',
+        assetHash: 'a'.repeat(64),
+        version: 1,
+        modelId: 'mock/image',
+        summary: '示範圖片',
+        usage: { durationMs: 64, createdAt: '2026-10-21T00:00:00.000Z' },
+      }),
+    )
+    expect(diffMarks(before, after).changed).toEqual(['shot:a:image'])
+  })
+
+  it('只是因為上游變了而狀態改變（排隊中、需要重跑、失敗原因）的格子不標', () => {
+    const before = marks(
+      video(),
+      node('shot:b:video', { kind: 'video', status: 'done', assetHash: 'b'.repeat(64) }),
+    )
+    const after = marks(
+      video({ status: 'queued' }),
+      node('shot:b:video', {
+        kind: 'video',
+        status: 'stale',
+        assetHash: 'b'.repeat(64),
+        error: '要重跑',
+      }),
+    )
+    expect(diffMarks(before, after)).toEqual({ changed: [], added: [], removed: [] })
+  })
+})
+
 describe('withAiChangeNotice', () => {
   const inner = (): McpCaller & { calls: string[] } => {
     const calls: string[] = []
