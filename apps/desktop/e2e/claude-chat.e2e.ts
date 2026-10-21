@@ -127,6 +127,26 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(drawer).toHaveAttribute('data-open', 'false')
   })
 
+  test('Claude 這一輪連著刪了三個空鏡頭：只出一則「AI 刪了 3 個空的鏡頭」，帶「這一輪的其他改動也會一起退回」那句', async ({
+    page,
+  }, testInfo) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('清掉鏡頭')
+    await input.press('Enter')
+    const toast = page.getByTestId('toast').filter({ hasText: 'AI 刪了' })
+    await expect(toast).toHaveText(
+      /AI 刪了 3 個空的鏡頭，按「復原」可以找回來（這一輪 AI 做的其他改動也會一起退回）/,
+      { timeout: 30_000 },
+    )
+    await expect(toast).toHaveCount(1)
+    await expect(toast).not.toContainText('Claude')
+    await page.waitForTimeout(400)
+    await toast.screenshot({ path: testInfo.outputPath('removed-toast-chat-turn.png') })
+    await page.screenshot({ path: testInfo.outputPath('removed-toast-chat-turn-page.png') })
+  })
+
   test('Claude 做事時，停止鈕和 Esc 都能中斷 Claude 現在做的事；中斷後同一個對話還能接著講', async ({
     page,
   }) => {
