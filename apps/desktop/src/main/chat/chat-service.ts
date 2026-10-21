@@ -25,7 +25,7 @@ import {
 } from './chat-store'
 import type { ClaudeCheck } from './claude-check'
 import { startClaudeProcess, type ClaudeProcess, type SpawnClaude } from './claude-process'
-import { splitNotes, type StreamSignal } from './stream-events'
+import { hasCjk, splitNotes, stripToolMarkup, type StreamSignal } from './stream-events'
 import { toolDoingLabel, toolLabel } from './tool-labels'
 
 export interface ChatServiceDeps {
@@ -281,7 +281,15 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     turn.endHistory?.()
     // 一路上都沒有串流出文字（只有最後的結果）：用最後的回覆
     if (outcome.text !== undefined && turn.segments.length === 0 && message.text.trim() === '') {
-      message.text = outcome.text
+      message.text = stripToolMarkup(outcome.text)
+    }
+    // 串流途中是照「使用者用中文講」先猜的；結束了用真正的規則重算一次
+    // （整則都是短英文的回覆，不能被全部收光）
+    if (turn.segments.length > 0) {
+      const { text, notes } = splitNotes(turn.segments)
+      message.text = text
+      if (notes.length > 0) message.notes = notes
+      else delete message.notes
     }
     message.steps = message.steps.map((step) =>
       step.status === 'running'
@@ -338,7 +346,8 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
         }
         {
           // 其他段落有中文、這一段又短又沒有中文的英文工作筆記：收起來（點了看原文），不是丟掉
-          const { text, notes } = splitNotes(turn.segments)
+          // 串流途中：使用者用中文講，就先當這一輪會有中文（第一段英文筆記不能先整段露出來）
+          const { text, notes } = splitNotes(turn.segments, { assumeCjk: hasCjk(turn.userText) })
           turn.assistant.text = text
           if (notes.length > 0) turn.assistant.notes = notes
           else delete turn.assistant.notes

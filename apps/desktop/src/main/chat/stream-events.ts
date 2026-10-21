@@ -178,18 +178,48 @@ const CJK = /[\u3400-\u9fff\uf900-\ufaff]/u
 /** 一段文字最長這麼長才可能是「工作筆記」（長的是真的在回答使用者）。 */
 const NOTE_MAX_CHARS = 240
 
+/** 模型有時把「要呼叫工具」的標記當成文字吐出來（`<invoke name="…">…</invoke>`、`<function_calls>`、`<parameter>`）。 */
+const TOOL_MARKUP_NAMES = '(?:antml:)?(?:function_calls|invoke|parameter)'
+const TOOL_MARKUP_BLOCK = new RegExp(
+  `<${TOOL_MARKUP_NAMES}\\b[^>]*>[\\s\\S]*?</${TOOL_MARKUP_NAMES}>`,
+  'g',
+)
+const TOOL_MARKUP_TAG = new RegExp(`</?${TOOL_MARKUP_NAMES}\\b[^>]*>`, 'g')
+/** 還沒收完的標記（串流到一半，結尾的標籤還沒來）：從開頭的 `<invoke` 起到尾巴都先不顯示。 */
+const TOOL_MARKUP_OPEN = new RegExp(`<${TOOL_MARKUP_NAMES}\\b[\\s\\S]*$`)
+
+/**
+ * 去掉文字裡的工具呼叫標記（整段、零散的標籤、串流到一半的開頭）；那不是要給使用者看的話，也不是「工作筆記」，
+ * 不管多長都不顯示。模型吐出這種標記是它自己的小毛病（真正的工具呼叫另走 tool_use 事件，不受影響）。
+ */
+export function stripToolMarkup(text: string): string {
+  if (!text.includes('<')) return text
+  return text
+    .replace(TOOL_MARKUP_BLOCK, '')
+    .replace(TOOL_MARKUP_TAG, '')
+    .replace(TOOL_MARKUP_OPEN, '')
+}
+
 /**
  * Claude 一輪裡文字與工具交錯，每一段文字是一個區塊；它有時把工作筆記寫成一段英文
  * （「Ignore the session USD budget note? …」「User explicitly asked; proceed.」）。
  * 這一輪回覆的**其他段落有中文**、而這一段**很短、沒有中文**時，把它收成「工作筆記」（畫面上收起來、點了看原文）。
  * 使用者用英文聊、整則回覆都是英文時，一段都不收（不然會把英文使用者的回答收掉）。
+ *
+ * 串流途中（`assumeCjk`）：使用者是用中文講的，那就先當這一輪會有中文——第一段英文筆記串流出來的當下，
+ * 後面的中文段落還沒來，不先這樣判斷，那段英文會整段露出來、等中文來了才收起來。這一輪結束時要用不帶
+ * `assumeCjk` 的結果重算一次：整則都是短英文的回覆（模型沒照使用者的語言回）才不會被全部收光。
  * 回傳：留在回覆文字裡的（段落之間空一行）與收起來的筆記（原文）。
  */
-export function splitNotes(segments: readonly string[]): { text: string; notes: string[] } {
-  const hasCjk = segments.some((segment) => CJK.test(segment))
+export function splitNotes(
+  segments: readonly string[],
+  options: { assumeCjk?: boolean } = {},
+): { text: string; notes: string[] } {
+  const clean = segments.map(stripToolMarkup)
+  const hasCjk = options.assumeCjk === true || clean.some((segment) => CJK.test(segment))
   const kept: string[] = []
   const notes: string[] = []
-  for (const segment of segments) {
+  for (const segment of clean) {
     const t = segment.trim()
     if (t === '') continue
     if (hasCjk && t.length <= NOTE_MAX_CHARS && !CJK.test(t)) notes.push(t)
@@ -197,3 +227,6 @@ export function splitNotes(segments: readonly string[]): { text: string; notes: 
   }
   return { text: kept.join('\n\n'), notes }
 }
+
+/** 使用者這句話裡有沒有中日韓文字（用來猜這一輪的回覆語言）。 */
+export const hasCjk = (text: string): boolean => CJK.test(text)
