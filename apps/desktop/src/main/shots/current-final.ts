@@ -27,14 +27,17 @@ const sameIds = (a: readonly string[], b: readonly string[]): boolean =>
  */
 export function currentFinal(
   handle: ProjectHandle,
-  soundKeyNow: string | undefined,
+  soundKeyNow: () => string | undefined,
 ): CurrentFinal | undefined {
   const all = handle.repos.finalCuts.list()
+  // 還沒接過成品就不用算下面這些（鏡頭很多的專案，每個鏡頭一次查詢；畫布每次更新都會問）
+  if (all.length === 0) return undefined
   const takeIds = cutTakeIdsOf(handle)
+  const key = soundKeyNow()
   const match = all.find(
     (cut) =>
       sameIds(cut.takeIds, takeIds) &&
-      cut.soundKey === soundKeyNow &&
+      cut.soundKey === key &&
       handle.assets.find(cut.assetHash) !== undefined,
   )
   if (match) return { cut: match, stale: false }

@@ -211,8 +211,10 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
   }
 
   const stateOf = (handle: ProjectHandle): SoundState => {
-    const keyNow = soundKeyOf(handle)
-    const finalNow = currentFinal(handle, keyNow)?.cut
+    // 聲音指紋要掃每個鏡頭：沒有成品就不算，算過就沿用
+    let keyNow: { value: string | undefined } | undefined
+    const soundKeyNow = (): string | undefined => (keyNow ??= { value: soundKeyOf(handle) }).value
+    const finalNow = currentFinal(handle, soundKeyNow)?.cut
     const views = timeline(handle)
     const totalSec = views.reduce((sum, v) => sum + v.durationSec, 0)
     const music = handle.repos.sound
@@ -231,7 +233,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
             final: {
               version: finalNow.version,
               hasSound: finalNow.soundKey !== undefined,
-              soundStale: keyNow !== finalNow.soundKey,
+              soundStale: soundKeyNow() !== finalNow.soundKey,
             },
           }
         : {}),
@@ -650,14 +652,14 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       if (wantMusic) await service.generateMusic({})
       stopped()
       if (narrations > 0 || wantMusic) {
-        if (currentFinal(handle, soundKeyOf(handle))) await service.mix()
+        if (currentFinal(handle, () => soundKeyOf(handle))) await service.mix()
       }
       return { narrations, music: wantMusic }
     },
 
     async analyze() {
       const handle = need()
-      const latest = currentFinal(handle, soundKeyOf(handle))?.cut
+      const latest = currentFinal(handle, () => soundKeyOf(handle))?.cut
       if (!latest) throw invalid('還沒有接好的成品，先把鏡頭接成一支影片。')
       const tool = tools()
       const found = handle.assets.find(latest.assetHash)
@@ -735,7 +737,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
 
     async mix() {
       const handle = need()
-      const current = currentFinal(handle, soundKeyOf(handle))
+      const current = currentFinal(handle, () => soundKeyOf(handle))
       if (!current) throw invalid('還沒有接好的成品，先把鏡頭接成一支影片。')
       // 目前的版本已經跟現在的聲音對得上（例如剛復原，自動重混的計時還沒到）：不用混，也不加新的版本號
       if (current.stale === false)

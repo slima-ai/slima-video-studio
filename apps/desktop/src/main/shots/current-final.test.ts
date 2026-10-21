@@ -53,7 +53,15 @@ describe('cutTakeIdsOf', () => {
 
 describe('currentFinal：成品的目前版本＝跟現在狀態對得上的那一版', () => {
   it('沒接過成品：沒有', () => {
-    expect(currentFinal(fakeHandle({ shots: SHOTS, cuts: [] }), undefined)).toBeUndefined()
+    let asked = 0
+    expect(
+      currentFinal(fakeHandle({ shots: SHOTS, cuts: [] }), () => {
+        asked++
+        return undefined
+      }),
+    ).toBeUndefined()
+    // 還沒接過就不算聲音指紋（鏡頭很多的專案，畫布每次更新都會問，不能白做幾百次查詢）
+    expect(asked).toBe(0)
   })
 
   it('最新一版就對得上：用它，不 stale', () => {
@@ -61,7 +69,7 @@ describe('currentFinal：成品的目前版本＝跟現在狀態對得上的那�
       shots: SHOTS,
       cuts: [cut(1, ['t1', 't2']), cut(2, ['t1', 't2'], 'K')],
     })
-    expect(currentFinal(handle, 'K')).toMatchObject({ stale: false, cut: { version: 2 } })
+    expect(currentFinal(handle, () => 'K')).toMatchObject({ stale: false, cut: { version: 2 } })
   })
 
   it('復原／重做：聲音指紋回到較早的版本，就是那一版（不是最新的），不 stale', () => {
@@ -69,9 +77,9 @@ describe('currentFinal：成品的目前版本＝跟現在狀態對得上的那�
       shots: SHOTS,
       cuts: [cut(1, ['t1', 't2'], 'A'), cut(2, ['t1', 't2'], 'B'), cut(3, ['t1', 't2'], 'C')],
     })
-    expect(currentFinal(handle, 'A')).toMatchObject({ stale: false, cut: { version: 1 } })
-    expect(currentFinal(handle, 'B')).toMatchObject({ stale: false, cut: { version: 2 } })
-    expect(currentFinal(handle, 'C')).toMatchObject({ stale: false, cut: { version: 3 } })
+    expect(currentFinal(handle, () => 'A')).toMatchObject({ stale: false, cut: { version: 1 } })
+    expect(currentFinal(handle, () => 'B')).toMatchObject({ stale: false, cut: { version: 2 } })
+    expect(currentFinal(handle, () => 'C')).toMatchObject({ stale: false, cut: { version: 3 } })
   })
 
   it('沒有聲音（指紋是 undefined）也算：回到沒有聲音的那一版', () => {
@@ -79,7 +87,10 @@ describe('currentFinal：成品的目前版本＝跟現在狀態對得上的那�
       shots: SHOTS,
       cuts: [cut(1, ['t1', 't2']), cut(2, ['t1', 't2'], 'K')],
     })
-    expect(currentFinal(handle, undefined)).toMatchObject({ stale: false, cut: { version: 1 } })
+    expect(currentFinal(handle, () => undefined)).toMatchObject({
+      stale: false,
+      cut: { version: 1 },
+    })
   })
 
   it('同樣的條件有好幾版：用最新的那一版', () => {
@@ -87,12 +98,12 @@ describe('currentFinal：成品的目前版本＝跟現在狀態對得上的那�
       shots: SHOTS,
       cuts: [cut(1, ['t1', 't2'], 'K'), cut(2, ['t1', 't2'], 'X'), cut(3, ['t1', 't2'], 'K')],
     })
-    expect(currentFinal(handle, 'K')).toMatchObject({ cut: { version: 3 } })
+    expect(currentFinal(handle, () => 'K')).toMatchObject({ cut: { version: 3 } })
   })
 
   it('影片一樣、只有聲音不同：對不上，用最新一版，原因是聲音（重混就好）', () => {
     const handle = fakeHandle({ shots: SHOTS, cuts: [cut(1, ['t1', 't2'], 'A')] })
-    expect(currentFinal(handle, 'Z')).toMatchObject({ stale: 'sound', cut: { version: 1 } })
+    expect(currentFinal(handle, () => 'Z')).toMatchObject({ stale: 'sound', cut: { version: 1 } })
   })
 
   it('用的影片版本換了：就算聲音一樣也對不上，原因是鏡頭（要重新接）', () => {
@@ -103,7 +114,7 @@ describe('currentFinal：成品的目前版本＝跟現在狀態對得上的那�
       ],
       cuts: [cut(1, ['t1', 't2'], 'A')],
     })
-    expect(currentFinal(handle, 'A')).toMatchObject({ stale: 'shots', cut: { version: 1 } })
+    expect(currentFinal(handle, () => 'A')).toMatchObject({ stale: 'shots', cut: { version: 1 } })
   })
 
   it('多一個鏡頭放進成品、或關掉一個：對不上（長度不同），原因是鏡頭', () => {
@@ -112,11 +123,11 @@ describe('currentFinal：成品的目前版本＝跟現在狀態對得上的那�
       shots: [...SHOTS.slice(0, 2), { id: 's3', inCut: true, take: 't3' }],
       cuts,
     })
-    expect(currentFinal(more, 'A')).toMatchObject({ stale: 'shots' })
+    expect(currentFinal(more, () => 'A')).toMatchObject({ stale: 'shots' })
     const [firstShot] = SHOTS
     if (!firstShot) throw new Error('fixture')
     const fewer = fakeHandle({ shots: [firstShot], cuts })
-    expect(currentFinal(fewer, 'A')).toMatchObject({ stale: 'shots' })
+    expect(currentFinal(fewer, () => 'A')).toMatchObject({ stale: 'shots' })
   })
 
   it('對得上的那一版檔案不在了：不用它，照常當成對不上（重混），不會拿到沒有檔案的版本', () => {
@@ -125,7 +136,7 @@ describe('currentFinal：成品的目前版本＝跟現在狀態對得上的那�
       cuts: [cut(1, ['t1', 't2'], 'A'), cut(2, ['t1', 't2'], 'B')],
       missing: ['hash-1'],
     })
-    expect(currentFinal(handle, 'A')).toMatchObject({ stale: 'sound', cut: { version: 2 } })
+    expect(currentFinal(handle, () => 'A')).toMatchObject({ stale: 'sound', cut: { version: 2 } })
   })
 
   it('較新的同條件版本檔案不在、較舊的在：用較舊的那一版', () => {
@@ -134,6 +145,6 @@ describe('currentFinal：成品的目前版本＝跟現在狀態對得上的那�
       cuts: [cut(1, ['t1', 't2'], 'K'), cut(2, ['t1', 't2'], 'K')],
       missing: ['hash-2'],
     })
-    expect(currentFinal(handle, 'K')).toMatchObject({ stale: false, cut: { version: 1 } })
+    expect(currentFinal(handle, () => 'K')).toMatchObject({ stale: false, cut: { version: 1 } })
   })
 })

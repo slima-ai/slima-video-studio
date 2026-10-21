@@ -443,7 +443,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   }
 
   const finalCutOf = (handle: ProjectHandle): CanvasFinalCut | undefined => {
-    const current = currentFinal(handle, deps.soundKeyNow?.(handle))
+    const current = currentFinal(handle, () => deps.soundKeyNow?.(handle))
     if (!current) return undefined
     const { cut, stale } = current
     return {
@@ -456,7 +456,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     }
   }
   const finalOf = (handle: ProjectHandle): { finalVideoHash?: string } => {
-    const hash = currentFinal(handle, deps.soundKeyNow?.(handle))?.cut.assetHash
+    const hash = currentFinal(handle, () => deps.soundKeyNow?.(handle))?.cut.assetHash
     return hash === undefined ? {} : { finalVideoHash: hash }
   }
 

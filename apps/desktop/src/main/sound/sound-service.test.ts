@@ -222,7 +222,7 @@ describe('SoundService：混音與成品（示範模式）', () => {
   /** 成品現在的版本（跟現在的狀態對得上的那一版；對不上才是最新一版）。 */
   const currentOf = (h: Harness) => {
     const handle = h.projects.current()
-    const current = handle ? currentFinal(handle, h.sound.soundKey(handle)) : undefined
+    const current = handle ? currentFinal(handle, () => h.sound.soundKey(handle)) : undefined
     if (!current) throw new Error('還沒有成品')
     return current.cut
   }
