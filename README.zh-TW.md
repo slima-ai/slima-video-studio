@@ -10,7 +10,7 @@
 
 ## 你可以做什麼
 
-- **一張畫布，從故事到成片。** 空白畫布有三種開始方式：自己一個鏡頭一個鏡頭加、貼一段故事讓 AI 拆成分鏡，或寫一句話（選畫風、鏡頭數、每鏡幾秒）。一句話可以先按「先產生分鏡」，只寫分鏡、看過改好再生成，也可以按「一次做完整支」一次做完。畫布會長出場、鏡頭、第一張畫面、影片片段和剪輯。
+- **一張畫布，從故事到成品。** 空白畫布有三種開始方式：自己一個鏡頭一個鏡頭加、貼一段故事讓 AI 拆成分鏡，或寫一句話（選畫風、鏡頭數、每鏡幾秒）。一句話可以先按「先產生分鏡」，只寫分鏡、看過改好再生成，也可以按「一次做完整支」一次做完。畫布會長出場、鏡頭、第一張畫面、影片片段和剪輯。
 - **只修一個鏡頭，不重做整支片。** 改了鏡頭描述或角色，只有受影響的圖和影片節點會標「需要重跑」；每個鏡頭都保留各個版本。格子上的 ▶ 旁有個小箭頭，可以選「只跑這個」、「這個和後面的」或「整條」，每一種都先列出會做哪幾步、預估多少錢。
 - **角色與地點。** 角色卡有鎖定的外觀描述、概念圖和三視圖，同一個角色可以在不同鏡頭重複使用。
 - **先看花費。** 每次生成都會顯示預估並請你確認；「單次花費上限」（預設 US$5）保護你不會超支。
@@ -133,7 +133,7 @@ claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
 | 鏡頭       | `list_shots`、`get_shot`、`update_shot`、`create_shot`、`delete_shots`、`reorder_shots`                                                                                                                       |
 | 角色       | `list_characters`、`create_character`、`update_character`、`suggest_character_anchor`、`set_character_anchor`、`generate_character_images`、`view_character_images`、`pick_character_image`、`lock_character` |
 | 圖片與影片 | `generate_first_frames`、`view_first_frames`、`generate_videos`、`view_video_stills`、`regenerate_shot`、`adopt_version`、`cancel_generation`、`wait_for_generation`、`get_generation_status`                 |
-| 成片       | `assemble_film`、`export_film`（有 `credits`：片尾字卡，預設開）                                                                                                                                              |
+| 成品       | `assemble_film`、`export_film`（有 `credits`：片尾字卡，預設開）                                                                                                                                              |
 | 聲音       | `get_sound`、`plan_sound`、`generate_narration`、`generate_music`、`adjust_sound_clip`、`adopt_sound_clip`、`remove_sound_clip`、`set_sound_settings`、`mix_sound`、`analyze_sound`                           |
 
 會看圖的工具回傳真的（縮小過的）圖片，所以助理可以在你花更多錢之前，先檢查第一張畫面與影片截圖有沒有出錯。

@@ -92,7 +92,7 @@ export async function concatVideos(
     if (!info.hasVideo) {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: '其中一個檔案沒有影像，無法接片。',
+        userMessage: '其中一個檔案沒有影像，沒辦法接成成品。',
       })
     }
     args.push('-i', file)

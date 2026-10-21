@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
+import { toolLabel } from '../chat/tool-labels'
 import { registerAllHandlers } from '../ipc/handlers'
 import { createIpcRegistry } from '../ipc/registry'
 import { MemoryVault } from '../keys/key-vault'
@@ -17,6 +18,7 @@ import { ProjectManager } from '../project-manager'
 import { testSettingsDeps } from '../settings/test-deps'
 import { createMcpCaller, MCP_CHANNELS } from './bridge'
 import { createMcpController, type McpController } from './controller'
+import { guideText } from './tools/guides'
 
 const SECRET = 'sk-or-v1-SENTINEL-DO-NOT-LEAK-0123456789'
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -347,6 +349,19 @@ async function registerOff(): Promise<void> {
 }
 
 describe('工具', () => {
+  it('接成一支影片那個工具：說明裡寫出畫面上的用詞（「接成成品」「剪輯」「成品」），跟對話裡顯示的名稱一致，Claude 才會用同一個詞跟使用者說', async () => {
+    const client = await connect(env)
+    const { tools } = await client.listTools()
+    const assemble = tools.find((t) => t.name === 'assemble_film')
+    expect(assemble?.description).toContain('「接成成品」')
+    expect(assemble?.description).toContain('「剪輯」')
+    expect(assemble?.description).toContain('「成品」')
+    expect(assemble?.description).not.toContain('接片')
+    // App 自己的對話面板顯示這個工具叫什麼，要跟說明裡的一樣
+    expect(toolLabel('assemble_film')).toBe('接成成品')
+    expect(guideText('getting-started', '')).toContain('「接成成品」')
+  })
+
   it('列出的工具就是預期的這幾個（新增工具要有意識地改這份清單）', async () => {
     const client = await connect(env)
     const { tools } = await client.listTools()
