@@ -36,6 +36,8 @@ export interface LaunchOptions {
   userDataDir?: string
   /** 額外環境變數（會覆蓋預設值） */
   env?: Record<string, string>
+  /** 放在 App 路徑前面的 Electron 參數（例如 `--require <檔>`：在主行程一開始就先載入一支腳本）。 */
+  electronArgs?: string[]
 }
 
 export interface LaunchedApp {
@@ -48,7 +50,7 @@ export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedAp
   const display = workerDisplay()
   const app = await electron.launch({
     executablePath: electronPath,
-    args: [APP_ROOT, ...ciArgs()],
+    args: [...(options.electronArgs ?? []), APP_ROOT, ...ciArgs()],
     env: {
       ...(process.env as Record<string, string>),
       SVS_PROVIDER_MODE: 'mock',
