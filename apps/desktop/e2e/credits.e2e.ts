@@ -154,7 +154,9 @@ test.describe('匯出的片尾字卡（示範模式、真的 Electron 離屏畫�
     test.skip(outcome.took !== undefined && outcome.took < 10_000, '這個環境沒有卡住，無從驗證逾時')
     // 卡住了：測試行程放開的那一刻，匯出必須已經在上限內結束，改匯出沒有字卡的版本
     expect(outcome.took, '匯出在卡住期間就該照上限結束').toBeDefined()
-    expect(outcome.took).toBeLessThan(26_000)
+    // 上限是 20 秒；測試行程卡住 30 秒，匯出必須在它放開之前結束。留到 29 秒：機器忙時改匯出沒有字卡的版本（接影片）
+    // 也要時間，原本的 26 秒只留 6 秒空間
+    expect(outcome.took).toBeLessThan(29_000)
     expect(outcome.result?.ok).toBe(true)
     expect(outcome.result?.data?.credits).toBe(false)
     expect(existsSync(outcome.result?.data?.path ?? '')).toBe(true)

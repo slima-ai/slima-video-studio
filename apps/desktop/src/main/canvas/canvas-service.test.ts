@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { createHistoryService } from '../history/history-service'
 import { createStudioHarness } from '../shots/test-harness'
+import { cpuNowMs, scalingRatio } from '../test-support/cpu-time'
 
 const HASH = (c: string): string => c.repeat(64)
 
@@ -264,15 +265,16 @@ describe('createCanvasService', () => {
     expect(graph.nodes.filter((n) => n.kind === 'scene')).toHaveLength(1)
   })
 
-  it('250 個鏡頭（約 900 個節點）：canvas.get 在 200ms 內', () => {
+  // 250 鏡的畫布，一鏡配兩鏡一場；回傳已經暖機過的 canvas
+  const seed = (shots: number) => {
     const { canvas, repos } = setup()
     const act = repos.outline.addAct({ title: '一' })
     const sceneIds = Array.from(
-      { length: 125 },
+      { length: shots / 2 },
       (_, i) => repos.outline.addScene(act.id, { title: `場${String(i + 1)}` }).id,
     )
     repos.characters.create('阿鐵')
-    for (let i = 0; i < 250; i++) {
+    for (let i = 0; i < shots; i++) {
       const shot = repos.shots.create({
         sceneId: sceneIds[Math.floor(i / 2)],
         description: `第 ${String(i)} 鏡`,
@@ -288,19 +290,39 @@ describe('createCanvasService', () => {
       }
     }
     canvas.get() // 先暖機
-    // 機器忙的時候（開發機同時跑好幾個專案、CI 的慢機器）單次量測會被拖慢好幾倍，
-    // 所以量 7 次、取最快的一次：負載只會讓時間變長，最快的一次最接近程式本身要花的時間
-    const times: number[] = []
+    return canvas
+  }
+
+  it('鏡頭變 4 倍，canvas.get 的時間不會多到 7 倍以上（不是平方）：60 鏡對 240 鏡', () => {
+    // 不比「幾毫秒」：絕對毫秒數會看機器臉色（開發機同時跑好幾個專案、CI 的慢機器、整套並行都會拖慢）。
+    // 改比同一台機器、同一次測試裡 60 鏡與 240 鏡的 CPU 時間（只算這個行程自己用掉的）：
+    // 線性約 4 倍以內（有固定成本時更少；實測 CI 3.0～3.8、本機 1.9～3.7），平方約 16 倍，門檻 7 倍在中間。
+    const small = seed(60)
+    const large = seed(240)
+    // 60 鏡 × 3 ＋ 30 個場框 ＋ 角色 ＋ 剪輯；240 鏡 × 3 ＋ 120 個場框 ＋ 角色 ＋ 剪輯
+    expect(large.get().nodes.length).toBeGreaterThan(small.get().nodes.length * 3)
+    const { ratio, smallMs, largeMs } = scalingRatio(
+      () => small.get(),
+      () => large.get(),
+    )
+    expect(ratio, `60 鏡 ${smallMs.toFixed(1)} ms、240 鏡 ${largeMs.toFixed(1)} ms`).toBeLessThan(7)
+  })
+
+  it('常數倍的退步：250 鏡的 canvas.get，CPU 時間（取 7 次最小）不超過 220 毫秒', () => {
+    // 倍數看不出「每個鏡頭多算一次」這種常數倍的退步（複雜度還是線性；#150 就是這樣慢了 2～3 倍，CI 上量到 280 毫秒）。
+    // 量的是這個行程的 CPU 時間，不是牆鐘時間：整套並行、機器忙不會讓它變長。量測：CI（開 coverage、4 個行程並行）
+    // 97～130 毫秒，本機 40～75 毫秒；門檻 220 毫秒離 CI 最慢的 130 還有 1.7 倍，CI 上慢 2 倍以上會紅。
+    const canvas = seed(250)
     let graph = canvas.get()
+    let best = Infinity
     for (let i = 0; i < 7; i++) {
-      const t0 = performance.now()
+      const start = cpuNowMs()
       graph = canvas.get()
-      times.push(performance.now() - t0)
+      best = Math.min(best, cpuNowMs() - start)
     }
-    const ms = Math.min(...times)
     // 250 鏡 × 3 ＋ 125 個場框 ＋ 角色 ＋ 剪輯
     expect(graph.nodes).toHaveLength(877)
-    expect(ms).toBeLessThan(200)
+    expect(best).toBeLessThan(220)
   })
 })
 

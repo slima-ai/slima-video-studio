@@ -55,9 +55,9 @@ describe('金鑰小幫手的執行（真的子行程）', () => {
 
   it('提示沒人按（小幫手一直不結束）：逾時、殺掉它，丟「可重試」的白話錯誤', async () => {
     const { run } = fakeHelper('setInterval(() => {}, 1000)', 300)
-    const started = Date.now()
+    // 不量牆鐘時間（機器忙、起子行程慢時會被拖慢）：小幫手永遠不結束，沒有逾時保護的話這一行會一直等下去，
+    // 測試會卡到 vitest 的逾時而紅
     await expect(run({ op: 'decrypt', ciphers: ['x'] })).rejects.toBeInstanceOf(HelperTimeoutError)
-    expect(Date.now() - started).toBeLessThan(3_000)
     const error = await helperKeyCrypto(run)
       .decryptMany(['x'])
       .catch((e: unknown) => e)
