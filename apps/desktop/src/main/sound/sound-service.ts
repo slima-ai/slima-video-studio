@@ -32,6 +32,7 @@ import {
   type SoundWarning,
 } from '@svs/schema'
 
+import { currentFinal } from '../shots/current-final'
 import type { ShotService } from '../shots/shot-service'
 import type { Logger } from '../logger'
 import type { ProjectManager } from '../project-manager'
@@ -210,7 +211,10 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
   }
 
   const stateOf = (handle: ProjectHandle): SoundState => {
-    const latestFinal = handle.repos.finalCuts.latest()
+    // 聲音指紋要掃每個鏡頭：沒有成品就不算，算過就沿用
+    let keyNow: { value: string | undefined } | undefined
+    const soundKeyNow = (): string | undefined => (keyNow ??= { value: soundKeyOf(handle) }).value
+    const finalNow = currentFinal(handle, soundKeyNow)?.cut
     const views = timeline(handle)
     const totalSec = views.reduce((sum, v) => sum + v.durationSec, 0)
     const music = handle.repos.sound
@@ -224,12 +228,12 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       shots: views,
       totalSec,
       ...(music ? { music } : {}),
-      ...(latestFinal
+      ...(finalNow
         ? {
             final: {
-              version: latestFinal.version,
-              hasSound: latestFinal.soundKey !== undefined,
-              soundStale: soundKeyOf(handle) !== latestFinal.soundKey,
+              version: finalNow.version,
+              hasSound: finalNow.soundKey !== undefined,
+              soundStale: soundKeyNow() !== finalNow.soundKey,
             },
           }
         : {}),
@@ -648,14 +652,14 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       if (wantMusic) await service.generateMusic({})
       stopped()
       if (narrations > 0 || wantMusic) {
-        if (handle.repos.finalCuts.latest()) await service.mix()
+        if (currentFinal(handle, () => soundKeyOf(handle))) await service.mix()
       }
       return { narrations, music: wantMusic }
     },
 
     async analyze() {
       const handle = need()
-      const latest = handle.repos.finalCuts.latest()
+      const latest = currentFinal(handle, () => soundKeyOf(handle))?.cut
       if (!latest) throw invalid('還沒有接好的成品，先把鏡頭接成一支影片。')
       const tool = tools()
       const found = handle.assets.find(latest.assetHash)
@@ -733,8 +737,12 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
 
     async mix() {
       const handle = need()
-      const latest = handle.repos.finalCuts.latest()
-      if (!latest) throw invalid('還沒有接好的成品，先把鏡頭接成一支影片。')
+      const current = currentFinal(handle, () => soundKeyOf(handle))
+      if (!current) throw invalid('還沒有接好的成品，先把鏡頭接成一支影片。')
+      // 目前的版本已經跟現在的聲音對得上（例如剛復原，自動重混的計時還沒到）：不用混，也不加新的版本號
+      if (current.stale === false)
+        return { videoHash: current.cut.assetHash, version: current.cut.version }
+      const latest = current.cut
       const baseHash = latest.baseAssetHash ?? latest.assetHash
       const meta = handle.assets.getMeta(baseHash)
       if (!meta) throw invalid('找不到接好的影片，請再按一次「接成成品」。')

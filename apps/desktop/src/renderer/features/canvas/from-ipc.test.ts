@@ -1,4 +1,4 @@
-import type { CanvasGraph } from '@svs/schema'
+import type { CanvasGraph, CanvasNode } from '@svs/schema'
 import { describe, expect, it } from 'vitest'
 
 import { LETTERBOX_NOTE, toFlowGraph } from './from-ipc'
@@ -251,5 +251,40 @@ describe('首幀自動裁掉黑邊的提示', () => {
     const plain = toFlowGraph(image(false)).nodes[0]?.data
     expect(plain?.usageText).not.toContain('裁掉黑邊')
     expect(plain?.usageNote).toBeUndefined()
+  })
+})
+
+describe('toFlowGraph：剪輯卡的成品說明（要重新接的原因照實寫）', () => {
+  const footerOf = (final: CanvasNode['final']): string | undefined => {
+    const withFinal = {
+      ...graph,
+      nodes: graph.nodes.map((n) => (n.key === 'cut' ? { ...n, ...(final ? { final } : {}) } : n)),
+    }
+    return toFlowGraph(withFinal).nodes.find((n) => n.id === 'cut')?.data.footer
+  }
+  const base = {
+    version: 3,
+    assetHash: `sha256:${'a'.repeat(64)}`,
+    createdAt: '2026-10-21T00:00:00.000Z',
+  }
+
+  it('對得上：只有版本與長度，沒有任何「要重新」的字', () => {
+    const footer = footerOf({ ...base, durationSec: 9, stale: false })
+    expect(footer).toContain('成品 v3')
+    expect(footer).not.toContain('要重新')
+  })
+
+  it('鏡頭換了：鏡頭有變動，要重新接', () => {
+    expect(footerOf({ ...base, stale: true, staleReason: 'shots' })).toContain(
+      '鏡頭有變動，要重新接',
+    )
+    // 舊資料沒有原因：照舊當鏡頭
+    expect(footerOf({ ...base, stale: true })).toContain('鏡頭有變動，要重新接')
+  })
+
+  it('只有聲音變了：寫聲音有變動、重混，不寫「鏡頭有變動」', () => {
+    const footer = footerOf({ ...base, stale: true, staleReason: 'sound' })
+    expect(footer).toContain('聲音有變動，要重新混音')
+    expect(footer).not.toContain('鏡頭有變動')
   })
 })

@@ -71,23 +71,26 @@ export class FinalCutRepository {
 
   /** 最新的成品；還沒接過就是 undefined。 */
   latest(): FinalCut | undefined {
-    const row = this.db
+    return this.list()[0]
+  }
+
+  /** 所有版本，新的在前。 */
+  list(): FinalCut[] {
+    return this.db
       .select()
       .from(finalCuts)
       .where(eq(finalCuts.projectId, this.projectId))
       .orderBy(desc(finalCuts.version))
-      .limit(1)
-      .get()
-    if (!row) return undefined
-    return {
-      id: row.id,
-      version: row.version,
-      assetHash: row.assetHash,
-      ...(row.durationSec === null ? {} : { durationSec: row.durationSec }),
-      takeIds: row.takeIds,
-      ...(row.baseAssetHash === null ? {} : { baseAssetHash: row.baseAssetHash }),
-      ...(row.soundKey === null ? {} : { soundKey: row.soundKey }),
-      createdAt: row.createdAt,
-    }
+      .all()
+      .map((row): FinalCut => ({
+        id: row.id,
+        version: row.version,
+        assetHash: row.assetHash,
+        ...(row.durationSec === null ? {} : { durationSec: row.durationSec }),
+        takeIds: row.takeIds,
+        ...(row.baseAssetHash === null ? {} : { baseAssetHash: row.baseAssetHash }),
+        ...(row.soundKey === null ? {} : { soundKey: row.soundKey }),
+        createdAt: row.createdAt,
+      }))
   }
 }

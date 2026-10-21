@@ -149,7 +149,7 @@ function toNode(n: IpcNode): CanvasNode {
               thumb: undefined,
               footer: `成品 v${String(final.version)}${
                 final.durationSec === undefined ? '' : ` · ${clockOf(final.durationSec)}`
-              }${final.stale ? ' · 鏡頭有變動，要重新接' : ''}`,
+              }${final.stale ? (final.staleReason === 'sound' ? ' · 聲音有變動，要重新混音' : ' · 鏡頭有變動，要重新接') : ''}`,
               finalStale: final.stale,
             }
           : { footer: '成品還沒接', thumb: 'linear-gradient(135deg,#1f3d3a,#0c1a19)' }),
