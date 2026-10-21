@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { Markdown, renderBlocks } from './markdown'
+import { cpuNowMs } from '../../test/cpu-time'
 
 afterEach(cleanup)
 
@@ -115,7 +116,8 @@ describe('Markdown：不安全的東西只會變成字，不會執行', () => {
 })
 
 describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段就整則重畫）', () => {
-  // 絕對時間只是粗網：機器忙的時候不能紅，退化成 n² 時（十萬字會是好幾秒）一定紅；精準的退化檢查看下面的倍數
+  // 絕對時間只是粗網：量的是這個行程用掉的 CPU 時間（被別的行程搶走的不算，機器忙不會紅；正常每個案例 2～20 毫秒，
+  // 門檻留 50 倍），退化成 n² 時（十萬字會是好幾秒）一定紅；精準的退化檢查看下面的倍數
   const MAX_MS = 1000
   const big = 20_000
   const cases: [string, string][] = [
@@ -129,10 +131,10 @@ describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段�
     ['一大串沒有換行的字', '字'.repeat(big * 5)],
   ]
   for (const [name, input] of cases) {
-    it(`${name}（${String(input.length)} 字）在 ${String(MAX_MS)} 毫秒內畫完，而且字一個都沒少`, () => {
-      const start = performance.now()
+    it(`${name}（${String(input.length)} 字）用的 CPU 時間在 ${String(MAX_MS)} 毫秒內畫完，而且字一個都沒少`, () => {
+      const start = cpuNowMs()
       const c = view(input)
-      const ms = performance.now() - start
+      const ms = cpuNowMs() - start
       expect(ms).toBeLessThan(MAX_MS)
       // 沒收尾的標記原樣當文字：畫面上的字跟輸入一樣長（圖片、連結例外：它們成立時才會被改寫）
       if (!name.includes('一堆沒收尾的圖片')) expect(c.textContent.length).toBeGreaterThan(big / 2)

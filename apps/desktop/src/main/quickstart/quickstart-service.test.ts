@@ -313,9 +313,8 @@ describe('QuickStartService.export：畫片尾字卡不能把匯出卡住', () =
           })
         }),
     })
-    const started = Date.now()
+    // 不量牆鐘時間（機器忙時會被拖慢）：沒有逾時保護的話 export 會一直等下去，這條測試會卡到 vitest 的逾時而紅
     const out = await service.export()
-    expect(Date.now() - started).toBeLessThan(10_000)
     expect(out.credits).toBe(false)
     expect(existsSync(out.path)).toBe(true) // 匯出的是原版影片，檔案有做出來
     expect(aborted).toBe(true)

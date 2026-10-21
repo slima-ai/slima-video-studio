@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createStudioHarness } from '../shots/test-harness'
 import { layoutNodes } from './graph-service'
+import { scalingRatio } from '../test-support/cpu-time'
 
 // 每個測試都要跑完整的快速開始，電腦忙的時候超過預設的 5 秒
 vi.setConfig({ testTimeout: 60_000 })
@@ -47,13 +48,27 @@ describe('layoutNodes', () => {
     expect(positions.get('d')?.x).toBe((positions.get('b')?.x ?? 0) + 320)
   })
 
-  it('一千個節點的長鏈也很快（線性時間）', () => {
-    const ids = Array.from({ length: 1000 }, (_, i) => `n${String(i)}`)
-    const edges = ids.slice(1).map((id, i) => ({ from: ids[i] ?? '', to: id }))
-    const started = performance.now()
-    const positions = layoutNodes(ids, edges)
-    expect(performance.now() - started).toBeLessThan(200)
-    expect(positions.get('n999')?.x).toBe(999 * 320)
+  it('節點變 4 倍，時間不會多到 9 倍以上（線性時間，不是平方）：長鏈', () => {
+    // 不比「幾毫秒」：絕對毫秒數會看機器臉色（共用 runner 慢、整套並行時更慢）。改比同一台機器、同一次測試裡
+    // 500 個與 2,000 個節點的 CPU 時間（只算這個行程自己用掉的）：節點變 4 倍，線性實測約 5～6 倍（建 Map 的配置成本
+    // 比線性略多）、平方 15 倍以上，門檻 9 倍在中間。
+    const chain = (length: number) => {
+      const ids = Array.from({ length }, (_, i) => `n${String(i)}`)
+      const edges = ids.slice(1).map((id, i) => ({ from: ids[i] ?? '', to: id }))
+      return { ids, edges }
+    }
+    const small = chain(500)
+    const large = chain(2_000)
+    const { ratio, smallMs, largeMs } = scalingRatio(
+      () => layoutNodes(small.ids, small.edges),
+      () => layoutNodes(large.ids, large.edges),
+    )
+    expect(
+      ratio,
+      `500 個 ${smallMs.toFixed(1)} ms、2,000 個 ${largeMs.toFixed(1)} ms`,
+    ).toBeLessThan(9)
+    // 結果也要對：最後一個節點在第 N 欄
+    expect(layoutNodes(small.ids, small.edges).get('n499')?.x).toBe(499 * 320)
   })
 
   it('有環時不會卡住：環上的節點放在第一欄', () => {

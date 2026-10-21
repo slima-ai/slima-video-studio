@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { SCENE_PAD } from './canvas-model'
 import { makeDemo, normalize } from '../../test/canvas-demo'
+import { relativeCost, scalingRatio } from '../../test/cpu-time'
 import {
   boundsOf,
   chainOf,
@@ -272,24 +273,62 @@ describe('讓新節點進到看得見的地方', () => {
   })
 })
 
-describe('效能：250 個鏡頭（約 1,000 個節點）', () => {
-  it('投影、場框伸縮、角色標籤同步都在合理時間內', () => {
-    const started = performance.now()
-    const graph = makeDemo(250)
-    const built = performance.now() - started
-    // 125 個場框＋750 個鏡頭／圖／影片節點＋角色、地點、一句話、剪輯
-    expect(graph.nodes.length).toBeGreaterThan(850)
+describe('效能：鏡頭多 4 倍，時間不會多到 7 倍以上（不是平方）', () => {
+  // 不比「幾毫秒」：絕對毫秒數會看機器臉色（共用 runner 慢、整套並行時更慢，曾經 20 毫秒的門檻量到 26.7 毫秒就紅）。
+  // 改成同一台機器、同一次測試裡比 60 鏡與 240 鏡的 CPU 時間（只算這個行程自己用掉的，被別的行程搶走的不算）：
+  // 鏡頭變 4 倍，線性約 4 倍以內（有固定成本時更少），平方約 16 倍，門檻 7 倍在兩者中間。
+  // 只量產品的程式（geometry 的 refreshFrames、renumberShots 與同步標籤）；建測試資料的 makeDemo 本身是測試用的
+  // 假資料產生器，不是產品程式，不量它。
+  const SMALL = 60
+  const LARGE = 240
+  const MAX_RATIO = 7
 
-    const normalizeStart = performance.now()
-    normalize(graph)
-    const synced = performance.now() - normalizeStart
-    const frameStart = performance.now()
-    refreshFrames(graph.nodes)
-    const framed = performance.now() - frameStart
-    // 拖動時每一格都會跑 refreshFrames，一定要很快
-    expect(framed).toBeLessThan(20)
-    expect(synced).toBeLessThan(100)
-    expect(built).toBeLessThan(500)
+  it('同步角色標籤與場框、鏡號（normalize）', () => {
+    const small = makeDemo(SMALL)
+    const large = makeDemo(LARGE)
+    const { ratio, smallMs, largeMs } = scalingRatio(
+      () => normalize(small),
+      () => normalize(large),
+    )
+    const seen = `${String(SMALL)} 鏡 ${smallMs.toFixed(1)} ms、${String(LARGE)} 鏡 ${largeMs.toFixed(1)} ms`
+    expect(ratio, seen).toBeLessThan(MAX_RATIO)
+  })
+
+  it('場框伸縮（refreshFrames）：拖動時每一格都會跑，一定要線性', () => {
+    const small = makeDemo(SMALL)
+    const large = makeDemo(LARGE)
+    const { ratio, smallMs, largeMs } = scalingRatio(
+      () => refreshFrames(small.nodes),
+      () => refreshFrames(large.nodes),
+    )
+    const seen = `${String(SMALL)} 鏡 ${smallMs.toFixed(1)} ms、${String(LARGE)} 鏡 ${largeMs.toFixed(1)} ms`
+    expect(ratio, seen).toBeLessThan(MAX_RATIO)
+  })
+
+  // 倍數（資料量放大幾倍）看不出來「每個東西多做一份工作」這種常數倍的退步（複雜度還是線性）。
+  // 另外量「這段程式跑一次的 CPU 時間」除以「固定參考工作（建物件、排序、轉 JSON）跑一次的 CPU 時間」：機器慢兩倍，
+  // 兩邊一起慢兩倍，比值不變。量測：CI（開 coverage、4 個行程並行）refreshFrames 0.196～0.199、normalize 0.58～0.61；
+  // 本機開 coverage 0.17～0.19、0.55～0.65；本機不開 coverage 0.07～0.08、0.32～0.40。門檻放在 CI 數字的 1.5 倍
+  // （refreshFrames 0.3、normalize 0.9）：機器忙不會紅，在 CI 上慢 2 倍以上會紅。
+  it('常數倍的退步：250 鏡的場框伸縮（refreshFrames）CPU 時間不超過固定參考工作的 0.3 倍', () => {
+    const graph = makeDemo(250)
+    const { relative, fnMs, refMs } = relativeCost(() => refreshFrames(graph.nodes))
+    expect(
+      relative,
+      `refreshFrames ${fnMs.toFixed(3)} ms、參考 ${refMs.toFixed(2)} ms`,
+    ).toBeLessThan(0.3)
+  })
+
+  it('常數倍的退步：250 鏡的 normalize CPU 時間不超過固定參考工作的 0.9 倍', () => {
+    const graph = makeDemo(250)
+    const { relative, fnMs, refMs } = relativeCost(() => normalize(graph))
+    expect(relative, `normalize ${fnMs.toFixed(3)} ms、參考 ${refMs.toFixed(2)} ms`).toBeLessThan(
+      0.9,
+    )
+  })
+
+  it('250 個鏡頭的圖有該有的節點數（125 個場框＋750 個鏡頭／圖／影片節點＋角色、地點、一句話、剪輯）', () => {
+    expect(makeDemo(250).nodes.length).toBeGreaterThan(850)
   })
 })
 
