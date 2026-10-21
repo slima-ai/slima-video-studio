@@ -59,6 +59,11 @@ export const ChatPanelMessageSchema = z.object({
    * 不直接給使用者看、也不丟掉：畫面上是一行「Claude 的工作筆記（已收起）」，點了展開看原文——萬一判斷錯了還看得到。
    */
   notes: z.array(z.string()).optional(),
+  /**
+   * 只有使用者的訊息可能有：App 在這句話後面替使用者附給 Claude 的說明（例如「上一則之後使用者按了復原，撤回了…」）。
+   * 畫面不顯示；存進對話紀錄，方便查 Claude 當時被告知了什麼。
+   */
+  appNote: z.string().optional(),
   /** 因為用量或步數到上限而停下來：可以按「繼續」，用新的行程接著做（畫面才顯示那顆按鈕）。 */
   resumable: z.boolean().optional(),
 })

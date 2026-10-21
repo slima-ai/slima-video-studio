@@ -25,6 +25,8 @@ import {
 } from './chat-store'
 import type { ClaudeCheck } from './claude-check'
 import { startClaudeProcess, type ClaudeProcess, type SpawnClaude } from './claude-process'
+import type { UserHistoryOp } from '../history/history-service'
+import { describeHistoryNote } from './history-note'
 import { hasCjk, splitNotes, stripToolMarkup, type StreamSignal } from './stream-events'
 import { toolDoingLabel, toolLabel } from './tool-labels'
 
@@ -54,7 +56,11 @@ export interface ChatServiceDeps {
   /** 對話閒置這麼久（毫秒）就把它的 claude 行程關掉；下次講話再用 --resume 接上。 */
   idleMs?: number
   /** 復原紀錄：Claude 一輪裡改的全部東西合成一步，按一次復原就退回這一輪開始之前。沒給就一個工具呼叫一步。 */
-  history?: { beginAiTurn: (label: string) => () => void }
+  history?: {
+    beginAiTurn: (label: string) => () => void
+    /** 取走使用者自己按過的復原與重做（附在下一句話後面告訴 Claude）。 */
+    takeUserOps?: () => UserHistoryOp[]
+  }
   /** 目前開著的專案：對話紀錄存在它的 `chat/`。沒給就只放記憶體。 */
   project?: {
     dir: () => string | undefined
@@ -89,6 +95,8 @@ const SEED_MAX_CHARS = 6000
 interface Turn {
   /** 使用者這一則的原文（找不到舊對話要改開新的時，要重送）。 */
   userText: string
+  /** 附在這句話後面送給 Claude 的 App 附註（使用者在兩句之間按過復原／重做）；畫面不顯示。 */
+  appNote?: string
   /** 這一輪的復原紀錄收尾（把這一輪的改動記成一步）。 */
   endHistory?: (() => void) | undefined
   /** 已經因為找不到 Claude 那邊的紀錄而改開過新對話了（一輪只做一次）。 */
@@ -419,7 +427,9 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       conv.resumeWithoutInit = false
       try {
         if (conv.claudePath === undefined) throw new Error('沒有 claude 路徑')
-        ensureProcess(conv, conv.claudePath).send(seedText(conv, conv.turn.userText))
+        ensureProcess(conv, conv.claudePath).send(
+          seedText(conv, withNote(conv.turn.userText, conv.turn.appNote)),
+        )
         return
       } catch (error) {
         deps.log.error(`改開新對話失敗：${String(error)}`)
@@ -472,6 +482,10 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     conv.proc = proc
     return proc
   }
+
+  /** 這句話加上 App 附註（有的話）：送給 Claude 的樣子。 */
+  const withNote = (text: string, note: string | undefined): string =>
+    note === undefined ? text : `${text}\n\n${note}`
 
   /** 找不到 Claude 那邊的舊紀錄、要改開新對話時，把我們存的對話內容帶過去當背景（只取最後一段）。 */
   const seedText = (conv: Conversation, text: string): string => {
@@ -614,12 +628,17 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
               : NEED_LOGIN,
         )
       }
+      // 使用者在兩句之間按過復原或重做：附一段說明，不然 Claude 以為自己的改動不見了、會自己改回去。
+      // 檢查通過才取走（檢查沒過、這句話沒送出去時，下一次送還要帶）
+      const note = describeHistoryNote(deps.history?.takeUserOps?.() ?? [])
+      if (note !== undefined) turn.appNote = note
       const user: ChatPanelMessage = {
         id: newId(),
         role: 'user',
         text,
         steps: [],
         at: now().toISOString(),
+        ...(note === undefined ? {} : { appNote: note }),
       }
       conv.claudePath = check.path
       conv.messages.push(user, turn.assistant)
@@ -639,7 +658,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       // 檢查通過、要開始做事了：從現在開始把這一輪的改動記成一步
       turn.endHistory = deps.history?.beginAiTurn(CHAT_UNDO_LABEL)
       try {
-        ensureProcess(conv, check.path).send(text)
+        ensureProcess(conv, check.path).send(withNote(text, note))
       } catch (error) {
         deps.log.error(`啟動 Claude 對話行程失敗：${String(error)}`)
         finishTurn(conv, {

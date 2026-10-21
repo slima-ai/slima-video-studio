@@ -197,9 +197,14 @@ function diff(before: Snapshot, after: Snapshot): Change[] {
   return changes
 }
 
+const addDetail = (details: string[] | undefined, label: string): string[] =>
+  details?.includes(label) === true ? details : [...(details ?? []), label]
+
 export interface HistoryEntry {
   label: string
   changes: Change[]
+  /** 一組合成一步的紀錄（Claude 一輪）：裡面各個編輯的名稱（「修改鏡頭的景別」…，不重複）；單獨的一步沒有。 */
+  details?: string[]
 }
 
 /**
@@ -316,6 +321,7 @@ export class StructureHistory {
     if (group && !group.closed) {
       const existing = group.entry
       if (existing && this.undoStack.includes(existing)) {
+        existing.details = addDetail(existing.details, label)
         existing.changes = mergeChanges(existing.changes, changes)
         // 全部抵銷了（新增又刪掉）：這一組沒留下任何東西，紀錄拿掉
         if (existing.changes.length === 0) {
@@ -324,7 +330,11 @@ export class StructureHistory {
         }
         return result
       }
-      const entry: HistoryEntry = { label: group.label, changes }
+      const entry: HistoryEntry = {
+        label: group.label,
+        changes,
+        details: addDetail(undefined, label),
+      }
       group.entry = entry
       this.undoStack.push(entry)
     } else {

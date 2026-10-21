@@ -176,6 +176,15 @@ describe('CHAT_SYSTEM_PROMPT', () => {
     expect(CHAT_SYSTEM_PROMPT.split('\n')).toHaveLength(7)
   })
 
+  it('使用者按復原撤回你的改動是他的決定，不要自己改回去；看到「App 附註」照最後狀態做事（寫在第 4 行，仍是 7 行）', () => {
+    const lines = CHAT_SYSTEM_PROMPT.split('\n')
+    expect(lines).toHaveLength(7)
+    const line = lines[3] ?? ''
+    expect(line).toContain('使用者按復原撤回你的改動，是他的決定，不要自己改回去；不確定就先問')
+    expect(line).toContain('（App 附註：…）')
+    expect(line).toContain('照它寫的最後狀態做事')
+  })
+
   it('寫到 estimate_cost 的那句：提到的動作名稱都是工具真的接受的值（工具改名了，提示不會再對不上）', () => {
     const line = CHAT_SYSTEM_PROMPT.split('\n').find((l) => l.includes('estimate_cost'))
     expect(line).toBeDefined()
