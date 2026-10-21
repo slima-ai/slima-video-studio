@@ -20,6 +20,7 @@ export type CanvasMarks = ReadonlyMap<string, NodeMark>
 /**
  * 不算「AI 改了這一格的內容」的欄位：
  * - 位置與版面：自動排版會因為別的節點出現而挪動；
+ * - 場的編號（`sceneNo`）與標題裡的「第 N 鏡」「第 N 場」編號（見 `withoutNumbers`）：順序變了、內容沒變；
  * - 狀態與失敗原因（`status`、`error`）：它們是跟著上游變的——AI 改了描述、生了首幀，下游的影片格會從
  *   「還沒生成」變成「排隊中」「需要重跑」，但它自己沒有新的內容，不該標「AI 剛改」。
  *   有新結果的格子靠結果本身（縮圖、版本、模型、花費）看得出來，AI 叫的背景生成做完也另外通知（shot-service）。
@@ -33,12 +34,22 @@ const IGNORED_FIELDS: ReadonlySet<string> = new Set([
   'expanded',
   'status',
   'error',
+  // 場的編號（跟著順序變）
+  'sceneNo',
 ])
+
+/**
+ * 標題裡的編號（「第 3 鏡」「第 2 場」）不算內容：刪掉第 3 鏡之後，原本的第 4 鏡往前變成第 3 鏡，
+ * 它的標題跟著變，但內容沒有被改（只是順序變了）。比對時把編號蓋掉；名稱本身（場名、角色名）有改才算改。
+ */
+export const withoutNumbers = (title: string): string => title.replace(/第 \d+ (鏡|場)/g, '第 # $1')
 
 export function marksOf(graph: Pick<CanvasGraph, 'nodes'>): CanvasMarks {
   const marks = new Map<string, NodeMark>()
   for (const node of graph.nodes) {
-    const content = Object.entries(node).filter(([field]) => !IGNORED_FIELDS.has(field))
+    const content = Object.entries(node)
+      .filter(([field]) => !IGNORED_FIELDS.has(field))
+      .map(([field, value]) => [field, field === 'title' ? withoutNumbers(node.title) : value])
     marks.set(node.key, {
       fingerprint: JSON.stringify(content),
       title: node.title,

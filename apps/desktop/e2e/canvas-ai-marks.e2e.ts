@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
 
-import { canvasNodes, centerOn, viewportOf, viewportSettled } from './canvas-helpers'
+import { canvasNodes, centerOn, clickEmpty, viewportOf, viewportSettled } from './canvas-helpers'
 import { expect, test } from './fixtures'
 
 const freePort = (): Promise<number> =>
@@ -97,6 +97,85 @@ test.describe('畫布：AI 剛改過', () => {
     await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === shot)).toBe(false)
     await toast.getByRole('button', { name: '復原' }).click()
     await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === shot)).toBe(true)
+    await ai.close()
+  })
+
+  test('使用者按 ⌘Z 退掉 Claude 的改動：那一格的「AI 剛改」一起拿掉；重做也不再標', async ({
+    page,
+    userDataDir,
+  }) => {
+    const ai = await connectAi(page, userDataDir)
+    await ai.callTool({ name: 'create_project', arguments: { name: '復原拿掉標記' } })
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const shotId = idOf(await ai.callTool({ name: 'create_shot', arguments: {} }))
+    const shot = `shot:${shotId}`
+    await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === shot)).toBe(true)
+    // 使用者看過新增的那一格（標記收掉）；Claude 再改描述：又標上
+    await centerOn(page, shot)
+    await page.getByTestId(`node-${shot}`).click({ position: { x: 100, y: 16 } })
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0)
+    // 點空白處取消選取：選取中的格子在畫面重新載入時會被當成「看過」，標記會被順手收掉，測不到復原這條
+    await clickEmpty(page)
+    await expect(page.getByTestId(`node-${shot}`)).not.toHaveClass(/selected/)
+    await ai.callTool({
+      name: 'update_shot',
+      arguments: { shotId, description: '雨夜的屋簷下，貓縮成一團' },
+    })
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toBeVisible()
+
+    // 使用者按 ⌘Z（Ctrl+Z）：描述退回去，標記一起拿掉
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(page.getByTestId('toast').filter({ hasText: '已復原' })).toBeVisible()
+    await expect(page.getByTestId(`node-${shot}`)).not.toContainText('雨夜的屋簷下')
+    // 復原一回來標記就要不見：不能等它自己（滑過一下 1.2 秒後算看過）消失，所以只等一下下
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0, { timeout: 250 })
+
+    // 重做：描述回來，但那是使用者自己要的，不再標
+    await page.keyboard.press('ControlOrMeta+Shift+z')
+    await expect(page.getByTestId(`node-${shot}`)).toContainText('雨夜的屋簷下')
+    await page.waitForTimeout(800)
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0)
+    await ai.close()
+  })
+
+  test('Claude 刪掉第 3 鏡：原本的第 4 鏡只是編號往前變成第 3 鏡，不標「AI 剛改」', async ({
+    page,
+    userDataDir,
+  }, testInfo) => {
+    const ai = await connectAi(page, userDataDir)
+    await ai.callTool({ name: 'create_project', arguments: { name: '編號變了' } })
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const ids: string[] = []
+    for (let i = 0; i < 4; i++) {
+      ids.push(idOf(await ai.callTool({ name: 'create_shot', arguments: {} })))
+    }
+    const keys = ids.map((id) => `shot:${id}`)
+    await expect
+      .poll(async () => (await canvasNodes(page)).filter((n) => keys.includes(n.id)).length)
+      .toBe(4)
+    // 使用者把每一格都看過（標記都收掉），Claude 才刪第 3 鏡
+    for (const key of keys) {
+      await centerOn(page, key)
+      await page.getByTestId(`node-${key}`).click({ position: { x: 100, y: 16 } })
+    }
+    await clickEmpty(page)
+    for (const key of keys) await expect(page.getByTestId(`ai-badge-${key}`)).toHaveCount(0)
+
+    await ai.callTool({ name: 'delete_shots', arguments: { shotIds: [ids[2] ?? ''] } })
+    await expect(page.getByTestId('toast').filter({ hasText: 'AI 刪了' })).toContainText('第 3 鏡')
+    const fourth = keys[3] ?? ''
+    // 原本的第 4 鏡現在叫第 3 鏡，內容沒被改
+    await expect
+      .poll(async () => (await canvasNodes(page)).find((n) => n.id === fourth)?.data.title)
+      .toContain('第 3 鏡')
+    await page.waitForTimeout(800)
+    await centerOn(page, fourth)
+    await page.screenshot({ path: testInfo.outputPath('renumbered-not-marked.png') })
+    for (const suffix of ['', ':image', ':video']) {
+      await expect(page.getByTestId(`ai-badge-${fourth}${suffix}`)).toHaveCount(0)
+    }
     await ai.close()
   })
 
