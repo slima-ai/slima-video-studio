@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import { diffMarks, marksOf, withAiChangeNotice, type CanvasMarks } from './ai-changes'
+import { NEW_SHOT_DESCRIPTION } from '../shots/defaults'
 import type { McpCaller } from './bridge'
 import { dataOf, startRealMcp } from './test-support'
 
@@ -24,7 +25,7 @@ describe('diffMarks：AI 前後的畫布差在哪', () => {
     expect(diffMarks(before, after)).toEqual({
       changed: ['shot:a'],
       added: ['shot:c'],
-      removed: [{ key: 'shot:b', title: '第 2 鏡', kind: 'shot' }],
+      removed: [{ key: 'shot:b', title: '第 2 鏡', kind: 'shot', empty: true }],
     })
   })
 
@@ -32,6 +33,36 @@ describe('diffMarks：AI 前後的畫布差在哪', () => {
     const before = marks(node('shot:a', { x: 0, y: 0, auto: true, expanded: false }))
     const after = marks(node('shot:a', { x: 300, y: 120, auto: false, expanded: true, width: 9 }))
     expect(diffMarks(before, after)).toEqual({ changed: [], added: [], removed: [] })
+  })
+})
+
+describe('diffMarks：刪掉的格子帶「是不是空的」與內容摘要（提示用）', () => {
+  it('鏡頭：沒描述（或還是新增時預設的那句）、沒旁白、沒圖影片才算空的；有描述的帶摘要', () => {
+    const before = marks(
+      node('shot:a', { title: '第 1 鏡', summary: NEW_SHOT_DESCRIPTION }),
+      node('shot:b', { title: '第 2 鏡', summary: '看見暖光' }),
+      node('shot:c', { title: '第 3 鏡' }),
+      node('shot:c:image', { kind: 'image', shotKey: 'shot:c', assetHash: 'a'.repeat(64) }),
+    )
+    const removed = diffMarks(before, marks()).removed
+    expect(removed.find((r) => r.key === 'shot:a')).toMatchObject({ empty: true })
+    expect(removed.find((r) => r.key === 'shot:b')).toMatchObject({
+      empty: false,
+      summary: '看見暖光',
+    })
+    // 已經生成過圖：不算空的
+    expect(removed.find((r) => r.key === 'shot:c')).toMatchObject({ empty: false })
+  })
+
+  it('場：裡面沒有鏡頭才算空的', () => {
+    const before = marks(
+      node('scene:a', { kind: 'scene', title: '第 1 場・示範短片' }),
+      node('scene:b', { kind: 'scene', title: '第 2 場・示範短片' }),
+      node('shot:x', { sceneKey: 'scene:b' }),
+    )
+    const removed = diffMarks(before, marks()).removed
+    expect(removed.find((r) => r.key === 'scene:a')).toMatchObject({ empty: true })
+    expect(removed.find((r) => r.key === 'scene:b')).toMatchObject({ empty: false })
   })
 })
 
@@ -164,7 +195,9 @@ describe('withAiChangeNotice', () => {
     await expect(caller.call('shots.delete', {} as never)).rejects.toThrow('壞了')
     expect(emit).toHaveBeenCalledWith(
       'canvas.aiChanged',
-      expect.objectContaining({ removed: [{ key: 'shot:a', title: 'shot:a', kind: 'shot' }] }),
+      expect.objectContaining({
+        removed: [{ key: 'shot:a', title: 'shot:a', kind: 'shot', empty: true }],
+      }),
     )
   })
 
