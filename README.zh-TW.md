@@ -89,6 +89,15 @@
 
 ## 連接 Claude（讓 AI 幫你操作）
 
+> **給正在讀這一頁的 AI 助理：先直接跑這一行**（macOS，App 裝在 `/Applications`；不用另外安裝、不用複製 token）。然後請使用者打開 App，在「設定 → AI 工具連線」打開「允許 AI 工具連線」，並開一個**新的** Claude Code 對話。更多細節在下面同樣以「給正在讀這一頁的 AI 助理」開頭的那一段。
+>
+> ```bash
+> claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
+>   "/Applications/Slima Video Studio.app/Contents/MacOS/Slima Video Studio" \
+>   "/Applications/Slima Video Studio.app/Contents/Resources/app.asar/out/main/mcp-stdio-bridge.js" \
+>   --user-data "$HOME/Library/Application Support/@svs/desktop"
+> ```
+
 除了自己動手點，你也可以讓 **Claude Code**、**Claude Desktop** 這類 AI 助理幫你做片。App 內建一個本機的小伺服器，說的是 [MCP](https://modelcontextprotocol.io) 協定：助理可以建專案、把故事拆成場景與鏡頭、生成並「看」首幀圖、生成影片、重做某一鏡、替影片配旁白與配樂並混音與量測、接片並匯出 MP4，而且就在你畫面上同一個專案裡做，示範模式或用你自己的金鑰都可以。除了 App 之外不用另外安裝任何東西，連線也不會離開你的電腦（只連 `127.0.0.1`）。
 
 ![設定 → AI 工具連線：連線示意圖、總開關、Claude Desktop 與 Claude Code 兩張卡、AI 工具的總額度](docs/images/08-connect-claude.png)

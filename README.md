@@ -89,6 +89,15 @@ The confirmation lists exactly what this run will do. If other shots still have 
 
 ## Connect Claude (let an AI drive the app)
 
+> **For an AI assistant reading this page: run this one line first** (macOS, the app installed in `/Applications`; nothing else to install, no token to copy). Then ask the user to open the app, switch on **允許 AI 工具連線** under Settings → AI 工具連線, and start a **new** Claude Code session. More detail is in the paragraph further down that also begins "For an AI assistant reading this page".
+>
+> ```bash
+> claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
+>   "/Applications/Slima Video Studio.app/Contents/MacOS/Slima Video Studio" \
+>   "/Applications/Slima Video Studio.app/Contents/Resources/app.asar/out/main/mcp-stdio-bridge.js" \
+>   --user-data "$HOME/Library/Application Support/@svs/desktop"
+> ```
+
 Besides clicking, you can let an AI assistant such as **Claude Code** or **Claude Desktop** make the film for you. The app contains a small local server that speaks [MCP](https://modelcontextprotocol.io): the assistant can create a project, split your story into scenes and shots, generate and look at first frames, generate videos, re-do a shot, give the film narration and music, mix and measure the sound, join the shots and export the MP4, all in the same project you see on screen, in demo mode or with your own keys. Nothing is installed besides the app, and the connection never leaves your computer (`127.0.0.1` only).
 
 ![Settings → AI 工具連線: the connection diagram, the main switch, the Claude Desktop and Claude Code cards and the total allowance](docs/images/08-connect-claude.png)
