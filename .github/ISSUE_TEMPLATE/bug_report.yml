@@ -40,7 +40,7 @@ body:
     id: version
     attributes:
       label: App 版本與系統 / App version and system
-      description: 例如 v0.3.1、macOS 15（Apple Silicon）/ e.g. v0.3.1, macOS 15 (Apple Silicon)
+      description: 例如 v0.3.2、macOS 15（Apple Silicon）/ e.g. v0.3.2, macOS 15 (Apple Silicon)
     validations:
       required: true
   - type: textarea
