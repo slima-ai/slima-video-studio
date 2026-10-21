@@ -29,25 +29,45 @@ const REPORTED_KINDS: ReadonlySet<string> = new Set([
   'group',
 ])
 
-/** 提示用的名字：鏡頭、場本來就叫「第 N 鏡」「第 N 場…」；其他加上種類。 */
-function nameOf(node: CanvasAiChanged['removed'][number]): string {
-  if (node.kind === 'shot' || node.kind === 'scene') return node.title
-  const label =
-    node.kind === 'character'
-      ? '角色'
-      : node.kind === 'location'
-        ? '地點'
-        : node.kind === 'note'
-          ? '便條'
-          : node.kind === 'group'
-            ? '群組'
-            : node.kind === 'oneliner'
-              ? '一句話'
-              : '圖片或影片'
+type Removed = CanvasAiChanged['removed'][number]
+
+/** 種類的名字（「3 個空的場景」「角色「阿鐵」」用）。 */
+const KIND_NAME: Readonly<Record<string, string>> = {
+  oneliner: '一句話',
+  scene: '場景',
+  shot: '鏡頭',
+  character: '角色',
+  location: '地點',
+  note: '便條',
+  group: '群組',
+}
+
+/** 鏡頭描述最多帶幾個字進提示（讓人認得是哪一格）。 */
+const HINT_CHARS = 8
+
+/** 提示用的名字：鏡頭「第 3 鏡」後面帶描述的開頭；場本來就叫「第 N 場・名字」；其他加上種類。 */
+function nameOf(node: Removed): string {
+  if (node.kind === 'scene') return node.title
+  if (node.kind === 'shot') {
+    const text = (node.summary ?? '').trim()
+    if (text === '') return node.title
+    const chars = Array.from(text)
+    const hint = chars.length > HINT_CHARS ? `${chars.slice(0, HINT_CHARS).join('')}…` : text
+    return `${node.title}「${hint}」`
+  }
+  const label = KIND_NAME[node.kind] ?? '圖片或影片'
   return node.title === '' ? label : `${label}「${node.title}」`
 }
 
-/** AI 刪了東西的提示；沒有值得說的（只有跟著不見的圖與影片）就是 undefined。 */
+/** 最多列幾個名字，多的寫「等 N 個」。 */
+const MAX_NAMES = 3
+
+/**
+ * AI 刪了東西的提示；沒有值得說的（只有跟著不見的圖與影片）就是 undefined。
+ * - 刪掉的是空的格子：不列名字，說「3 個空的場景」；
+ * - 有內容的列名字，最多 3 個，再多寫「等 N 個」；
+ * - 一律用「AI」，後半說清楚怎麼找回來。
+ */
 export function removedMessage(
   removed: CanvasAiChanged['removed'],
   /** 這是右下角 Claude 對話正在做的一輪：復原會把這一輪的改動一起退回。 */
@@ -55,9 +75,21 @@ export function removedMessage(
 ): string | undefined {
   const reported = removed.filter((node) => REPORTED_KINDS.has(node.kind))
   if (reported.length === 0) return undefined
-  const names = reported.slice(0, 3).map(nameOf).join('、')
-  const more = reported.length > 3 ? `等 ${String(reported.length)} 個` : ''
-  return wholeTurn
-    ? `AI 刪了${names}${more}，可以復原（會連 Claude 這一輪的其他改動一起退回）`
-    : `AI 刪了${names}${more}，可以復原`
+  const named = reported.filter((node) => node.empty !== true)
+  const blanks = reported.filter((node) => node.empty === true)
+  const parts: string[] = []
+  if (named.length > 0) {
+    const names = named.slice(0, MAX_NAMES).map(nameOf).join('、')
+    parts.push(named.length > MAX_NAMES ? `${names}等 ${String(named.length)} 個` : names)
+  }
+  const counts = new Map<string, number>()
+  for (const node of blanks) counts.set(node.kind, (counts.get(node.kind) ?? 0) + 1)
+  for (const [kind, count] of counts) {
+    parts.push(`${String(count)} 個空的${KIND_NAME[kind] ?? '格子'}`)
+  }
+  const head = parts.join('、')
+  const tail = wholeTurn
+    ? '按「復原」可以找回來（這一輪 AI 做的其他改動也會一起退回）'
+    : '按「復原」可以找回來'
+  return `AI 刪了${/^\d/.test(head) ? ' ' : ''}${head}，${tail}`
 }

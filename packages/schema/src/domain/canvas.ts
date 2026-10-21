@@ -531,7 +531,17 @@ export const CanvasAiChangedSchema = z.object({
   /** 新出現的節點鍵。 */
   added: z.array(z.string()),
   /** 不見的節點（帶標題與種類，畫面才說得出「刪了第 3 鏡」）。 */
-  removed: z.array(z.object({ key: z.string(), title: z.string(), kind: CanvasNodeKindSchema })),
+  removed: z.array(
+    z.object({
+      key: z.string(),
+      title: z.string(),
+      kind: CanvasNodeKindSchema,
+      /** 刪掉前節點上的內容摘要（鏡頭的描述）：提示用它讓人認得是哪一格。 */
+      summary: z.string().optional(),
+      /** 刪掉前節點是空的（鏡頭沒描述也沒圖影片、場裡沒有鏡頭…）：提示只說「幾個空的」，不列名字。 */
+      empty: z.boolean().optional(),
+    }),
+  ),
 })
 export type CanvasAiChanged = z.infer<typeof CanvasAiChangedSchema>
 

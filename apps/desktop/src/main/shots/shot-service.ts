@@ -60,6 +60,7 @@ import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
 import { createStudioServices } from '../studio-services'
+import { NEW_SHOT_DESCRIPTION } from './defaults'
 
 export interface ShotServiceDeps {
   projects: ProjectManager
@@ -1286,7 +1287,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       const afterScene = before.find((x) => x.id === afterShotId)?.sceneId
       const inScene = sceneId ?? afterScene ?? outline.listScenes().at(-1)?.id ?? newScene(outline)
       const created = shots.create({
-        description: '新的鏡頭',
+        description: NEW_SHOT_DESCRIPTION,
         sceneId: inScene,
       })
       if (afterShotId) {
