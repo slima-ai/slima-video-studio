@@ -17,20 +17,28 @@ interface NodeMark {
 
 export type CanvasMarks = ReadonlyMap<string, NodeMark>
 
-/** 位置與版面不是「AI 改了內容」：自動排版會因為別的節點出現而挪動。 */
-const LAYOUT_FIELDS: ReadonlySet<string> = new Set([
+/**
+ * 不算「AI 改了這一格的內容」的欄位：
+ * - 位置與版面：自動排版會因為別的節點出現而挪動；
+ * - 狀態與失敗原因（`status`、`error`）：它們是跟著上游變的——AI 改了描述、生了首幀，下游的影片格會從
+ *   「還沒生成」變成「排隊中」「需要重跑」，但它自己沒有新的內容，不該標「AI 剛改」。
+ *   有新結果的格子靠結果本身（縮圖、版本、模型、花費）看得出來，AI 叫的背景生成做完也另外通知（shot-service）。
+ */
+const IGNORED_FIELDS: ReadonlySet<string> = new Set([
   'x',
   'y',
   'width',
   'height',
   'auto',
   'expanded',
+  'status',
+  'error',
 ])
 
 export function marksOf(graph: Pick<CanvasGraph, 'nodes'>): CanvasMarks {
   const marks = new Map<string, NodeMark>()
   for (const node of graph.nodes) {
-    const content = Object.entries(node).filter(([field]) => !LAYOUT_FIELDS.has(field))
+    const content = Object.entries(node).filter(([field]) => !IGNORED_FIELDS.has(field))
     marks.set(node.key, {
       fingerprint: JSON.stringify(content),
       title: node.title,
