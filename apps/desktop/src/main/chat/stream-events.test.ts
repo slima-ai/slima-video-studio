@@ -112,7 +112,11 @@ describe('signalsOf：claude -p 串流事件 → 我們要用的訊號', () => {
     })
     expect(budget).toMatchObject({ kind: 'result', ok: false, interrupted: false })
     // 給使用者看的 error 是白話，不含 claude 回的原始文字
-    expect(budget).toMatchObject({ error: contains('用量到上限'), resumable: true })
+    expect(budget).toMatchObject({
+      error: contains('用到上限'),
+      resumable: true,
+      budgetLimit: true,
+    })
     // 步數到上限也能接著做；其他失敗不能
     expect(
       signalsOf({ type: 'result', subtype: 'error_max_turns', is_error: true })[0],
