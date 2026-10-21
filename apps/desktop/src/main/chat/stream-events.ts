@@ -1,3 +1,5 @@
+import { CHAT_BUDGET_DEFAULT_USD } from '@svs/schema'
+
 import { SERVER_NAME } from '../mcp/connect'
 import { bareToolName } from './tool-labels'
 
@@ -22,6 +24,8 @@ export type StreamSignal =
       error?: string
       /** 是因為用量或步數到上限才停：換新行程接著做就能繼續。 */
       resumable?: boolean
+      /** 停下來的原因是用量到上限（要把目前的上限數字寫進給使用者的說明）。 */
+      budgetLimit?: boolean
     }
 
 const SUMMARY_MAX = 200
@@ -135,6 +139,7 @@ export function signalsOf(event: unknown): StreamSignal[] {
         text,
         error: resultError(subtype),
         ...(isResumable(subtype) ? { resumable: true } : {}),
+        ...(subtype === 'error_max_budget_usd' ? { budgetLimit: true } : {}),
       },
     ]
   }
@@ -145,10 +150,19 @@ export function signalsOf(event: unknown): StreamSignal[] {
 const isResumable = (subtype: string): boolean =>
   subtype === 'error_max_budget_usd' || subtype === 'error_max_turns'
 
+/**
+ * 撞到每一段用量上限時給使用者看的說明：這是他自己的 Claude 用量、上限現在是多少（從設定讀、不寫死）、
+ * 去哪裡調；「跟生成圖片、影片的額度是兩回事」保留。
+ */
+export function budgetLimitMessage(limitUsd: number): string {
+  const usd = String(Math.round(limitUsd * 100) / 100)
+  return `這是你自己的 Claude 用量，這一段用到上限了（目前每一段上限約 US$${usd}，跟生成圖片、影片的額度是兩回事）。要調高，到「設定 → 實驗功能」。按「繼續」只會接著做你剛才那句話，不會多做別的。`
+}
+
 /** 沒做完的一輪，用白話說原因（不貼原始錯誤文字給使用者）。 */
 function resultError(subtype: string): string {
   if (subtype === 'error_max_budget_usd') {
-    return '這一段用量到上限了（跟生成圖片、影片的額度是兩回事）。按「繼續」，Claude 會接著剛才的做下去。'
+    return budgetLimitMessage(CHAT_BUDGET_DEFAULT_USD)
   }
   if (subtype === 'error_max_turns')
     return 'Claude 這次做了太多步，先停下來了。按「繼續」，它會接著做。'

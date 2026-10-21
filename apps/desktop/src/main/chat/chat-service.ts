@@ -27,7 +27,13 @@ import type { ClaudeCheck } from './claude-check'
 import { startClaudeProcess, type ClaudeProcess, type SpawnClaude } from './claude-process'
 import type { UserHistoryOp } from '../history/history-service'
 import { describeHistoryNote } from './history-note'
-import { hasCjk, splitNotes, stripToolMarkup, type StreamSignal } from './stream-events'
+import {
+  budgetLimitMessage,
+  hasCjk,
+  splitNotes,
+  stripToolMarkup,
+  type StreamSignal,
+} from './stream-events'
 import { toolDoingLabel, toolLabel } from './tool-labels'
 
 export interface ChatServiceDeps {
@@ -137,6 +143,8 @@ interface Conversation {
   claudePath?: string | undefined
   /** 上一輪是因為用量／步數到上限停的：下一則要換新行程（新的用量額度）才接得下去。 */
   recycle?: boolean | undefined
+  /** 這個行程啟動時用的每一段用量上限（US$）：撞到上限時說明裡寫的就是這個數字。 */
+  budgetUsd?: number | undefined
   idleTimer?: NodeJS.Timeout | undefined
 }
 
@@ -317,8 +325,13 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     }
     // 串流途中是照「使用者用中文講」先猜的；結束了用真正的規則重算一次
     // （整則都是短英文的回覆，不能被全部收光）
+    // 被用量或步數上限打斷的那一輪（resumable）不適用這條：整則只有一句短英文（還沒做出中文回覆就被打斷）
+    // 也照樣收進工作筆記，不然使用者看到的回覆就是那句英文
     if (turn.segments.length > 0) {
-      const { text, notes } = splitNotes(turn.segments)
+      const { text, notes } = splitNotes(
+        turn.segments,
+        outcome.resumable === true ? { assumeCjk: hasCjk(turn.userText) } : {},
+      )
       message.text = text
       if (notes.length > 0) message.notes = notes
       else delete message.notes
@@ -420,7 +433,10 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
         else {
           finishTurn(conv, {
             state: 'error',
-            error: signal.error ?? LOST,
+            error:
+              signal.budgetLimit === true
+                ? budgetLimitMessage(conv.budgetUsd ?? CHAT_BUDGET_DEFAULT_USD)
+                : (signal.error ?? LOST),
             ...(signal.resumable === true ? { resumable: true } : {}),
           })
         }
@@ -479,16 +495,18 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     if (conv.proc && !conv.proc.exited) return conv.proc
     mkdirSync(deps.workDir, { recursive: true })
     conv.resumeWithoutInit = conv.started
+    const budgetUsd =
+      deps.settings.get().experiments.claudeBudgetUsd ??
+      deps.maxBudgetUsd ??
+      CHAT_BUDGET_DEFAULT_USD
+    conv.budgetUsd = budgetUsd
     const args = buildClaudeArgs({
       sessionId: conv.claudeSession ?? conv.info.id,
       resume: conv.started,
       fork: conv.fork === true,
       bridge: deps.bridge,
       systemPrompt: CHAT_SYSTEM_PROMPT,
-      maxBudgetUsd:
-        deps.settings.get().experiments.claudeBudgetUsd ??
-        deps.maxBudgetUsd ??
-        CHAT_BUDGET_DEFAULT_USD,
+      maxBudgetUsd: budgetUsd,
     })
     const proc: ClaudeProcess = startClaudeProcess({
       spawn: deps.spawn,

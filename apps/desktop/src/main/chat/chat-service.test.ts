@@ -448,8 +448,47 @@ describe('ChatService：出錯要說白話', () => {
     })
     expect(last(conv.id, 'assistant')).toMatchObject({
       state: 'error',
-      error: contains('用量到上限'),
+      error: contains('用到上限'),
     })
+  })
+
+  it('用量到上限的說明：這是自己的 Claude 用量、上限照設定寫（不寫死）、去「設定 → 實驗功能」調、繼續只做剛才那句', async () => {
+    for (const budget of [2, 7.5]) {
+      const { service, children, last } = setup({ claudeBudgetUsd: budget })
+      const conv = service.create()
+      await service.send(conv.id, '嗨')
+      children[0]?.line(init())
+      children[0]?.line({ type: 'result', subtype: 'error_max_budget_usd', is_error: true })
+      const error = last(conv.id, 'assistant')?.error ?? ''
+      expect(error).toContain('你自己的 Claude 用量')
+      expect(error).toContain(`US$${String(budget)}`)
+      expect(error).toContain('設定 → 實驗功能')
+      expect(error).toContain('跟生成圖片、影片的額度是兩回事')
+      expect(error).toContain('按「繼續」只會接著做你剛才那句話，不會多做別的。')
+    }
+    // 沒設定時是預設的上限
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '嗨')
+    children[0]?.line(init())
+    children[0]?.line({ type: 'result', subtype: 'error_max_budget_usd', is_error: true })
+    expect(last(conv.id, 'assistant')?.error).toContain(`US$${String(CHAT_BUDGET_DEFAULT_USD)}`)
+  })
+
+  it('被用量上限打斷的那一輪，只有一句短英文：照樣收進工作筆記；沒被打斷的整則短英文照舊不收', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '幫我加一個鏡頭')
+    const child = children[0]
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text("I'll start by checking capabilities and the guides."))
+    child?.line(blockStop())
+    child?.line({ type: 'result', subtype: 'error_max_budget_usd', is_error: true })
+    const interrupted = last(conv.id, 'assistant')
+    expect(interrupted).toMatchObject({ state: 'error', resumable: true })
+    expect(interrupted?.text).toBe('')
+    expect(interrupted?.notes).toEqual(["I'll start by checking capabilities and the guides."])
   })
 
   it('用量到上限：這則可以「繼續」；再送一則會關掉舊行程、用 --resume 開新的（新的用量額度），上限照設定', async () => {
