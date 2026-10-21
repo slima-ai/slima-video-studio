@@ -85,7 +85,7 @@ export function removedMessage(
   const counts = new Map<string, number>()
   for (const node of blanks) counts.set(node.kind, (counts.get(node.kind) ?? 0) + 1)
   for (const [kind, count] of counts) {
-    parts.push(`${String(count)} 個空的${KIND_NAME[kind] ?? '節點'}`)
+    parts.push(`${String(count)} 個空的${KIND_NAME[kind] ?? '格子'}`)
   }
   const head = parts.join('、')
   const tail = wholeTurn
