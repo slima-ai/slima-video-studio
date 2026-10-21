@@ -194,7 +194,9 @@ test.describe('畫布：AI 剛改過', () => {
     for (const key of keys) await expect(page.getByTestId(`ai-badge-${key}`)).toHaveCount(0)
 
     await ai.callTool({ name: 'delete_shots', arguments: { shotIds: [ids[2] ?? ''] } })
-    await expect(page.getByTestId('toast').filter({ hasText: 'AI 刪了' })).toContainText('第 3 鏡')
+    await expect(page.getByTestId('toast').filter({ hasText: 'AI 刪了' })).toContainText(
+      '1 個空的鏡頭',
+    )
     const fourth = keys[3] ?? ''
     // 原本的第 4 鏡現在叫第 3 鏡，內容沒被改
     await expect
