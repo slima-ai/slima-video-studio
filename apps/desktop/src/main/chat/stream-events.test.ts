@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createLineParser, signalsOf, splitNotes } from './stream-events'
+import { createLineParser, hasCjk, signalsOf, splitNotes, stripToolMarkup } from './stream-events'
 
 /** `expect.stringContaining` 回傳 any，包成字串型別才不會被 lint 擋。 */
 const contains = (text: string): string => expect.stringContaining(text) as string
@@ -209,5 +209,58 @@ describe('文字區塊的開始，以及英文工作筆記收起來', () => {
     const long = `Here is the plan. ${'x'.repeat(300)}`
     expect(splitNotes(['好的。', long, '', 'Ok 好']).notes).toEqual([])
     expect(splitNotes(['好的。', long, '', 'Ok 好']).text).toBe(`好的。\n\n${long}\n\nOk 好`)
+  })
+})
+
+describe('stripToolMarkup：模型當成文字吐出來的工具呼叫標記', () => {
+  it('整段 <invoke>…</invoke>（含 <parameter>）、<function_calls>、零散標籤都拿掉，旁邊的話留著', () => {
+    expect(
+      stripToolMarkup(
+        '<invoke name="a__b">\n<parameter name="x">1</parameter>\n</invoke>\n\n我估了一下。',
+      ).trim(),
+    ).toBe('我估了一下。')
+    expect(stripToolMarkup('<function_calls><invoke name="a"></invoke></function_calls>好')).toBe(
+      '好',
+    )
+    expect(stripToolMarkup('好</invoke>')).toBe('好')
+    expect(stripToolMarkup('<invoke name="a">x</invoke>好')).toBe('好')
+  })
+
+  it('串流到一半（標籤還沒收）：從開頭的標記到尾巴先不顯示', () => {
+    expect(stripToolMarkup('我先看一下。<invoke name="mcp__slima-video-s')).toBe('我先看一下。')
+  })
+
+  it('沒有標記的文字、一般的角括號與程式碼說明原樣不動', () => {
+    expect(stripToolMarkup('1 < 2，所以 a<b。')).toBe('1 < 2，所以 a<b。')
+    expect(stripToolMarkup('用 <div> 包起來')).toBe('用 <div> 包起來')
+    expect(stripToolMarkup('')).toBe('')
+  })
+})
+
+describe('splitNotes 的 assumeCjk（串流途中）與 hasCjk', () => {
+  it('assumeCjk：後面的中文還沒來，短英文先當筆記；不帶 assumeCjk 時（結束的重算）整則短英文原樣留著', () => {
+    expect(splitNotes(['Ignore the budget note.'], { assumeCjk: true })).toEqual({
+      text: '',
+      notes: ['Ignore the budget note.'],
+    })
+    expect(splitNotes(['Ignore the budget note.'])).toEqual({
+      text: 'Ignore the budget note.',
+      notes: [],
+    })
+  })
+
+  it('assumeCjk 也只收短的：超過上限的英文是真的在回答，照常顯示', () => {
+    const long = 'word '.repeat(60)
+    expect(splitNotes([long], { assumeCjk: true }).text).toBe(long.trim())
+  })
+
+  it('標記不論多長都先去掉，再判斷', () => {
+    const markup = `<invoke name="x">${'a'.repeat(400)}</invoke>`
+    expect(splitNotes([markup, '好。'])).toEqual({ text: '好。', notes: [] })
+  })
+
+  it('hasCjk', () => {
+    expect(hasCjk('幫我加一個鏡頭')).toBe(true)
+    expect(hasCjk('add a shot')).toBe(false)
   })
 })

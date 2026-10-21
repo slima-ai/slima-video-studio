@@ -498,6 +498,84 @@ describe('ChatService：出錯要說白話', () => {
     expect(message?.notes).toEqual([chatter, other])
   })
 
+  it('串流途中：使用者用中文講，第一段英文工作筆記一出來就收進 notes，不會先整段露出來、等中文來了才收起來', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '幫我加一個鏡頭')
+    const child = children[0]
+    const chatter = "Ignore the session USD budget note? It's the agent budget. Let's start."
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text(chatter.slice(0, 30)))
+    // 筆記只串流了一半、中文還沒來：畫面上的回覆文字是空的，筆記在 notes（收起來）
+    expect(last(conv.id, 'assistant')?.text).toBe('')
+    expect(last(conv.id, 'assistant')?.notes).toEqual([chatter.slice(0, 30).trim()])
+    child?.line(text(chatter.slice(30)))
+    child?.line(blockStop())
+    expect(last(conv.id, 'assistant')?.text).toBe('')
+    child?.line(toolStart('t1'))
+    child?.line(blockStop())
+    child?.line(textStart())
+    child?.line(text('我加好了。'))
+    child?.line(blockStop())
+    expect(last(conv.id, 'assistant')?.text).toBe('我加好了。')
+    child?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
+    const message = last(conv.id, 'assistant')
+    expect(message?.text).toBe('我加好了。')
+    expect(message?.notes).toEqual([chatter])
+  })
+
+  it('使用者用中文講、但整則回覆都是短英文（模型沒照語言回）：串流時先收起來，結束時照原規則全部還給使用者，不會被收光', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '你好')
+    const child = children[0]
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text('Hello, I added the shot.'))
+    child?.line(blockStop())
+    // 串流中：先當筆記（收起來）
+    expect(last(conv.id, 'assistant')?.text).toBe('')
+    child?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
+    const message = last(conv.id, 'assistant')
+    expect(message?.text).toBe('Hello, I added the shot.')
+    expect(message?.notes).toBeUndefined()
+  })
+
+  it('使用者用英文聊：串流時英文照常立刻顯示（不先收起來）', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, 'add a shot')
+    const child = children[0]
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text('Adding it now.'))
+    expect(last(conv.id, 'assistant')?.text).toBe('Adding it now.')
+    expect(last(conv.id, 'assistant')?.notes).toBeUndefined()
+  })
+
+  it('模型把工具呼叫標記當文字吐出來（<invoke …>，長度超過工作筆記的上限，也混在中文旁邊）：不顯示、不進 notes；串流到一半的開頭也先不顯示', async () => {
+    const { service, children, last } = setup()
+    const conv = service.create()
+    await service.send(conv.id, '估一下價錢')
+    const child = children[0]
+    const markup =
+      '<invoke name="mcp__slima-video-studio__get_capabilities">\n</invoke>\n<invoke name="mcp__slima-video-studio__load_guide">\n<parameter name="topic">getting-started</parameter>\n</invoke>\n<invoke name="mcp__slima-video-studio__list_shots">\n</invoke>'
+    expect(markup.length).toBeGreaterThan(240) // 比工作筆記的上限長：#115 的規則不會收它
+    child?.line(init())
+    child?.line(textStart())
+    child?.line(text(markup.slice(0, 40)))
+    expect(last(conv.id, 'assistant')?.text).toBe('') // 標記串流到一半：先不顯示
+    child?.line(text(markup.slice(40)))
+    child?.line(text('\n\n我估了一下，大約 US$0.01。'))
+    child?.line(blockStop())
+    child?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
+    const message = last(conv.id, 'assistant')
+    expect(message?.text).toBe('我估了一下，大約 US$0.01。')
+    expect(message?.text).not.toContain('<invoke')
+    expect(message?.notes).toBeUndefined()
+  })
+
   it('全英文的回覆（使用者用英文聊）：一段都不收，連提到預算的也照常顯示', async () => {
     const { service, children, last } = setup()
     const conv = service.create()
