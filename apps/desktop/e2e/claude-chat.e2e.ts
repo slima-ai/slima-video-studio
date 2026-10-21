@@ -154,13 +154,20 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(page.getByTestId('chat-message-assistant').last()).toContainText('我記得')
   })
 
-  test('用量到上限：出現「繼續」，按了用新行程接回同一個對話做完；對話沒有斷', async ({ page }) => {
+  test('用量到上限：出現「繼續」，按了用新行程接回同一個對話做完；對話沒有斷', async ({
+    page,
+  }, testInfo) => {
     await useFreeMcpPort(page)
     await openChat(page)
     const input = page.getByTestId('chat-input')
     await input.fill('做很多事，用量會用完')
     await input.press('Enter')
-    await expect(page.getByTestId('chat-error')).toContainText('用量到上限')
+    const limit = page.getByTestId('chat-error')
+    await expect(limit).toContainText('這是你自己的 Claude 用量')
+    await expect(limit).toContainText('目前每一段上限約 US$5')
+    await expect(limit).toContainText('設定 → 實驗功能')
+    await expect(limit).toContainText('按「繼續」只會接著做你剛才那句話，不會多做別的。')
+    await page.screenshot({ path: testInfo.outputPath('limit-message.png') })
     await expect(page.getByTestId('chat-continue')).toBeVisible()
     await page.getByTestId('chat-continue').click()
     const reply = page.getByTestId('chat-message-assistant').last()
