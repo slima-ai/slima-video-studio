@@ -87,6 +87,8 @@ test.describe('畫布：AI 剛改過', () => {
       arguments: { shotId, description: '雨夜的屋簷下，貓縮成一團' },
     })
     await expect(badge).toBeVisible()
+    // 滑鼠先離開再滑進來（上面點選時滑鼠就在那一格裡，不離開就不算「滑過」）
+    await clickEmpty(page)
     await page.getByTestId(`node-${shot}`).hover({ position: { x: 100, y: 60 } })
     await expect(badge).toHaveCount(0, { timeout: 5000 })
 
