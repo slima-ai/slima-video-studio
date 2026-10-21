@@ -102,11 +102,8 @@ function soundLines(sound: NonNullable<CanvasRunPlan['sound']>): string[] {
   ]
 }
 
-/** 這次會跑的每一步（重做的註明版本），加上用哪個模型、略過幾鏡、示範模式的說明。 */
-export function runLines(plan: CanvasRunPlan): string[] {
-  const models = [plan.models.image, plan.models.video].filter(
-    (name): name is string => name !== undefined,
-  )
+/** 這次會跑的每一步（重做的註明版本），加上略過幾段接成品的說明：步驟多的時候會捲動。 */
+export function runStepLines(plan: CanvasRunPlan): string[] {
   return [
     ...plan.steps.map((step) =>
       step.redo
@@ -122,10 +119,24 @@ export function runLines(plan: CanvasRunPlan): string[] {
           `其他 ${String(plan.joinSkipped)} 段還沒有影片，這次不會接成成品。影片都有了，再按「接成成品」`,
         ]
       : []),
+  ]
+}
+
+/** 不跟著清單捲動、永遠看得到的幾行：用哪個模型、略過的鏡頭、示範模式的說明。 */
+export function runPinnedLines(plan: CanvasRunPlan): string[] {
+  const models = [plan.models.image, plan.models.video].filter(
+    (name): name is string => name !== undefined,
+  )
+  return [
     ...(models.length > 0 && plan.shotCount > 0 ? [`用：${models.join('、')}`] : []),
     ...(plan.skippedBusy > 0 ? [`${String(plan.skippedBusy)} 個鏡頭正在生成，先略過`] : []),
     ...(plan.demoMode && plan.shotCount > 0 ? ['示範模式：不會真的花錢，結果是假的'] : []),
   ]
+}
+
+/** 這次會跑的每一步，加上用哪個模型、略過幾鏡、示範模式的說明（兩段合起來）。 */
+export function runLines(plan: CanvasRunPlan): string[] {
+  return [...runStepLines(plan), ...runPinnedLines(plan)]
 }
 
 /** 執行的花費確認：列出這次會跑的每一步（已經有結果的不在裡面），預估花費。 */
@@ -183,7 +194,8 @@ export function RunPlanConfirm({
     <RunConfirm
       anchor={anchor}
       count={plan.steps.length}
-      lines={runLines(plan)}
+      lines={runStepLines(plan)}
+      pinnedLines={runPinnedLines(plan)}
       costUsd={plan.estimatedUsd}
       lowerBound={plan.estimateIsLowerBound}
       cachedNote={!redo}

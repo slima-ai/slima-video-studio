@@ -33,6 +33,11 @@ interface ToastItem extends ToastOptions {
 
 export interface ToastApi {
   show: (toast: ToastOptions) => void
+  /**
+   * 對話框開著的時候先把提示收起來（不蓋在框上）、計時也暫停；回傳「放開」的函式，
+   * 框關掉之後還沒到時間的提示就回來（「復原」找得回來）。可以同時有好幾個人在暫停，都放開才回來。
+   */
+  suspend: () => () => void
 }
 
 /** 提示停留的時間。 */
@@ -41,11 +46,26 @@ export const TOAST_MS = 5000
 /** 要讓人來得及看完、動手的提示（例如匯出完成、要找檔案）停留的時間。 */
 export const LONG_TOAST_MS = 12_000
 
-const ToastContext = createContext<ToastApi>({ show: () => undefined })
+/** 提示被收起來又回來之後，至少再停這麼久（剩下不到這個時間也給足，來得及按「復原」）。 */
+export const RESUME_MIN_MS = 3000
+
+const ToastContext = createContext<ToastApi>({
+  show: () => undefined,
+  suspend: () => () => undefined,
+})
 
 /** 顯示一則短暫的提示（沒有 ToastProvider 的地方，例如單獨測試的元件，什麼都不做）。 */
 export function useToast(): ToastApi {
   return useContext(ToastContext)
+}
+
+/**
+ * 對話框（確認框、Modal）開著的時候，提示不蓋在它上面：提示先收起來、計時暫停，框關掉再回來。
+ * 放在對話框元件裡呼叫，掛著就是暫停、卸載就放開。
+ */
+export function useSuspendToasts(): void {
+  const { suspend } = useToast()
+  useEffect(() => suspend(), [suspend])
 }
 
 /**
@@ -61,21 +81,63 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const waiting = useRef<ToastOptions | undefined>(undefined)
   const dismissRef = useRef<(id: number) => void>(() => undefined)
 
-  const present = useCallback((toast: ToastOptions): void => {
-    const id = nextId.current++
-    // 一次只顯示一則：新的提示直接取代畫面上的舊提示，不會疊在一起
-    for (const timer of timers.current.values()) clearTimeout(timer)
-    timers.current.clear()
-    const item: ToastItem = { ...toast, id }
-    shown.current = item
-    setToasts([item])
+  /** 每則提示什麼時候到期；暫停中的提示還剩多久。 */
+  const due = useRef(new Map<number, number>())
+  const paused = useRef(new Map<number, number>())
+  const suspended = useRef(0)
+  const [hidden, setHidden] = useState(false)
+
+  const startTimer = useCallback((id: number, ms: number): void => {
+    if (suspended.current > 0) {
+      paused.current.set(id, ms)
+      return
+    }
+    due.current.set(id, Date.now() + ms)
     timers.current.set(
       id,
       setTimeout(() => {
         dismissRef.current(id)
-      }, toast.ms ?? TOAST_MS),
+      }, ms),
     )
   }, [])
+
+  const present = useCallback(
+    (toast: ToastOptions): void => {
+      const id = nextId.current++
+      // 一次只顯示一則：新的提示直接取代畫面上的舊提示，不會疊在一起
+      for (const timer of timers.current.values()) clearTimeout(timer)
+      timers.current.clear()
+      paused.current.clear()
+      const item: ToastItem = { ...toast, id }
+      shown.current = item
+      setToasts([item])
+      startTimer(id, toast.ms ?? TOAST_MS)
+    },
+    [startTimer],
+  )
+
+  const suspend = useCallback((): (() => void) => {
+    suspended.current++
+    if (suspended.current === 1) {
+      for (const [id, timer] of timers.current) {
+        clearTimeout(timer)
+        paused.current.set(id, Math.max(0, (due.current.get(id) ?? Date.now()) - Date.now()))
+      }
+      timers.current.clear()
+      setHidden(true)
+    }
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      suspended.current--
+      if (suspended.current > 0) return
+      setHidden(false)
+      const waitingToRun = [...paused.current]
+      paused.current.clear()
+      for (const [id, ms] of waitingToRun) startTimer(id, Math.max(ms, RESUME_MIN_MS))
+    }
+  }, [startTimer])
 
   const dismiss = useCallback(
     (id: number): void => {
@@ -112,7 +174,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const api = useMemo<ToastApi>(() => ({ show }), [show])
+  const api = useMemo<ToastApi>(() => ({ show, suspend }), [show, suspend])
 
   return (
     <ToastContext.Provider value={api}>
@@ -120,7 +182,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         aria-live="polite"
         data-testid="toast-region"
-        className="svs-toast-region pointer-events-none fixed bottom-24 right-4 z-50 flex flex-col items-end gap-2 transition-[right] duration-300"
+        data-suspended={hidden}
+        className={`svs-toast-region pointer-events-none fixed bottom-24 right-4 z-50 flex flex-col items-end gap-2 transition-[right] duration-300 ${hidden ? 'invisible' : ''}`}
       >
         {toasts.map((toast) => (
           <div

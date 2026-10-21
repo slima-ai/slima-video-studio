@@ -113,7 +113,7 @@ export function StartCards({
           <StartCard
             icon={<Sparkles className="size-4 text-accent" aria-hidden />}
             title="一句話"
-            intro="寫一句話，AI 一次做完整支短片：拆分鏡、畫圖片、生成影片、接成成品。"
+            intro="寫一句話，先看分鏡、改到滿意，再決定要不要全部生成（也可以一次做完整支）。"
             cost="會花錢（圖片和影片），按下去之前會先給你看預估。"
           >
             <form

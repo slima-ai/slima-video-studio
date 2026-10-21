@@ -105,7 +105,13 @@ describe('連線示意圖', () => {
     expect(within(diagram).getByTestId('diagram-code-status').textContent).toBe('還沒連接')
     expect(within(diagram).getByTestId('diagram-slima-status').textContent).toBe('尚未連線')
     expect(diagram.querySelectorAll('[data-active="true"]')).toHaveLength(0)
-    expect(diagram.textContent).toContain('要先打開「允許 AI 工具連線」')
+    // 提示要講清楚：按「連接」會一併打開，也可以自己打開（不能只叫人「要先打開」）
+    expect(diagram.textContent).toContain('按下面的「連接」（會一併打開）')
+    expect(diagram.textContent).toContain('自己打開「允許 AI 工具連線」')
+    expect(diagram.textContent).not.toContain('要先打開')
+    // 兩張「連接」卡的說明也說會一併打開
+    expect((await screen.findByTestId('connect-desktop')).textContent).toContain('會一併打開')
+    expect(screen.getByTestId('connect-code').textContent).toContain('會一併打開')
   })
 
   it('App 開著、Claude Code 已設定：那一條線通了；最近有人連進來會說多久以前', async () => {

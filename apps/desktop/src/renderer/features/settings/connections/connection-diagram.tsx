@@ -108,7 +108,7 @@ export function ConnectionDiagram({ status, info, slima }: ConnectionDiagramProp
   const codeOn = toolLinkActive(app, code)
   const lastSeen = status?.lastSeen
   const appHint = !status?.enabled
-    ? '要先打開「允許 AI 工具連線」'
+    ? '還沒打開：按下面的「連接」（會一併打開），或自己打開「允許 AI 工具連線」'
     : lastSeen
       ? `最近有 AI 工具連進來：${timeAgo(lastSeen.at)}`
       : '這次開著 App，還沒有 AI 工具連進來'
