@@ -279,6 +279,61 @@ test.describe('畫布：AI 剛改過', () => {
   })
 })
 
+// 生成要一段時間（示範模式每一步慢 1.5 秒）：誰叫的生成，做完才有沒有「AI 剛改」
+test.describe('畫布：背景生成做完，誰叫的就標誰', () => {
+  test.use({ appEnv: { SVS_MOCK_LATENCY_MS: '1500' } })
+
+  test('AI 叫的首幀圖：中途使用者看過（標記收掉），做完又標上「AI 剛改」；使用者自己按 ▶ 的生成做完不標', async ({
+    page,
+    userDataDir,
+  }, testInfo) => {
+    const ai = await connectAi(page, userDataDir)
+    await ai.callTool({ name: 'create_project', arguments: { name: '背景生成' } })
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const shotId = idOf(
+      await ai.callTool({
+        name: 'create_shot',
+        arguments: { description: '雨夜的屋簷下，貓縮成一團' },
+      }),
+    )
+    const image = `shot:${shotId}:image`
+    await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === image)).toBe(true)
+    await centerOn(page, image)
+    await viewportSettled(page)
+
+    // AI 叫它生首幀圖：背景在做，格子顯示進行中
+    await ai.callTool({ name: 'generate_first_frames', arguments: {} })
+    const card = page.getByTestId(`node-${image}`)
+    await expect(card.getByTestId('node-working')).toBeVisible()
+    // 使用者看過了（選取一下再放開）：標記收掉
+    await card.click({ position: { x: 100, y: 16 } })
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId(`ai-badge-${image}`)).toHaveCount(0)
+    await page.screenshot({ path: testInfo.outputPath('ai-generating.png') })
+
+    // 做完：這是 AI 叫的，又標上「AI 剛改」、亮一下
+    await expect(card.getByTestId('node-working')).toHaveCount(0, { timeout: 30_000 })
+    const badge = page.getByTestId(`ai-badge-${image}`)
+    await expect(badge).toBeVisible()
+    await expect(badge).toContainText('AI 剛改')
+    await page.screenshot({ path: testInfo.outputPath('ai-generated-marked.png') })
+
+    // 使用者看過、再自己按 ▶ 重新生成：做完不標
+    await card.click({ position: { x: 100, y: 16 } })
+    await expect(badge).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await page.getByTestId(`run-${image}`).click()
+    await page.getByTestId('run-confirm-ok').click()
+    await expect(card.getByTestId('node-working')).toBeVisible()
+    await expect(card.getByTestId('node-working')).toHaveCount(0, { timeout: 30_000 })
+    await page.waitForTimeout(800)
+    // 使用者自己叫的生成，圖那一格做完不標（鏡頭與影片那兩格是 AI 先前動過的，沒人看過，還標著）
+    await expect(page.getByTestId(`ai-badge-${image}`)).toHaveCount(0)
+    await ai.close()
+  })
+})
+
 // 右下角的 Claude 對話（假的 claude）：焦點停在對話框時，AI 改畫面外的東西，畫面要跟過去
 test.describe('跟著 AI：焦點在右下角的對話框', () => {
   test.use({ appEnv: { SVS_CLAUDE_BIN: join(__dirname, 'fake-claude/claude.mjs') } })

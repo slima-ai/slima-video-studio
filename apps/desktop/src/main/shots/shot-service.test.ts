@@ -2,7 +2,8 @@ import { cameraMoveById, type Take } from '@svs/schema'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { nextVariations } from './shot-service'
+import { runAsAi } from '../history/ai-origin'
+import { generatedNodeKeys, nextVariations } from './shot-service'
 import { createStudioHarness, type HarnessOptions } from './test-harness'
 
 const cleanups: (() => void)[] = []
@@ -244,6 +245,71 @@ describe('shots.regenerate', { timeout: 30_000 }, () => {
     expect(steps).toEqual(expect.arrayContaining(['prompt', 'image', 'video']))
     expect(steps.at(-1)).toBeUndefined()
   })
+
+  it('AI 叫的生成在背景做完，通知畫面標「AI 剛改」（只標有新結果的格子）；使用者自己按的不通知', async () => {
+    const { shots, runQuickStart, events, idle } = setup()
+    await runQuickStart()
+    const target = shots.list().shots[0]
+    if (!target) throw new Error('沒有鏡頭')
+    const aiEvents = () => events.filter((e) => e.name === 'canvas.aiChanged')
+
+    // 使用者自己按（畫面來的呼叫）：不通知
+    events.length = 0
+    await shots.regenerate(target.id, 'video')
+    await idle(target.id)
+    expect(aiEvents()).toEqual([])
+
+    // AI 工具（MCP）叫的：還沒做完時不通知，做完才通知，而且只有影片那一格
+    events.length = 0
+    await runAsAi(() => shots.regenerate(target.id, 'video'))
+    expect(aiEvents()).toEqual([])
+    await idle(target.id)
+    expect(aiEvents()).toHaveLength(1)
+    expect(aiEvents()[0]?.payload).toMatchObject({
+      channel: 'generation.done',
+      changed: [`shot:${target.id}:video`],
+      added: [],
+      removed: [],
+    })
+    // 通知在鏡頭資料更新之後（畫面重新讀到新結果才標）
+    const names = events.map((e) => e.name)
+    expect(names.lastIndexOf('shots.changed')).toBeLessThan(names.indexOf('canvas.aiChanged'))
+
+    // 整個鏡頭重新生成：圖與影片兩格都標
+    events.length = 0
+    await runAsAi(() => shots.regenerate(target.id, 'all'))
+    await idle(target.id)
+    expect(aiEvents()[0]?.payload).toMatchObject({
+      changed: [`shot:${target.id}:image`, `shot:${target.id}:video`],
+    })
+  }, 30_000)
+
+  it('AI 叫的生成被取消：不通知', async () => {
+    const { shots, runQuickStart, events, idle } = setup()
+    await runQuickStart()
+    const target = shots.list().shots[0]
+    if (!target) throw new Error('沒有鏡頭')
+    events.length = 0
+    await runAsAi(() => shots.regenerate(target.id, 'all'))
+    shots.cancel(target.id)
+    await idle(target.id)
+    expect(events.filter((e) => e.name === 'canvas.aiChanged')).toEqual([])
+  }, 30_000)
+
+  it('AI 叫的生成有節點失敗：不通知（engine.run 失敗是正常回傳，不會丟錯），畫面照樣顯示錯誤', async () => {
+    const { shots, runQuickStart, events, idle } = setup({ mockRejectText: '【拒絕】' })
+    await runQuickStart()
+    const target = shots.list().shots[0]
+    if (!target) throw new Error('沒有鏡頭')
+    shots.update(target.id, { description: '【拒絕】這一鏡會被拒絕' })
+    events.length = 0
+
+    await runAsAi(() => shots.regenerate(target.id, 'frame'))
+    await idle(target.id)
+    // 真的失敗了：鏡頭上有錯誤
+    expect(shots.list().shots.find((s) => s.id === target.id)?.error).toBeTruthy()
+    expect(events.filter((e) => e.name === 'canvas.aiChanged')).toEqual([])
+  }, 30_000)
 
   it('同一個鏡頭正在重新生成時不能再按；整支影片生成中也不行', async () => {
     const { shots, quickstart, runQuickStart, idle } = setup()
@@ -733,5 +799,14 @@ describe('批次生成的階段：只生首幀圖／只生影片', { timeout: 60
     const full = shots.batchCheck({ shotIds: ids, skipGenerated: false, stage: 'full' })
     expect(frame.estimatedUsd).toBeGreaterThan(0)
     expect(frame.estimatedUsd).toBeLessThan(full.estimatedUsd)
+  })
+})
+
+describe('generatedNodeKeys', () => {
+  it('首幀圖只標圖那一格、影片只標影片那一格，其他（整個鏡頭）兩格都標', () => {
+    expect(generatedNodeKeys('s1', 'frame')).toEqual(['shot:s1:image'])
+    expect(generatedNodeKeys('s1', 'video')).toEqual(['shot:s1:video'])
+    expect(generatedNodeKeys('s1', 'all')).toEqual(['shot:s1:image', 'shot:s1:video'])
+    expect(generatedNodeKeys('s1', 'apply')).toEqual(['shot:s1:image', 'shot:s1:video'])
   })
 })

@@ -17,6 +17,8 @@ export interface HarnessOptions {
   mockLlm?: StudioAppOptions['mockLlm']
   /** 讓示範模式每次生成回報花費。 */
   mockCostUsd?: StudioAppOptions['mockCostUsd']
+  /** 示範模式：提示裡有這段字的生成會被拒絕（讓某個節點失敗）。 */
+  mockRejectText?: string
   /** 畫布「上傳」的選檔視窗要回傳的檔案。 */
   pickFiles?: StudioAppOptions['pickFiles']
   /** 把 OpenRouter 換成本機的假伺服器（真實模式的測試用）。 */
@@ -85,6 +87,7 @@ export function createStudioHarness(options: HarnessOptions = {}) {
     ...(options.mockLlm ? { mockLlm: options.mockLlm } : {}),
     ...(options.openrouterBaseUrl ? { openrouterBaseUrl: options.openrouterBaseUrl } : {}),
     ...(options.mockCostUsd ? { mockCostUsd: options.mockCostUsd } : {}),
+    ...(options.mockRejectText ? { mockRejectText: options.mockRejectText } : {}),
     ...(options.pickFiles ? { pickFiles: options.pickFiles } : {}),
     ...(options.renderCreditsCard ? { renderCreditsCard: options.renderCreditsCard } : {}),
     ...(options.creditsTimeoutMs ? { creditsTimeoutMs: options.creditsTimeoutMs } : {}),
