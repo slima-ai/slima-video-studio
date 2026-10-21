@@ -22,7 +22,8 @@ export interface ChatDock {
   setOpen: (open: boolean) => void
   /** 現在能不能開始；`checking` 是正在檢查。 */
   prereq: ChatPrereq | 'checking' | undefined
-  recheck: () => void
+  /** 重新檢查：預設一定重新問一次 claude；`fresh:false` 用主程序已經查好的結果。 */
+  recheck: (options?: { fresh?: boolean }) => void
   conversations: ChatConversation[]
   activeId: string | undefined
   active: ChatConversation | undefined
@@ -146,24 +147,35 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       })
   }, [toast])
 
-  const recheck = useCallback((): void => {
-    setPrereq('checking')
-    call('chat.status', {})
-      .then((status) => {
-        setPrereq(status)
-        if (status.state !== 'ready') return undefined
-        return call('chat.list', {}).then(({ conversations: list }) => {
-          setConversations(list)
-          const [latest] = list
-          if (latest) select(latest.id)
-          else newConversation()
+  // fresh=false：第一次打開用 App 預熱好的結果（主程序有就立刻回，沒有才真的去問）；使用者自己按重新檢查、
+  // 或上次不能用之後再打開（多半是剛去設定頁處理過）一定重新問
+  const check = useCallback(
+    (fresh: boolean): void => {
+      setPrereq('checking')
+      call('chat.status', { fresh })
+        .then((status) => {
+          setPrereq(status)
+          if (status.state !== 'ready') return undefined
+          return call('chat.list', {}).then(({ conversations: list }) => {
+            setConversations(list)
+            const [latest] = list
+            if (latest) select(latest.id)
+            else newConversation()
+          })
         })
-      })
-      .catch((error: unknown) => {
-        setPrereq(undefined)
-        toast.show({ message: errorText(error), tone: 'danger' })
-      })
-  }, [newConversation, select, toast])
+        .catch((error: unknown) => {
+          setPrereq(undefined)
+          toast.show({ message: errorText(error), tone: 'danger' })
+        })
+    },
+    [newConversation, select, toast],
+  )
+  const recheck = useCallback(
+    (options?: { fresh?: boolean }): void => {
+      check(options?.fresh !== false)
+    },
+    [check],
+  )
 
   // 專案換了（開另一個、另存為、Claude 建了新專案）：清掉畫面上的對話；面板開著或之前開過，就重讀這個專案的清單
   useEffect(() => {
@@ -172,17 +184,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setByConversation({})
       setActiveId(undefined)
       setConversations([])
-      if (prereq !== undefined && prereq !== 'checking' && prereq.state === 'ready') recheck()
+      if (prereq !== undefined && prereq !== 'checking' && prereq.state === 'ready') check(false)
     }
-  }, [prereq, recheck])
+  }, [prereq, check])
 
   const setOpen = useCallback(
     (next: boolean): void => {
       setOpenState(next)
       // 打開時才檢查（檢查要啟動一次 claude，不在 App 一開就做）；已經可以用就不重做
-      if (next && prereq !== 'checking' && prereq?.state !== 'ready') recheck()
+      if (next && prereq !== 'checking' && prereq?.state !== 'ready') check(prereq !== undefined)
     },
-    [prereq, recheck],
+    [prereq, check],
   )
 
   const send = useCallback(

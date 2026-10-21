@@ -356,6 +356,10 @@ void app.whenReady().then(() => {
     log,
   })
   chatService = chat
+  // 開起來幾秒後在背景先檢查一次 Claude Code（只在對話功能和 AI 工具連線都開著時），第一次打開面板就不用等
+  setTimeout(() => {
+    chat.warmUp()
+  }, 3000).unref()
   runtime = studio.runtime
   slimaService = slima
   registerAllHandlers(registry, {

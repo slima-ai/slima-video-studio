@@ -345,7 +345,12 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   const noChat = (): never => {
     throw new AppError({ code: 'invalid_request', userMessage: '這個版本還不能和 Claude 對話。' })
   }
-  registry.registerHandler('chat.status', () => chat?.status() ?? { state: 'disabled' as const })
+  registry.registerHandler(
+    'chat.status',
+    (request) =>
+      chat?.status(request.fresh === undefined ? {} : { fresh: request.fresh }) ??
+      ({ state: 'disabled' } as const),
+  )
   registry.registerHandler('chat.list', () => (chat ?? noChat()).list())
   registry.registerHandler('chat.create', () => (chat ?? noChat()).create())
   registry.registerHandler('chat.rename', ({ conversationId, title }) =>

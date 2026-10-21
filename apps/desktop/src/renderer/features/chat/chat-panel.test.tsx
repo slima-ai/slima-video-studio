@@ -200,7 +200,10 @@ describe('Claude 對話面板：還不能開始時的說明卡', () => {
     state = { state: 'ready', version: '2.1.304' }
     fireEvent.click(screen.getByTestId('chat-recheck'))
     expect(await screen.findByTestId('chat-input')).toBeTruthy()
-    expect(fake.calls.filter((c) => c.channel === 'chat.status')).toHaveLength(2)
+    const statusCalls = fake.calls.filter((c) => c.channel === 'chat.status')
+    expect(statusCalls).toHaveLength(2)
+    // 第一次打開用預熱好的結果；使用者按「重新檢查」一定重問
+    expect(statusCalls.map((c) => c.payload)).toEqual([{ fresh: false }, { fresh: true }])
   })
 
   it('AI 工具連線沒開：一個按鈕打開它，再檢查一次', async () => {
@@ -227,6 +230,11 @@ describe('Claude 對話面板：還不能開始時的說明卡', () => {
     expect(fake.calls.find((c) => c.channel === 'settings.update')?.payload).toEqual({
       mcp: { enabled: true },
     })
+    // 只有開關變了、Claude Code 沒變：再檢查一次用查好的結果，不重問
+    expect(fake.calls.filter((c) => c.channel === 'chat.status').map((c) => c.payload)).toEqual([
+      { fresh: false },
+      { fresh: false },
+    ])
   })
 })
 
