@@ -39,7 +39,7 @@ export function ClaudeDesktopCard({ mcp }: { mcp: McpConnection }) {
       icon={Monitor}
       title="Claude Desktop"
       status={{ ...desktopLight(info), testId: 'connect-desktop-status' }}
-      summary="用 Claude 桌面版，一鍵連上這個 App，直接叫它幫你拆分鏡、做影片。"
+      summary="用 Claude 桌面版，一鍵連上這個 App，直接叫它幫你拆分鏡、做影片；按「連接」會一併打開「允許 AI 工具連線」。"
       action={
         info?.claudeDesktop.supported ? (
           <Button
@@ -93,7 +93,7 @@ export function ClaudeCodeCard({ mcp }: { mcp: McpConnection }) {
       icon={Terminal}
       title="Claude Code"
       status={{ ...codeLight(info), testId: 'connect-code-status' }}
-      summary="用終端機裡的 Claude Code 連上這個 App；按一下就設定好，不用自己打指令。"
+      summary="用終端機裡的 Claude Code 連上這個 App；按一下就設定好（按「連接」會一併打開「允許 AI 工具連線」），不用自己打指令。"
       action={
         <Button
           data-testid="mcp-connect-code"

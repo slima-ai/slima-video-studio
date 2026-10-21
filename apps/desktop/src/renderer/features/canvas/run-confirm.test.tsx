@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { placeConfirm, shiftAnchor } from './run-confirm'
+import { ToastProvider } from '../../components/toast'
+import { RunConfirm, placeConfirm, shiftAnchor } from './run-confirm'
+
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 const view = { width: 1400, height: 900 }
 const size = { width: 340, height: 300 }
@@ -67,5 +74,82 @@ describe('畫面平移後面板貼到按鈕現在的位置', () => {
 
   it('上方列的按鈕不動', () => {
     expect(shiftAnchor(anchor, { dx: 63, dy: -10 })).toBe(anchor)
+  })
+})
+
+describe('RunConfirm：清單與「用什麼、多少錢」', () => {
+  const anchor = { left: 400, right: 430, top: 400, bottom: 430 }
+  const open = (lines: string[], pinnedLines: string[] = ['用：示範圖片、示範影片']) =>
+    render(
+      <RunConfirm
+        anchor={anchor}
+        count={lines.length}
+        lines={lines}
+        pinnedLines={pinnedLines}
+        costUsd={1.23}
+        onOk={() => undefined}
+        onCancel={() => undefined}
+      />,
+    )
+  /** jsdom 沒有排版：用假的高度讓清單「放不下」。 */
+  const overflowing = (scrollHeight: number, clientHeight: number): void => {
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight)
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(clientHeight)
+  }
+
+  it('用哪個模型那幾行在清單外面（不跟著捲動），價錢也在清單外面', () => {
+    open(['第 1 步', '第 2 步'])
+    const steps = screen.getByTestId('run-confirm-steps')
+    const pinned = screen.getByTestId('run-confirm-pinned')
+    expect(steps.contains(pinned)).toBe(false)
+    expect(pinned.textContent).toContain('用：示範圖片、示範影片')
+    expect(steps.textContent).not.toContain('用：')
+    expect(screen.getByTestId('run-confirm').textContent).toContain('US$1.23')
+  })
+
+  it('清單放得下：沒有「往下還有」的提示', () => {
+    overflowing(100, 100)
+    open(['第 1 步'])
+    expect(screen.queryByTestId('run-confirm-more')).toBeNull()
+    expect(screen.getByTestId('run-confirm-steps').getAttribute('data-more')).toBe('false')
+  })
+
+  it('清單太長要捲動：看得出下面還有東西（提示字），價錢與模型那行照樣在', () => {
+    overflowing(900, 320)
+    open(Array.from({ length: 60 }, (_, i) => `第 ${String(i + 1)} 步`))
+    expect(screen.getByTestId('run-confirm-more').textContent).toContain('往下還有')
+    expect(screen.getByTestId('run-confirm-steps').getAttribute('data-more')).toBe('true')
+    expect(screen.getByTestId('run-confirm-pinned').textContent).toContain('用：')
+    expect(screen.getByTestId('run-confirm').textContent).toContain('US$1.23')
+  })
+
+  it('沒有清單、沒有固定行：都不畫', () => {
+    open([], [])
+    expect(screen.queryByTestId('run-confirm-steps')).toBeNull()
+    expect(screen.queryByTestId('run-confirm-pinned')).toBeNull()
+  })
+})
+
+describe('RunConfirm：開著的時候提示條讓開', () => {
+  it('確認框一出現就把提示收起來、關掉（卸載）就回來', () => {
+    const anchor = { left: 400, right: 430, top: 400, bottom: 430 }
+    const framed = (open: boolean) => (
+      <ToastProvider>
+        {open ? (
+          <RunConfirm
+            anchor={anchor}
+            count={1}
+            lines={['第 1 步']}
+            costUsd={0.5}
+            onOk={() => undefined}
+            onCancel={() => undefined}
+          />
+        ) : null}
+      </ToastProvider>
+    )
+    const view = render(framed(true))
+    expect(screen.getByTestId('toast-region').getAttribute('data-suspended')).toBe('true')
+    view.rerender(framed(false))
+    expect(screen.getByTestId('toast-region').getAttribute('data-suspended')).toBe('false')
   })
 })

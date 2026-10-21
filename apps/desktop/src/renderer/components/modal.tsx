@@ -1,5 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 
+import { useSuspendToasts } from './toast'
+
 export interface ModalProps {
   /** 螢幕閱讀器念的對話框名稱。 */
   label: string
@@ -19,6 +21,8 @@ export interface ModalProps {
  */
 export function Modal({ label, onClose, dismissible = true, testId, children }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
+  // 對話框開著，提示先收起來（背景擋著點不到，還可能在這時到期）
+  useSuspendToasts()
 
   useEffect(() => {
     const dialog = ref.current

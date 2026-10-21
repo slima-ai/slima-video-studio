@@ -56,8 +56,6 @@ export function GrowConfirm({
                 : `下一步才生圖片和影片：${String(n)} 張第一張畫面、${String(n)} 支影片，約 US$${pending.nextUsd.toFixed(2)}（跟拆完後右上角的數字會差一點點）`,
               '分鏡寫好後你可以先看、先改，要生成時再按右上角的「全部生成」，那裡會給準確的預估',
               '旁白與配樂也不在這一步：卡片上勾的聲音會記住，按「全部生成」時自動加',
-              ...(check.models.llm === undefined ? [] : [`這一步用：${check.models.llm}`]),
-              ...(check.demoMode ? ['示範模式：不會真的花錢，結果是假的'] : []),
             ]
           : [
               `寫分鏡：拆成 ${String(n)} 個鏡頭`,
@@ -65,6 +63,16 @@ export function GrowConfirm({
               `${String(n)} 支影片（每支 ${String(params.durationSec)} 秒）`,
               '接成一支完整的片子',
               ...soundLines(params.sound),
+            ]
+      }
+      // 用哪個模型、示範模式的說明放在清單外面：永遠看得到
+      pinnedLines={
+        storyboard
+          ? [
+              ...(check.models.llm === undefined ? [] : [`這一步用：${check.models.llm}`]),
+              ...(check.demoMode ? ['示範模式：不會真的花錢，結果是假的'] : []),
+            ]
+          : [
               ...(models.length > 0 ? [`用：${models.join('、')}`] : []),
               ...(check.demoMode ? ['示範模式：不會真的花錢，結果是假的'] : []),
             ]
