@@ -115,7 +115,8 @@ describe('Markdown：不安全的東西只會變成字，不會執行', () => {
 })
 
 describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段就整則重畫）', () => {
-  const MAX_MS = 200
+  // 絕對時間只是粗網：機器忙的時候不能紅，退化成 n² 時（十萬字會是好幾秒）一定紅；精準的退化檢查看下面的倍數
+  const MAX_MS = 1000
   const big = 20_000
   const cases: [string, string][] = [
     ['未收尾的圖片', `![a](${'x'.repeat(big)}`],
@@ -138,22 +139,26 @@ describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段�
     })
   }
 
-  it('標記很多的長輸入：時間跟長度成正比（不是 n²）——長度變 4 倍，時間不到 8 倍', () => {
-    // 機器快慢、有沒有量測覆蓋率都會讓絕對時間差很多，所以比的是兩種長度之間的倍數
-    const mixed = (n: number): string => '*a **b ~~c `d [e](f) ![g](h) '.repeat(n)
-    const best = (n: number): number => {
-      let fastest = Infinity
-      for (let run = 0; run < 3; run++) {
+  it('標記很多的長輸入：時間跟長度成正比（不是 n²）——長度變 2 倍，時間不到 3 倍', () => {
+    // 機器快慢、有沒有量測覆蓋率、機器忙不忙都會讓絕對時間差很多，所以比的是兩種長度之間的倍數：
+    // 線性大約 2 倍、平方大約 4 倍，門檻 3 倍在兩者中間；每種長度跑 5 次取中位數，單次被搶到時間不會讓它紅
+    // 標記和一般的字混在一起：標記那邊和「每個字」那邊的 n² 都量得到
+    const mixed = (n: number): string =>
+      `*a **b ~~c \`d [e](f) ![g](h) ${'字'.repeat(30)}`.repeat(n)
+    const median = (n: number): number => {
+      const times: number[] = []
+      for (let run = 0; run < 5; run++) {
         const start = performance.now()
         view(mixed(n))
-        fastest = Math.min(fastest, performance.now() - start)
+        times.push(performance.now() - start)
         cleanup()
       }
-      return Math.max(fastest, 1)
+      times.sort((a, b) => a - b)
+      return Math.max(times[2] ?? 1, 1)
     }
-    best(100) // 暖機
-    const small = best(250)
-    const large = best(1000)
-    expect(large / small).toBeLessThan(8)
+    median(300) // 暖機
+    const small = median(1000)
+    const large = median(2000)
+    expect(large / small).toBeLessThan(3)
   })
 })
