@@ -77,13 +77,20 @@ describe('開機時先套上次的外觀（不閃一下淺色）', () => {
 
   it('先套好之後，設定讀到同一個值不算「切換」：不加 theme-changing（沒有淺到深的漸變）', () => {
     mockSystem(true)
-    applyTheme('dark')
+    // 模擬真的開機：模組裡的偏好是 'system'（還沒人套過外觀），localStorage 裡記著上次選的深色，html 是乾淨的
+    applyTheme('system')
+    window.localStorage.setItem('svs-theme', 'dark')
     document.documentElement.removeAttribute('data-theme')
     document.documentElement.classList.remove('theme-changing')
     restoreTheme()
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+    // 設定從主行程讀回來，還是 dark：不能算「切換」
     applyTheme('dark')
     expect(document.documentElement.classList.contains('theme-changing')).toBe(false)
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+    // 對照：真的從深色換成淺色才算切換
+    applyTheme('light')
+    expect(document.documentElement.classList.contains('theme-changing')).toBe(true)
   })
 
   it('沒記過、或記的是「跟隨系統」：什麼都不做；localStorage 讀不到也不丟錯', () => {
