@@ -122,6 +122,8 @@ export function SplitConfirm({
         '把故事拆成幕和場，抽出角色與地點（文字模型）',
         '再替每一場拆成幾個鏡頭，寫好畫面描述（文字模型，每場一次）',
         '不會生成圖片和影片：拆好之後你可以先看、先改，要生成再按「全部生成」',
+      ]}
+      pinnedLines={[
         ...(check.modelName === undefined ? [] : [`用：${check.modelName}`]),
         ...(check.demoMode ? ['示範模式：不會真的花錢，拆出來的內容是假的'] : []),
       ]}

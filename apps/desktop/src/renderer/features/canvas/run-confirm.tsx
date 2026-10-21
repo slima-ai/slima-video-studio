@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 import { Button } from '../../components/button'
 
@@ -122,6 +122,53 @@ const glowingBoxes = (): Box[] =>
   })
 
 /**
+ * 步驟清單：內容不多就整個放下；太多（例如 27 鏡）才捲動，而且要看得出下面還有東西
+ * （底部漸層＋一行「往下還有…」，macOS 的捲動條平常是隱藏的，不能只靠它）。
+ */
+function StepList({ lines }: { lines: readonly string[] }) {
+  const listRef = useRef<HTMLUListElement>(null)
+  const [more, setMore] = useState(false)
+  const measure = useCallback((): void => {
+    const el = listRef.current
+    if (!el) return
+    setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4)
+  }, [])
+  useLayoutEffect(() => {
+    measure()
+    const el = listRef.current
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    if (el) observer?.observe(el)
+    return () => {
+      observer?.disconnect()
+    }
+  }, [measure, lines])
+  return (
+    <div className="relative min-h-0" data-testid="run-confirm-steps" data-more={more}>
+      <ul
+        ref={listRef}
+        onScroll={measure}
+        className="flex max-h-[min(22rem,40vh)] flex-col gap-0.5 overflow-auto text-sm text-fg-muted"
+      >
+        {lines.map((line, index) => (
+          <li key={`${line}-${String(index)}`}>{line}</li>
+        ))}
+      </ul>
+      {more ? (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-5 h-6 bg-gradient-to-t from-surface-raised to-transparent"
+          />
+          <p className="pt-1 text-xs text-fg-muted" data-testid="run-confirm-more">
+            ↓ 往下還有，捲動看全部
+          </p>
+        </>
+      ) : null}
+    </div>
+  )
+}
+
+/**
  * 執行前的花費確認：貼在按下去的 ▶ 旁邊的小面板（不蓋住被標亮的格子），不蓋全畫面的暗幕。
  * 這樣被標亮的那一串節點與流動的連線還看得清楚，使用者可以邊看邊決定。
  * Esc 取消、Enter 確認。
@@ -130,6 +177,7 @@ export function RunConfirm({
   anchor,
   count,
   lines,
+  pinnedLines = [],
   costUsd,
   lowerBound = false,
   title,
@@ -145,6 +193,8 @@ export function RunConfirm({
   anchor: ConfirmAnchor
   count: number
   lines: readonly string[]
+  /** 不跟著清單捲動的幾行（用哪個模型、示範模式不花錢）：清單再長也永遠看得到。 */
+  pinnedLines?: readonly string[]
   costUsd: number
   /** 有些步驟估不出來，實際花費可能比預估多。 */
   lowerBound?: boolean
@@ -215,7 +265,7 @@ export function RunConfirm({
       data-testid="run-confirm"
       ref={panelRef}
       data-placed={at !== undefined}
-      className="fixed z-50 flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-5 text-fg shadow-panel"
+      className="fixed z-50 flex max-h-[calc(100vh-24px)] flex-col gap-3 rounded-lg border border-border bg-surface-raised p-5 text-fg shadow-panel"
       style={{
         left: at?.left ?? 0,
         top: at?.top ?? 0,
@@ -224,10 +274,15 @@ export function RunConfirm({
       }}
     >
       <h2 className="text-base font-semibold">{title ?? `這次會做 ${String(count)} 步`}</h2>
-      {lines.length > 0 ? (
-        <ul className="flex max-h-44 flex-col gap-0.5 overflow-auto text-sm text-fg-muted">
-          {lines.map((line, index) => (
-            <li key={`${line}-${String(index)}`}>{line}</li>
+      {lines.length > 0 ? <StepList lines={lines} /> : null}
+      {/* 用哪個模型、示範模式的說明：永遠在捲動區外面看得到（真實模式這行是「用什麼、多少錢」的一半） */}
+      {pinnedLines.length > 0 ? (
+        <ul
+          className="flex flex-col gap-0.5 text-sm text-fg-muted"
+          data-testid="run-confirm-pinned"
+        >
+          {pinnedLines.map((line) => (
+            <li key={line}>{line}</li>
           ))}
         </ul>
       ) : null}

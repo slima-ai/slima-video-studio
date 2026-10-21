@@ -16,7 +16,7 @@ export const ADD_ITEMS: readonly AddItem[] = [
   {
     kind: 'oneliner',
     label: '一句話',
-    desc: '寫一句話，自動長出整支短片（會花錢，按之前先給預估）',
+    desc: '寫一句話，先看分鏡再決定要不要生成（會花錢，按之前先給預估）',
   },
   { kind: 'scene', label: '場', desc: '一段故事：地點、時間、氣氛' },
   { kind: 'shot', label: '鏡頭', desc: '一個畫面：描述、台詞、運鏡' },

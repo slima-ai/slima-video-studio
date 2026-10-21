@@ -30,6 +30,20 @@ async function focusOneliner(page: Page): Promise<void> {
 }
 
 /** 空畫布按「新增一句話」，寫好故事、選 3 個鏡頭、每鏡 3 秒（讓示範模式跑得快）。 */
+/** 確認框：整個框、清單最後一行、「用什麼」那行、確認鈕都在視窗內，清單沒有被切掉（不用捲動）。 */
+async function expectAllInView(page: Page): Promise<void> {
+  const confirm = page.getByTestId('run-confirm')
+  await expect(confirm).toBeInViewport({ ratio: 1 })
+  await expect(confirm.getByTestId('run-confirm-ok')).toBeInViewport({ ratio: 1 })
+  const items = confirm.getByTestId('run-confirm-steps').locator('li')
+  await expect(items.last()).toBeInViewport({ ratio: 1 })
+  const cutOff = await confirm
+    .getByTestId('run-confirm-steps')
+    .locator('ul')
+    .evaluate((el) => el.scrollHeight > el.clientHeight + 1)
+  expect(cutOff).toBe(false)
+}
+
 async function prepare(page: Page, story = '一隻貓在下雨的夜晚找到溫暖的家'): Promise<void> {
   await page.getByTestId('empty-add-oneliner').click()
   await expect(oneliner(page)).toBeVisible()
@@ -228,6 +242,97 @@ test.describe('畫布上的一句話（示範模式）', () => {
     }
     // 縮到看不清楚（卡片只剩色塊）就失去意義：不低於 50%
     expect((await viewportOf(page)).zoom).toBeGreaterThanOrEqual(0.5)
+  })
+
+  test('確認框的內容在 1280×800 全部放得下：先產生分鏡與全部生成都看得到每一行，包括「用什麼」那行', async ({
+    app,
+    page,
+  }, testInfo) => {
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(1280, 800)
+    })
+    await page.getByTestId('empty-add-oneliner').click()
+    await expect(oneliner(page)).toBeVisible()
+    await page.getByTestId('oneliner-story').fill('一隻貓在下雨的夜晚找到溫暖的家')
+    await page.getByTestId('oneliner-story').blur()
+    // 預設 4 個鏡頭
+    await page.getByTestId('oneliner-storyboard').click()
+    const confirm = page.getByTestId('run-confirm')
+    await expect(confirm).toBeVisible()
+    await expectAllInView(page)
+    await expect(confirm.getByTestId('run-confirm-pinned')).toContainText('這一步用：')
+    await page.screenshot({ path: testInfo.outputPath('confirm-storyboard.png') })
+    await page.getByTestId('run-confirm-ok').click()
+    await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false', {
+      timeout: 60_000,
+    })
+    await expect.poll(() => kindCount(page, 'shot')).toBe(4)
+
+    // 全部生成：4 鏡 = 9 步（8 步 + 接成成品），一行都不能被切掉
+    // 「分鏡寫好了」的提示（幾秒後自己消失）會蓋住確認框下緣：等它收掉再看
+    await expect(page.getByTestId('toast')).toHaveCount(0, { timeout: 15_000 })
+    await page.getByTestId('run-all').click()
+    await expect(confirm).toContainText('這次會做 9 步')
+    await expectAllInView(page)
+    await expect(confirm.getByTestId('run-confirm-steps')).toContainText('接成成品')
+    await expect(confirm.getByTestId('run-confirm-pinned')).toContainText('用：')
+    await expect(confirm.getByTestId('run-confirm-more')).toHaveCount(0)
+    await page.screenshot({ path: testInfo.outputPath('confirm-9-steps.png') })
+  })
+
+  test('步驟很多（27 鏡）：清單可以捲動，看得出下面還有；「用什麼」與價錢那行永遠看得到', async ({
+    app,
+    page,
+  }, testInfo) => {
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(1280, 800)
+    })
+    await page.getByTestId('empty-add-oneliner').click()
+    await expect(oneliner(page)).toBeVisible()
+    await page.getByTestId('oneliner-story').fill('一隻貓在下雨的夜晚找到溫暖的家')
+    await page.getByTestId('oneliner-story').blur()
+    await page.getByTestId('oneliner-storyboard').click()
+    await page.getByTestId('run-confirm-ok').click()
+    await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false', {
+      timeout: 60_000,
+    })
+    await expect.poll(() => kindCount(page, 'shot')).toBe(4)
+    // 補到 27 個鏡頭（都放進第一個場）
+    await page.evaluate(async () => {
+      const list = await window.svs.invoke('shots.list', {})
+      if (!list.ok) throw new Error(list.error.userMessage)
+      const sceneId = list.data.shots[0]?.sceneId
+      for (let i = list.data.shots.length; i < 27; i++) {
+        const made = await window.svs.invoke('shots.create', { sceneId })
+        if (!made.ok) throw new Error(made.error.userMessage)
+      }
+    })
+    await expect.poll(() => kindCount(page, 'shot')).toBe(27)
+
+    await expect(page.getByTestId('toast')).toHaveCount(0, { timeout: 15_000 })
+    await page.getByTestId('run-all').click()
+    const confirm = page.getByTestId('run-confirm')
+    await expect(confirm).toContainText('這次會做 55 步')
+    // 整個框、價錢、「用什麼」、確認鈕都在視窗內；清單捲動，而且有提示
+    await expect(confirm).toBeInViewport({ ratio: 1 })
+    await expect(confirm.getByTestId('run-confirm-pinned')).toBeInViewport({ ratio: 1 })
+    await expect(confirm.getByTestId('run-confirm-ok')).toBeInViewport({ ratio: 1 })
+    await expect(confirm.getByText(/預估約 US\$/)).toBeInViewport({ ratio: 1 })
+    await expect(confirm.getByTestId('run-confirm-more')).toBeVisible()
+    await page.screenshot({ path: testInfo.outputPath('confirm-27-shots.png') })
+    const scrollable = await confirm
+      .getByTestId('run-confirm-steps')
+      .locator('ul')
+      .evaluate((el) => el.scrollHeight > el.clientHeight)
+    expect(scrollable).toBe(true)
+    // 捲到底：提示消失
+    await confirm
+      .getByTestId('run-confirm-steps')
+      .locator('ul')
+      .evaluate((el) => {
+        el.scrollTop = el.scrollHeight
+      })
+    await expect(confirm.getByTestId('run-confirm-more')).toHaveCount(0)
   })
 
   test('主按鈕「先產生分鏡」：白話說兩步各多少錢 → 只長出場與鏡頭，沒有圖片、影片和成品', async ({
