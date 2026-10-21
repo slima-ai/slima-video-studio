@@ -6,6 +6,7 @@ import {
 } from '@svs/schema'
 
 import type { HandlerContext, IpcRegistry } from '../ipc/registry'
+import { NEW_SHOT_DESCRIPTION } from '../shots/defaults'
 import type { McpCaller } from './bridge'
 
 /** 一個節點的指紋：內容變了才會不一樣（位置、自動排版、步驟展開不算）。 */
@@ -13,6 +14,10 @@ interface NodeMark {
   fingerprint: string
   title: string
   kind: CanvasNode['kind']
+  /** 內容摘要（鏡頭的描述等），刪掉時提示用。 */
+  summary?: string
+  /** 這一格還是空的（沒寫內容、沒生成東西）。 */
+  empty: boolean
 }
 
 export type CanvasMarks = ReadonlyMap<string, NodeMark>
@@ -44,6 +49,29 @@ const IGNORED_FIELDS: ReadonlySet<string> = new Set([
  */
 export const withoutNumbers = (title: string): string => title.replace(/第 \d+ (鏡|場)/g, '第 # $1')
 
+/**
+ * 這一格是空的嗎（還沒寫內容、沒生成東西）：刪掉空的格子，提示只說「幾個空的」，不用列名字。
+ * 只有鏡頭、場、角色、地點、便條有「空」的說法，其他種類一律當有內容。
+ */
+function isEmpty(node: CanvasNode, nodes: readonly CanvasNode[]): boolean {
+  const blank = (text: string | undefined): boolean => (text ?? '').trim() === ''
+  if (node.kind === 'shot') {
+    return (
+      (blank(node.summary) || node.summary === NEW_SHOT_DESCRIPTION) &&
+      blank(node.dialogue) &&
+      (node.tags ?? []).length === 0 &&
+      !nodes.some((n) => n.shotKey === node.key && n.assetHash !== undefined)
+    )
+  }
+  if (node.kind === 'scene')
+    return blank(node.summary) && !nodes.some((n) => n.sceneKey === node.key)
+  if (node.kind === 'character' || node.kind === 'location') {
+    return blank(node.summary) && node.assetHash === undefined
+  }
+  if (node.kind === 'note') return blank(node.summary)
+  return false
+}
+
 export function marksOf(graph: Pick<CanvasGraph, 'nodes'>): CanvasMarks {
   const marks = new Map<string, NodeMark>()
   for (const node of graph.nodes) {
@@ -54,6 +82,8 @@ export function marksOf(graph: Pick<CanvasGraph, 'nodes'>): CanvasMarks {
       fingerprint: JSON.stringify(content),
       title: node.title,
       kind: node.kind,
+      ...(node.summary ? { summary: node.summary } : {}),
+      empty: isEmpty(node, graph.nodes),
     })
   }
   return marks
@@ -71,7 +101,15 @@ export function diffMarks(before: CanvasMarks, after: CanvasMarks): AiChanges {
     else if (old.fingerprint !== mark.fingerprint) changed.push(key)
   }
   for (const [key, mark] of before) {
-    if (!after.has(key)) removed.push({ key, title: mark.title, kind: mark.kind })
+    if (!after.has(key)) {
+      removed.push({
+        key,
+        title: mark.title,
+        kind: mark.kind,
+        ...(mark.summary ? { summary: mark.summary } : {}),
+        empty: mark.empty,
+      })
+    }
   }
   return { changed, added, removed }
 }

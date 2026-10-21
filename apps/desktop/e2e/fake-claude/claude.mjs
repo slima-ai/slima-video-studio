@@ -106,6 +106,7 @@ async function useTool(name, input) {
       ],
     },
   })
+  return result
 }
 const say = (text) => {
   for (const piece of text.match(/[\s\S]{1,4}/gu) ?? []) {
@@ -178,6 +179,23 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
       terminal_reason: 'aborted_streaming',
       session_id: sessionId,
     })
+    return
+  }
+  if (text.includes('清掉鏡頭')) {
+    // 建三個空鏡頭，再一個一個刪掉（三次工具呼叫）：測「AI 刪了…」提示在對話那一輪合成一則
+    await useTool('create_project', { name: 'Claude 建的短片' })
+    const ids = []
+    for (let i = 0; i < 3; i++) {
+      const created = await useTool('create_shot', {})
+      const id = /"id":\s*"([^"]+)"/.exec(
+        JSON.stringify(created.content).replaceAll('\\"', '"'),
+      )?.[1]
+      if (id) ids.push(id)
+    }
+    for (const id of ids) await useTool('delete_shots', { shotIds: [id] })
+    const reply = '建了三個鏡頭，又全部清掉了。'
+    say(reply)
+    finish(reply)
     return
   }
   if (text.includes('壞掉')) process.exit(1)
