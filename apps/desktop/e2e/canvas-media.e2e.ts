@@ -61,6 +61,9 @@ test.describe('畫布：放上圖片或影片', () => {
   }) => {
     await generateAndOpenCanvas(page)
     await viewportSettled(page)
+    // 長完之後畫面停在卡上的字讀得到的縮放（整串放不進畫面）；這條要在右下角有一塊空地放東西，所以先全部顯示
+    await page.getByRole('button', { name: '全部顯示' }).click()
+    await viewportSettled(page)
     await clickEmpty(page)
     const pane = await page.locator('.react-flow__pane').boundingBox()
     if (!pane) throw new Error('沒有畫布')
