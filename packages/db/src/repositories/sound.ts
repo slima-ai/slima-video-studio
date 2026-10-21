@@ -210,6 +210,19 @@ export class SoundRepository {
     })
   }
 
+  /**
+   * 這一類聲音的全部版本一起刪（旁白給 shotId 只刪那一鏡的、不給就是所有鏡頭的；配樂整支只有一組）。
+   * 回傳刪了幾個版本。
+   */
+  removeAll(input: { kind: 'narration' | 'music'; shotId?: string }): number {
+    const where = and(
+      eq(soundClips.projectId, this.projectId),
+      eq(soundClips.kind, input.kind),
+      input.shotId === undefined ? undefined : eq(soundClips.shotId, input.shotId),
+    )
+    return this.db.delete(soundClips).where(where).run().changes
+  }
+
   getSettings(): SoundSettings {
     const row = this.db
       .select()

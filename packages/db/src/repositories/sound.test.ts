@@ -90,6 +90,28 @@ describe('SoundRepository：片段與版本', () => {
     }).not.toThrow()
   })
 
+  it('removeAll：這一類的全部版本一起刪；旁白給 shotId 只刪那一鏡、不給就是全部鏡頭；配樂與別類不受影響', () => {
+    const { repos } = newProject()
+    const a = repos.shots.create({ description: 'A' })
+    const b = repos.shots.create({ description: 'B' })
+    repos.sound.addClip(narration(a.id))
+    repos.sound.addClip(narration(a.id, HASH('b')))
+    repos.sound.addClip(narration(b.id))
+    repos.sound.addClip({ kind: 'music', assetHash: HASH('m'), modelId: 'x/lyria' })
+
+    expect(repos.sound.removeAll({ kind: 'narration', shotId: a.id })).toBe(2)
+    expect(repos.sound.listClips().map((c) => [c.kind, c.shotId])).toEqual([
+      ['music', undefined],
+      ['narration', b.id],
+    ])
+    expect(repos.sound.removeAll({ kind: 'music' })).toBe(1)
+    expect(repos.sound.removeAll({ kind: 'music' })).toBe(0)
+    expect(repos.sound.removeAll({ kind: 'narration' })).toBe(1)
+    expect(repos.sound.listClips()).toEqual([])
+    // 鏡頭與它的台詞都還在
+    expect(repos.shots.list()).toHaveLength(2)
+  })
+
   it('刪掉鏡頭，它的旁白一起刪掉；專案重新開啟後資料還在', () => {
     const handle = newProject()
     const { repos } = handle

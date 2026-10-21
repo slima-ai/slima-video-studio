@@ -361,6 +361,44 @@ describe('StructureHistory：聲音', () => {
       adopted: true,
     })
   })
+
+  it('刪除旁白與配樂（含舊版本）：復原整個找回來（採用中的還是原本那個），重做再刪掉；台詞全程不動', () => {
+    const { repos, history } = setup()
+    const shot = repos.shots.create({ description: 'A', dialogue: '黑藤爬滿了斷橋。' })
+    const first = repos.sound.addClip({
+      kind: 'narration',
+      shotId: shot.id,
+      assetHash: HASH('a'),
+      modelId: 'mock/tts',
+      text: '黑藤爬滿了斷橋。',
+    })
+    const second = repos.sound.addClip({
+      kind: 'narration',
+      shotId: shot.id,
+      assetHash: HASH('b'),
+      modelId: 'mock/tts',
+      text: '黑藤爬滿了斷橋。',
+    })
+    repos.sound.addClip({ kind: 'music', assetHash: HASH('m'), modelId: 'mock/music' })
+    history.clear()
+
+    history.record('刪除旁白', () => repos.sound.removeAll({ kind: 'narration' }))
+    history.record('刪除配樂', () => repos.sound.removeAll({ kind: 'music' }))
+    expect(repos.sound.listClips()).toHaveLength(0)
+    expect(repos.shots.get(shot.id)?.dialogue).toBe('黑藤爬滿了斷橋。')
+
+    expect(history.undo()?.label).toBe('刪除配樂')
+    expect(history.undo()?.label).toBe('刪除旁白')
+    const back = repos.sound.listClips()
+    expect(back.map((c) => c.kind).sort()).toEqual(['music', 'narration', 'narration'])
+    expect(back.find((c) => c.id === second.id)?.adopted).toBe(true)
+    expect(back.find((c) => c.id === first.id)?.adopted).toBe(false)
+
+    history.redo()
+    history.redo()
+    expect(repos.sound.listClips()).toHaveLength(0)
+    expect(repos.shots.get(shot.id)?.dialogue).toBe('黑藤爬滿了斷橋。')
+  })
 })
 
 describe('StructureHistory：group（Claude 一輪的改動併成一步）', () => {

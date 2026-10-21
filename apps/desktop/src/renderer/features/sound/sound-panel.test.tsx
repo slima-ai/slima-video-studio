@@ -2,7 +2,9 @@ import type { SoundState } from '@svs/schema'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { installFakeSvs } from '../../test/fake-svs'
+import { ToastProvider } from '../../components/toast'
+import { HistoryProvider } from '../../lib/history'
+import { appError, installFakeSvs } from '../../test/fake-svs'
 import { SoundPanel } from './sound-panel'
 
 afterEach(() => {
@@ -205,16 +207,126 @@ describe('SoundPanel：調音量', () => {
     expect(screen.getByTestId('sound-summary').textContent).toContain('2 個鏡頭有旁白')
   })
 
-  it('沒有任何鏡頭有旁白時：不顯示旁白音量那一排，改成一句說明', async () => {
+  it('有台詞、沒有旁白（例如旁白被刪掉了）：說「N 個鏡頭有台詞，還沒有旁白」並告訴怎麼再念，不說「鏡頭沒有台詞」', async () => {
     installFakeSvs({
       'sound.get': () =>
         state({ music: clip('music'), final: { version: 2, hasSound: true, soundStale: false } }),
     })
     render(<SoundPanel />)
+    const note = await screen.findByTestId('sound-narration-missing')
+    expect(note.textContent).toContain('2 個鏡頭有台詞，還沒有旁白')
+    expect(note.textContent).toContain('念出這句台詞')
+    expect(screen.queryByTestId('sound-no-narration')).toBeNull()
+    expect(screen.queryByText(/鏡頭沒有台詞/)).toBeNull()
+    expect(screen.queryByTestId('sound-narration-mid')).toBeNull()
+  })
+
+  it('一句台詞都沒有、所以沒有旁白時：不顯示旁白音量那一排，改成一句說明（說「鏡頭沒有台詞」）', async () => {
+    installFakeSvs({
+      'sound.get': () =>
+        state({
+          shots: [
+            { ...shot(1, false), dialogue: '' },
+            { ...shot(2, false), dialogue: '  ' },
+          ],
+          music: clip('music'),
+          final: { version: 2, hasSound: true, soundStale: false },
+        }),
+    })
+    render(<SoundPanel />)
     expect((await screen.findByTestId('sound-no-narration')).textContent).toContain(
       '鏡頭沒有台詞，所以沒有旁白',
     )
+    expect(screen.queryByTestId('sound-narration-missing')).toBeNull()
     expect(screen.queryByTestId('sound-narration-mid')).toBeNull()
     expect(screen.getByTestId('sound-music-mid')).toBeTruthy()
+  })
+})
+
+describe('SoundPanel：刪除旁白與配樂', () => {
+  const withSound = (): SoundState =>
+    state({
+      shots: [shot(1, true), shot(2, true)],
+      music: clip('music'),
+      final: { version: 2, hasSound: true, soundStale: false },
+    })
+  const renderPanel = () =>
+    render(
+      <ToastProvider>
+        <HistoryProvider enabled>
+          <SoundPanel />
+        </HistoryProvider>
+      </ToastProvider>,
+    )
+
+  it('刪除旁白：不跳確認框，直接刪全部鏡頭的旁白，提示說台詞還在並附「復原」；之後自動重混', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const removes: unknown[] = []
+    const mix = vi.fn(() => ({ videoHash: 'h', version: 3 }))
+    const undo = vi.fn(() => ({
+      applied: true,
+      label: '刪除旁白',
+      state: { canUndo: false, canRedo: true },
+    }))
+    installFakeSvs({
+      'sound.get': () => withSound(),
+      'sound.remove': (p: unknown) => {
+        removes.push(p)
+        return { removed: 2 }
+      },
+      'sound.mix': mix,
+      'history.undo': undo,
+    })
+    renderPanel()
+    fireEvent.click(await screen.findByTestId('sound-narration-delete'))
+    await waitFor(() => {
+      expect(removes).toEqual([{ kind: 'narration' }])
+    })
+    const toast = await screen.findByText(/已刪除 2 句旁白，台詞還在，可以再念/)
+    expect(toast).toBeTruthy()
+    await vi.advanceTimersByTimeAsync(700)
+    await waitFor(() => {
+      expect(mix).toHaveBeenCalledTimes(1)
+    })
+    fireEvent.click(screen.getByRole('button', { name: '復原' }))
+    await waitFor(() => {
+      expect(undo).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('刪除配樂：只刪配樂（旁白不動）；沒有配樂時沒有這顆鈕', async () => {
+    const removes: unknown[] = []
+    installFakeSvs({
+      'sound.get': () => withSound(),
+      'sound.remove': (p: unknown) => {
+        removes.push(p)
+        return { removed: 1 }
+      },
+      'sound.mix': () => ({ videoHash: 'h', version: 3 }),
+    })
+    renderPanel()
+    fireEvent.click(await screen.findByTestId('sound-music-delete'))
+    await waitFor(() => {
+      expect(removes).toEqual([{ kind: 'music' }])
+    })
+    expect(await screen.findByText('已刪除配樂。')).toBeTruthy()
+    cleanup()
+    installFakeSvs({ 'sound.get': () => ({ ...withSound(), music: undefined }) })
+    renderPanel()
+    await screen.findByTestId('sound-narration-delete')
+    expect(screen.queryByTestId('sound-music-delete')).toBeNull()
+  })
+
+  it('刪除失敗：顯示白話錯誤，不跳「已刪除」', async () => {
+    installFakeSvs({
+      'sound.get': () => withSound(),
+      'sound.remove': () => {
+        throw appError('現在沒辦法刪除聲音。')
+      },
+    })
+    renderPanel()
+    fireEvent.click(await screen.findByTestId('sound-music-delete'))
+    expect((await screen.findByTestId('sound-error')).textContent).toContain('沒辦法刪除聲音')
+    expect(screen.queryByText('已刪除配樂。')).toBeNull()
   })
 })

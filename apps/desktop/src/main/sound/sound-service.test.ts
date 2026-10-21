@@ -309,6 +309,38 @@ describe('SoundService：混音與成品（示範模式）', () => {
     expect(h.shots.finalCut()?.stale).toBe(false)
   })
 
+  it('removeSound：旁白全部或單一鏡、配樂各自刪（全部版本），台詞不動；刪完再混，成品回到接片的結果', async () => {
+    const h = setup()
+    const [first, second] = await withShots(h)
+    if (!first || !second) throw new Error('應該有兩個鏡頭')
+    h.shots.update(first, { dialogue: '第一句。' })
+    h.shots.update(second, { dialogue: '第二句。' })
+    await h.sound.generateNarration({ shotId: first })
+    await h.sound.generateNarration({ shotId: first }) // 第二個版本
+    await h.sound.generateNarration({ shotId: second })
+    await h.sound.generateMusic({})
+    await h.shots.rejoin()
+    expect(h.sound.state().shots.filter((s) => s.narration)).toHaveLength(2)
+
+    expect(h.sound.removeSound({ kind: 'narration', shotId: first })).toBe(2)
+    const afterOne = h.sound.state()
+    expect(afterOne.shots.find((s) => s.shotId === first)?.narration).toBeUndefined()
+    expect(afterOne.shots.find((s) => s.shotId === second)?.narration).toBeDefined()
+    expect(afterOne.music).toBeDefined()
+    expect(afterOne.final?.soundStale).toBe(true)
+
+    expect(h.sound.removeSound({ kind: 'music' })).toBe(1)
+    expect(h.sound.removeSound({ kind: 'narration' })).toBe(1)
+    expect(h.sound.state().music).toBeUndefined()
+    // 台詞還在
+    expect(h.shots.list().shots.find((s) => s.id === first)?.dialogue).toBe('第一句。')
+    expect(h.shots.list().shots.find((s) => s.id === second)?.dialogue).toBe('第二句。')
+
+    await h.sound.mix()
+    expect(finalOf(h).soundKey).toBeUndefined()
+    expect(h.sound.state().final?.soundStale).toBe(false)
+  })
+
   it('靜音某一鏡的原聲也能混（只設定、沒有其他聲音）', async () => {
     const h = setup()
     const [first] = await withShots(h)

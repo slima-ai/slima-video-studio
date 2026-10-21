@@ -6,6 +6,7 @@ import { call, errorText } from '../../lib/svs'
 import { LEVEL_LABELS, MUSIC_DB, NARRATION_DB, NATIVE_DB, levelOf, type Level } from './levels'
 import { SoundTimeline } from './sound-timeline'
 import { useAutoMix } from './use-auto-mix'
+import { useRemoveSound } from './use-remove-sound'
 import { useSound } from './use-sound'
 
 type Choice = Level | 'off'
@@ -17,12 +18,15 @@ function LevelPicker({
   value,
   withOff = false,
   onPick,
+  onDelete,
 }: {
   testId: string
   label: string
   value: Choice
   withOff?: boolean
   onPick: (choice: Choice) => void
+  /** 有的話，這一排最後多一顆刪除鈕（旁白、配樂）。 */
+  onDelete?: { label: string; tip: string; onClick: () => void }
 }) {
   const choices: Choice[] = [...(withOff ? (['off'] as const) : []), 'low', 'mid', 'high']
   return (
@@ -44,6 +48,17 @@ function LevelPicker({
           </Button>
         ))}
       </div>
+      {onDelete ? (
+        <Button
+          size="sm"
+          data-testid={`${testId}-delete`}
+          title={onDelete.tip}
+          aria-label={onDelete.label}
+          onClick={onDelete.onClick}
+        >
+          刪除
+        </Button>
+      ) : null}
     </div>
   )
 }
@@ -81,6 +96,12 @@ export function SoundPanel() {
   } = useAutoMix({
     enabled: state?.final !== undefined,
     onDone: reload,
+  })
+
+  const removeSound = useRemoveSound({
+    reload,
+    scheduleMix,
+    onError: setActionError,
   })
 
   if (!state) {
@@ -150,6 +171,7 @@ export function SoundPanel() {
   const hasClips = state.music !== undefined || state.shots.some((s) => s.narration !== undefined)
   const noModels = state.models.tts === undefined && state.models.music === undefined
   const narrationCount = state.shots.filter((s) => s.narration).length
+  const dialogueShots = state.shots.filter((s) => s.dialogue.trim() !== '').length
 
   const nativeAllMuted =
     state.shots.length > 0 &&
@@ -240,7 +262,24 @@ export function SoundPanel() {
             onPick={(choice) => {
               if (choice !== 'off') change({ narrationGainDb: NARRATION_DB[choice] })
             }}
+            onDelete={{
+              label: '刪除旁白',
+              tip: '刪掉全部鏡頭的旁白（鏡頭的台詞還在，可以再念）。可以復原',
+              onClick: () => {
+                setActionError(undefined)
+                removeSound(
+                  { kind: 'narration' },
+                  `已刪除 ${String(narrationCount)} 句旁白，台詞還在，可以再念。`,
+                )
+              },
+            }}
           />
+        ) : dialogueShots > 0 ? (
+          // 有台詞、沒有旁白（例如旁白被刪掉了）：台詞還在，可以再念
+          <p className="text-sm text-fg-muted" data-testid="sound-narration-missing">
+            {String(dialogueShots)}{' '}
+            個鏡頭有台詞，還沒有旁白。到鏡頭裡按「念出這句台詞」（會先給預估），就會念出來。
+          </p>
         ) : (
           <p className="text-sm text-fg-muted" data-testid="sound-no-narration">
             鏡頭沒有台詞，所以沒有旁白。到鏡頭裡寫台詞，就會念出來。
@@ -253,6 +292,18 @@ export function SoundPanel() {
           onPick={(choice) => {
             if (choice !== 'off') change({ musicGainDb: MUSIC_DB[choice] })
           }}
+          {...(state.music
+            ? {
+                onDelete: {
+                  label: '刪除配樂',
+                  tip: '刪掉這首配樂（旁白不受影響）。可以復原',
+                  onClick: () => {
+                    setActionError(undefined)
+                    removeSound({ kind: 'music' }, '已刪除配樂。')
+                  },
+                },
+              }
+            : {})}
         />
         <SoundTimeline state={state} />
         <p className="text-xs text-fg-muted" data-testid="sound-summary">

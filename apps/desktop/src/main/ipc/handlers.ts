@@ -474,10 +474,23 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('sound.adoptClip', ({ clipId }) => ({
     clip: needSound().adoptClip(clipId),
   }))
+  // 畫面與 AI 工具（MCP）刪聲音都記進復原歷史：Claude 一輪的改動能用 ⌘Z 一起退回，聲音也一樣
   registry.registerHandler('sound.removeClip', ({ clipId }) => {
-    needSound().removeClip(clipId)
+    const sound = needSound()
+    const kind = sound.kindOf(clipId)
+    history.record(
+      kind === 'music' ? '刪除配樂' : kind === 'narration' ? '刪除旁白' : '刪除聲音',
+      () => {
+        sound.removeClip(clipId)
+      },
+    )
     return {}
   })
+  registry.registerHandler('sound.remove', ({ kind, shotId }) => ({
+    removed: history.record(kind === 'music' ? '刪除配樂' : '刪除旁白', () =>
+      needSound().removeSound({ kind, shotId }),
+    ),
+  }))
   registry.registerHandler('sound.mix', () => needSound().mix())
   registry.registerHandler('sound.analyze', () => needSound().analyze())
   registry.registerHandler('sound.updateSettings', (patch) => needSound().updateSettings(patch))
