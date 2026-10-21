@@ -283,7 +283,7 @@ test.describe('畫布：AI 剛改過', () => {
 test.describe('畫布：背景生成做完，誰叫的就標誰', () => {
   test.use({ appEnv: { SVS_MOCK_LATENCY_MS: '1500' } })
 
-  test('AI 叫的首幀圖：中途使用者看過（標記收掉），做完又標上「AI 剛改」；使用者自己按 ▶ 的生成做完不標', async ({
+  test('AI 改描述、叫首幀圖：生成中不標，做完只標有新結果的圖那一格；還沒生成的影片那一格不標；使用者自己按 ▶ 的不標', async ({
     page,
     userDataDir,
   }, testInfo) => {
@@ -298,25 +298,33 @@ test.describe('畫布：背景生成做完，誰叫的就標誰', () => {
       }),
     )
     const image = `shot:${shotId}:image`
+    const video = `shot:${shotId}:video`
     await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === image)).toBe(true)
     await centerOn(page, image)
     await viewportSettled(page)
 
-    // AI 叫它生首幀圖：背景在做，格子顯示進行中
+    // AI 改鏡頭描述：鏡頭那一格是 AI 直接改的，照標
+    await ai.callTool({
+      name: 'update_shot',
+      arguments: { shotId, description: '小機器人坐在生鏽的旋轉木馬旁' },
+    })
+    await expect(page.getByTestId(`ai-badge-shot:${shotId}`)).toBeVisible()
+    // AI 叫它生首幀圖：背景在做，圖那一格顯示進行中、影片那一格排隊等它
     await ai.callTool({ name: 'generate_first_frames', arguments: {} })
     const card = page.getByTestId(`node-${image}`)
     await expect(card.getByTestId('node-working')).toBeVisible()
-    // 使用者看過了（選取一下再放開）：標記收掉
-    await card.click({ position: { x: 100, y: 16 } })
-    await page.keyboard.press('Escape')
+    // 只是狀態跟著變（進行中、排隊中）的格子不標：圖還沒有結果，影片是因為上游在生成才變狀態
     await expect(page.getByTestId(`ai-badge-${image}`)).toHaveCount(0)
+    await expect(page.getByTestId(`ai-badge-${video}`)).toHaveCount(0)
     await page.screenshot({ path: testInfo.outputPath('ai-generating.png') })
 
-    // 做完：這是 AI 叫的，又標上「AI 剛改」、亮一下
+    // 做完：圖那一格有新結果，標「AI 剛改」、亮一下；影片那一格還是「還沒生成」，不標
     await expect(card.getByTestId('node-working')).toHaveCount(0, { timeout: 30_000 })
     const badge = page.getByTestId(`ai-badge-${image}`)
     await expect(badge).toBeVisible()
     await expect(badge).toContainText('AI 剛改')
+    await expect(page.getByTestId(`node-${video}`)).toContainText('還沒生成')
+    await expect(page.getByTestId(`ai-badge-${video}`)).toHaveCount(0)
     await page.screenshot({ path: testInfo.outputPath('ai-generated-marked.png') })
 
     // 使用者看過、再自己按 ▶ 重新生成：做完不標
@@ -328,7 +336,7 @@ test.describe('畫布：背景生成做完，誰叫的就標誰', () => {
     await expect(card.getByTestId('node-working')).toBeVisible()
     await expect(card.getByTestId('node-working')).toHaveCount(0, { timeout: 30_000 })
     await page.waitForTimeout(800)
-    // 使用者自己叫的生成，圖那一格做完不標（鏡頭與影片那兩格是 AI 先前動過的，沒人看過，還標著）
+    // 使用者自己叫的生成，圖那一格做完不標
     await expect(page.getByTestId(`ai-badge-${image}`)).toHaveCount(0)
     await ai.close()
   })
