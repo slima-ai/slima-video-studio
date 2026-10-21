@@ -70,7 +70,13 @@ export interface ChatServiceDeps {
 }
 
 export interface ChatService {
-  status: () => Promise<ChatPrereq>
+  /**
+   * 現在能不能開始。`fresh` 預設 true（重新檢查：重新問一次 claude）；
+   * 傳 false 時，剛檢查過（預熱或上一次，`STATUS_CACHE_MS` 內）就直接用那個結果，第一次打開面板不用等。
+   */
+  status: (options?: { fresh?: boolean }) => Promise<ChatPrereq>
+  /** App 開起來之後在背景先檢查一次（只在功能和 AI 工具連線都開著時），讓第一次打開面板直接看到結果。 */
+  warmUp: () => void
   list: () => { conversations: ChatConversation[] }
   create: () => ChatConversation
   rename: (conversationId: string, title: string) => ChatConversation
@@ -85,6 +91,8 @@ export interface ChatService {
 export const DEFAULT_CHAT_TITLE = '新對話'
 const TITLE_FROM_TEXT_MAX = 20
 const CHECK_TTL_MS = 60_000
+/** 打開面板時，預熱或上一次的檢查結果多久內還算數（送話前另外有 CHECK_TTL_MS 的檢查，登出、移除會在那裡被擋下來）。 */
+const STATUS_CACHE_MS = 10 * 60_000
 /** 閒置多久關掉行程：十個對話就是十個常駐的 claude，沒在用的不該一直佔著。 */
 /** 一輪的復原名稱（復原按鈕旁、「已復原：…」的提示會用）。 */
 export const CHAT_UNDO_LABEL = AI_TURN_UNDO_LABEL
@@ -147,14 +155,30 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
   const idleMs = deps.idleMs ?? DEFAULT_IDLE_MS
   const conversations = new Map<string, Conversation>()
   let cached: { at: number; value: ClaudeCheck } | undefined
+  /** 正在跑的檢查：預熱還沒跑完時使用者就打開面板，接著等同一個，不再多開一個 claude。 */
+  let inflight: Promise<ClaudeCheck> | undefined
 
   const enabled = (): boolean => deps.settings.get().experiments.claudeChat ?? !deps.packaged
 
-  const runCheck = async (fresh: boolean): Promise<ClaudeCheck> => {
-    if (!fresh && cached && Date.now() - cached.at < CHECK_TTL_MS) return cached.value
-    const value = await deps.check()
-    cached = { at: Date.now(), value }
-    return value
+  const startCheck = (): Promise<ClaudeCheck> => {
+    const run = deps
+      .check()
+      .then((value) => {
+        cached = { at: Date.now(), value }
+        return value
+      })
+      .finally(() => {
+        if (inflight === run) inflight = undefined
+      })
+    inflight = run
+    return run
+  }
+
+  /** `fresh`：一定重新問；否則 `maxAgeMs` 內的結果直接用，沒有就接著等正在跑的、再沒有才開始一個。 */
+  const runCheck = (fresh: boolean, maxAgeMs = CHECK_TTL_MS): Promise<ClaudeCheck> => {
+    if (fresh) return startCheck()
+    if (cached && Date.now() - cached.at < maxAgeMs) return Promise.resolve(cached.value)
+    return inflight ?? startCheck()
   }
 
   const prereqOf = (check: ClaudeCheck): ChatPrereq => {
@@ -543,10 +567,20 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
   })
 
   return {
-    async status() {
+    async status(options) {
       if (!enabled()) return { state: 'disabled' }
-      if (!deps.settings.get().mcp.enabled) return { state: 'mcp_off' }
-      return prereqOf(await runCheck(true))
+      if (!deps.settings.get().mcp.enabled) {
+        // 說明卡顯示的這段時間，順便在背景查好 Claude Code：他按「打開 AI 工具連線」之後就不用再等
+        runCheck(false, STATUS_CACHE_MS).catch(() => undefined)
+        return { state: 'mcp_off' }
+      }
+      const fresh = options?.fresh !== false
+      return prereqOf(await runCheck(fresh, STATUS_CACHE_MS))
+    },
+
+    warmUp() {
+      if (!enabled() || !deps.settings.get().mcp.enabled) return
+      runCheck(false, STATUS_CACHE_MS).catch(() => undefined)
     },
 
     list() {

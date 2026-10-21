@@ -95,6 +95,8 @@ function setup(
     claudeChat?: boolean
     mcpEnabled?: boolean
     check?: ClaudeCheck
+    /** 檢查要等這個放行才回來（模擬 claude 啟動很慢）。 */
+    checkGate?: Promise<void>
     interruptGraceMs?: number
     claudeBudgetUsd?: number
     idleMs?: number
@@ -129,6 +131,8 @@ function setup(
   }
   const historyLog: string[] = []
   const userOps: UserHistoryOp[] = [...(options.userOps ?? [])]
+  const checkCalls = { n: 0 }
+  const mcp = { enabled: options.mcpEnabled ?? true }
   const deps: ChatServiceDeps = {
     settings: {
       get: () => ({
@@ -138,7 +142,7 @@ function setup(
             ? {}
             : { claudeBudgetUsd: options.claudeBudgetUsd }),
         },
-        mcp: { enabled: options.mcpEnabled ?? true, port: 47821, allowanceUsd: 0 },
+        mcp: { enabled: mcp.enabled, port: 47821, allowanceUsd: 0 },
       }),
     },
     packaged: options.packaged ?? false,
@@ -176,8 +180,11 @@ function setup(
             },
           },
         }),
-    check: () =>
-      Promise.resolve(options.check ?? { state: 'ready', path: '/bin/claude', version: '2.1.304' }),
+    check: async () => {
+      checkCalls.n++
+      await options.checkGate
+      return options.check ?? { state: 'ready', path: '/bin/claude', version: '2.1.304' }
+    },
     spawn,
     broadcast: (_name, payload) => {
       events.push(payload)
@@ -215,7 +222,19 @@ function setup(
           }
         ).message
       : undefined
-  return { service, children, calls, events, deps, last, project, historyLog, userOps }
+  return {
+    service,
+    children,
+    calls,
+    events,
+    deps,
+    last,
+    project,
+    historyLog,
+    userOps,
+    checkCalls,
+    mcp,
+  }
 }
 
 describe('ChatService：開對話、送一則、一路串流', () => {
@@ -766,6 +785,82 @@ describe('ChatService.status：能不能開始', () => {
         check: { state: 'not_logged_in', path: '/c', version: '2.1.304' },
       }).service.status(),
     ).toEqual({ state: 'not_logged_in', version: '2.1.304' })
+  })
+})
+
+describe('ChatService.status：預熱與快取（第一次打開面板不用等）', () => {
+  it('預熱過：第一次打開（fresh:false）直接用那個結果，不再啟動 claude 檢查；重新檢查（預設）才重問', async () => {
+    const { service, checkCalls } = setup()
+    service.warmUp()
+    // 預熱一呼叫就開始檢查（不等使用者打開面板）
+    expect(checkCalls.n).toBe(1)
+    await service.status({ fresh: false })
+    expect(await service.status({ fresh: false })).toMatchObject({ state: 'ready' })
+    expect(checkCalls.n).toBe(1)
+    expect(await service.status()).toMatchObject({ state: 'ready' })
+    expect(checkCalls.n).toBe(2)
+  })
+
+  it('預熱還沒跑完就打開面板：接著等同一個檢查，不多開一個', async () => {
+    let release: () => void = () => undefined
+    const checkGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const { service, checkCalls } = setup({ checkGate })
+    service.warmUp()
+    expect(checkCalls.n).toBe(1)
+    const opened = service.status({ fresh: false })
+    release()
+    expect(await opened).toMatchObject({ state: 'ready' })
+    expect(checkCalls.n).toBe(1)
+  })
+
+  it('沒預熱過：第一次打開照樣會檢查一次；超過十分鐘的結果不算，會重問', async () => {
+    vi.useFakeTimers()
+    try {
+      const { service, checkCalls } = setup()
+      await service.status({ fresh: false })
+      expect(checkCalls.n).toBe(1)
+      vi.advanceTimersByTime(9 * 60_000)
+      await service.status({ fresh: false })
+      expect(checkCalls.n).toBe(1)
+      vi.advanceTimersByTime(2 * 60_000)
+      await service.status({ fresh: false })
+      expect(checkCalls.n).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('功能沒開、AI 工具連線沒開時不預熱（不白啟動 claude）', async () => {
+    const off = setup({ packaged: true })
+    off.service.warmUp()
+    const mcpOff = setup({ mcpEnabled: false })
+    mcpOff.service.warmUp()
+    await Promise.resolve()
+    expect(off.checkCalls.n).toBe(0)
+    expect(mcpOff.checkCalls.n).toBe(0)
+  })
+
+  it('預熱的結果是「沒登入」就如實回報（不會被當成可以用）', async () => {
+    const { service } = setup({ check: { state: 'not_logged_in', path: '/c', version: '2.1.304' } })
+    service.warmUp()
+    expect(await service.status({ fresh: false })).toEqual({
+      state: 'not_logged_in',
+      version: '2.1.304',
+    })
+  })
+})
+
+describe('ChatService.status：AI 工具連線沒開時先把 Claude Code 查好', () => {
+  it('mcp_off 說明卡顯示時背景查好；他按「打開」後的檢查（fresh:false）直接用，不再等一次 claude', async () => {
+    const setupMcpOff = setup({ mcpEnabled: false })
+    expect(await setupMcpOff.service.status({ fresh: false })).toEqual({ state: 'mcp_off' })
+    expect(setupMcpOff.checkCalls.n).toBe(1)
+    // 打開開關（設定檔改了）之後再問一次：用剛才查好的
+    setupMcpOff.mcp.enabled = true
+    expect(await setupMcpOff.service.status({ fresh: false })).toMatchObject({ state: 'ready' })
+    expect(setupMcpOff.checkCalls.n).toBe(1)
   })
 })
 

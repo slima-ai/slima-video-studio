@@ -1012,7 +1012,8 @@ export const ipcContract = {
    * 現在能不能開始：功能開關、AI 工具連線、有沒有裝 Claude Code、版本、有沒有登入。
    */
   'chat.status': {
-    request: z.object({}),
+    // fresh 預設 true（重新檢查）；第一次打開面板傳 false，用預熱好的結果
+    request: z.object({ fresh: z.boolean().optional() }),
     response: ChatPrereqSchema,
   },
   'chat.list': {

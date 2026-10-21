@@ -15,7 +15,8 @@ export function PrereqCard({
   onRecheck,
 }: {
   prereq: Exclude<ChatPrereq, { state: 'ready' }>
-  onRecheck: () => void
+  /** `fresh:false`：只有 AI 工具連線的開關變了，Claude Code 本身沒變，用已經查好的結果。 */
+  onRecheck: (options?: { fresh?: boolean }) => void
 }) {
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -23,7 +24,9 @@ export function PrereqCard({
     setBusy(true)
     setError(undefined)
     call('settings.update', { mcp: { enabled: true } })
-      .then(onRecheck)
+      .then(() => {
+        onRecheck({ fresh: false })
+      })
       .catch((e: unknown) => {
         setError(errorText(e))
       })
@@ -96,7 +99,13 @@ export function PrereqCard({
         </p>
       ) : null}
       {prereq.state === 'mcp_off' || prereq.state === 'disabled' ? null : (
-        <Button size="sm" onClick={onRecheck} data-testid="chat-recheck">
+        <Button
+          size="sm"
+          onClick={() => {
+            onRecheck()
+          }}
+          data-testid="chat-recheck"
+        >
           {prereq.state === 'not_logged_in' ? '我登入好了' : '重新檢查'}
         </Button>
       )}
