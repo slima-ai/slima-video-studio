@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -177,8 +178,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [check],
   )
 
-  // 專案換了（開另一個、另存為、Claude 建了新專案）：清掉畫面上的對話；面板開著或之前開過，就重讀這個專案的清單
-  useEffect(() => {
+  // 專案換了（開另一個、另存為、Claude 建了新專案）：清掉畫面上的對話；面板開著或之前開過，就重讀這個專案的清單。
+  // 用 useLayoutEffect：畫面一更新就同步換成最新的函式。用 useEffect 的話，畫面剛更新、effect 還沒跑的空檔
+  // 收到「專案換了」，會拿到舊的 prereq（還不是 ready）而跳過重讀，對話停在空的
+  useLayoutEffect(() => {
     resetRef.current = (): void => {
       loaded.current.clear()
       setByConversation({})
