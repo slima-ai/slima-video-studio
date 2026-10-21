@@ -221,12 +221,12 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await expect(page.getByTestId('oneliner-generate')).toHaveText('一次做完整支')
   })
 
-  test('長完之後一眼看到整串：1440×900 的視窗，先產生分鏡，剪輯在畫面內，縮放不低於看得清楚的下限', async ({
+  test('長完之後卡上的字讀得到：1280×800、4 鏡，描述實際顯示約 11px 以上，一句話在畫面內、鏈的開頭靠左，其餘用捲動看', async ({
     app,
     page,
-  }) => {
+  }, testInfo) => {
     await app.evaluate(({ BrowserWindow }) => {
-      BrowserWindow.getAllWindows()[0]?.setContentSize(1440, 900)
+      BrowserWindow.getAllWindows()[0]?.setContentSize(1280, 800)
     })
     // 預設的 4 個鏡頭（第一次用的人不會去改）
     await page.getByTestId('empty-add-oneliner').click()
@@ -240,7 +240,40 @@ test.describe('畫布上的一句話（示範模式）', () => {
     })
     await expect.poll(() => kindCount(page, 'shot')).toBe(4)
     await viewportSettled(page)
-    // 一句話、第一鏡、最後一鏡的影片、剪輯，整串都在畫面內（以前停在 100%，剪輯在右邊外面）
+    await page.screenshot({ path: testInfo.outputPath('after-grow.png') })
+    // 卡上正文（鏡頭描述 12px）實際顯示的字高 = 字級 × 畫布縮放；量實際畫出來的，不只看縮放數字
+    const sizes = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[data-testid="shot-desc"]')].map((el) => {
+        const scale = el.getBoundingClientRect().width / Math.max(1, el.offsetWidth)
+        return Number.parseFloat(getComputedStyle(el).fontSize) * scale
+      }),
+    )
+    expect(sizes.length).toBeGreaterThan(0)
+    for (const size of sizes) expect(size).toBeGreaterThanOrEqual(10.9)
+    expect((await viewportOf(page)).zoom).toBeGreaterThanOrEqual(0.91)
+    // 鏈的開頭（一句話）在畫面內、靠左；後面的用捲動看（剪輯可以在畫面外）
+    await expect(oneliner(page)).toBeInViewport({ ratio: 1 })
+    const box = await oneliner(page).boundingBox()
+    expect(box?.x ?? Infinity).toBeLessThan(400)
+  })
+
+  test('使用者自己按「全部顯示」：照舊整串都放進畫面', async ({ app, page }) => {
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(1440, 900)
+    })
+    await page.getByTestId('empty-add-oneliner').click()
+    await expect(oneliner(page)).toBeVisible()
+    await page.getByTestId('oneliner-story').fill('一隻貓在下雨的夜晚找到溫暖的家')
+    await page.getByTestId('oneliner-story').blur()
+    await page.getByTestId('oneliner-storyboard').click()
+    await page.getByTestId('run-confirm-ok').click()
+    await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false', {
+      timeout: 60_000,
+    })
+    await expect.poll(() => kindCount(page, 'shot')).toBe(4)
+    await viewportSettled(page)
+    await page.getByRole('button', { name: '全部顯示' }).click()
+    await viewportSettled(page)
     const nodes = await canvasNodes(page)
     const lastVideo = nodes.filter((n) => n.data.kind === 'video').at(-1)
     if (!lastVideo) throw new Error('沒有影片格子')
@@ -253,7 +286,7 @@ test.describe('畫布上的一句話（示範模式）', () => {
         ratio: 0.9,
       })
     }
-    // 縮到看不清楚（卡片只剩色塊）就失去意義：不低於 50%
+    // 全部顯示可以縮到比較小，但不低於卡片還有按鈕的下限
     expect((await viewportOf(page)).zoom).toBeGreaterThanOrEqual(0.5)
   })
 
