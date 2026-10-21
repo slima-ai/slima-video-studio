@@ -29,29 +29,31 @@ describe('效能自測的示範專案', { timeout: 60_000 }, () => {
     expect(shots.every((s) => s.sceneId !== undefined && s.characters.length === 1)).toBe(true)
   })
 
-  it('250 鏡：畫布投影（canvas.get）的時間跟鏡頭數大致成正比，沒有變成平方', async () => {
-    // 不比「幾毫秒」：同一份程式在開發機約 40 毫秒、在 GitHub 的共用 runner 上要 200 毫秒以上（慢 4～5 倍，開了
-    // coverage 更慢），絕對門檻一定會看機器臉色。改成同一台機器、同一次測試裡比 25 鏡與 250 鏡：
-    // 鏡頭多 10 倍，時間應該在 10 倍以內（實測約 6 倍，因為有固定成本；門檻 10 倍）；變成平方就會是 100 倍。
-    // 機器忙的時候單次量測會被拖慢好幾倍，所以每種各量 7 次取最快的一次，才反映程式本身要花的時間。
+  it('240 鏡：畫布投影（canvas.get）的時間跟鏡頭數大致成正比，沒有變成平方——鏡頭變 4 倍，時間不到 8 倍', async () => {
+    // 不比「幾毫秒」：同一份程式在開發機約 40 毫秒、在 GitHub 的共用 runner 上要 200 毫秒以上，絕對門檻一定會看機器臉色。
+    // 改成同一台機器、同一次測試裡比 60 鏡與 240 鏡：鏡頭變 4 倍，線性約 4 倍以內（有固定成本，通常 3～4），
+    // 平方約 16 倍，門檻 8 倍在兩者中間。
+    // 機器忙不忙不能讓它紅（用牆鐘時間量，同時跑的別的測試會把單次量測拖慢好幾倍，比值就跟著亂跳），所以：
+    // 量的是這個行程實際用掉的 CPU 時間（被別的行程搶走的不算）；每種各量 7 次取最小的（垃圾回收偶爾多出來的不算）。
     const measure = async (shots: number): Promise<number> => {
       const h = createStudioHarness()
       harnesses.push(h)
       await h.demo.seed(shots)
       h.canvas.get() // 第一次有冷啟動（資料庫快取、JIT），不算
-      const times: number[] = []
+      let best = Infinity
       for (let i = 0; i < 7; i++) {
-        const started = performance.now()
+        const start = process.cpuUsage()
         const graph = h.canvas.get()
-        times.push(performance.now() - started)
+        const used = process.cpuUsage(start)
+        best = Math.min(best, (used.user + used.system) / 1000)
         expect(graph.nodes.filter((n) => n.kind === 'shot')).toHaveLength(shots)
       }
-      return Math.min(...times)
+      return Math.max(best, 0.1)
     }
-    const small = await measure(25)
-    const large = await measure(250)
-    expect(large / small).toBeLessThan(10)
-    // 另外留一個很寬的絕對上限（原本門檻的 5 倍），只擋「慢了一個數量級」這種災難，不當成效能指標
+    const small = await measure(60)
+    const large = await measure(240)
+    expect(large / small).toBeLessThan(8)
+    // 另外留一個很寬的絕對上限（CPU 時間），只擋「慢了一個數量級」這種災難，不當成效能指標
     expect(large).toBeLessThan(1000)
   })
 })
