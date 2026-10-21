@@ -54,6 +54,7 @@ import type { ProjectManager } from '../project-manager'
 import { SHOT_NODE } from '../quickstart/progress-tracker'
 import { createDraftCharacters } from '../quickstart/draft-characters'
 import { sceneKey, shotKey } from '../canvas/projection'
+import { currentFinal } from './current-final'
 import { isAiCall } from '../history/ai-origin'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
@@ -441,23 +442,20 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   }
 
   const finalCutOf = (handle: ProjectHandle): CanvasFinalCut | undefined => {
-    const latest = handle.repos.finalCuts.latest()
-    if (!latest) return undefined
-    const now = cutTakes(handle).map((c) => c.take?.id ?? '')
-    const stale =
-      now.length !== latest.takeIds.length ||
-      now.some((id, i) => id !== latest.takeIds[i]) ||
-      deps.soundKeyNow?.(handle) !== latest.soundKey
+    const current = currentFinal(handle, deps.soundKeyNow?.(handle))
+    if (!current) return undefined
+    const { cut, stale } = current
     return {
-      version: latest.version,
-      assetHash: latest.assetHash,
-      ...(latest.durationSec === undefined ? {} : { durationSec: latest.durationSec }),
-      createdAt: latest.createdAt,
-      stale,
+      version: cut.version,
+      assetHash: cut.assetHash,
+      ...(cut.durationSec === undefined ? {} : { durationSec: cut.durationSec }),
+      createdAt: cut.createdAt,
+      stale: stale !== false,
+      ...(stale === false ? {} : { staleReason: stale }),
     }
   }
   const finalOf = (handle: ProjectHandle): { finalVideoHash?: string } => {
-    const hash = handle.repos.finalCuts.latest()?.assetHash
+    const hash = currentFinal(handle, deps.soundKeyNow?.(handle))?.cut.assetHash
     return hash === undefined ? {} : { finalVideoHash: hash }
   }
 

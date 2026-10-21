@@ -1,5 +1,13 @@
+import type { Page } from '@playwright/test'
+
 import { centerOn, generateAndOpenCanvas } from './canvas-helpers'
 import { expect, test } from './fixtures'
+
+async function soundOf(page: Page) {
+  const result = await page.evaluate(() => window.svs.invoke('sound.get', {}))
+  if (!result.ok) throw new Error(result.error.userMessage)
+  return result.data
+}
 
 test.describe('成品的聲音（示範模式）', () => {
   test('快速開始的聲音勾選預設全開：生成完成後旁白與配樂自動加好，成品是有聲音的', async ({
@@ -134,6 +142,86 @@ test.describe('成品的聲音（示範模式）', () => {
     await expect(page.getByTestId('timeline-narration-1')).toBeVisible()
     await expect(page.getByTestId('timeline-native-1')).toHaveAttribute('data-muted', 'true')
     await page.screenshot({ path: testInfo.outputPath('sound-timeline.png') })
+  })
+
+  test('成品版本：刪旁白接出新版；復原立刻回到舊版（不重混、不加版本號、不寫「鏡頭有變動」）；重做回到新版', async ({
+    page,
+  }, testInfo) => {
+    await generateAndOpenCanvas(page)
+    const shots = await page.evaluate(() => window.svs.invoke('shots.list', {}))
+    if (!shots.ok) throw new Error(shots.error.userMessage)
+    const first = shots.data.shots[0]
+    if (!first) throw new Error('沒有鏡頭')
+    const written = await page.evaluate(
+      (shotId) =>
+        window.svs.invoke('shots.update', { shotId, patch: { dialogue: '黑藤爬滿了斷橋。' } }),
+      first.id,
+    )
+    if (!written.ok) throw new Error(written.error.userMessage)
+    await page.getByTestId('palette-close').click()
+    await centerOn(page, 'cut')
+    await page.getByTestId('open-cut').click()
+    await expect(page.getByTestId('final-cut-panel')).toBeVisible()
+    const panel = page.getByTestId('sound-panel')
+    await panel.scrollIntoViewIfNeeded()
+    await page.getByTestId('sound-add').click()
+    await page.getByTestId('sound-add-go').click()
+    await expect(page.getByTestId('sound-mixer')).toBeVisible({ timeout: 60_000 })
+
+    const finalOf = async () => {
+      const result = await page.evaluate(() => window.svs.invoke('sound.get', {}))
+      if (!result.ok) throw new Error(result.error.userMessage)
+      return result.data.final
+    }
+    const footer = (): Promise<string> =>
+      page.evaluate(
+        () =>
+          document
+            .querySelector('.react-flow__node[data-id="cut"]')
+            ?.textContent.replace(/\s+/g, ' ') ?? '',
+      )
+    await expect.poll(async () => (await finalOf())?.soundStale, { timeout: 60_000 }).toBe(false)
+    const withNarration = (await finalOf())?.version
+    if (withNarration === undefined) throw new Error('沒有成品')
+
+    // 刪旁白：真的混出新成品，版本號加一
+    await page.getByTestId('sound-narration-delete').click()
+    await expect
+      .poll(async () => (await finalOf())?.version, { timeout: 60_000 })
+      .toBe(withNarration + 1)
+    await expect.poll(async () => (await finalOf())?.soundStale, { timeout: 60_000 }).toBe(false)
+
+    // 復原：旁白回來，成品立刻就是舊的那一版——一回來就對得上（沒有「對不上」的空窗），沒有重混
+    await page.getByTestId('toast-action').click()
+    await expect
+      .poll(async () => (await soundOf(page)).shots.filter((s) => s.narration).length, {
+        timeout: 30_000,
+      })
+      .toBe(1)
+    const undone = await finalOf()
+    expect(undone).toMatchObject({ version: withNarration, soundStale: false, hasSound: true })
+    // 之後 4 秒（比自動重混的計時約 0.5 秒加混音還久）每 0.1 秒看一次剪輯卡：畫面更新後是舊的那一版，
+    // 而且從頭到尾沒有出現「有變動」；版本號沒有再往上加
+    const seen: string[] = []
+    for (let i = 0; i < 40; i++) {
+      seen.push(await footer())
+      await page.waitForTimeout(100)
+    }
+    expect(seen.some((text) => text.includes('有變動'))).toBe(false)
+    expect(seen.at(-1)).toContain(`成品 v${String(withNarration)}`)
+    expect(await finalOf()).toMatchObject({ version: withNarration, soundStale: false })
+    await page.screenshot({ path: testInfo.outputPath('undo-back-to-old-version.png') })
+
+    // 重做：回到刪旁白那一版，一樣不重混、不加版本號
+    await page.keyboard.press('Meta+Shift+z')
+    await expect
+      .poll(async () => (await soundOf(page)).shots.filter((s) => s.narration).length, {
+        timeout: 30_000,
+      })
+      .toBe(0)
+    expect(await finalOf()).toMatchObject({ version: withNarration + 1, soundStale: false })
+    await page.waitForTimeout(3000)
+    expect(await finalOf()).toMatchObject({ version: withNarration + 1, soundStale: false })
   })
 
   test('刪除旁白與配樂：直接刪、提示說台詞還在並附復原；成品自動重混；按復原整個找回來', async ({

@@ -93,6 +93,8 @@ export const CanvasFinalCutSchema = z.object({
   durationSec: z.number().nonnegative().optional(),
   createdAt: z.string(),
   stale: z.boolean(),
+  /** 為什麼要重新接：影片（鏡頭）換了，還是只有聲音變了（只有聲音變了，重混就好，不用重新接片）。 */
+  staleReason: z.enum(['shots', 'sound']).optional(),
 })
 export type CanvasFinalCut = z.infer<typeof CanvasFinalCutSchema>
 

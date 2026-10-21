@@ -261,7 +261,7 @@ export function registerSoundTools(ctx: ToolContext): void {
     name: 'mix_sound',
     title: 'Mix the sound into the film',
     description:
-      "Mix the adopted narration, music and (unless muted) the video's own sound into the latest assembled film and save it as a new version of the film. Free (local FFmpeg, a few seconds). assemble_film already mixes the sound that exists at that moment; call this when you changed the sound AFTER assembling (new or adjusted narration/music, settings), then export_film. You need an assembled film first (assemble_film).",
+      "Mix the adopted narration, music and (unless muted) the video's own sound into the latest assembled film and save it as a new version of the film. If nothing changed since the last mix (for example the user undid your sound change, which brings back the earlier version), the film already matches and no new version is made. Free (local FFmpeg, a few seconds). assemble_film already mixes the sound that exists at that moment; call this when you changed the sound AFTER assembling (new or adjusted narration/music, settings), then export_film. You need an assembled film first (assemble_film).",
     input: {},
     hints: { readOnly: false },
     run: async () => {

@@ -1,8 +1,9 @@
 import { probe, resolveTools } from '@svs/media'
 import { makePng } from '@svs/test-utils'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { currentFinal } from '../shots/current-final'
 import { createStudioHarness } from '../shots/test-harness'
 
 type Harness = ReturnType<typeof createStudioHarness>
@@ -218,6 +219,15 @@ describe('SoundService：混音與成品（示範模式）', () => {
     if (!latest) throw new Error('還沒有成品')
     return latest
   }
+  /** 成品現在的版本（跟現在的狀態對得上的那一版；對不上才是最新一版）。 */
+  const currentOf = (h: Harness) => {
+    const handle = h.projects.current()
+    const current = handle ? currentFinal(handle, h.sound.soundKey(handle)) : undefined
+    if (!current) throw new Error('還沒有成品')
+    return current.cut
+  }
+  const versionsOf = (h: Harness): number =>
+    h.projects.current()?.repos.finalCuts.list().length ?? 0
   const durationOf = async (
     h: Harness,
     hash: string,
@@ -303,7 +313,8 @@ describe('SoundService：混音與成品（示範模式）', () => {
     const mixed = finalOf(h)
     h.sound.removeClip(clip.id)
     await h.sound.mix()
-    const back = finalOf(h)
+    // 專案一開始（還沒有聲音）接好的那一版跟現在的狀態一模一樣：回到它，不另外多一個版本
+    const back = currentOf(h)
     expect(back.assetHash).toBe(mixed.baseAssetHash)
     expect(back.soundKey).toBeUndefined()
     expect(h.shots.finalCut()?.stale).toBe(false)
@@ -337,8 +348,69 @@ describe('SoundService：混音與成品（示範模式）', () => {
     expect(h.shots.list().shots.find((s) => s.id === second)?.dialogue).toBe('第二句。')
 
     await h.sound.mix()
-    expect(finalOf(h).soundKey).toBeUndefined()
+    expect(currentOf(h).soundKey).toBeUndefined()
     expect(h.sound.state().final?.soundStale).toBe(false)
+  })
+
+  it('成品版本：改聲音接出新版；復原（改回去）立刻回到舊版，不重混、不加版本號；重做回到新版', async () => {
+    const h = setup()
+    await withShots(h)
+    await h.shots.rejoin()
+    const base = versionsOf(h)
+    const before = currentOf(h)
+    // 聲音變了：還沒混之前對不上，原因是聲音（不是鏡頭）
+    h.sound.updateSettings({ nativeGainDb: -6 })
+    expect(h.shots.finalCut()).toMatchObject({ stale: true, staleReason: 'sound' })
+    const mixedV = await h.sound.mix()
+    expect(versionsOf(h)).toBe(base + 1)
+    expect(mixedV.version).toBe(before.version + 1)
+    // 復原：改回原來的設定
+    h.sound.updateSettings({ nativeGainDb: 0 })
+    expect(h.shots.finalCut()).toMatchObject({ stale: false, version: before.version })
+    expect(h.shots.finalVideoHash()).toBe(before.assetHash)
+    expect(h.sound.state().final).toMatchObject({ version: before.version, soundStale: false })
+    // 量測的也是目前這一版，不是最新一版
+    expect((await h.sound.analyze()).version).toBe(before.version)
+    // 復原之後就算還是有人呼叫混音（自動重混的計時剛好到了）：不混、不加版本號
+    const again = await h.sound.mix()
+    expect(again).toEqual({ videoHash: before.assetHash, version: before.version })
+    expect(versionsOf(h)).toBe(base + 1)
+    // 重做：回到混過的那一版
+    h.sound.updateSettings({ nativeGainDb: -6 })
+    expect(h.shots.finalCut()).toMatchObject({ stale: false, version: mixedV.version })
+    expect(h.shots.finalVideoHash()).toBe(mixedV.videoHash)
+    expect(versionsOf(h)).toBe(base + 1)
+  })
+
+  it('成品版本：對得上的那一版檔案不在了，照常重混（會多一個新版本），不會拿到沒有檔案的版本', async () => {
+    const h = setup()
+    await withShots(h)
+    await h.shots.rejoin()
+    h.sound.updateSettings({ nativeGainDb: -6 })
+    const a = await h.sound.mix()
+    h.sound.updateSettings({ nativeGainDb: -12 })
+    await h.sound.mix()
+    h.sound.updateSettings({ nativeGainDb: -6 })
+    expect(h.shots.finalCut()).toMatchObject({ stale: false, version: a.version })
+    const handle = h.projects.current()
+    const found = handle?.assets.find(a.videoHash)
+    if (!handle || !found) throw new Error('應該找得到檔案')
+    rmSync(found.path)
+    expect(h.shots.finalCut()).toMatchObject({ stale: true, staleReason: 'sound' })
+    const count = versionsOf(h)
+    const again = await h.sound.mix()
+    expect(versionsOf(h)).toBe(count + 1)
+    expect(again.version).toBeGreaterThan(a.version)
+    expect(h.shots.finalCut()).toMatchObject({ stale: false, version: again.version })
+  })
+
+  it('成品版本：放進成品的鏡頭換了，原因是鏡頭（要重新接），不寫成聲音', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    await h.shots.rejoin()
+    h.shots.update(first, { inCut: false })
+    expect(h.shots.finalCut()).toMatchObject({ stale: true, staleReason: 'shots' })
   })
 
   it('靜音某一鏡的原聲也能混（只設定、沒有其他聲音）', async () => {

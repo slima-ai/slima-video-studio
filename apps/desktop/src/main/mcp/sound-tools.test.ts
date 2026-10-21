@@ -223,8 +223,13 @@ describe('聲音工具（示範模式）', () => {
     )
     expect(mixed.mixed).toBe(true)
     expect(mixed.filmVersion).toBeGreaterThanOrEqual(2)
+    // 聲音沒再動過就再混一次：現在的版本已經對得上，不會多出新的版本號
     const again = dataOf(z.looseObject({ filmVersion: z.number() }), await r.call('mix_sound'))
-    expect(again.filmVersion).toBeGreaterThan(mixed.filmVersion)
+    expect(again.filmVersion).toBe(mixed.filmVersion)
+    // 聲音真的改了才有新版本
+    await r.call('adjust_sound_clip', { clipId: music.clip.id, gainDb: -12 })
+    const changed = dataOf(z.looseObject({ filmVersion: z.number() }), await r.call('mix_sound'))
+    expect(changed.filmVersion).toBeGreaterThan(mixed.filmVersion)
     // 量測：整體響度、每鏡音量、警示（示範影片的聲音是真的 FFmpeg 量出來的數字）
     const analysis = dataOf(
       z.looseObject({
@@ -236,7 +241,7 @@ describe('聲音工具（示範模式）', () => {
       }),
       await r.call('analyze_sound'),
     )
-    expect(analysis.filmVersion).toBeGreaterThanOrEqual(mixed.filmVersion)
+    expect(analysis.filmVersion).toBe(changed.filmVersion)
     expect(analysis.durationSec).toBeGreaterThan(0)
     expect(analysis.shots.length).toBeGreaterThan(0)
     expect(Array.isArray(analysis.warnings)).toBe(true)

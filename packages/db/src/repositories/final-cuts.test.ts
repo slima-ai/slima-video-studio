@@ -38,4 +38,13 @@ describe('FinalCutRepository', () => {
     expect(repos.finalCuts.latest()).toEqual(mixed)
     expect(mixed).toMatchObject({ baseAssetHash: HASH('a'), soundKey: 'k1' })
   })
+
+  it('list：所有版本，新的在前；latest 就是第一個；沒有版本是空的', () => {
+    const { repos } = newProject()
+    expect(repos.finalCuts.list()).toEqual([])
+    const a = repos.finalCuts.record({ assetHash: HASH('a'), takeIds: ['t1'] })
+    const b = repos.finalCuts.record({ assetHash: HASH('b'), takeIds: ['t1'], soundKey: 'k' })
+    expect(repos.finalCuts.list()).toEqual([b, a])
+    expect(repos.finalCuts.latest()).toEqual(b)
+  })
 })
