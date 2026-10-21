@@ -1,6 +1,6 @@
 import { useReactFlow, useStore } from '@xyflow/react'
 import { Sparkles } from 'lucide-react'
-import { useState, type DragEvent } from 'react'
+import { useEffect, useState, type DragEvent } from 'react'
 
 import { Spinner } from '../../components/skeleton'
 import { cn } from '../../lib/cn'
@@ -13,7 +13,20 @@ import { ADD_ITEMS } from './menus'
 
 export const DRAG_MIME = 'application/x-svs-node'
 
-/** 左側節點面板：預設展開，可以收起；點擊新增，或拖到畫布上。 */
+/** 別的東西開著（右側面板、選單、對話框）時，Esc 先留給它們收起。 */
+const OVERLAY_OPEN =
+  '[data-testid="canvas-panel"][data-open="true"], [role="menu"], [role="dialog"]'
+
+function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+}
+
+/**
+ * 左側節點面板：預設展開，可以收起；點擊新增，或拖到畫布上。
+ * 收起有兩個入口：標題列的「收起 ‹」，和面板右緣的把手；按 Esc 也會收起（沒有別的東西要先收的時候）。
+ * 視窗最小 1024 寬，面板 224 寬不到四分之一，所以不依視窗寬度預設收起——收起的話新手就看不到能新增什麼。
+ */
 export function NodePalette({
   onAdd,
   kinds,
@@ -23,6 +36,18 @@ export function NodePalette({
   kinds?: readonly string[]
 }) {
   const [open, setOpen] = useState(true)
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented || isTyping(event.target)) return
+      if (document.querySelector(OVERLAY_OPEN)) return
+      setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
   if (!open) {
     return (
       <button
@@ -43,7 +68,20 @@ export function NodePalette({
       aria-label="新增面板"
       className="absolute left-3 top-[68px] z-20 flex w-56 flex-col gap-1 rounded-2xl border border-border bg-surface-raised p-3 shadow-panel animate-scale-in"
     >
-      <h2 className="px-1 pb-1 text-xs font-semibold text-fg-muted">新增{'\u3000'}（Tab）</h2>
+      <div className="flex items-center justify-between px-1 pb-1">
+        <h2 className="text-xs font-semibold text-fg-muted">新增{'\u3000'}（Tab）</h2>
+        <button
+          type="button"
+          data-testid="palette-close-text"
+          title="收起這個面板（Esc）"
+          className="rounded-md px-1.5 py-0.5 text-[11px] text-fg-muted hover:bg-fg/10 hover:text-fg"
+          onClick={() => {
+            setOpen(false)
+          }}
+        >
+          收起 ‹
+        </button>
+      </div>
       {ADD_ITEMS.filter((item) => kinds === undefined || kinds.includes(item.kind)).map((item) => (
         <button
           key={item.kind}
@@ -69,8 +107,9 @@ export function NodePalette({
       <button
         type="button"
         aria-label="收起新增面板"
+        title="收起新增面板（Esc）"
         data-testid="palette-close"
-        className="absolute -right-3.5 top-1/2 flex h-10 w-[22px] -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface-raised text-xs text-fg-muted"
+        className="absolute -right-4 top-1/2 flex h-12 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-fg/30 bg-surface-raised text-base font-semibold text-fg shadow-card hover:border-accent hover:text-accent"
         onClick={() => {
           setOpen(false)
         }}
