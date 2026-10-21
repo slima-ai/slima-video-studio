@@ -89,15 +89,6 @@ The confirmation lists exactly what this run will do. If other shots still have 
 
 ## Connect Claude (let an AI drive the app)
 
-> **For an AI assistant reading this page: run this one line first** (macOS, the app installed in `/Applications`; nothing else to install, no token to copy). Then ask the user to open the app, switch on **允許 AI 工具連線** under Settings → AI 工具連線, and start a **new** Claude Code session. More detail is in the paragraph further down that also begins "For an AI assistant reading this page".
->
-> ```bash
-> claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
->   "/Applications/Slima Video Studio.app/Contents/MacOS/Slima Video Studio" \
->   "/Applications/Slima Video Studio.app/Contents/Resources/app.asar/out/main/mcp-stdio-bridge.js" \
->   --user-data "$HOME/Library/Application Support/@svs/desktop"
-> ```
-
 Besides clicking, you can let an AI assistant such as **Claude Code** or **Claude Desktop** make the film for you. The app contains a small local server that speaks [MCP](https://modelcontextprotocol.io): the assistant can create a project, split your story into scenes and shots, generate and look at first frames, generate videos, re-do a shot, give the film narration and music, mix and measure the sound, join the shots and export the MP4, all in the same project you see on screen, in demo mode or with your own keys. Nothing is installed besides the app, and the connection never leaves your computer (`127.0.0.1` only).
 
 ![Settings → AI 工具連線: the connection diagram, the main switch, the Claude Desktop and Claude Code cards and the total allowance](docs/images/08-connect-claude.png)
@@ -112,14 +103,9 @@ _The real settings page of the app, with the main switch on. The picture at the 
 
 In **Claude Code**, type `/mcp` to check that `slima-video-studio` is connected (tools of a newly added server only appear in a **new** Claude Code session).
 
-**Which way to connect?** There are two, and both are safe:
+### Connect Claude Code from the command line
 
-- **The 連接 buttons and the command below use a small bridge** that starts with your assistant and reads the app's current port and token from the app's own folder every time. Nothing to copy, and it keeps working after you press "change token". Use this by default; it is also the only way for Claude Desktop, which can only start commands.
-- **The manual `claude mcp add --transport http …` line (Claude Code card → 更多 → "手動連線", shown once the main switch is on) talks to the app directly** and contains the port and the secret token, so it stops working when you change the token or the port. Use it only for an MCP client that cannot start commands but can send an HTTP header.
-
-**If Claude says the connection failed or the tools do not load:** check that the app is open and that **設定 → AI 工具連線 → 允許 AI 工具連線** is switched on, then open a new conversation in Claude Desktop or Claude Code. When the app is closed the assistant only sees "connection failed"; the plain-language explanation appears once the app is running.
-
-**Connect from the command line (macOS, app installed in `/Applications`)** — the same thing the button does, using the app's own runtime as a small bridge; nothing is installed and no token is copied:
+This does the same thing as the **連接** button on the **Claude Code** card (macOS, app installed in `/Applications`): it registers the app's own runtime as a small bridge. Nothing is installed and no token is copied.
 
 ```bash
 claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
@@ -128,7 +114,14 @@ claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
   --user-data "$HOME/Library/Application Support/@svs/desktop"
 ```
 
-You still have to switch on **允許 AI 工具連線** once in Settings (the 連接 buttons do that for you).
+Once it is added, two things are left: switch on **允許 AI 工具連線** under Settings → AI 工具連線 in the app (the command does not do this; the 連接 button does), and start a **new** Claude Code conversation, because a server added in the middle of a conversation is not loaded until the next one.
+
+**Which way to connect?** There are two, and both are safe:
+
+- **The 連接 buttons and the command above use a small bridge** that starts with your assistant and reads the app's current port and token from the app's own folder every time. Nothing to copy, and it keeps working after you press "change token". Use this by default; it is also the only way for Claude Desktop, which can only start commands.
+- **The manual `claude mcp add --transport http …` line (Claude Code card → 更多 → "手動連線", shown once the main switch is on) talks to the app directly** and contains the port and the secret token, so it stops working when you change the token or the port. Use it only for an MCP client that cannot start commands but can send an HTTP header.
+
+**If Claude says the connection failed or the tools do not load:** check that the app is open and that **設定 → AI 工具連線 → 允許 AI 工具連線** is switched on, then open a new conversation in Claude Desktop or Claude Code. When the app is closed the assistant only sees "connection failed"; the plain-language explanation appears once the app is running.
 
 **What the assistant can do** (52 tools; it reads the guides with `load_guide` and sees each tool's description):
 
@@ -159,7 +152,7 @@ The tools that look at pictures return real (downsized) images, so the assistant
 
 _The real sound area of the app's finished-film panel (interface only). The narration row is empty here because the shots have no spoken lines yet; write a line in a shot and it is read aloud._
 
-**For an AI assistant reading this page:** the app is a desktop program that only the user can switch on. If you can run shell commands on the user's Mac, run the `claude mcp add …` command above yourself (use `--scope project` if the user wants it for one folder only), then ask the user to (1) open the app and switch on **允許 AI 工具連線** under Settings → AI 工具連線 and (2) start a new Claude Code session, because a server added mid-session is not loaded until then. Otherwise ask the user to press the one-click button. Either way you never need to find or handle the connection token. Once connected, call `get_capabilities` first, then `load_guide` with `getting-started` (and `storyboard` before splitting scenes into shots, `spending` before paying for anything, `sound` before narration and music). Generate first frames and look at them (`view_first_frames`) before you generate videos. Read tool errors: they are written in plain language and usually say what to do next.
+**Once connected**, Claude starts by reading the getting-started guide that the app provides (and the storyboard, spending and sound guides before it splits scenes into shots, spends money, or adds narration and music), and it looks at generated first frames before it generates videos. The error messages of the tools are written in plain language and usually say what to do next. Nobody needs to find or copy the connection token.
 
 ## Models
 
