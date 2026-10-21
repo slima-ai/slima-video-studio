@@ -211,7 +211,7 @@ test.describe('畫布：AI 剛改過', () => {
     await ai.close()
   })
 
-  test('AI 連著刪了幾個空的鏡頭：只出一則提示「AI 刪了 3 個空的鏡頭」，不列名字；按「復原」都回來', async ({
+  test('外面的 AI 工具連刪三個空鏡頭：不合成，每次一則；最後那則只說最後刪的那一個，按「復原」也只回來那一個', async ({
     page,
     userDataDir,
   }, testInfo) => {
@@ -226,21 +226,19 @@ test.describe('畫布：AI 剛改過', () => {
       ids.push(id)
       keys.push(`shot:${id}`)
     }
-    await expect
-      .poll(async () => (await canvasNodes(page)).filter((n) => keys.includes(n.id)).length)
-      .toBe(3)
+    const present = async (): Promise<number> =>
+      (await canvasNodes(page)).filter((n) => keys.includes(n.id)).length
+    await expect.poll(present).toBe(3)
     // 三次呼叫、各刪一個
     for (const id of ids) await ai.callTool({ name: 'delete_shots', arguments: { shotIds: [id] } })
+    await expect.poll(present).toBe(0)
+    // 不是 Claude 對話那一輪：復原只退最後一步，提示只說最後刪的那一個，也沒有「這一輪」那句
     const toast = page.getByTestId('toast').filter({ hasText: 'AI 刪了' })
-    await expect(toast).toHaveText(/AI 刪了 3 個空的鏡頭，按「復原」可以找回來/)
-    await expect(toast).not.toContainText('第')
-    await expect(toast).not.toContainText('Claude')
+    await expect(toast).toHaveText(/^AI 刪了 1 個空的鏡頭，按「復原」可以找回來復原$/)
     await expect(toast).toHaveCount(1)
     await page.screenshot({ path: testInfo.outputPath('removed-toast.png') })
     await toast.getByRole('button', { name: '復原' }).click()
-    await expect
-      .poll(async () => (await canvasNodes(page)).filter((n) => keys.includes(n.id)).length)
-      .toBeGreaterThanOrEqual(1)
+    await expect.poll(present).toBe(1)
     await ai.close()
   })
 

@@ -5,7 +5,7 @@ import { markableKeys, removedMessage } from './ai-marks'
 
 /** 剛被改的節點亮多久（之後留著小標記，直到看過或動過）。 */
 const FLASH_MS = 2200
-/** 刪除的提示等多久再出：同一輪連著刪好幾次，合成一則。 */
+/** 刪除的提示等多久再出：Claude 對話同一輪連著刪好幾次，合成一則。 */
 const REMOVED_MERGE_MS = 800
 /** 這麼久沒有新的刪除，下一次刪除就當成新的一批（不跟前面的合在一起）。 */
 const REMOVED_BATCH_MS = 8000
@@ -15,7 +15,8 @@ const REMOVED_BATCH_MS = 8000
  * - `fresh`：標著「AI 剛改」的節點，直到使用者看過（選取、滑過一下）或動過就消失；
  * - `flash`：剛被改、正在亮一下的節點（幾秒後只剩標記）；
  * - 刪掉的東西交給 `onRemoved`（畫面用提示說「AI 刪了第 3 鏡…，按「復原」可以找回來」）；
- *   連著刪好幾次（同一輪）合成一則，使用者復原之後重新算。
+ *   Claude 對話那一輪連著刪好幾次合成一則（復原會把那一輪一起退回，說得通），使用者復原之後重新算；
+ *   外面的 AI 工具每次刪除各一則（復原只退一步）。
  * 已經標著的節點之後內容又變了（例如 AI 叫的生成做完了），畫布頁用 `rekindle` 再亮一次。
  */
 export function useAiMarks(
@@ -84,7 +85,15 @@ export function useAiMarks(
         setFresh((now) => new Set([...now, ...keys]))
         kindle(keys)
       }
-      if (event.removed.length > 0) {
+      if (event.removed.length > 0 && !turnRef.current()) {
+        // 不是右下角 Claude 對話那一輪（例如外面的 Claude Desktop 接 MCP）：復原一次只退最後一步，
+        // 所以每次刪除各出一則，說的就是剛刪的這幾個，不跟前面的合在一起
+        window.clearTimeout(batch.current.flush)
+        window.clearTimeout(batch.current.reset)
+        batch.current = { removed: [], wholeTurn: false }
+        const message = removedMessage(event.removed)
+        if (message !== undefined) removedRef.current(message)
+      } else if (event.removed.length > 0) {
         const now = batch.current
         window.clearTimeout(now.flush)
         window.clearTimeout(now.reset)
