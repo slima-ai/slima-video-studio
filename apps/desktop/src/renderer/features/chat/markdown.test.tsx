@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { Markdown } from './markdown'
+import { Markdown, renderBlocks } from './markdown'
 
 afterEach(cleanup)
 
@@ -139,26 +139,34 @@ describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段�
     })
   }
 
-  it('標記很多的長輸入：時間跟長度成正比（不是 n²）——長度變 2 倍，時間不到 3 倍', () => {
-    // 機器快慢、有沒有量測覆蓋率、機器忙不忙都會讓絕對時間差很多，所以比的是兩種長度之間的倍數：
-    // 線性大約 2 倍、平方大約 4 倍，門檻 3 倍在兩者中間；每種長度跑 5 次取中位數，單次被搶到時間不會讓它紅
-    // 標記和一般的字混在一起：標記那邊和「每個字」那邊的 n² 都量得到
+  it('標記很多的長輸入：時間跟長度成正比（不是 n²）——長度變 4 倍，時間不到 8 倍', () => {
+    // 比的是兩種長度之間的倍數：線性約 4 倍（實測 4～5.3）、平方約 16 倍（實測 15），門檻 8 倍在兩者中間。
+    // 機器忙不忙不能讓它紅，所以：量的是這個行程實際用掉的 CPU 時間（不是牆鐘時間，被別的行程搶走的不算）、
+    // 只量解析（renderBlocks），不含 jsdom 的畫面更新（那部分垃圾回收的雜訊大）、
+    // 每種長度跑 5 次取最小的（垃圾回收偶爾多出來的那幾次不影響）。
+    // 輸入是標記和一般的字混在一起：標記那邊和「每個字」那邊的 n² 都量得到
     const mixed = (n: number): string =>
       `*a **b ~~c \`d [e](f) ![g](h) ${'字'.repeat(30)}`.repeat(n)
-    const median = (n: number): number => {
-      const times: number[] = []
-      for (let run = 0; run < 5; run++) {
-        const start = performance.now()
-        view(mixed(n))
-        times.push(performance.now() - start)
-        cleanup()
-      }
-      times.sort((a, b) => a - b)
-      return Math.max(times[2] ?? 1, 1)
+    // 渲染端的型別沒有 node 的 process；測試是在 node 裡跑的，用得到
+    const { process: nodeProcess } = globalThis as unknown as {
+      process: { cpuUsage: () => { user: number; system: number } }
     }
-    median(300) // 暖機
-    const small = median(1000)
-    const large = median(2000)
-    expect(large / small).toBeLessThan(3)
+    const cpuMs = (): number => {
+      const { user, system } = nodeProcess.cpuUsage()
+      return (user + system) / 1000
+    }
+    const fastest = (n: number): number => {
+      let best = Infinity
+      for (let run = 0; run < 5; run++) {
+        const start = cpuMs()
+        void renderBlocks(mixed(n))
+        best = Math.min(best, cpuMs() - start)
+      }
+      return Math.max(best, 1)
+    }
+    fastest(500) // 暖機
+    const small = fastest(1500)
+    const large = fastest(6000)
+    expect(large / small).toBeLessThan(8)
   })
 })
