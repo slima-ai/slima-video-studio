@@ -99,6 +99,15 @@ export function useAiMarks(
     [stopFlash],
   )
 
+  // 使用者復原／重做之後，因此變了的節點：內容已經退回去（或是使用者自己要的），「AI 剛改」不再對，一起拿掉
+  useEffect(
+    () =>
+      window.svs.on('canvas.marksReverted', (event) => {
+        seen(event.keys)
+      }),
+    [seen],
+  )
+
   // 畫面上出現過的節點：事件比畫布重新載入早到時，新節點還不在畫面裡，不能當成「不見了」
   const known = useRef(new Set<string>())
   const prune = useCallback((existing: ReadonlySet<string>): void => {

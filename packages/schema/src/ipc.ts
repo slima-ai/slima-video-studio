@@ -1085,6 +1085,14 @@ export const ipcEvents = {
   'canvas.notice': CanvasNoticeSchema,
   /** AI 工具（MCP）剛改了畫布上的哪些節點：畫面亮一下、標「AI 剛改」、提示刪了什麼。 */
   'canvas.aiChanged': CanvasAiChangedSchema,
+  /**
+   * 使用者復原或重做之後，畫布上哪些節點因此變了（內容、新出現、不見了）：畫面把這些節點的「AI 剛改」拿掉
+   * （內容已經退回去，標記就不對了；重做也不再標，那是使用者自己要的）。
+   */
+  'canvas.marksReverted': z.object({
+    direction: z.enum(['undo', 'redo']),
+    keys: z.array(z.string()),
+  }),
   /** 復原／重做的狀態有變動（編輯、復原、重做、換專案）。 */
   'history.changed': HistoryChangedSchema,
   /** Slima 連線狀態改變了。 */

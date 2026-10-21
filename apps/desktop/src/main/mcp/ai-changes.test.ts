@@ -79,6 +79,37 @@ describe('diffMarks：只標真的有新內容的格子（不標只是跟著上�
   })
 })
 
+describe('diffMarks：只是編號或順序跟著變的格子不算改（刪掉第 3 鏡，原本的第 4 鏡變成第 3 鏡）', () => {
+  const shotNodes = (n: number, over: Partial<CanvasNode> = {}): CanvasNode[] => [
+    node('shot:d', { title: `第 ${String(n)} 鏡`, summary: '描述', ...over }),
+    node('shot:d:image', { kind: 'image', title: `第 ${String(n)} 鏡・第一張畫面` }),
+    node('shot:d:video', { kind: 'video', title: `第 ${String(n)} 鏡・影片` }),
+  ]
+
+  it('標題裡的「第 N 鏡」變了、內容沒變：鏡頭、首幀圖、影片都不標', () => {
+    expect(diffMarks(marks(...shotNodes(4)), marks(...shotNodes(3)))).toEqual({
+      changed: [],
+      added: [],
+      removed: [],
+    })
+  })
+
+  it('場的編號（sceneNo、「第 N 場」）跟著變也不標；場名自己改了才標', () => {
+    const scene = (n: number, name: string): CanvasNode =>
+      node('scene:a', { kind: 'scene', title: `第 ${String(n)} 場・${name}`, sceneNo: n })
+    expect(diffMarks(marks(scene(2, '街角')), marks(scene(1, '街角'))).changed).toEqual([])
+    expect(diffMarks(marks(scene(2, '街角')), marks(scene(1, '碼頭'))).changed).toEqual(['scene:a'])
+  })
+
+  it('編號變了、內容也真的被改了：照標', () => {
+    const changed = diffMarks(
+      marks(...shotNodes(4)),
+      marks(...shotNodes(3, { summary: '新的描述' })),
+    )
+    expect(changed.changed).toEqual(['shot:d'])
+  })
+})
+
 describe('withAiChangeNotice', () => {
   const inner = (): McpCaller & { calls: string[] } => {
     const calls: string[] = []
@@ -186,5 +217,64 @@ describe('真的 MCP 伺服器：AI 工具改了鏡頭，畫面收到 canvas.aiC
     r.broadcast.mockClear()
     await r.call('list_shots')
     expect(events()).toHaveLength(0)
+  })
+
+  it('刪掉第 2 鏡：後面的鏡頭只是編號往前，不算 AI 改了它；被刪的那一鏡照報', async () => {
+    const r = await startRealMcp()
+    running.push(r)
+    await r.registry.dispatch(
+      { channel: 'project.createNew', payload: { name: '測試' } },
+      { emit: () => undefined },
+    )
+    const ids: string[] = []
+    for (let i = 0; i < 3; i++) {
+      ids.push(dataOf(z.looseObject({ id: z.string() }), await r.call('create_shot')).id)
+    }
+    r.broadcast.mockClear()
+    await r.call('delete_shots', { shotIds: [ids[1] ?? ''] })
+    const event = r.broadcast.mock.calls
+      .filter(([name]) => name === 'canvas.aiChanged')
+      .map(([, payload]) => payload as { changed: string[]; removed: { key: string }[] })[0]
+    expect(event?.removed.map((n) => n.key)).toContain(`shot:${ids[1] ?? ''}`)
+    const third = `shot:${ids[2] ?? ''}`
+    expect(event?.changed.filter((key) => key.startsWith(third))).toEqual([])
+  })
+
+  it('使用者按復原／重做：哪些節點因此變了，用 canvas.marksReverted 告訴畫面，畫面才拿掉它們的「AI 剛改」', async () => {
+    const r = await startRealMcp()
+    running.push(r)
+    const emitted: { name: string; payload: unknown }[] = []
+    const ctx = {
+      emit: (name: string, payload: unknown): void => {
+        emitted.push({ name, payload })
+      },
+    }
+    await r.registry.dispatch({ channel: 'project.createNew', payload: { name: '測試' } }, ctx)
+    const shotId = dataOf(z.looseObject({ id: z.string() }), await r.call('create_shot')).id
+    await r.call('update_shot', { shotId, description: 'AI 改的描述' })
+    emitted.length = 0
+
+    const undone = await r.registry.dispatch({ channel: 'history.undo', payload: {} }, ctx)
+    expect(undone.ok && (undone.data as { applied: boolean }).applied).toBe(true)
+    const reverted = emitted.filter((e) => e.name === 'canvas.marksReverted')
+    expect(reverted).toHaveLength(1)
+    expect(reverted[0]?.payload).toMatchObject({ direction: 'undo' })
+    expect((reverted[0]?.payload as { keys: string[] }).keys).toContain(`shot:${shotId}`)
+
+    emitted.length = 0
+    await r.registry.dispatch({ channel: 'history.redo', payload: {} }, ctx)
+    expect(emitted.find((e) => e.name === 'canvas.marksReverted')?.payload).toMatchObject({
+      direction: 'redo',
+    })
+
+    // 沒有可復原的（退到底再按一次）：什麼都不發
+    emitted.length = 0
+    await r.registry.dispatch({ channel: 'history.undo', payload: {} }, ctx)
+    await r.registry.dispatch({ channel: 'history.undo', payload: {} }, ctx)
+    await r.registry.dispatch({ channel: 'history.undo', payload: {} }, ctx)
+    emitted.length = 0
+    const nothing = await r.registry.dispatch({ channel: 'history.undo', payload: {} }, ctx)
+    expect(nothing.ok && (nothing.data as { applied: boolean }).applied).toBe(false)
+    expect(emitted.filter((e) => e.name === 'canvas.marksReverted')).toEqual([])
   })
 })
