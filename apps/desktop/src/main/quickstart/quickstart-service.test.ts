@@ -8,6 +8,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { CREDITS_RENDER_TIMEOUT_MS } from '../credits/credits'
 import { createStudioHarness, type HarnessOptions } from '../shots/test-harness'
 import { safeFileName } from '../ensure-project'
 
@@ -313,13 +314,16 @@ describe('QuickStartService.export：畫片尾字卡不能把匯出卡住', () =
           })
         }),
     })
-    // 不量牆鐘時間（機器忙時會被拖慢）：沒有逾時保護的話 export 會一直等下去，這條測試會卡到 vitest 的逾時而紅
+    // 不量牆鐘時間（機器忙時會被拖慢）：沒有 creditsTimeoutMs 的話 export 要等正式的上限才放棄，
+    // 這條測試會超過下面自己設的逾時而紅
     const out = await service.export()
     expect(out.credits).toBe(false)
     expect(existsSync(out.path)).toBe(true) // 匯出的是原版影片，檔案有做出來
     expect(aborted).toBe(true)
     expect(service.state()?.exportedPath).toBe(out.path)
-  })
+    // 這條測試自己設逾時，不靠全域的 testTimeout：全域值（20 秒）剛好等於正式上限 CREDITS_RENDER_TIMEOUT_MS，
+    // 打平的話，哪天有人把全域逾時調大，這道保護就悄悄沒了。比正式上限短 2 秒，才一定先紅
+  }, CREDITS_RENDER_TIMEOUT_MS - 2_000)
 
   it('字卡逾時後才失敗的結果，不會變成未處理的拒絕', async () => {
     const unhandled = vi.fn()
