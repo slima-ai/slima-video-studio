@@ -207,15 +207,37 @@ describe('SoundPanel：調音量', () => {
     expect(screen.getByTestId('sound-summary').textContent).toContain('2 個鏡頭有旁白')
   })
 
-  it('沒有任何鏡頭有旁白時：不顯示旁白音量那一排，改成一句說明', async () => {
+  it('有台詞、沒有旁白（例如旁白被刪掉了）：說「N 個鏡頭有台詞，還沒有旁白」並告訴怎麼再念，不說「鏡頭沒有台詞」', async () => {
     installFakeSvs({
       'sound.get': () =>
         state({ music: clip('music'), final: { version: 2, hasSound: true, soundStale: false } }),
     })
     render(<SoundPanel />)
+    const note = await screen.findByTestId('sound-narration-missing')
+    expect(note.textContent).toContain('2 個鏡頭有台詞，還沒有旁白')
+    expect(note.textContent).toContain('念出這句台詞')
+    expect(screen.queryByTestId('sound-no-narration')).toBeNull()
+    expect(screen.queryByText(/鏡頭沒有台詞/)).toBeNull()
+    expect(screen.queryByTestId('sound-narration-mid')).toBeNull()
+  })
+
+  it('一句台詞都沒有、所以沒有旁白時：不顯示旁白音量那一排，改成一句說明（說「鏡頭沒有台詞」）', async () => {
+    installFakeSvs({
+      'sound.get': () =>
+        state({
+          shots: [
+            { ...shot(1, false), dialogue: '' },
+            { ...shot(2, false), dialogue: '  ' },
+          ],
+          music: clip('music'),
+          final: { version: 2, hasSound: true, soundStale: false },
+        }),
+    })
+    render(<SoundPanel />)
     expect((await screen.findByTestId('sound-no-narration')).textContent).toContain(
       '鏡頭沒有台詞，所以沒有旁白',
     )
+    expect(screen.queryByTestId('sound-narration-missing')).toBeNull()
     expect(screen.queryByTestId('sound-narration-mid')).toBeNull()
     expect(screen.getByTestId('sound-music-mid')).toBeTruthy()
   })

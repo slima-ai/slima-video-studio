@@ -184,7 +184,11 @@ test.describe('成品的聲音（示範模式）', () => {
     await expect(toast).toContainText('已刪除 1 句旁白，台詞還在，可以再念')
     await expect.poll(narrated).toBe(0)
     expect(await dialogueOf()).toBe('黑藤爬滿了斷橋。')
-    await expect(page.getByTestId('sound-no-narration')).toBeVisible()
+    // 台詞還在，所以不能說「鏡頭沒有台詞」：改說有台詞、還沒有旁白，並告訴怎麼再念
+    await expect(page.getByTestId('sound-narration-missing')).toContainText(
+      '1 個鏡頭有台詞，還沒有旁白',
+    )
+    await expect(page.getByTestId('sound-no-narration')).toHaveCount(0)
     await page.screenshot({ path: testInfo.outputPath('delete-narration.png') })
     await expect
       .poll(async () => (await soundOf()).final?.soundStale, { timeout: 60_000 })

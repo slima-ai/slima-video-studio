@@ -171,6 +171,7 @@ export function SoundPanel() {
   const hasClips = state.music !== undefined || state.shots.some((s) => s.narration !== undefined)
   const noModels = state.models.tts === undefined && state.models.music === undefined
   const narrationCount = state.shots.filter((s) => s.narration).length
+  const dialogueShots = state.shots.filter((s) => s.dialogue.trim() !== '').length
 
   const nativeAllMuted =
     state.shots.length > 0 &&
@@ -273,6 +274,12 @@ export function SoundPanel() {
               },
             }}
           />
+        ) : dialogueShots > 0 ? (
+          // 有台詞、沒有旁白（例如旁白被刪掉了）：台詞還在，可以再念
+          <p className="text-sm text-fg-muted" data-testid="sound-narration-missing">
+            {String(dialogueShots)}{' '}
+            個鏡頭有台詞，還沒有旁白。到鏡頭裡按「念出這句台詞」（會先給預估），就會念出來。
+          </p>
         ) : (
           <p className="text-sm text-fg-muted" data-testid="sound-no-narration">
             鏡頭沒有台詞，所以沒有旁白。到鏡頭裡寫台詞，就會念出來。
