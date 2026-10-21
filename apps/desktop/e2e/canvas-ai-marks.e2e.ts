@@ -128,14 +128,42 @@ test.describe('畫布：AI 剛改過', () => {
     await page.keyboard.press('ControlOrMeta+z')
     await expect(page.getByTestId('toast').filter({ hasText: '已復原' })).toBeVisible()
     await expect(page.getByTestId(`node-${shot}`)).not.toContainText('雨夜的屋簷下')
-    // 復原一回來標記就要不見：不能等它自己（滑過一下 1.2 秒後算看過）消失，所以只等一下下
-    await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0, { timeout: 250 })
+    // 標記要靠「復原」拿掉，不是等它自己消失：等 3 秒，比任何計時都久
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0, { timeout: 3000 })
 
     // 重做：描述回來，但那是使用者自己要的，不再標
     await page.keyboard.press('ControlOrMeta+Shift+z')
     await expect(page.getByTestId(`node-${shot}`)).toContainText('雨夜的屋簷下')
     await page.waitForTimeout(800)
     await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0)
+    await ai.close()
+  })
+
+  test('使用者看過那一格（滑過、點選）之後 Claude 又改：新的標記不會被先前滑過的計時收掉', async ({
+    page,
+    userDataDir,
+  }) => {
+    const ai = await connectAi(page, userDataDir)
+    await ai.callTool({ name: 'create_project', arguments: { name: '舊計時' } })
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const shotId = idOf(await ai.callTool({ name: 'create_shot', arguments: {} }))
+    const shot = `shot:${shotId}`
+    await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === shot)).toBe(true)
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toBeVisible()
+    // 滑鼠移進去（開始 1.2 秒的「滑過算看過」計時），馬上點選：標記收掉、移開
+    await centerOn(page, shot)
+    await page.getByTestId(`node-${shot}`).click({ position: { x: 100, y: 16 } })
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0)
+    await clickEmpty(page)
+    // Claude 再改：標記重新標上，之後 3 秒（比 1.2 秒的計時久很多）都要還在
+    await ai.callTool({
+      name: 'update_shot',
+      arguments: { shotId, description: '雨夜的屋簷下，貓縮成一團' },
+    })
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toBeVisible()
+    await page.waitForTimeout(3000)
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toBeVisible()
     await ai.close()
   })
 
