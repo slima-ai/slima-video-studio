@@ -90,6 +90,28 @@ test.describe('畫布執行（示範模式）', () => {
     ])
   })
 
+  test('每顆 ▶ 的名稱帶節點名（讀螢幕的人聽得出是哪一格）：執行：第 1 鏡・影片', async ({
+    page,
+  }) => {
+    await generateAndOpenCanvas(page)
+    const nodes = await canvasNodes(page)
+    const shot = nodes.find((n) => n.id.startsWith('shot:') && !n.id.includes(':', 5))
+    expect(shot).toBeTruthy()
+    const key = shot?.id ?? ''
+    await centerOn(page, key)
+    // 鏡頭、首幀圖、影片三格各自一顆 ▶，名稱都帶各自的標題
+    for (const id of [key, `${key}:image`, `${key}:video`]) {
+      const title = (await nodeOf(page, id))?.data.title ?? ''
+      expect(title).not.toBe('')
+      const label = await page.getByTestId(`run-${id}`).getAttribute('aria-label')
+      expect(label).toBe(`執行：${title}`)
+    }
+    await expect(
+      page.getByRole('button', { name: /^執行：第 \d+ 鏡・影片$/ }).first(),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: '執行', exact: true })).toHaveCount(0)
+  })
+
   test('上方列「全部生成」：顯示預估、只補沒生成的；補完後變成「全部都生成好了」', async ({
     page,
   }) => {

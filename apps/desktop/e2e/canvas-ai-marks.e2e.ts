@@ -87,13 +87,15 @@ test.describe('畫布：AI 剛改過', () => {
       arguments: { shotId, description: '雨夜的屋簷下，貓縮成一團' },
     })
     await expect(badge).toBeVisible()
+    // 滑鼠先離開再滑進來（上面點選時滑鼠就在那一格裡，不離開就不算「滑過」）
+    await clickEmpty(page)
     await page.getByTestId(`node-${shot}`).hover({ position: { x: 100, y: 60 } })
     await expect(badge).toHaveCount(0, { timeout: 5000 })
 
-    // AI 刪了這個鏡頭：提示寫「AI 刪了第 N 鏡，可以復原」；按復原就回來
+    // AI 刪了這個鏡頭：提示寫「AI 刪了第 N 鏡「描述開頭」，按「復原」可以找回來」；按復原就回來
     await ai.callTool({ name: 'delete_shots', arguments: { shotIds: [shotId] } })
     const toast = page.getByTestId('toast').filter({ hasText: 'AI 刪了' })
-    await expect(toast).toContainText(/AI 刪了第 \d+ 鏡，可以復原/)
+    await expect(toast).toContainText(/AI 刪了第 \d+ 鏡「雨夜的屋簷下，貓…」，按「復原」可以找回來/)
     await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === shot)).toBe(false)
     await toast.getByRole('button', { name: '復原' }).click()
     await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === shot)).toBe(true)
@@ -128,14 +130,42 @@ test.describe('畫布：AI 剛改過', () => {
     await page.keyboard.press('ControlOrMeta+z')
     await expect(page.getByTestId('toast').filter({ hasText: '已復原' })).toBeVisible()
     await expect(page.getByTestId(`node-${shot}`)).not.toContainText('雨夜的屋簷下')
-    // 復原一回來標記就要不見：不能等它自己（滑過一下 1.2 秒後算看過）消失，所以只等一下下
-    await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0, { timeout: 250 })
+    // 標記要靠「復原」拿掉，不是等它自己消失：等 3 秒，比任何計時都久
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0, { timeout: 3000 })
 
     // 重做：描述回來，但那是使用者自己要的，不再標
     await page.keyboard.press('ControlOrMeta+Shift+z')
     await expect(page.getByTestId(`node-${shot}`)).toContainText('雨夜的屋簷下')
     await page.waitForTimeout(800)
     await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0)
+    await ai.close()
+  })
+
+  test('使用者看過那一格（滑過、點選）之後 Claude 又改：新的標記不會被先前滑過的計時收掉', async ({
+    page,
+    userDataDir,
+  }) => {
+    const ai = await connectAi(page, userDataDir)
+    await ai.callTool({ name: 'create_project', arguments: { name: '舊計時' } })
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const shotId = idOf(await ai.callTool({ name: 'create_shot', arguments: {} }))
+    const shot = `shot:${shotId}`
+    await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === shot)).toBe(true)
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toBeVisible()
+    // 滑鼠移進去（開始 1.2 秒的「滑過算看過」計時），馬上點選：標記收掉、移開
+    await centerOn(page, shot)
+    await page.getByTestId(`node-${shot}`).click({ position: { x: 100, y: 16 } })
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toHaveCount(0)
+    await clickEmpty(page)
+    // Claude 再改：標記重新標上，之後 3 秒（比 1.2 秒的計時久很多）都要還在
+    await ai.callTool({
+      name: 'update_shot',
+      arguments: { shotId, description: '雨夜的屋簷下，貓縮成一團' },
+    })
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toBeVisible()
+    await page.waitForTimeout(3000)
+    await expect(page.getByTestId(`ai-badge-${shot}`)).toBeVisible()
     await ai.close()
   })
 
@@ -164,7 +194,9 @@ test.describe('畫布：AI 剛改過', () => {
     for (const key of keys) await expect(page.getByTestId(`ai-badge-${key}`)).toHaveCount(0)
 
     await ai.callTool({ name: 'delete_shots', arguments: { shotIds: [ids[2] ?? ''] } })
-    await expect(page.getByTestId('toast').filter({ hasText: 'AI 刪了' })).toContainText('第 3 鏡')
+    await expect(page.getByTestId('toast').filter({ hasText: 'AI 刪了' })).toContainText(
+      '1 個空的鏡頭',
+    )
     const fourth = keys[3] ?? ''
     // 原本的第 4 鏡現在叫第 3 鏡，內容沒被改
     await expect
@@ -176,6 +208,37 @@ test.describe('畫布：AI 剛改過', () => {
     for (const suffix of ['', ':image', ':video']) {
       await expect(page.getByTestId(`ai-badge-${fourth}${suffix}`)).toHaveCount(0)
     }
+    await ai.close()
+  })
+
+  test('外面的 AI 工具連刪三個空鏡頭：不合成，每次一則；最後那則只說最後刪的那一個，按「復原」也只回來那一個', async ({
+    page,
+    userDataDir,
+  }, testInfo) => {
+    const ai = await connectAi(page, userDataDir)
+    await ai.callTool({ name: 'create_project', arguments: { name: '空鏡頭' } })
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const keys: string[] = []
+    const ids: string[] = []
+    for (let i = 0; i < 3; i++) {
+      const id = idOf(await ai.callTool({ name: 'create_shot', arguments: {} }))
+      ids.push(id)
+      keys.push(`shot:${id}`)
+    }
+    const present = async (): Promise<number> =>
+      (await canvasNodes(page)).filter((n) => keys.includes(n.id)).length
+    await expect.poll(present).toBe(3)
+    // 三次呼叫、各刪一個
+    for (const id of ids) await ai.callTool({ name: 'delete_shots', arguments: { shotIds: [id] } })
+    await expect.poll(present).toBe(0)
+    // 不是 Claude 對話那一輪：復原只退最後一步，提示只說最後刪的那一個，也沒有「這一輪」那句
+    const toast = page.getByTestId('toast').filter({ hasText: 'AI 刪了' })
+    await expect(toast).toHaveText(/^AI 刪了 1 個空的鏡頭，按「復原」可以找回來復原$/)
+    await expect(toast).toHaveCount(1)
+    await page.screenshot({ path: testInfo.outputPath('removed-toast.png') })
+    await toast.getByRole('button', { name: '復原' }).click()
+    await expect.poll(present).toBe(1)
     await ai.close()
   })
 

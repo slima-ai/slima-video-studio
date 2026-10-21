@@ -1,5 +1,6 @@
 import {
   canvasNodes,
+  clickEmpty,
   generateAndOpenCanvas,
   hoverThenClick,
   kindCount,
@@ -152,6 +153,21 @@ test.describe('畫布首頁（示範模式）', () => {
     await expect(page.getByTestId('node-palette')).toHaveCount(0)
     await page.getByTestId('palette-open').click()
     await expect(page.getByTestId('node-palette')).toBeVisible()
+  })
+
+  test('左側節點面板：標題列有看得懂的「收起」字樣，按 Esc 也能收起', async ({ page }) => {
+    const palette = page.getByTestId('node-palette')
+    await expect(palette).toBeVisible()
+    await expect(page.getByTestId('palette-close-text')).toHaveText(/收起/)
+    await page.getByTestId('palette-close-text').click()
+    await expect(palette).toHaveCount(0)
+    await page.getByTestId('palette-open').click()
+    await expect(palette).toBeVisible()
+    // 點一下畫布空白處、按 Esc：收起；收起來之後還有「＋ 新增」可以再打開
+    await clickEmpty(page)
+    await page.keyboard.press('Escape')
+    await expect(palette).toHaveCount(0)
+    await expect(page.getByTestId('palette-open')).toBeVisible()
   })
 
   test('節點面板新增角色：畫布長出角色節點並選取它；新增角色可以復原', async ({ page }) => {

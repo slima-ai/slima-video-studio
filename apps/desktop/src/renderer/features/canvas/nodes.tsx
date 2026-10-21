@@ -195,7 +195,7 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
     return (
       <button
         type="button"
-        aria-label="停止"
+        aria-label={`停止：${data.title}`}
         data-tip="停止這一鏡（做好的部分留著）"
         data-testid={`stop-${id}`}
         className="nodrag flex size-6 items-center justify-center rounded border border-border bg-surface text-[11px] hover:border-danger hover:text-danger"
@@ -213,7 +213,7 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
     <span className="flex shrink-0 items-center">
       <button
         type="button"
-        aria-label={status === 'failed' ? '重試' : '執行'}
+        aria-label={`${status === 'failed' ? '重試' : '執行'}：${data.title}`}
         data-tip={tipText ? `${runTipOf(data)}・${tipText}` : runTipOf(data)}
         data-testid={`run-${id}`}
         className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
@@ -233,7 +233,7 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
       {generating && openRunMenu ? (
         <button
           type="button"
-          aria-label="選要跑多少"
+          aria-label={`選要跑多少：${data.title}`}
           aria-haspopup="menu"
           data-tip="只跑這個、這個和後面的、整條"
           data-testid={`run-mode-${id}`}
@@ -482,6 +482,11 @@ function useAiSeenOnHover(id: string, touched: boolean | undefined) {
     },
     [],
   )
+  // 標記收掉時（選取、動過）事件處理跟著拿掉，onMouseLeave 就清不到計時：先前滑過留下的計時要在這裡清，
+  // 不然它 1.2 秒後會把「之後 AI 又改、重新標上」的標記當成看過收掉
+  useEffect(() => {
+    if (!touched) window.clearTimeout(timer.current)
+  }, [touched])
   if (!touched || !aiSeen) return {}
   return {
     onMouseEnter: () => {
