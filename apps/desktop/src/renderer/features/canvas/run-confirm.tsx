@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 import { Button } from '../../components/button'
+import { useSuspendToasts } from '../../components/toast'
 
 /** 確認面板貼在哪個按鈕旁邊（畫面座標）：按鈕的左右上下緣。 */
 export interface ConfirmAnchor {
@@ -213,6 +214,8 @@ export function RunConfirm({
   onOk: () => void
   onCancel: () => void
 }) {
+  // 確認框開著，提示先收起來：不蓋在框上（尤其是價錢那一行），關掉再回來
+  useSuspendToasts()
   const okRef = useRef<HTMLButtonElement>(null)
   // 畫面一出現就要能按 Esc、焦點就在「確認」上：用 layout effect（畫出來之前就掛好），
   // 一般 effect 要等畫完才跑，這段空檔按的 Esc 會沒反應

@@ -1,7 +1,14 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { TOAST_MS, ToastProvider, useToast, type ToastOptions } from './toast'
+import {
+  RESUME_MIN_MS,
+  TOAST_MS,
+  ToastProvider,
+  useSuspendToasts,
+  useToast,
+  type ToastOptions,
+} from './toast'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -166,5 +173,92 @@ describe('Toast', () => {
     render(<Trigger toast={{ message: 'x' }} />)
     fireEvent.click(screen.getByText('show'))
     expect(screen.queryByTestId('toast')).toBeNull()
+  })
+})
+
+describe('Toast：對話框開著時先收起來', () => {
+  function Dialog({ open }: { open: boolean }) {
+    return open ? <Suspender /> : null
+  }
+  function Suspender() {
+    useSuspendToasts()
+    return <p>對話框</p>
+  }
+  function App({ open }: { open: boolean }) {
+    return (
+      <ToastProvider>
+        <Trigger toast={{ message: '分鏡寫好了', action: { label: '復原', onAction: vi.fn() } }} />
+        <Dialog open={open} />
+      </ToastProvider>
+    )
+  }
+  const region = () => screen.getByTestId('toast-region')
+
+  it('框開著：提示收起來（不蓋在框上）、計時暫停，不會在框後面到期', () => {
+    const view = render(<App open={false} />)
+    fireEvent.click(screen.getByText('show'))
+    expect(region().getAttribute('data-suspended')).toBe('false')
+    view.rerender(<App open />)
+    expect(region().getAttribute('data-suspended')).toBe('true')
+    expect(region().className).toContain('invisible')
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS * 5)
+    })
+    // 暫停中：過了很久還在
+    expect(screen.getByTestId('toast')).toBeTruthy()
+  })
+
+  it('框關掉：還沒到時間的提示回來，「復原」找得到，而且至少再停一下才收', () => {
+    const view = render(<App open={false} />)
+    fireEvent.click(screen.getByText('show'))
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS - 500) // 只剩 0.5 秒
+    })
+    view.rerender(<App open />)
+    view.rerender(<App open={false} />)
+    expect(region().getAttribute('data-suspended')).toBe('false')
+    expect(screen.getByTestId('toast-action').textContent).toBe('復原')
+    act(() => {
+      vi.advanceTimersByTime(RESUME_MIN_MS - 100)
+    })
+    expect(screen.getByTestId('toast')).toBeTruthy()
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+    expect(screen.queryByTestId('toast')).toBeNull()
+  })
+
+  it('框開著時新跳出來的提示也先不顯示、不計時，框關掉才顯示', () => {
+    const view = render(<App open />)
+    fireEvent.click(screen.getByText('show'))
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS * 3)
+    })
+    expect(region().className).toContain('invisible')
+    expect(screen.getByTestId('toast')).toBeTruthy()
+    view.rerender(<App open={false} />)
+    expect(region().className).not.toContain('invisible')
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS - 100)
+    })
+    expect(screen.getByTestId('toast')).toBeTruthy()
+  })
+
+  it('好幾個對話框同時開著：都關掉才回來', () => {
+    function Two({ a, b }: { a: boolean; b: boolean }) {
+      return (
+        <ToastProvider>
+          <Trigger toast={{ message: '提示' }} />
+          <Dialog open={a} />
+          <Dialog open={b} />
+        </ToastProvider>
+      )
+    }
+    const view = render(<Two a b />)
+    fireEvent.click(screen.getByText('show'))
+    view.rerender(<Two a={false} b />)
+    expect(region().getAttribute('data-suspended')).toBe('true')
+    view.rerender(<Two a={false} b={false} />)
+    expect(region().getAttribute('data-suspended')).toBe('false')
   })
 })

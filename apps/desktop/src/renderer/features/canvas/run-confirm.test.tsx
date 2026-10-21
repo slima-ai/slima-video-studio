@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ToastProvider } from '../../components/toast'
 import { RunConfirm, placeConfirm, shiftAnchor } from './run-confirm'
 
 afterEach(() => {
@@ -126,5 +127,29 @@ describe('RunConfirm：清單與「用什麼、多少錢」', () => {
     open([], [])
     expect(screen.queryByTestId('run-confirm-steps')).toBeNull()
     expect(screen.queryByTestId('run-confirm-pinned')).toBeNull()
+  })
+})
+
+describe('RunConfirm：開著的時候提示條讓開', () => {
+  it('確認框一出現就把提示收起來、關掉（卸載）就回來', () => {
+    const anchor = { left: 400, right: 430, top: 400, bottom: 430 }
+    const framed = (open: boolean) => (
+      <ToastProvider>
+        {open ? (
+          <RunConfirm
+            anchor={anchor}
+            count={1}
+            lines={['第 1 步']}
+            costUsd={0.5}
+            onOk={() => undefined}
+            onCancel={() => undefined}
+          />
+        ) : null}
+      </ToastProvider>
+    )
+    const view = render(framed(true))
+    expect(screen.getByTestId('toast-region').getAttribute('data-suspended')).toBe('true')
+    view.rerender(framed(false))
+    expect(screen.getByTestId('toast-region').getAttribute('data-suspended')).toBe('false')
   })
 })

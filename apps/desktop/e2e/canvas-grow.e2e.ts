@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { spawnSync } from 'node:child_process'
 
 import ffmpegPath from 'ffmpeg-static'
@@ -30,6 +30,17 @@ async function focusOneliner(page: Page): Promise<void> {
 }
 
 /** 空畫布按「新增一句話」，寫好故事、選 3 個鏡頭、每鏡 3 秒（讓示範模式跑得快）。 */
+/** 這一行的中心點上面實際看到的是確認框裡的東西（不是被提示條之類的蓋住）。 */
+async function expectNotCovered(page: Page, line: Locator): Promise<void> {
+  const box = await line.boundingBox()
+  if (!box) throw new Error('找不到這一行')
+  const inside = await page.evaluate(
+    ({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-testid="run-confirm"]') !== null,
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+  )
+  expect(inside, '這一行被別的東西蓋住了').toBe(true)
+}
+
 /** 確認框：整個框、清單最後一行、「用什麼」那行、確認鈕都在視窗內，清單沒有被切掉（不用捲動）。 */
 async function expectAllInView(page: Page): Promise<void> {
   const confirm = page.getByTestId('run-confirm')
@@ -37,6 +48,8 @@ async function expectAllInView(page: Page): Promise<void> {
   await expect(confirm.getByTestId('run-confirm-ok')).toBeInViewport({ ratio: 1 })
   const items = confirm.getByTestId('run-confirm-steps').locator('li')
   await expect(items.last()).toBeInViewport({ ratio: 1 })
+  await expectNotCovered(page, confirm.getByText(/預估約 US\$/))
+  await expectNotCovered(page, confirm.getByTestId('run-confirm-pinned'))
   const cutOff = await confirm
     .getByTestId('run-confirm-steps')
     .locator('ul')
@@ -269,8 +282,6 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await expect.poll(() => kindCount(page, 'shot')).toBe(4)
 
     // 全部生成：4 鏡 = 9 步（8 步 + 接成成品），一行都不能被切掉
-    // 「分鏡寫好了」的提示（幾秒後自己消失）會蓋住確認框下緣：等它收掉再看
-    await expect(page.getByTestId('toast')).toHaveCount(0, { timeout: 15_000 })
     await page.getByTestId('run-all').click()
     await expect(confirm).toContainText('這次會做 9 步')
     await expectAllInView(page)
@@ -278,6 +289,39 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await expect(confirm.getByTestId('run-confirm-pinned')).toContainText('用：')
     await expect(confirm.getByTestId('run-confirm-more')).toHaveCount(0)
     await page.screenshot({ path: testInfo.outputPath('confirm-9-steps.png') })
+  })
+
+  test('「分鏡寫好了」的提示條還在的時候按「全部生成」：提示條不蓋在確認框上（價錢那行看得到），框關掉之後提示條回來、「復原」還在', async ({
+    app,
+    page,
+  }) => {
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(1280, 800)
+    })
+    await page.getByTestId('empty-add-oneliner').click()
+    await expect(oneliner(page)).toBeVisible()
+    await page.getByTestId('oneliner-story').fill('一隻貓在下雨的夜晚找到溫暖的家')
+    await page.getByTestId('oneliner-story').blur()
+    await page.getByTestId('oneliner-storyboard').click()
+    await page.getByTestId('run-confirm-ok').click()
+    await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false', {
+      timeout: 60_000,
+    })
+    // 提示條剛出現，馬上按「全部生成」（真的使用者就是這樣）
+    const toast = page.getByTestId('toast')
+    await expect(toast).toContainText('分鏡寫好了')
+    await page.getByTestId('run-all').click()
+    const confirm = page.getByTestId('run-confirm')
+    await expect(confirm).toBeVisible()
+    // 價錢那一行中心點上看到的是確認框裡的東西；提示條先收起來
+    await expectNotCovered(page, confirm.getByText(/預估約 US\$/))
+    await expectNotCovered(page, confirm.getByTestId('run-confirm-pinned'))
+    await expect(toast).toBeHidden()
+    // 取消：提示條回來，「復原」還在
+    await confirm.getByRole('button', { name: '取消' }).click()
+    await expect(confirm).toHaveCount(0)
+    await expect(toast).toBeVisible()
+    await expect(toast.getByTestId('toast-action')).toHaveText('復原')
   })
 
   test('步驟很多（27 鏡）：清單可以捲動，看得出下面還有；「用什麼」與價錢那行永遠看得到', async ({
@@ -309,7 +353,6 @@ test.describe('畫布上的一句話（示範模式）', () => {
     })
     await expect.poll(() => kindCount(page, 'shot')).toBe(27)
 
-    await expect(page.getByTestId('toast')).toHaveCount(0, { timeout: 15_000 })
     await page.getByTestId('run-all').click()
     const confirm = page.getByTestId('run-confirm')
     await expect(confirm).toContainText('這次會做 55 步')
@@ -318,6 +361,8 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await expect(confirm.getByTestId('run-confirm-pinned')).toBeInViewport({ ratio: 1 })
     await expect(confirm.getByTestId('run-confirm-ok')).toBeInViewport({ ratio: 1 })
     await expect(confirm.getByText(/預估約 US\$/)).toBeInViewport({ ratio: 1 })
+    await expectNotCovered(page, confirm.getByText(/預估約 US\$/))
+    await expectNotCovered(page, confirm.getByTestId('run-confirm-pinned'))
     await expect(confirm.getByTestId('run-confirm-more')).toBeVisible()
     await page.screenshot({ path: testInfo.outputPath('confirm-27-shots.png') })
     const scrollable = await confirm
