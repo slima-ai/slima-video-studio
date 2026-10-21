@@ -7,6 +7,7 @@ import {
   READABLE_ZOOM,
   entryNode,
   entryViewport,
+  growView,
   openViewport,
   overflowViewport,
 } from './fit-all'
@@ -70,5 +71,66 @@ describe('開專案時的視角', () => {
     const view = openViewport(nodes, SCREEN)
     expect(view).not.toBe('fit')
     expect(view).toMatchObject({ zoom: ENTRY_ZOOM })
+  })
+})
+
+describe('growView：一句話長完之後視角怎麼動', () => {
+  // 兩欄的小專案：全部放得進 1440×844
+  const small = [
+    node('node:a', 'oneliner', 0, 0),
+    node('scene:1', 'scene', 400, 0),
+    node('shot:1', 'shot', 420, 40),
+  ]
+  // 很大的專案：舊的 12 個場排成一長串、右邊很遠（全部顯示在可讀縮放裝不下）
+  const big = (): CanvasNode[] => [
+    node('node:a', 'oneliner', 0, 0),
+    ...Array.from({ length: 12 }, (_, i) =>
+      node(`scene:old${String(i)}`, 'scene', 400 + i * 1100, 0),
+    ),
+  ]
+
+  it('裝得下：全部顯示', () => {
+    const before = new Set(['node:a'])
+    expect(growView(before, small, SCREEN)).toEqual({ kind: 'all' })
+  })
+
+  it('裝不下：只框這次新長出來的節點（舊的在看不到的地方也沒關係）', () => {
+    const old = big()
+    const before = new Set(old.map((n) => n.id))
+    const grown = [
+      node('scene:new', 'scene', 400 + 12 * 1100, 0),
+      node('shot:new', 'shot', 13_700, 40),
+    ]
+    const result = growView(before, [...old, ...grown], SCREEN)
+    expect(result).toEqual({ kind: 'new', ids: ['scene:new', 'shot:new'] })
+  })
+
+  it('裝不下、而且新長的自己也裝不下：看得清楚的縮放、從新長的左上角看起', () => {
+    const old = big()
+    const before = new Set(old.map((n) => n.id))
+    const grown = Array.from({ length: 30 }, (_, i) =>
+      node(`shot:new${String(i)}`, 'shot', 20_000 + i * 1000, 0),
+    )
+    const result = growView(before, [...old, ...grown], SCREEN)
+    expect(result).toMatchObject({ kind: 'new' })
+    if (result.kind !== 'new') throw new Error('應該是框新長的')
+    expect(result.ids).toHaveLength(30)
+    expect(result.overflow).toEqual({
+      x: FIT_PADDING.left - 20_000 * READABLE_ZOOM,
+      y: FIT_PADDING.top - 0 * READABLE_ZOOM,
+      zoom: READABLE_ZOOM,
+    })
+  })
+
+  it('什麼都沒長出來（例如一開始就失敗）：視角不動', () => {
+    const before = new Set(small.map((n) => n.id))
+    expect(growView(before, small, SCREEN)).toEqual({ kind: 'none' })
+    expect(growView(new Set(), [], SCREEN)).toEqual({ kind: 'none' })
+  })
+
+  it('長之後有舊節點被換掉（整個重長）：新的 id 算新長出來的', () => {
+    const before = new Set(['node:a', 'scene:old'])
+    const after = [node('node:a', 'oneliner', 0, 0), node('scene:new', 'scene', 400, 0)]
+    expect(growView(before, after, SCREEN)).toEqual({ kind: 'all' })
   })
 })
