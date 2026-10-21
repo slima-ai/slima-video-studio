@@ -29,10 +29,10 @@ describe('效能自測的示範專案', { timeout: 60_000 }, () => {
     expect(shots.every((s) => s.sceneId !== undefined && s.characters.length === 1)).toBe(true)
   })
 
-  it('240 鏡：畫布投影（canvas.get）的時間跟鏡頭數大致成正比，沒有變成平方——鏡頭變 4 倍，時間不到 8 倍', async () => {
+  it('240 鏡：畫布投影（canvas.get）的時間跟鏡頭數大致成正比，沒有變成平方——鏡頭變 4 倍，時間不到 7 倍', async () => {
     // 不比「幾毫秒」：同一份程式在開發機約 40 毫秒、在 GitHub 的共用 runner 上要 200 毫秒以上，絕對門檻一定會看機器臉色。
     // 改成同一台機器、同一次測試裡比 60 鏡與 240 鏡：鏡頭變 4 倍，線性約 4 倍以內（有固定成本，通常 3～4），
-    // 平方約 16 倍，門檻 8 倍在兩者中間。
+    // 平方約 16 倍，門檻 7 倍在兩者中間。
     // 機器忙不忙不能讓它紅（用牆鐘時間量，同時跑的別的測試會把單次量測拖慢好幾倍，比值就跟著亂跳），所以：
     // 量的是這個行程實際用掉的 CPU 時間（被別的行程搶走的不算）；每種各量 7 次取最小的（垃圾回收偶爾多出來的不算）。
     const measure = async (shots: number): Promise<number> => {
@@ -52,7 +52,7 @@ describe('效能自測的示範專案', { timeout: 60_000 }, () => {
     }
     const small = await measure(60)
     const large = await measure(240)
-    expect(large / small).toBeLessThan(8)
+    expect(large / small).toBeLessThan(7)
     // 另外留一個很寬的絕對上限（CPU 時間），只擋「慢了一個數量級」這種災難，不當成效能指標
     expect(large).toBeLessThan(1000)
   })
