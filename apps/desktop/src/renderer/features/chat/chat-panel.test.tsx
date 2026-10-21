@@ -403,6 +403,9 @@ describe('Claude 對話面板：講話與串流', () => {
       expect(screen.queryByText('新專案裡說的')).toBeNull()
     })
     expect(await screen.findByTestId('chat-input')).toBeTruthy()
-    expect(fake.calls.filter((c) => c.channel === 'chat.create').length).toBeGreaterThan(0)
+    // chat.create 是 reset 之後非同步發出的，輸入框在 reset 前就存在；不賭時序，等它真的被呼叫
+    await waitFor(() => {
+      expect(fake.calls.filter((c) => c.channel === 'chat.create').length).toBeGreaterThan(0)
+    })
   })
 })
