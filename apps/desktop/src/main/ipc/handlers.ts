@@ -12,6 +12,7 @@ import type { SoundService } from '../sound/sound-service'
 import type { CharacterService } from '../characters/character-service'
 import type { KeyVault } from '../keys/key-vault'
 import type { ChatService } from '../chat/chat-service'
+import { diffMarks, marksOf } from '../mcp/ai-changes'
 import type { McpConnector } from '../mcp/connect'
 import type { McpController } from '../mcp/controller'
 import type { KeyTester } from '../keys/key-tester'
@@ -30,7 +31,7 @@ import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
 import type { DemoSeeder } from '../perf/demo-seed'
 import { withChangeEvents } from './change-events'
-import type { IpcRegistry } from './registry'
+import type { HandlerContext, IpcRegistry } from './registry'
 
 export interface AppInfo {
   name: string
@@ -439,8 +440,31 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('shots.rejoin', () => shots.rejoin())
 
   registry.registerHandler('history.state', () => history.state())
-  registry.registerHandler('history.undo', () => history.undo())
-  registry.registerHandler('history.redo', () => history.redo())
+  // 復原／重做之後，哪些畫布節點因此變了：畫面把它們的「AI 剛改」拿掉（內容已經退回去）
+  const applyHistory = (
+    direction: 'undo' | 'redo',
+    ctx: HandlerContext,
+  ): ReturnType<typeof history.undo> => {
+    // 沒開專案、讀不到畫布時照常復原，只是沒有標記可以拿掉
+    const marks = (): ReturnType<typeof marksOf> | undefined => {
+      try {
+        return marksOf(canvas.get())
+      } catch {
+        return undefined
+      }
+    }
+    const before = marks()
+    const result = direction === 'undo' ? history.undo() : history.redo()
+    const after = result.applied && before ? marks() : undefined
+    if (before && after) {
+      const diff = diffMarks(before, after)
+      const keys = [...diff.changed, ...diff.added, ...diff.removed.map((r) => r.key)]
+      if (keys.length > 0) ctx.emit('canvas.marksReverted', { direction, keys })
+    }
+    return result
+  }
+  registry.registerHandler('history.undo', (_request, ctx) => applyHistory('undo', ctx))
+  registry.registerHandler('history.redo', (_request, ctx) => applyHistory('redo', ctx))
   registry.registerHandler('characters.list', () => ({ characters: characters.list() }))
   registry.registerHandler('characters.create', ({ name }) => characters.create(name))
   registry.registerHandler('characters.update', ({ characterId, patch }) =>
