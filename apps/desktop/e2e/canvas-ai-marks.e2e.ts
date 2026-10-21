@@ -90,10 +90,10 @@ test.describe('畫布：AI 剛改過', () => {
     await page.getByTestId(`node-${shot}`).hover({ position: { x: 100, y: 60 } })
     await expect(badge).toHaveCount(0, { timeout: 5000 })
 
-    // AI 刪了這個鏡頭：提示寫「AI 刪了第 N 鏡，可以復原」；按復原就回來
+    // AI 刪了這個鏡頭：提示寫「AI 刪了第 N 鏡「描述開頭」，按「復原」可以找回來」；按復原就回來
     await ai.callTool({ name: 'delete_shots', arguments: { shotIds: [shotId] } })
     const toast = page.getByTestId('toast').filter({ hasText: 'AI 刪了' })
-    await expect(toast).toContainText(/AI 刪了第 \d+ 鏡，可以復原/)
+    await expect(toast).toContainText(/AI 刪了第 \d+ 鏡「雨夜的屋簷下，貓…」，按「復原」可以找回來/)
     await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === shot)).toBe(false)
     await toast.getByRole('button', { name: '復原' }).click()
     await expect.poll(async () => (await canvasNodes(page)).some((n) => n.id === shot)).toBe(true)
@@ -176,6 +176,39 @@ test.describe('畫布：AI 剛改過', () => {
     for (const suffix of ['', ':image', ':video']) {
       await expect(page.getByTestId(`ai-badge-${fourth}${suffix}`)).toHaveCount(0)
     }
+    await ai.close()
+  })
+
+  test('AI 連著刪了幾個空的鏡頭：只出一則提示「AI 刪了 3 個空的鏡頭」，不列名字；按「復原」都回來', async ({
+    page,
+    userDataDir,
+  }, testInfo) => {
+    const ai = await connectAi(page, userDataDir)
+    await ai.callTool({ name: 'create_project', arguments: { name: '空鏡頭' } })
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const keys: string[] = []
+    const ids: string[] = []
+    for (let i = 0; i < 3; i++) {
+      const id = idOf(await ai.callTool({ name: 'create_shot', arguments: {} }))
+      ids.push(id)
+      keys.push(`shot:${id}`)
+    }
+    await expect
+      .poll(async () => (await canvasNodes(page)).filter((n) => keys.includes(n.id)).length)
+      .toBe(3)
+    // 三次呼叫、各刪一個
+    for (const id of ids) await ai.callTool({ name: 'delete_shots', arguments: { shotIds: [id] } })
+    const toast = page.getByTestId('toast').filter({ hasText: 'AI 刪了' })
+    await expect(toast).toHaveText(/AI 刪了 3 個空的鏡頭，按「復原」可以找回來/)
+    await expect(toast).not.toContainText('第')
+    await expect(toast).not.toContainText('Claude')
+    await expect(toast).toHaveCount(1)
+    await page.screenshot({ path: testInfo.outputPath('removed-toast.png') })
+    await toast.getByRole('button', { name: '復原' }).click()
+    await expect
+      .poll(async () => (await canvasNodes(page)).filter((n) => keys.includes(n.id)).length)
+      .toBeGreaterThanOrEqual(1)
     await ai.close()
   })
 
