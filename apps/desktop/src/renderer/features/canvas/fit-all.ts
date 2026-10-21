@@ -5,6 +5,12 @@ import { FIT_OPTIONS, FIT_PADDING, sizeOf, type CanvasEdge, type CanvasNode } fr
 
 /** 縮到這個以下卡片只剩標題與色塊、按鈕都不見（見 Lod）；「全部顯示」至少停在這裡。 */
 export const READABLE_ZOOM = 0.5
+/**
+ * 一句話長完之後的最小縮放：卡上最小的正文（`text-xs`，12px）實際顯示約 11px 以上才讀得到旁白、景別。
+ * 比 `READABLE_ZOOM`（只要卡片還有按鈕）高很多：長完整串放不進畫面時，停在這個縮放、從鏈的開頭看起，
+ * 其餘捲動；使用者自己按「全部顯示」仍然全部放進畫面（最小縮放是 `READABLE_ZOOM`）。
+ */
+export const GROW_MIN_ZOOM = 11 / 12
 /** 「放大到看得清楚」與開專案時定位到入口用的縮放：卡片上的字和按鈕都讀得出來。 */
 export const ENTRY_ZOOM = 0.8
 
@@ -80,11 +86,11 @@ export function overflowViewport(
 export type GrowView =
   /** 什麼都沒長出來：視角不動。 */
   | { kind: 'none' }
-  /** 全部放得進畫面（而且看得清楚）：全部顯示。 */
+  /** 全部放得進畫面（而且卡上的字讀得到，`GROW_MIN_ZOOM`）：全部顯示。 */
   | { kind: 'all' }
   /**
    * 全部裝不下：只框這次新長出來的節點（全部顯示會停在最小縮放、從第一場看起，新長的可能在畫面外，
-   * 使用者會以為沒長出來）。新長的自己也裝不下時，`overflow` 是看得清楚的縮放、從新長的左上角看起。
+   * 使用者會以為沒長出來）。新長的自己也裝不下時，`overflow` 是 `GROW_MIN_ZOOM`、從新長的左上角（鏈的開頭）看起，其餘捲動。
    */
   | { kind: 'new'; ids: string[]; overflow?: Viewport }
 
@@ -99,9 +105,39 @@ export function growView(
 ): GrowView {
   const added = nodes.filter((n) => !before.has(n.id))
   if (added.length === 0) return { kind: 'none' }
-  if (!overflowViewport(boundsOf(nodes), size, READABLE_ZOOM)) return { kind: 'all' }
-  const overflow = overflowViewport(boundsOf(added), size, READABLE_ZOOM)
-  return { kind: 'new', ids: added.map((n) => n.id), ...(overflow ? { overflow } : {}) }
+  if (!overflowViewport(boundsOf(nodes), size, GROW_MIN_ZOOM)) return { kind: 'all' }
+  // 鏈的開頭是長出這串的那張一句話卡（它長之前就在了，不算「新長的」）：一起框進來、對齊左邊
+  const start = startOneliner(nodes, added)
+  const framed = start ? [start, ...added] : added
+  const overflow = overflowViewport(boundsOf(framed), size, GROW_MIN_ZOOM)
+  return { kind: 'new', ids: framed.map((n) => n.id), ...(overflow ? { overflow } : {}) }
+}
+
+/** 一句話卡和它長出來的第一個節點之間，最多隔這麼遠（畫布座標）。 */
+const START_GAP = 600
+
+/** 新長出來的節點左邊最近的一句話卡（沒有就是 undefined）。 */
+function startOneliner(
+  nodes: readonly CanvasNode[],
+  added: readonly CanvasNode[],
+): CanvasNode | undefined {
+  const addedIds = new Set(added.map((n) => n.id))
+  const bounds = boundsOf(added)
+  let best: CanvasNode | undefined
+  let bestDistance = Infinity
+  for (const node of nodes) {
+    if (node.data.kind !== 'oneliner' || addedIds.has(node.id)) continue
+    const { w } = sizeOf(node)
+    const gap = bounds.x - (node.position.x + w)
+    // 緊貼在新長的左邊才算它的開頭；隔很遠（舊專案裡別的一句話）不框，不然範圍會大到什麼都看不清楚
+    if (gap < -1 || gap > START_GAP) continue
+    const distance = gap + Math.abs(node.position.y - bounds.y)
+    if (distance < bestDistance) {
+      best = node
+      bestDistance = distance
+    }
+  }
+  return best
 }
 
 /**
