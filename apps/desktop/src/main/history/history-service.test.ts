@@ -212,6 +212,36 @@ describe('動作名稱', () => {
     expect(normal.skipped).toBeUndefined()
   })
 
+  it('takeUserOps：使用者自己按的復原／重做依序記下（Claude 一輪帶著裡面各編輯的名稱）、取走就清掉；整步被略過的不算', () => {
+    const { root, projects, history } = setup()
+    projects.create(join(root, 'ops.svsproj'), 'OPS')
+    const repos = projects.current()?.repos
+    if (!repos) throw new Error('專案沒開起來')
+    expect(history.takeUserOps()).toEqual([])
+    const end = history.beginAiTurn('Claude 這一輪的改動')
+    runAsAi(() => history.record('新增一幕', () => repos.outline.addAct({ title: 'AI 一' })))
+    runAsAi(() => history.record('新增地點', () => repos.outline.addLocation({ name: '街角' })))
+    end()
+    history.record('新增一幕', () => repos.outline.addAct({ title: '我的' }))
+    history.undo() // 退掉我自己的
+    history.undo() // 退掉 Claude 這一輪
+    history.redo()
+    expect(history.takeUserOps()).toEqual([
+      { direction: 'undo', label: '新增一幕', details: [] },
+      { direction: 'undo', label: 'Claude 這一輪的改動', details: ['新增一幕', '新增地點'] },
+      { direction: 'redo', label: 'Claude 這一輪的改動', details: ['新增一幕', '新增地點'] },
+    ])
+    // 取走就清掉
+    expect(history.takeUserOps()).toEqual([])
+    // 沒東西可復原（沒做事）不記
+    history.undo()
+    history.undo()
+    history.undo()
+    history.takeUserOps()
+    expect(history.undo()).toMatchObject({ applied: false })
+    expect(history.takeUserOps()).toEqual([])
+  })
+
   it('沒有 beginAiTurn 時，AI 呼叫跟使用者的一樣各是一步（Claude Desktop 之類在面板外連進來）', () => {
     const { root, projects, history } = setup()
     projects.create(join(root, 'ai2.svsproj'), 'AI')

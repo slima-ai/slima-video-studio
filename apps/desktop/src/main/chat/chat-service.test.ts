@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { CHAT_BUDGET_DEFAULT_USD, type ChatEvent, type ChatPanelMessage } from '@svs/schema'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { UserHistoryOp } from '../history/history-service'
 import { bridgeCommand } from '../mcp/connect'
 import { readConversations } from './chat-store'
 import type { ClaudeCheck } from './claude-check'
@@ -101,6 +102,8 @@ function setup(
     projectDir?: string
     /** 要不要接復原紀錄（記下 begin／結束的順序）。 */
     withHistory?: boolean
+    /** 使用者在兩句之間按過的復原／重做（每次取走就清掉）；有給就接上 takeUserOps。 */
+    userOps?: UserHistoryOp[]
     /** 同一個專案資料夾在別的「App 啟動」裡：共用 tmp 目錄用。 */
   } = {},
 ) {
@@ -125,6 +128,7 @@ function setup(
     },
   }
   const historyLog: string[] = []
+  const userOps: UserHistoryOp[] = [...(options.userOps ?? [])]
   const deps: ChatServiceDeps = {
     settings: {
       get: () => ({
@@ -140,9 +144,13 @@ function setup(
     packaged: options.packaged ?? false,
     bridge: bridgeCommand('/exe', '/bridge.js', '/user'),
     workDir,
-    ...(options.withHistory === true
+    ...(options.withHistory === true || options.userOps !== undefined
       ? {
           history: {
+            takeUserOps: () => {
+              const ops = userOps.splice(0)
+              return ops
+            },
             beginAiTurn: (label: string) => {
               historyLog.push(`begin:${label}`)
               let done = false
@@ -207,7 +215,7 @@ function setup(
           }
         ).message
       : undefined
-  return { service, children, calls, events, deps, last, project, historyLog }
+  return { service, children, calls, events, deps, last, project, historyLog, userOps }
 }
 
 describe('ChatService：開對話、送一則、一路串流', () => {
@@ -574,6 +582,60 @@ describe('ChatService：出錯要說白話', () => {
     expect(message?.text).toBe('我估了一下，大約 US$0.01。')
     expect(message?.text).not.toContain('<invoke')
     expect(message?.notes).toBeUndefined()
+  })
+
+  it('使用者在兩句之間按過復原：下一句後面附 App 附註（送給 Claude 的有、畫面上的使用者訊息沒有），存進紀錄；取走後再下一句不再附', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'svs-chat-proj-'))
+    dirs.push(dir)
+    const ops: UserHistoryOp[] = [
+      { direction: 'undo', label: 'Claude 這一輪的改動', details: ['修改鏡頭的景別'] },
+    ]
+    const { service, children, last } = setup({ projectDir: dir, userOps: ops })
+    const conv = service.create()
+    await service.send(conv.id, '把第 3 鏡刪掉')
+    const sent = children[0]?.written[0] as { message: { content: string } }
+    expect(sent.message.content).toContain('把第 3 鏡刪掉')
+    expect(sent.message.content).toContain('（App 附註：')
+    expect(sent.message.content).toContain('撤回了：Claude 這一輪的改動（修改鏡頭的景別）')
+    // 畫面上的使用者訊息只有使用者說的話；附註放在另一個欄位（不顯示）
+    const user = last(conv.id, 'user')
+    expect(user?.text).toBe('把第 3 鏡刪掉')
+    expect(user?.appNote).toContain('撤回了')
+    // 存進 chat/ 的紀錄
+    const stored = readConversations(dir).flatMap((c) => c.messages)
+    expect(stored.find((m) => m.role === 'user')?.appNote).toContain('撤回了')
+    // 做完，再說一句：沒再按過，不附
+    children[0]?.line(init())
+    children[0]?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
+    await service.send(conv.id, '再加一個')
+    const second = children[0]?.written.at(-1) as { message: { content: string } }
+    expect(second.message.content).toBe('再加一個')
+    expect(last(conv.id, 'user')?.appNote).toBeUndefined()
+  })
+
+  it('沒按過復原：送出去的就是使用者的話，沒有附註、紀錄裡也沒有 appNote', async () => {
+    const { service, children, last } = setup({ userOps: [] })
+    const conv = service.create()
+    await service.send(conv.id, '加一個鏡頭')
+    expect(children[0]?.written[0]).toMatchObject({
+      message: { role: 'user', content: '加一個鏡頭' },
+    })
+    expect(last(conv.id, 'user')?.appNote).toBeUndefined()
+  })
+
+  it('按了復原又重做：附註寫清楚最後的狀態跟之前一樣', async () => {
+    const same = { label: 'Claude 這一輪的改動', details: ['修改鏡頭'] }
+    const { service, children } = setup({
+      userOps: [
+        { direction: 'undo', ...same },
+        { direction: 'redo', ...same },
+      ],
+    })
+    const conv = service.create()
+    await service.send(conv.id, '好')
+    const sent = children[0]?.written[0] as { message: { content: string } }
+    expect(sent.message.content).toContain('按了復原又重做，最後的狀態跟之前一樣')
+    expect(sent.message.content).not.toContain('撤回了')
   })
 
   it('全英文的回覆（使用者用英文聊）：一段都不收，連提到預算的也照常顯示', async () => {

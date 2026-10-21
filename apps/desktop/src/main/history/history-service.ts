@@ -16,6 +16,15 @@ export interface HistoryServiceDeps {
   broadcast: Broadcast
 }
 
+/** 使用者自己按的一次復原或重做（給 Claude 的「App 附註」用）。 */
+export interface UserHistoryOp {
+  direction: 'undo' | 'redo'
+  /** 那一步的名稱（Claude 一輪是「Claude 這一輪的改動」）。 */
+  label: string
+  /** Claude 一輪裡各個編輯的名稱（「修改鏡頭的景別」…）；使用者自己的一步沒有。 */
+  details: string[]
+}
+
 export interface HistoryService {
   /** 執行一個大綱或分鏡表的編輯，並記進歷史（之後可以復原）。沒有開啟專案時只是執行。 */
   record: <T>(label: string, run: () => T) => T
@@ -32,6 +41,11 @@ export interface HistoryService {
    */
   beginAiTurn: (label: string) => () => void
   clear: () => void
+  /**
+   * 取走（並清掉）使用者自己按過的復原與重做：目前這個專案、從上次取走之後。
+   * Claude 對話送下一句話時拿來告訴它「使用者按過復原」（不然它以為自己的改動不見了、會自己改回去）。
+   */
+  takeUserOps: () => UserHistoryOp[]
   state: () => HistoryState
   undo: () => HistoryResult
   redo: () => HistoryResult
@@ -100,6 +114,8 @@ export function createHistoryService(deps: HistoryServiceDeps): HistoryService {
   const histories = new WeakMap<ProjectHandle, StructureHistory>()
   /** 每個專案目前開著的 Claude 一輪（一次最多一個）。 */
   const turns = new WeakMap<ProjectHandle, HistoryGroup>()
+  /** 每個專案：使用者自己按過、還沒告訴 Claude 的復原與重做。 */
+  const userOps = new WeakMap<ProjectHandle, UserHistoryOp[]>()
   /** 每復原或重做一次加一，畫面看到它變了就重新載入資料。 */
   let revision = 0
 
@@ -135,6 +151,12 @@ export function createHistoryService(deps: HistoryServiceDeps): HistoryService {
       const entry = direction === 'undo' ? history.undo() : history.redo()
       if (!entry) return { applied: false, state: history.state() }
       revision++
+      // 真的動到東西才算（整步都因為後來又被改過而略過的，對專案沒有影響，不用告訴 Claude）
+      if (handle && entry.applied > 0) {
+        const ops = userOps.get(handle) ?? []
+        ops.push({ direction, label: entry.label, details: entry.details ?? [] })
+        userOps.set(handle, ops)
+      }
       const skipped = entry.skipped === 0 ? undefined : entry.applied === 0 ? 'all' : 'some'
       return {
         applied: true,
@@ -199,6 +221,13 @@ export function createHistoryService(deps: HistoryServiceDeps): HistoryService {
     clear: () => {
       live()?.clear()
       announce()
+    },
+    takeUserOps: () => {
+      const handle = projects.current()
+      if (!handle) return []
+      const ops = userOps.get(handle) ?? []
+      userOps.delete(handle)
+      return ops
     },
     state,
     undo: () => apply('undo'),

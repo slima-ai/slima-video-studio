@@ -261,6 +261,7 @@ export function testSettingsDeps(
       begin: () => () => undefined,
       beginAiTurn: () => () => undefined,
       clear: () => undefined,
+      takeUserOps: () => [],
       state: () => ({ canUndo: false, canRedo: false }),
       undo: () => ({ applied: false, state: { canUndo: false, canRedo: false } }),
       redo: () => ({ applied: false, state: { canUndo: false, canRedo: false } }),
