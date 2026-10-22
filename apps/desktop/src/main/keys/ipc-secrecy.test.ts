@@ -114,6 +114,8 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'quickstart.upgrade': [{}],
   'shots.list': [{}],
   'shots.update': [{ shotId: 's1', patch: { description: '新的描述' } }],
+  'shots.references': [{ shotId: 's1' }],
+  'shots.setReferences': [{ shotId: 's1', assetHashes: ['a'.repeat(64)] }],
   'shots.regenerate': [{ shotId: 's1', mode: 'video' }],
   'shots.cancel': [{ shotId: 's1' }],
   'shots.adopt': [{ takeId: 't1' }],

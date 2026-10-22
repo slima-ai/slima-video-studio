@@ -1245,6 +1245,26 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             toast.show({ message: errorText(error), tone: 'danger' })
           })
       },
+      loadReferences: (shotKey) =>
+        call('shots.references', { shotId: shotKey.replace(/^shot:/, '') }),
+      saveReferences: async (shotKey, assetHashes) => {
+        const shotId = shotKey.replace(/^shot:/, '')
+        try {
+          const state = await call('shots.setReferences', { shotId, assetHashes })
+          onChanged()
+          toast.show({
+            key: 'step-references',
+            message: state.auto
+              ? '回到自動挑參考圖'
+              : '已指定參考圖：第一張畫面和影片要重跑才會用到',
+            action: { label: '復原', onAction: history.undo },
+          })
+          return state
+        } catch (error) {
+          toast.show({ message: errorText(error), tone: 'danger' })
+          throw error
+        }
+      },
       growStory: (nodeId, params, anchor, stage) => {
         growBefore.current = new Set(latestFlow.current.nodes.map((n) => n.id))
         startGrow(

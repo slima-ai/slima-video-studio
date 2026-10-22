@@ -27,6 +27,7 @@ import {
   type ShotBatchStage,
   type ShotBatchResult,
   type ShotEdit,
+  type ShotReferencesState,
   type ShotView,
   type StoryboardShot,
   type ShotsSnapshot,
@@ -41,13 +42,15 @@ import {
   buildShotWorkflow,
   composeShotPrompts,
   registerQuickStartNodes,
+  type CharacterAnchor,
+  type SceneAnchor,
   type ShotItem,
 } from '@svs/workflows'
 import { z } from 'zod'
 
 import { ensureProject } from '../ensure-project'
 import type { Logger } from '../logger'
-import { assetRefOf, lockedAnchors, referenceEditModel } from '../characters/anchors'
+import { assetRefOf, lockedAnchors, pickEditModel, referenceEditModel } from '../characters/anchors'
 import { lockedScenes } from '../locations/scene-anchors'
 import { createProjectEngine } from '../project-engine'
 import type { ProjectManager } from '../project-manager'
@@ -61,6 +64,7 @@ import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
 import { createStudioServices } from '../studio-services'
 import { NEW_SHOT_DESCRIPTION } from './defaults'
+import { pinnedForFlow, referencePlan } from './shot-references'
 
 export interface ShotServiceDeps {
   projects: ProjectManager
@@ -153,6 +157,10 @@ export interface ShotService {
   /** 每個鏡頭正在做哪一步、最近一次的失敗原因（只存在記憶體，畫布顯示執行中與失敗用）。 */
   live: () => ReadonlyMap<string, ShotLiveState>
   update: (shotId: string, edit: ShotEdit) => ShotView
+  /** 這一鏡的參考圖現況：實際會帶進去的、可以挑的、最多幾張。 */
+  references: (shotId: string) => ShotReferencesState
+  /** 手動指定這一鏡要帶哪幾張參考圖（依序）；空陣列＝恢復自動挑。第一張畫面會變成需要重新生成。 */
+  setReferences: (shotId: string, assetHashes: readonly string[]) => ShotReferencesState
   /** 新增一個空的鏡頭；有指定 afterShotId 就放在它後面，否則放最後。 */
   create: (input: { sceneId?: string | undefined; afterShotId?: string | undefined }) => ShotView
   /**
@@ -491,6 +499,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       aspectRatio: project.aspectRatio,
       anchors: lockedAnchors(handle),
       scenes: lockedScenes(handle),
+      /** 手動指定的參考圖（沒有指定的鏡頭不在裡面）。 */
+      pins: handle.repos.shots.allPins(),
     }
   }
 
@@ -520,6 +530,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           aspectRatio: context.aspectRatio,
           anchors: context.anchors.filter((a) => item.characters.includes(a.name)),
           scenes: context.scenes.filter((x) => x.id === shot.locationId),
+          // 手動指定了參考圖：換了圖、順序或張數，第一張畫面都要重新生成（沒指定就不加這個欄位，指紋跟以前一樣）
+          ...(context.pins.has(shot.id) ? { pins: context.pins.get(shot.id) } : {}),
         })
     return { image, video: hashValue({ image, cameraMove, durationSec }) }
   }
@@ -797,6 +809,26 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
 
   // ── 重新生成／批次生成 ──
 
+  /** 目前的圖片模型最多收幾張參考圖（不能編輯、不收參考圖的模型是 0，並說明原因）。 */
+  const referenceLimitOf = (): { limit: number; reason?: string } => {
+    const edit = pickEditModel(settingsService, models)
+    return edit
+      ? { limit: edit.referenceLimit }
+      : {
+          limit: 0,
+          reason: '目前的圖片模型不能帶參考圖（到設定換一個標著「多圖參考」的圖片模型）。',
+        }
+  }
+
+  /** 這一鏡的參考圖現況：實際會帶進去的、可以挑的、最多幾張（畫面顯示與生成送出的是同一份）。 */
+  const planOf = (
+    handle: ProjectHandle,
+    shot: Shot,
+    anchors: readonly CharacterAnchor[] = lockedAnchors(handle),
+    scenes: readonly SceneAnchor[] = lockedScenes(handle),
+  ): ShotReferencesState =>
+    referencePlan({ handle, shot, item: toShotItem(shot), anchors, scenes, ...referenceLimitOf() })
+
   /** 單一鏡頭的標準工作流（寫畫面描述 → 首幀圖 → 影片），連同這次生成要記錄的模型與變化編號。 */
   const flowFor = (
     handle: ProjectHandle,
@@ -812,7 +844,12 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     )
     const anchors = lockedAnchors(handle)
     const scenes = lockedScenes(handle)
-    const editModel = referenceEditModel(anchors, settingsService, models, scenes)
+    // 手動指定了參考圖就只帶指定的（要有做得到編輯的圖片模型）；沒指定照以前：有鎖定的角色或場景圖才帶
+    const pinned = pinnedForFlow(handle, planOf(handle, shot, anchors, scenes))
+    const editModel =
+      pinned.length > 0
+        ? pickEditModel(settingsService, models)
+        : referenceEditModel(anchors, settingsService, models, scenes)
     const uploaded = uploadedFrameOf(handle, shot.id)
     const firstFrame = uploaded ? assetRefOf(handle, uploaded.assetHash) : undefined
     const full = buildShotWorkflow({
@@ -825,6 +862,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       anchors,
       scenes,
       ...(editModel ? { editModel } : {}),
+      ...(pinned.length > 0 && editModel ? { pinned } : {}),
       ...(firstFrame ? { firstFrame } : {}),
       ...variations,
     })
@@ -1222,6 +1260,34 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         live.set(shotId, { ...live.get(shotId), error: error.message, failedStep: error.step })
       }
       return live
+    },
+
+    references(shotId) {
+      const { handle } = need()
+      const shot = handle.repos.shots.get(shotId)
+      if (!shot) throw invalid('找不到這個鏡頭。')
+      return planOf(handle, shot)
+    },
+
+    setReferences(shotId, assetHashes) {
+      const s = need()
+      const { shots } = s.handle.repos
+      const shot = shots.get(shotId)
+      if (!shot) throw invalid('找不到這個鏡頭。')
+      if (assetHashes.length > 0) {
+        const plan = planOf(s.handle, shot)
+        if (plan.limit === 0) throw invalid(plan.reason ?? '目前的圖片模型不能帶參考圖。')
+        const allowed = new Set(plan.candidates.map((candidate) => candidate.assetHash))
+        if (assetHashes.some((hash) => !allowed.has(hash))) {
+          throw invalid('這張圖不在這一鏡可以挑的參考圖裡（只能挑出場角色與地點的圖）。')
+        }
+        if (new Set(assetHashes).size > plan.limit) {
+          throw invalid(`目前的圖片模型最多收 ${String(plan.limit)} 張參考圖。`)
+        }
+      }
+      shots.setPins(shotId, assetHashes)
+      changed(s)
+      return planOf(s.handle, shot)
     },
 
     update(shotId, edit) {

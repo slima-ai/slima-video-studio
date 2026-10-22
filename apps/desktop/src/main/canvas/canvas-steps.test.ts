@@ -101,7 +101,7 @@ describe('鏡頭的「展開步驟」', { timeout: 30_000 }, () => {
       prompt: first.autoPrompt,
       edited: false,
     })
-    expect(step('refs')).toEqual({ stage: 'refs', refs: [] })
+    expect(step('refs')).toEqual({ stage: 'refs', refs: [], refsAuto: true, refsLimit: 3 })
     expect(step('model')?.model).toBe('示範圖片')
 
     h.shots.update(first.id, { prompt: '一隻橘貓坐在窗台上，雨夜' })
@@ -110,18 +110,45 @@ describe('鏡頭的「展開步驟」', { timeout: 30_000 }, () => {
     expect(h.shots.staleness().get(first.id)?.image).toBe(true)
   })
 
-  it('挑參考圖：鎖定的出場角色會帶進去', async () => {
+  it('挑參考圖：顯示實際會帶的圖（誰的、什麼用途）；手動指定了就標出不是自動挑的', async () => {
     const { h, shots } = await setup()
     const first = shots[0]
     if (!first) throw new Error('沒有鏡頭')
-    const hero = h.characters.create('阿鐵')
-    h.characters.update(hero.id, { appearance: '短黑髮' })
-    h.characters.setAnchor(hero.id, '短黑髮、琥珀色眼睛')
-    h.characters.lock(hero.id)
+    const handle = h.projects.current()
+    if (!handle) throw new Error('沒有專案')
+    const put = async (byte: number): Promise<string> =>
+      (await handle.assets.put(new Uint8Array([137, 80, 78, 71, byte]), 'image/png')).hash
+    const [hero, face] = [await put(1), await put(2)]
+    const person = handle.repos.characters.create('阿鐵')
+    const concept = handle.repos.characters.addConcept({
+      characterId: person.id,
+      round: 1,
+      slot: 0,
+      assetHash: hero,
+      modelId: 'mock/image',
+    })
+    handle.repos.characters.pickHero(person.id, concept.id)
+    handle.repos.characters.setAnchor(person.id, '短黑髮、琥珀色眼睛')
+    handle.repos.characters.lock(person.id)
+    handle.repos.characters.addReference({
+      characterId: person.id,
+      assetHash: face,
+      purpose: 'face',
+    })
     h.shots.update(first.id, { characters: ['阿鐵'] })
-    const refs = h.canvas
-      .get({ expanded: [first.id] })
-      .nodes.find((n) => n.key === `shot:${first.id}:step:refs`)?.step?.refs
-    expect(refs?.map((r) => r.name)).toEqual(['阿鐵'])
+    const refsStep = () =>
+      h.canvas
+        .get({ expanded: [first.id] })
+        .nodes.find((n) => n.key === `shot:${first.id}:step:refs`)?.step
+    expect(refsStep()).toMatchObject({
+      refs: [{ name: '阿鐵', purpose: '主圖', assetHash: hero }],
+      refsAuto: true,
+    })
+
+    h.shots.setReferences(first.id, [face])
+    expect(refsStep()).toMatchObject({
+      refs: [{ name: '阿鐵', purpose: '臉', assetHash: face }],
+      refsAuto: false,
+    })
   })
 })

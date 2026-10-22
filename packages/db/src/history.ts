@@ -17,6 +17,7 @@ import {
   locationReferences,
   locations,
   scenes,
+  shotPins,
   shots,
   takes,
 } from './tables/core'
@@ -151,6 +152,15 @@ const TABLES: readonly TrackedTable[] = [
   // 聲音（旁白、配樂的各個版本）：整次生成含聲音時，復原要一起退回、重做要一起回來（旁白屬於鏡頭，排在鏡頭之後）
   track('soundClips', soundClips, soundClips.id, (db, projectId) =>
     db.select().from(soundClips).where(eq(soundClips.projectId, projectId)).all(),
+  ),
+  track('shotPins', shotPins, shotPins.id, (db, projectId) =>
+    db
+      .select({ row: shotPins })
+      .from(shotPins)
+      .innerJoin(shots, eq(shotPins.shotId, shots.id))
+      .where(eq(shots.projectId, projectId))
+      .all()
+      .map((r) => r.row),
   ),
   // 節點位置與連線：移動節點、剪線都能復原。視角（鍵 viewport）不算編輯，不記錄。
   track('canvasLayout', canvasLayout, canvasLayout.id, (db, projectId) =>

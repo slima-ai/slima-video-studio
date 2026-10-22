@@ -49,7 +49,11 @@ export interface ShotLive {
 export interface StepInfo {
   prompt: string
   edited: boolean
-  refs: { name: string; assetHash?: string }[]
+  refs: { name: string; assetHash?: string; purpose?: string }[]
+  /** 參考圖是自動挑的，還是手動指定的。 */
+  refsAuto: boolean
+  /** 目前的圖片模型最多收幾張參考圖。 */
+  refsLimit: number
   model: string
 }
 
@@ -340,7 +344,12 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
               stage === 'prompt'
                 ? { stage, prompt: stepInfo.prompt, edited: stepInfo.edited }
                 : stage === 'refs'
-                  ? { stage, refs: stepInfo.refs }
+                  ? {
+                      stage,
+                      refs: stepInfo.refs,
+                      refsAuto: stepInfo.refsAuto,
+                      refsLimit: stepInfo.refsLimit,
+                    }
                   : { stage, model: stepInfo.model },
           })
           members.push({ key: stepKey, x: at.x, y, w: SIZE.shot.w, h: STEP_H[stage], auto: true })

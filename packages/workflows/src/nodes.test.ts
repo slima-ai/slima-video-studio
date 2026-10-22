@@ -774,6 +774,136 @@ describe('自動挑參考圖', () => {
     expect(hashes(out.references as AssetRef[])).toEqual(['c'])
   })
 
+  describe('角色另外加的參考圖（用途清單）', () => {
+    const listed = {
+      ...tie,
+      images: {
+        ...images,
+        references: [
+          { purpose: 'costume', ref: ref('1') },
+          { purpose: 'body', ref: ref('2') },
+          { purpose: 'face', ref: ref('3') },
+          { purpose: 'expression', ref: ref('4') },
+          { purpose: 'general', ref: ref('5') },
+        ],
+      },
+    }
+
+    it('近景與特寫：主圖 → 臉、表情（不放正面）；「一般」不自動帶', () => {
+      expect(hashes(pickReferences({ ...base, size: 'close_up' }, [listed], 6))).toEqual([
+        'c',
+        '3',
+        '4',
+      ])
+    })
+
+    it('遠景與全身：主圖 → 身體、服裝 → 三視圖正面', () => {
+      expect(hashes(pickReferences({ ...base, size: 'wide' }, [listed], 6))).toEqual([
+        'c',
+        '2',
+        '1',
+        'd',
+      ])
+    })
+
+    it('中景：主圖 → 臉、服裝、身體 → 三視圖正面', () => {
+      expect(hashes(pickReferences(base, [listed], 6))).toEqual(['c', '3', '1', '2', 'd'])
+    })
+
+    it('側面與背面：先放側視圖或背視圖，再放身體、服裝', () => {
+      expect(hashes(pickReferences({ ...base, angle: 'side' }, [listed], 6))).toEqual([
+        'e',
+        '2',
+        '1',
+      ])
+      expect(hashes(pickReferences({ ...base, angle: 'back' }, [listed], 6))).toEqual([
+        'f',
+        '2',
+        '1',
+      ])
+    })
+
+    it('總數受上限限制（先主圖，再對得上的參考圖）；同一張圖不會重複', () => {
+      expect(hashes(pickReferences({ ...base, size: 'close_up' }, [listed], 2))).toEqual(['c', '3'])
+      const dup = {
+        ...listed,
+        images: { ...images, references: [{ purpose: 'face', ref: images.hero }] },
+      }
+      expect(hashes(pickReferences({ ...base, size: 'close_up' }, [dup], 4))).toEqual(['c'])
+    })
+
+    it('沒有主圖也沒關係：只有參考圖時，對得上的用途照挑', () => {
+      const only = { ...tie, images: { references: [{ purpose: 'face', ref: ref('3') }] } }
+      expect(hashes(pickReferences({ ...base, size: 'close_up' }, [only], 4))).toEqual(['3'])
+      expect(pickReferences({ ...base, size: 'wide' }, [only], 4)).toEqual([])
+    })
+
+    it('多個角色：每個人先各拿主圖，再輪流拿對得上的參考圖', () => {
+      const small = {
+        name: '小花',
+        text: '白貓',
+        images: { hero: ref('a'), references: [{ purpose: 'face', ref: ref('b') }] },
+      }
+      const two = { ...base, size: 'close_up', characters: ['阿鐵', '小花'] } as const
+      expect(hashes(pickReferences(two, [listed, small], 4))).toEqual(['c', 'a', '3', 'b'])
+    })
+
+    it('組 Prompt 節點：挑到參考圖清單時，Prompt 說明每一張是什麼；沒挑到就跟以前一模一樣', async () => {
+      const shot = {
+        number: 1,
+        description: '特寫',
+        characters: ['阿鐵'],
+        size: 'close_up',
+        durationSec: 3,
+      }
+      const withList = await runNode(shotPromptNode, {
+        params: { anchors: [listed], referenceLimit: 3 },
+        inputs: { shot },
+      })
+      expect(hashes(withList.out.references as AssetRef[])).toEqual(['c', '3', '4'])
+      expect(withList.out.imagePrompt).toContain('第 1 張是阿鐵的主圖')
+      expect(withList.out.imagePrompt).toContain('第 2 張是阿鐵的臉')
+      expect(withList.out.imagePrompt).toContain('第 3 張是阿鐵的表情')
+      expect(withList.out.videoPrompt).not.toContain('第 1 張')
+
+      // 沒有清單 → 沒有說明（Prompt 與沒有這個功能之前相同，快取照舊命中）
+      const plain = await runNode(shotPromptNode, {
+        params: { anchors: [tie], referenceLimit: 3 },
+        inputs: { shot },
+      })
+      expect(plain.out.imagePrompt).not.toContain('第 1 張')
+      expect(plain.out.imagePrompt).toBe(plain.out.videoPrompt)
+    })
+
+    it('一路到送出的請求：編輯請求的 referenceAssets 真的有清單裡的參考圖', async () => {
+      const shot = {
+        number: 1,
+        description: '特寫',
+        characters: ['阿鐵'],
+        size: 'close_up',
+        durationSec: 3,
+      }
+      const prompted = await runNode(shotPromptNode, {
+        params: { anchors: [listed], referenceLimit: 3 },
+        inputs: { shot },
+      })
+      const { studio, requests } = fakeStudio([assets(image, 0.1)])
+      await runNode(imageNode, {
+        params: { editModel: 'fal/edit' },
+        inputs: {
+          prompt: prompted.out.imagePrompt,
+          references: prompted.out.references,
+        },
+        modelId: 'fal/t2i',
+        studio,
+      })
+      expect(requests[0]).toMatchObject({
+        capability: 'edit',
+        referenceAssets: [HASH('c'), HASH('3'), HASH('4')],
+      })
+    })
+  })
+
   it('首幀圖：有參考圖又設了編輯模型 → 送出帶參考圖的編輯請求；其他情況純文字生圖', async () => {
     const { studio, requests } = fakeStudio([assets(image, 0.1), assets(image, 0.1)])
     const edited = await runNode(imageNode, {

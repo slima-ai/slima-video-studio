@@ -26,7 +26,7 @@ export function assetRefOf(
 
 /**
  * 目前專案裡「已鎖定」角色的固定外觀描述（草稿不算，要鎖定後才會帶進 Prompt），
- * 連同鎖定那一版的版本號、主圖與三視圖（有的話，生首幀時會依鏡頭挑出來當參考圖）。
+ * 連同鎖定那一版的版本號、主圖、三視圖與另外加的參考圖（有的話，生首幀時會依鏡頭挑出來當參考圖）。
  */
 export function lockedAnchors(handle: ProjectHandle): CharacterAnchor[] {
   const { characters } = handle.repos
@@ -37,11 +37,17 @@ export function lockedAnchors(handle: ProjectHandle): CharacterAnchor[] {
     const front = assetRefOf(handle, pack.turnaround?.front)
     const side = assetRefOf(handle, pack.turnaround?.side)
     const back = assetRefOf(handle, pack.turnaround?.back)
+    // 另外加的參考圖（依加的順序）；檔案不在的略過
+    const references = characters.listReferences(character.id).flatMap((reference) => {
+      const ref = assetRefOf(handle, reference.assetHash)
+      return ref ? [{ purpose: reference.purpose, ref }] : []
+    })
     const images = {
       ...(hero ? { hero } : {}),
       ...(front ? { front } : {}),
       ...(side ? { side } : {}),
       ...(back ? { back } : {}),
+      ...(references.length > 0 ? { references } : {}),
     }
     return [
       {

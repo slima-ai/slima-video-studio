@@ -108,6 +108,7 @@ export interface CanvasServiceDeps extends Omit<CanvasAdderDeps, 'freeNodes'>, C
     | 'rejoin'
     | 'finalCut'
     | 'setUploadedFrame'
+    | 'references'
     | 'duplicate'
     | 'clearAdopted'
     | 'flowOf'
@@ -178,37 +179,21 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
 
   /**
    * 展開步驟的鏡頭那三格要顯示什麼：送給模型的第一張畫面 Prompt（手動改過的優先）、
-   * 會帶進去的參考圖（鎖定的出場角色主圖、這一鏡或這一場地點的場景卡主圖）、用哪個模型。
+   * 實際會帶進去的參考圖（跟生成送出的是同一份，手動指定的優先）、用哪個模型。
    */
   const stepsOf = (expanded: ReadonlySet<string>): Map<string, StepInfo> => {
     const result = new Map<string, StepInfo>()
     const handle = projects.current()
     if (expanded.size === 0 || !handle || handle.closed) return result
-    const { characters, locationCards, outline } = handle.repos
-    const sceneLocation = new Map(outline.listScenes().map((x) => [x.id, x.locationId]))
-    const cards = new Map(locationCards.list().map((c) => [c.id, c]))
-    const people = characters.list()
     for (const view of deps.shots.list().shots) {
       if (!expanded.has(view.id)) continue
-      const shot = handle.repos.shots.get(view.id)
-      if (!shot) continue
-      const refs: StepInfo['refs'] = []
-      for (const name of view.characters) {
-        const person = people.find((c) => c.name === name)
-        const pack = person ? characters.pack(person.id) : undefined
-        if (pack?.status === 'locked') {
-          refs.push({ name, ...(pack.heroAssetHash ? { assetHash: pack.heroAssetHash } : {}) })
-        }
-      }
-      const locationId =
-        shot.locationId ?? (shot.sceneId ? sceneLocation.get(shot.sceneId) : undefined)
-      const card = locationId === undefined ? undefined : cards.get(locationId)
-      if (card?.status === 'locked') {
-        refs.push({
-          name: card.name,
-          ...(card.mainAssetHash ? { assetHash: card.mainAssetHash } : {}),
-        })
-      }
+      // 實際會帶進去的參考圖：跟生成送出的是同一份（手動指定的優先，沒有就依景別與角度自動挑）
+      const plan = deps.shots.references(view.id)
+      const refs: StepInfo['refs'] = plan.picked.map((item) => ({
+        name: item.ownerName,
+        assetHash: item.assetHash,
+        purpose: item.purpose,
+      }))
       const image = deps.shots.flowOf(view.id).nodes.find((n) => n.id === 'image')
       const model =
         image?.type === NODE_TYPES.fixedImage
@@ -220,6 +205,8 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
         prompt: view.prompt ?? view.autoPrompt,
         edited: view.prompt !== undefined,
         refs,
+        refsAuto: plan.auto,
+        refsLimit: plan.limit,
         model,
       })
     }

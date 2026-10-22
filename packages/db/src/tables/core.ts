@@ -246,6 +246,24 @@ export const locationConcepts = sqliteTable(
 )
 
 /**
+ * 鏡頭的參考圖釘選：手動指定這一鏡生第一張畫面時要帶哪幾張參考圖（依 position 排）。
+ * 沒有任何一列就是「自動」（系統依景別與角度挑）。只存圖檔雜湊；這張圖是哪個角色或地點的、什麼用途，
+ * 讀的時候由角色與地點目前的參考圖清單對回來，所以改名、改用途不用動這張表。
+ */
+export const shotPins = sqliteTable(
+  'shot_pins',
+  {
+    id: text('id').primaryKey(),
+    shotId: text('shot_id')
+      .notNull()
+      .references(() => shots.id, { onDelete: 'cascade' }),
+    assetHash: text('asset_hash').notNull(),
+    position: integer('position').notNull(),
+  },
+  (t) => [unique('shot_pins_uq').on(t.shotId, t.assetHash)],
+)
+
+/**
  * 場景卡的參考圖：一份「有用途標記的清單」（主景、反方向、拉遠全景、俯視、縱深感……），跟角色的參考圖同一個形狀。
  * 用途存成文字（不是資料庫的列舉），之後多一種用途不需要遷移；同一張圖可以有不同的用途。
  * 場景卡本來的主圖與兩個角度仍存在 locations 裡，不搬過來；這張表只放「另外加的」。

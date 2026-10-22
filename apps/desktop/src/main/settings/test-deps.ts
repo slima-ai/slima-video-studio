@@ -135,6 +135,10 @@ export function testSettingsDeps(
       list: () => ({ shots: [] }),
       live: () => new Map(),
       staleness: () => new Map(),
+      references: (shotId) => ({ shotId, limit: 0, auto: true, picked: [], candidates: [] }),
+      setReferences: () => {
+        throw new Error('測試用的鏡頭服務不能指定參考圖')
+      },
       create: () => {
         throw new Error('測試用的鏡頭服務不能新增')
       },

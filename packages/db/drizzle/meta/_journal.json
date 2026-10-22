@@ -99,6 +99,13 @@
       "when": 1792696220470,
       "tag": "0013_location_references",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1792696635712,
+      "tag": "0014_shot_pins",
+      "breakpoints": true
     }
   ]
 }

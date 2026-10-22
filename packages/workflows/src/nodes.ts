@@ -2,6 +2,7 @@ import {
   AppError,
   AspectRatioSchema,
   CAMERA_MOVES,
+  CHARACTER_REFERENCE_PURPOSE_LABELS,
   CAMERA_MOVE_IDS,
   AssetRefSchema,
   DEFAULT_CHARACTER_PROMPTS,
@@ -64,13 +65,18 @@ export const CharacterAnchorSchema = z.object({
   text: z.string().min(1),
   /** 鎖定的是第幾版（只用來顯示；內容變了快取就會失效）。 */
   version: z.number().int().positive().optional(),
-  /** 這個角色的參考圖：主圖與三視圖。有的話，生首幀時會依鏡頭挑出來帶進去。 */
+  /** 這個角色的參考圖：主圖、三視圖與另外加的參考圖。有的話，生首幀時會依鏡頭挑出來帶進去。 */
   images: z
     .object({
       hero: AssetRefSchema.optional(),
       front: AssetRefSchema.optional(),
       side: AssetRefSchema.optional(),
       back: AssetRefSchema.optional(),
+      /**
+       * 角色另外加的參考圖（原版設定圖、臉、身體、表情、服裝…，依加的順序）：purpose 是用途（face、body…，
+       * 見 CHARACTER_REFERENCE_PURPOSES）。生首幀時依鏡頭的景別與角度，挑用途對得上的帶進去。
+       */
+      references: z.array(z.object({ purpose: z.string().min(1), ref: AssetRefSchema })).optional(),
     })
     .optional(),
 })
@@ -278,72 +284,129 @@ export const breakdownNode = defineNode({
 
 // ------------------------------------------------------------------ 自動挑參考圖
 
+/** 自動挑的一張參考圖：圖、給圖片模型看的說明（「阿鐵的臉」）、是不是從角色另外加的參考圖挑的。 */
+export interface PickedReference {
+  ref: AssetRef
+  name: string
+  /** 從角色另外加的參考圖清單挑的（不是主圖或三視圖）：Prompt 要告訴圖片模型這張是什麼。 */
+  listed: boolean
+}
+
+/**
+ * 這一鏡想要哪些用途的參考圖（依序）：近景與特寫看臉與表情；遠景、全身、側面與背面看得到的是身體與服裝；
+ * 其他（中景…）臉、服裝、身體。「一般」「道具」不自動帶（要的話手動指定）。
+ */
+function wantedPurposes(shot: Pick<ShotItem, 'size' | 'angle'>): string[] {
+  if (shot.size === 'close_up' || shot.size === 'extreme_close_up') return ['face', 'expression']
+  const establishing = shot.size === 'extreme_wide' || shot.size === 'wide' || shot.size === 'full'
+  if (establishing || shot.angle === 'side' || shot.angle === 'back') {
+    return ['body', 'costume', 'turnaround']
+  }
+  return ['face', 'costume', 'body']
+}
+
 /**
  * 依鏡頭的景別與角度挑參考圖。
- * 角色（出場且有參考圖的已鎖定角色）：側面 → 側視圖、背影 → 背視圖、近景／特寫 → 主圖，其他 → 主圖＋正視圖；
- * 缺的圖用主圖頂替。場景（鏡頭指定的地點有已鎖定的場景卡）：正上方 → 俯視圖、遠景以上 → 拉遠的全景（沒有就用有縱深感的環境圖）、
+ * 角色（出場且有圖的已鎖定角色），每個角色依序是：主圖（側面的鏡頭先放側視圖、背影先放背視圖，沒有就用主圖）→
+ * 角色另外加的參考圖裡用途對得上這一鏡的（近景與特寫：臉、表情；遠景、全身、側面、背面：身體、服裝、三視圖；
+ * 其他：臉、服裝、身體）→ 三視圖的正面（只有一般角度、沒有特寫的鏡頭才放）；缺的圖略過。
+ * 場景（鏡頭指定的地點有已鎖定的場景卡）：正上方 → 俯視圖、遠景以上 → 拉遠的全景（沒有就用有縱深感的環境圖）、
  * 背面或過肩 → 反方向的角度，其他 → 主場景圖；缺的角度用主場景圖頂替。
  * 總數不超過 limit：場景占一張，其餘給角色（多個角色時每個角色先拿到第一張再拿第二張）；只剩一張名額時留給角色。
  */
+export function pickReferencesNamed(
+  shot: Pick<ShotItem, 'size' | 'angle' | 'locationId'> & { characters: readonly string[] },
+  anchors: readonly CharacterAnchor[],
+  limit: number,
+  scenes: readonly SceneAnchor[] = [],
+): PickedReference[] {
+  if (limit <= 0) return []
+  const purposes = wantedPurposes(shot)
+  const perCharacter = anchors
+    .filter((anchor) => shot.characters.includes(anchor.name) && anchor.images)
+    .map((anchor): PickedReference[] => {
+      const { hero, front, side, back, references = [] } = anchor.images ?? {}
+      const view = (ref: AssetRef | undefined, label: string): PickedReference[] =>
+        ref ? [{ ref, name: `${anchor.name}的${label}`, listed: false }] : []
+      const close = shot.size === 'close_up' || shot.size === 'extreme_close_up'
+      const matched = purposes.flatMap((purpose) =>
+        references
+          .filter((reference) => reference.purpose === purpose)
+          .map((reference): PickedReference => {
+            const label =
+              CHARACTER_REFERENCE_PURPOSE_LABELS[
+                purpose as keyof typeof CHARACTER_REFERENCE_PURPOSE_LABELS
+              ]
+            return { ref: reference.ref, name: `${anchor.name}的${label}`, listed: true }
+          }),
+      )
+      if (shot.angle === 'side') {
+        return [...(side ? view(side, '側面') : view(hero, '主圖')), ...matched]
+      }
+      if (shot.angle === 'back') {
+        return [...(back ? view(back, '背面') : view(hero, '主圖')), ...matched]
+      }
+      if (close) return [...(hero ? view(hero, '主圖') : view(front, '正面')), ...matched]
+      return [
+        ...(hero ? view(hero, '主圖') : view(front, '正面')),
+        ...matched,
+        ...(hero ? view(front, '正面') : []),
+      ]
+    })
+  const scene = pickSceneReference(shot, scenes)
+  // 場景占一張；只剩一張名額時留給角色（有角色參考圖才算）
+  const characterLimit =
+    scene && (limit > 1 || perCharacter.length === 0) ? Math.max(limit - 1, 0) : limit
+  const picked: PickedReference[] = []
+  for (let round = 0; picked.length < characterLimit; round++) {
+    let any = false
+    for (const items of perCharacter) {
+      const item = items[round]
+      if (!item) continue
+      any = true
+      if (picked.length < characterLimit && !picked.some((p) => p.ref.hash === item.ref.hash)) {
+        picked.push(item)
+      }
+    }
+    if (!any) break
+  }
+  if (scene && picked.length < limit && !picked.some((p) => p.ref.hash === scene.ref.hash)) {
+    picked.push({ ref: scene.ref, name: scene.name, listed: false })
+  }
+  return picked
+}
+
+/** 同 pickReferencesNamed，只回傳圖。 */
 export function pickReferences(
   shot: Pick<ShotItem, 'size' | 'angle' | 'locationId'> & { characters: readonly string[] },
   anchors: readonly CharacterAnchor[],
   limit: number,
   scenes: readonly SceneAnchor[] = [],
 ): AssetRef[] {
-  if (limit <= 0) return []
-  const perCharacter = anchors
-    .filter((anchor) => shot.characters.includes(anchor.name) && anchor.images)
-    .map((anchor): AssetRef[] => {
-      const { hero, front, side, back } = anchor.images ?? {}
-      const close = shot.size === 'close_up' || shot.size === 'extreme_close_up'
-      const wanted =
-        shot.angle === 'side'
-          ? [side ?? hero]
-          : shot.angle === 'back'
-            ? [back ?? hero]
-            : close
-              ? [hero ?? front]
-              : [hero ?? front, hero ? front : undefined]
-      return wanted.flatMap((ref) => (ref ? [ref] : []))
-    })
-  const scene = pickSceneReference(shot, scenes)
-  // 場景占一張；只剩一張名額時留給角色（有角色參考圖才算）
-  const characterLimit =
-    scene && (limit > 1 || perCharacter.length === 0) ? Math.max(limit - 1, 0) : limit
-  const picked: AssetRef[] = []
-  for (let round = 0; picked.length < characterLimit; round++) {
-    let any = false
-    for (const refs of perCharacter) {
-      const ref = refs[round]
-      if (!ref) continue
-      any = true
-      if (picked.length < characterLimit && !picked.some((p) => p.hash === ref.hash)) {
-        picked.push(ref)
-      }
-    }
-    if (!any) break
-  }
-  if (scene && picked.length < limit && !picked.some((p) => p.hash === scene.hash)) {
-    picked.push(scene)
-  }
-  return picked
+  return pickReferencesNamed(shot, anchors, limit, scenes).map((item) => item.ref)
 }
 
-/** 鏡頭指定的地點有已鎖定的場景卡，就依景別與角度挑一張場景參考圖。 */
+/** 鏡頭指定的地點有已鎖定的場景卡，就依景別與角度挑一張場景參考圖（連同「舊倉庫的主景」這樣的說明）。 */
 function pickSceneReference(
   shot: Pick<ShotItem, 'size' | 'angle' | 'locationId'>,
   scenes: readonly SceneAnchor[],
-): AssetRef | undefined {
-  const images = scenes.find((scene) => scene.id === shot.locationId)?.images
-  if (!images) return undefined
+): { ref: AssetRef; name: string } | undefined {
+  const scene = scenes.find((s) => s.id === shot.locationId)
+  const images = scene?.images
+  if (!scene || !images) return undefined
   const { main, reverse, wide, topDown, depth } = images
   const establishing = shot.size === 'extreme_wide' || shot.size === 'wide' || shot.size === 'full'
+  const named = (ref: AssetRef | undefined, label: string) =>
+    ref ? { ref, name: `${scene.name}的${label}` } : undefined
   // 正上方的鏡頭看俯視圖（看得到格局）；沒有俯視圖就照一般的挑法。遠景要有縱深：拉遠的全景 → 有縱深感的環境圖 → 主圖
-  if (shot.angle === 'overhead' && topDown) return topDown
-  if (establishing) return wide ?? depth ?? main
-  if (shot.angle === 'back' || shot.angle === 'over_shoulder') return reverse ?? main
-  return main
+  if (shot.angle === 'overhead' && topDown) return named(topDown, '俯視')
+  if (establishing) {
+    return named(wide, '拉遠全景') ?? named(depth, '縱深感') ?? named(main, '主景')
+  }
+  if (shot.angle === 'back' || shot.angle === 'over_shoulder') {
+    return named(reverse, '反方向') ?? named(main, '主景')
+  }
+  return named(main, '主景')
 }
 
 // ------------------------------------------------------------------ 組 Prompt
@@ -390,14 +453,36 @@ export const shotPromptNode = defineNode({
     scenes: z.array(SceneAnchorSchema).default([]),
     /** 最多帶幾張參考圖（依圖片模型的上限）。 */
     referenceLimit: z.number().int().nonnegative().default(3),
+    /**
+     * 手動指定的參考圖（依序）：有指定就只帶這幾張，不再自動挑；name 是給圖片模型看的說明，
+     * 例如「阿鐵的臉」。沒有指定（空陣列）就是自動挑，輸出跟以前完全一樣。
+     */
+    pinned: z.array(z.object({ ref: AssetRefSchema, name: z.string().min(1) })).default([]),
   }),
   run: ({ inputs, params }) => {
     const shot = ShotItemSchema.parse(inputs.shot)
+    const prompts = composeShotPrompts(shot, params.style, params.anchors, params.scenes)
     // 運鏡獨立輸出（空字串 = 沒有指定），手動改過 Prompt 時一樣有效
+    if (params.pinned.length > 0) {
+      const note = referenceNoteOf(params.pinned.map((pin) => pin.name))
+      return {
+        ...prompts,
+        // 告訴圖片模型每一張參考圖是什麼（只加在圖片的 Prompt，影片不需要）
+        imagePrompt: note === '' ? prompts.imagePrompt : `${prompts.imagePrompt} ${note}`,
+        cameraMove: shot.cameraMove ?? '',
+        references: params.pinned.map((pin) => pin.ref),
+      }
+    }
+    const picked = pickReferencesNamed(shot, params.anchors, params.referenceLimit, params.scenes)
+    // 只有挑到角色另外加的參考圖時才說明每一張是什麼；沒有的話 Prompt 跟以前完全一樣（快取照舊命中）
+    const note = picked.some((item) => item.listed)
+      ? referenceNoteOf(picked.map((item) => item.name))
+      : ''
     return {
-      ...composeShotPrompts(shot, params.style, params.anchors, params.scenes),
+      ...prompts,
+      imagePrompt: note === '' ? prompts.imagePrompt : `${prompts.imagePrompt} ${note}`,
       cameraMove: shot.cameraMove ?? '',
-      references: pickReferences(shot, params.anchors, params.referenceLimit, params.scenes),
+      references: picked.map((item) => item.ref),
     }
   },
 })

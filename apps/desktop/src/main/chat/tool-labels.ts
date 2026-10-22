@@ -28,6 +28,8 @@ const LABELS: Readonly<Record<string, string>> = {
   estimate_cost: '估算這一步的花費',
   list_shots: '查看鏡頭清單',
   get_shot: '查看鏡頭',
+  get_shot_references: '查看鏡頭用哪些參考圖',
+  set_shot_references: '指定鏡頭的參考圖',
   create_shot: '建立鏡頭',
   update_shot: '修改鏡頭',
   delete_shots: '刪除鏡頭',

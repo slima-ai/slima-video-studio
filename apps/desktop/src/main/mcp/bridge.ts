@@ -37,6 +37,8 @@ export const MCP_CHANNELS = [
   'storyboard.splitScene',
   'shots.list',
   'shots.update',
+  'shots.references',
+  'shots.setReferences',
   'shots.create',
   'shots.delete',
   'shots.reorder',
