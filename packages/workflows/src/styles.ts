@@ -41,7 +41,7 @@ export const QUICK_STYLES: Readonly<Record<QuickStyleId, QuickStyle>> = {
     id: 'painted',
     label: QUICK_STYLE_LABELS.painted,
     fragment:
-      '手繪電影感繪景，可見筆觸，體積光與氛圍景深，輕微底片顆粒，不是照片、不是 3D 渲染，hand-painted cinematic animated-feature key art, painterly, volumetric light, atmospheric depth, soft film grain, NOT photographic, NOT 3D render',
+      '手繪繪本插畫風：整個畫面（角色和背景）都是同一種水粉與水彩的手繪筆觸，看得到筆痕與紙張紋理，形狀簡化、色塊柔和，夜色也是柔和的繪本配色，不是照片、不是寫實的繪景、不是 3D 渲染，hand-painted picture-book illustration, gouache and watercolor, visible brush strokes and paper texture, simplified shapes, soft painted backgrounds drawn in the same style as the characters, storybook night palette, NOT photorealistic, NOT matte painting, NOT cinematic photography, NOT 3D render',
     fit: 'animation',
   },
 }

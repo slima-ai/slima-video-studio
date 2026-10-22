@@ -13,7 +13,7 @@ export const QUICK_STYLE_LABELS: Readonly<Record<QuickStyleId, string>> = {
   anime: '日系動畫',
   '3d': '3D 動畫',
   watercolor: '水彩',
-  painted: '手繪電影',
+  painted: '手繪繪本',
 }
 
 export const QUICK_START_LIMITS = {
