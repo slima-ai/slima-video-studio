@@ -45,7 +45,7 @@ describe('OnelinerBody', () => {
     expect(updateOneliner).toHaveBeenCalledWith('node:one', { story: '一隻貓在雨夜找到家' })
   })
 
-  it('畫風選單有「手繪電影」；選了就存成 painted', () => {
+  it('畫風選單有「手繪繪本」；選了就存成 painted', () => {
     const updateOneliner = vi.fn()
     renderBody({ updateOneliner })
     expect(optionLabels('oneliner-style')).toEqual([
@@ -53,7 +53,7 @@ describe('OnelinerBody', () => {
       '日系動畫',
       '3D 動畫',
       '水彩',
-      '手繪電影',
+      '手繪繪本',
     ])
     choose('oneliner-style', 'painted')
     expect(updateOneliner).toHaveBeenCalledWith('node:one', { style: 'painted' })

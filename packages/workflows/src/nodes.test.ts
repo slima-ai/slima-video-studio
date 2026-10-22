@@ -391,16 +391,28 @@ describe('節點：組 Prompt', () => {
     expect(out.cameraMove).toBe('push_in')
   })
 
-  it('手繪電影畫風：Prompt 結尾是手繪那段，不再接寫實的 photorealistic', async () => {
+  it('手繪繪本畫風：Prompt 結尾是手繪那段，不再接寫實的 photorealistic', async () => {
     const { out } = await runNode(shotPromptNode, {
       params: { style: 'painted' },
       inputs: { shot },
     })
     const prompt = String(out.imagePrompt)
     expect(prompt.endsWith(QUICK_STYLES.painted.fragment)).toBe(true)
-    expect(prompt).toContain('hand-painted cinematic')
-    expect(prompt).not.toContain('photorealistic')
+    expect(prompt).toContain('hand-painted picture-book illustration')
+    expect(prompt).not.toContain(QUICK_STYLES.realistic.fragment)
     expect(out.videoPrompt).toBe(prompt)
+  })
+
+  it('手繪繪本的片段要求「角色和背景同一種畫法」，而且不帶會把整個畫面推向寫實繪景的字', () => {
+    const fragment = QUICK_STYLES.painted.fragment
+    expect(fragment).toContain('角色和背景')
+    expect(fragment).toContain('picture-book illustration')
+    // 這些字會讓圖片模型把背景畫成寫實的電影繪景（鏡 7 首幀實測：角色是卡通、石磚橋與黑霧是寫實，像兩部片）
+    for (const word of ['volumetric', 'film grain', 'key art', 'atmospheric depth']) {
+      expect(fragment).not.toContain(word)
+    }
+    // 寫實的字只能出現在「不是」之後
+    expect(fragment.replace(/NOT [a-z ]+/g, '')).not.toMatch(/photorealistic|photograph|cinematic/)
   })
 
   it('沒有角色、氣氛、運鏡時不會多出空白的片段', async () => {

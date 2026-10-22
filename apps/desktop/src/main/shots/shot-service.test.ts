@@ -97,14 +97,14 @@ describe('快速開始之後的鏡頭資料', { timeout: 30_000 }, () => {
 })
 
 describe('鏡頭的畫風', { timeout: 30_000 }, () => {
-  it('選了「手繪電影」：自動組出的 Prompt 結尾是手繪那段，不是寫實的 photorealistic', async () => {
+  it('選了「手繪繪本」：自動組出的 Prompt 結尾是手繪那段，不是寫實那段', async () => {
     const { shots, runQuickStart } = setup()
     await runQuickStart({ style: 'painted' })
     const prompts = shots.list().shots.map((s) => s.autoPrompt)
     expect(prompts).toHaveLength(3)
     for (const prompt of prompts) {
       expect(prompt.endsWith(QUICK_STYLES.painted.fragment)).toBe(true)
-      expect(prompt).not.toContain('photorealistic')
+      expect(prompt).not.toContain(QUICK_STYLES.realistic.fragment)
     }
   })
 
