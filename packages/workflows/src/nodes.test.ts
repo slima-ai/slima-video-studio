@@ -391,6 +391,18 @@ describe('節點：組 Prompt', () => {
     expect(out.cameraMove).toBe('push_in')
   })
 
+  it('手繪電影畫風：Prompt 結尾是手繪那段，不再接寫實的 photorealistic', async () => {
+    const { out } = await runNode(shotPromptNode, {
+      params: { style: 'painted' },
+      inputs: { shot },
+    })
+    const prompt = String(out.imagePrompt)
+    expect(prompt.endsWith(QUICK_STYLES.painted.fragment)).toBe(true)
+    expect(prompt).toContain('hand-painted cinematic')
+    expect(prompt).not.toContain('photorealistic')
+    expect(out.videoPrompt).toBe(prompt)
+  })
+
   it('沒有角色、氣氛、運鏡時不會多出空白的片段', async () => {
     const { out } = await runNode(shotPromptNode, {
       inputs: { shot: { ...shot, characters: [], mood: '', cameraMove: null } },
