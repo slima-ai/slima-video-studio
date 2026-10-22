@@ -45,10 +45,17 @@ export function registerMetaTools(ctx: ToolContext): void {
     name: 'load_guide',
     title: 'Load a guide',
     description:
-      'Load a guide by topic: "getting-started" (the order of work), "storyboard" (how to plan shots; the same guide the app uses, as edited by the user), "cinematography" (what each shot size, angle, camera move, pace and light does), "spending" (how the spending allowance works), "sound" (narration and music).',
+      'Load a guide by topic: "getting-started" (the order of work), "storyboard" (how to plan shots; the same guide the app uses, as edited by the user), "cinematography" (what each shot size, angle, camera move, pace and light does), "spending" (how the spending allowance works), "sound" (narration and music), "production" (keeping characters and places looking the same across shots; as edited by the user).',
     input: { topic: z.enum(GUIDE_TOPICS).describe('Which guide to load') },
     hints: { readOnly: true },
     run: ({ topic }) =>
-      Promise.resolve({ topic, text: guideText(topic, ctx.settings.get().storyboardGuide) }),
+      Promise.resolve({
+        topic,
+        text: guideText(
+          topic,
+          ctx.settings.get().storyboardGuide,
+          ctx.settings.get().productionGuide,
+        ),
+      }),
   })
 }

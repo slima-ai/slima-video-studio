@@ -73,6 +73,9 @@ export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSe
     ...(patch.storyboardGuide === undefined
       ? {}
       : { storyboardGuide: patch.storyboardGuide.trim() }),
+    ...(patch.productionGuide === undefined
+      ? {}
+      : { productionGuide: patch.productionGuide.trim() }),
     ...(patch.mcp === undefined ? {} : { mcp: { ...current.mcp, ...definedOnly(patch.mcp) } }),
     ...(patch.experiments === undefined ? {} : { experiments: patchExperiments(current, patch) }),
     models,

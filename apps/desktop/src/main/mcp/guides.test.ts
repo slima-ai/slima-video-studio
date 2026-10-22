@@ -52,10 +52,37 @@ describe('load_guide("cinematography")', () => {
 
   it('長度不超過現有最長指南的 1.5 倍（每個工作階段載入都要花 token）', () => {
     const longest = Math.max(
-      ...GUIDE_TOPICS.filter((t) => t !== 'cinematography' && t !== 'storyboard').map(
-        (t) => guideText(t, '').length,
-      ),
+      ...GUIDE_TOPICS.filter(
+        (t) => t !== 'cinematography' && t !== 'storyboard' && t !== 'production',
+      ).map((t) => guideText(t, '').length),
     )
     expect(cinematography.length).toBeLessThan(longest * 1.5)
+  })
+})
+
+describe('load_guide("production")', () => {
+  const production = guideText('production', '')
+
+  it('是 get_capabilities 列出的主題之一，伺服器 instructions 與 getting-started 都指到它', () => {
+    expect(GUIDE_TOPICS).toContain('production')
+    expect(SERVER_INSTRUCTIONS).toContain('production')
+    expect(guideText('getting-started', '')).toContain('load_guide("production")')
+  })
+
+  it('約 1,000 字以內：每個工作階段載入都要花 token（原則勝過硬規則，不寫死張數與模型）', () => {
+    expect(production.split(/\s+/).length).toBeLessThan(1000)
+    expect(production).not.toMatch(/\b\d+ (reference )?(images|pictures)\b/i)
+  })
+
+  it('沒驗證的說法要明講「沒驗證」，不能當成已證實的規則', () => {
+    const unproven = production.slice(production.indexOf('Not yet proven'))
+    expect(unproven).toContain('only in one blog post')
+    expect(unproven).toContain('not been tested here')
+  })
+
+  it('使用者自訂的內容優先；空白就回到預設', () => {
+    expect(guideText('production', '', '臉先鎖定。')).toContain('臉先鎖定。')
+    expect(guideText('production', '', '臉先鎖定。')).not.toContain('Production and consistency')
+    expect(guideText('production', '', '  ')).toBe(production)
   })
 })

@@ -29,6 +29,7 @@ describe('createSettingsStore', () => {
       modelNotices: [],
       storyboardGuide: '',
       characterPrompts: {},
+      productionGuide: '',
       mcp: { enabled: false, port: 47821, allowanceUsd: 0 },
       audio: { voices: {} },
       experiments: {},
@@ -143,6 +144,16 @@ describe('applyPatch', () => {
     expect(applyPatch(two, { characterPrompts: { concept: '   ' } }).characterPrompts).toEqual({
       turnaround: '三視圖範本',
     })
+  it('製片與一致性指南：去掉頭尾空白、傳空字串恢復預設，而且跟分鏡準則各存各的', () => {
+    const custom = applyPatch(base, {
+      productionGuide: '  臉先鎖定。\n ',
+      storyboardGuide: '多用遠景。',
+    })
+    expect(custom.productionGuide).toBe('臉先鎖定。')
+    expect(applyPatch(custom, { demoMode: true }).productionGuide).toBe('臉先鎖定。')
+    const reset = applyPatch(custom, { productionGuide: '' })
+    expect(reset.productionGuide).toBe('')
+    expect(reset.storyboardGuide).toBe('多用遠景。')
   })
 })
 
