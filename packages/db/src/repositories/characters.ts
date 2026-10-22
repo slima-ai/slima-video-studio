@@ -8,14 +8,23 @@ import {
   type TurnaroundView,
   type CharacterEdit,
   type CharacterPack,
+  type CharacterReferencePurpose,
   type Costume,
+  CHARACTER_REFERENCE_PURPOSES,
+  type ReferenceView,
 } from '@svs/schema'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 
 import type { AppDb } from '../database'
 import { dropNulls } from '../rows'
-import { characterConcepts, characterPacks, characterTurnarounds, characters } from '../tables/core'
+import {
+  characterConcepts,
+  characterPacks,
+  characterReferences,
+  characterTurnarounds,
+  characters,
+} from '../tables/core'
 
 /** 服裝先只做一套：它存成 costumes 的第一筆。 */
 const DEFAULT_COSTUME_NAME = '預設服裝'
@@ -253,6 +262,75 @@ export class CharactersRepository {
     })
   }
 
+  // ── 參考圖（有用途標記的清單） ─────────────────────
+
+  /** 這個角色的參考圖，先加的在前。 */
+  listReferences(characterId: string): ReferenceView[] {
+    return this.db
+      .select()
+      .from(characterReferences)
+      .where(eq(characterReferences.characterId, characterId))
+      .orderBy(asc(characterReferences.createdAt), sql`rowid`)
+      .all()
+      .map(toReference)
+  }
+
+  /** 加一張參考圖；同一張圖同一個用途已經有了就只更新備註（不會多一筆）。 */
+  addReference(input: {
+    characterId: string
+    assetHash: string
+    purpose: CharacterReferencePurpose
+    label?: string
+  }): ReferenceView {
+    if (!this.get(input.characterId)) throw notFound(input.characterId)
+    const label = (input.label ?? '').trim()
+    const existing = this.db
+      .select()
+      .from(characterReferences)
+      .where(
+        and(
+          eq(characterReferences.characterId, input.characterId),
+          eq(characterReferences.assetHash, input.assetHash),
+          eq(characterReferences.purpose, input.purpose),
+        ),
+      )
+      .get()
+    if (existing) {
+      if (label !== '' && label !== existing.label) {
+        this.db
+          .update(characterReferences)
+          .set({ label })
+          .where(eq(characterReferences.id, existing.id))
+          .run()
+      }
+      return toReference({ ...existing, ...(label !== '' ? { label } : {}) })
+    }
+    const row = {
+      id: randomUUID(),
+      characterId: input.characterId,
+      assetHash: input.assetHash,
+      purpose: input.purpose,
+      label,
+      createdAt: this.now().toISOString(),
+    }
+    this.db.insert(characterReferences).values(row).run()
+    return toReference(row)
+  }
+
+  /** 移除一張參考圖（圖檔留在專案裡）；沒有這一筆就回 false。 */
+  removeReference(characterId: string, referenceId: string): boolean {
+    const result = this.db
+      .delete(characterReferences)
+      .where(
+        and(
+          eq(characterReferences.characterId, characterId),
+          eq(characterReferences.id, referenceId),
+        ),
+      )
+      .run()
+    return result.changes > 0
+  }
+
   // ── 三視圖 ────────────────────────────────────────
 
   /** 所有三視圖候選，新的一輪在前。 */
@@ -418,6 +496,19 @@ function toTurnaround(row: typeof characterTurnarounds.$inferSelect): Turnaround
     cuts: { a: row.cutA, b: row.cutB },
     modelId: row.modelId,
     createdAt: row.createdAt,
+  }
+}
+
+/** 讀到不認得的用途（較新版本存的）一律當成 general，不讓整份清單讀不出來。 */
+function toReference(row: typeof characterReferences.$inferSelect): ReferenceView {
+  const known = (CHARACTER_REFERENCE_PURPOSES as readonly string[]).includes(row.purpose)
+  return {
+    id: row.id,
+    assetHash: row.assetHash,
+    purpose: known ? (row.purpose as CharacterReferencePurpose) : 'general',
+    label: row.label,
+    createdAt: row.createdAt,
+    source: 'added',
   }
 }
 

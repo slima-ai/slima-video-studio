@@ -2,6 +2,7 @@ import {
   AppSettingsSchema,
   type AppSettings,
   type AppSettingsPatch,
+  type CharacterPromptKind,
   type PickableCapability,
 } from '@svs/schema'
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
@@ -48,6 +49,15 @@ export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSe
     if (id === null) Reflect.deleteProperty(models, capability)
     else models[capability] = id
   }
+  const characterPrompts = { ...current.characterPrompts }
+  for (const [kind, text] of Object.entries(patch.characterPrompts ?? {}) as [
+    CharacterPromptKind,
+    string,
+  ][]) {
+    // 空白＝恢復預設：不存空字串，設定檔裡就看得出哪幾項是改過的
+    if (text.trim() === '') Reflect.deleteProperty(characterPrompts, kind)
+    else characterPrompts[kind] = text.trim()
+  }
   const voices = { ...current.audio.voices }
   for (const [modelId, voice] of Object.entries(patch.audio?.voices ?? {})) {
     if (voice === null) Reflect.deleteProperty(voices, modelId)
@@ -66,6 +76,7 @@ export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSe
     ...(patch.mcp === undefined ? {} : { mcp: { ...current.mcp, ...definedOnly(patch.mcp) } }),
     ...(patch.experiments === undefined ? {} : { experiments: patchExperiments(current, patch) }),
     models,
+    characterPrompts,
     audio: { voices },
   })
 }

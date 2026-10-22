@@ -9,6 +9,7 @@ import {
   TURNAROUNDS_PER_ROUND,
   TurnaroundCutsSchema,
   isAppError,
+  resolveCharacterPrompt,
   type AssetRef,
   type ConceptCheck,
   type TurnaroundCuts,
@@ -202,6 +203,10 @@ export function createTurnaroundService(deps: TurnaroundServiceDeps): Turnaround
           model,
           style,
           variation: round * TURNAROUNDS_PER_ROUND + slot,
+          template: resolveCharacterPrompt(
+            settings.get().characterPrompts.turnaround,
+            'turnaround',
+          ),
         }),
         {
           projectId: handle.projectId,

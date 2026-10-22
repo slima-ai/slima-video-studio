@@ -125,16 +125,16 @@ claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
 
 **助理能做什麼**（共 52 個工具；它用 `load_guide` 讀指南，也看得到每個工具的說明）：
 
-| 範圍       | 工具                                                                                                                                                                                                          |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 開始       | `get_capabilities`、`load_guide`、`estimate_cost`                                                                                                                                                             |
-| 專案與模型 | `list_projects`、`get_current_project`、`open_project`、`create_project`、`configure_project`、`list_models`、`set_models`、`undo`、`redo`                                                                    |
-| 故事       | `split_story_into_scenes`、`get_outline`、`edit_outline`、`split_scene_into_shots`                                                                                                                            |
-| 鏡頭       | `list_shots`、`get_shot`、`update_shot`、`create_shot`、`delete_shots`、`reorder_shots`                                                                                                                       |
-| 角色       | `list_characters`、`create_character`、`update_character`、`suggest_character_anchor`、`set_character_anchor`、`generate_character_images`、`view_character_images`、`pick_character_image`、`lock_character` |
-| 圖片與影片 | `generate_first_frames`、`view_first_frames`、`generate_videos`、`view_video_stills`、`regenerate_shot`、`adopt_version`、`cancel_generation`、`wait_for_generation`、`get_generation_status`                 |
-| 成品       | `assemble_film`、`export_film`（有 `credits`：片尾字卡，預設開）                                                                                                                                              |
-| 聲音       | `get_sound`、`plan_sound`、`generate_narration`、`generate_music`、`adjust_sound_clip`、`adopt_sound_clip`、`remove_sound_clip`、`set_sound_settings`、`mix_sound`、`analyze_sound`                           |
+| 範圍       | 工具                                                                                                                                                                                                                                                            |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 開始       | `get_capabilities`、`load_guide`、`estimate_cost`                                                                                                                                                                                                               |
+| 專案與模型 | `list_projects`、`get_current_project`、`open_project`、`create_project`、`configure_project`、`list_models`、`set_models`、`undo`、`redo`                                                                                                                      |
+| 故事       | `split_story_into_scenes`、`get_outline`、`edit_outline`、`split_scene_into_shots`                                                                                                                                                                              |
+| 鏡頭       | `list_shots`、`get_shot`、`update_shot`、`create_shot`、`delete_shots`、`reorder_shots`                                                                                                                                                                         |
+| 角色       | `list_characters`、`create_character`、`update_character`、`suggest_character_anchor`、`set_character_anchor`、`list_project_images`、`add_character_reference`、`generate_character_images`、`view_character_images`、`pick_character_image`、`lock_character` |
+| 圖片與影片 | `generate_first_frames`、`view_first_frames`、`generate_videos`、`view_video_stills`、`regenerate_shot`、`adopt_version`、`cancel_generation`、`wait_for_generation`、`get_generation_status`                                                                   |
+| 成品       | `assemble_film`、`export_film`（有 `credits`：片尾字卡，預設開）                                                                                                                                                                                                |
+| 聲音       | `get_sound`、`plan_sound`、`generate_narration`、`generate_music`、`adjust_sound_clip`、`adopt_sound_clip`、`remove_sound_clip`、`set_sound_settings`、`mix_sound`、`analyze_sound`                                                                             |
 
 會看圖的工具回傳真的（縮小過的）圖片，所以助理可以在你花更多錢之前，先檢查第一張畫面與影片截圖有沒有出錯。
 

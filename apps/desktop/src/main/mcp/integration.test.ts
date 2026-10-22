@@ -366,6 +366,7 @@ describe('工具', () => {
     const client = await connect(env)
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
+      'add_character_reference',
       'adjust_sound_clip',
       'adopt_sound_clip',
       'adopt_version',
@@ -393,6 +394,7 @@ describe('工具', () => {
       'get_sound',
       'list_characters',
       'list_models',
+      'list_project_images',
       'list_projects',
       'list_shots',
       'load_guide',
@@ -403,6 +405,7 @@ describe('工具', () => {
       'plan_sound',
       'redo',
       'regenerate_shot',
+      'remove_character_reference',
       'remove_sound_clip',
       'reorder_shots',
       'set_character_anchor',

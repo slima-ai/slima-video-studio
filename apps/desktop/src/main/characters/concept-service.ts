@@ -7,8 +7,15 @@ import {
   AssetRefSchema,
   CONCEPTS_PER_ROUND,
   isAppError,
+  resolveCharacterPrompt,
+  CHARACTER_REFERENCE_PURPOSES,
+  CHARACTER_REFERENCE_PURPOSE_LABELS,
+  type AssetRef,
+  type CharacterReferencePurpose,
   type ConceptCheck,
   type ConceptsState,
+  type ReferenceView,
+  type ReferencesState,
 } from '@svs/schema'
 import {
   QUICK_STYLE_IDS,
@@ -25,7 +32,9 @@ import type { ProjectManager } from '../project-manager'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
+import { UPLOAD_MODEL } from '../shots/shot-service'
 import { createStudioServices } from '../studio-services'
+import { assetRefOf, pickEditModel } from './anchors'
 
 export interface ConceptServiceDeps {
   projects: ProjectManager
@@ -44,6 +53,17 @@ export interface ConceptService {
   /** 開始生成新的一輪（背景執行）；進度與結果用 characters.conceptsChanged 推送。 */
   generate: (characterId: string) => void
   cancel: (characterId: string) => void
+  /** 這個角色的參考圖清單（有用途標記；含在畫布上接到「參考圖」的圖）。 */
+  references: (characterId: string) => ReferencesState
+  /** 把專案裡已有的一張圖片加成參考圖並標上用途；之後的概念圖照它們畫。同一張圖同一個用途只有一筆。 */
+  addReference: (input: {
+    characterId: string
+    assetHash: string
+    purpose: CharacterReferencePurpose
+    label?: string
+  }) => ReferencesState
+  /** 移除一張用 addReference 存的參考圖（圖留在專案裡）。 */
+  removeReference: (characterId: string, referenceId: string) => ReferencesState
 }
 
 const ImageOutputSchema = z.object({ image: AssetRefSchema })
@@ -96,21 +116,96 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
     }
   }
 
-  const imageModel = (): string | undefined => settingsService.resolveModel('t2i')
+  /**
+   * 這個角色所有的參考圖：用「加參考圖」存的（有用途標記），加上以前在畫布上把圖接到「參考圖」接點的
+   * （存成模型是 upload 的概念圖，用途視為 general）。同一張圖只算一次。
+   */
+  const listReferences = (handle: ProjectHandle, characterId: string): ReferenceView[] => {
+    const { characters } = handle.repos
+    const added = characters.listReferences(characterId)
+    const seen = new Set(added.map((r) => r.assetHash))
+    const fromCanvas = characters
+      .listConcepts(characterId)
+      .filter((concept) => concept.modelId === UPLOAD_MODEL)
+      .flatMap((concept): ReferenceView[] => {
+        if (seen.has(concept.assetHash)) return []
+        seen.add(concept.assetHash)
+        return [
+          {
+            id: concept.id,
+            assetHash: concept.assetHash,
+            purpose: 'general',
+            label: '',
+            createdAt: concept.createdAt,
+            source: 'canvas',
+          },
+        ]
+      })
+    return [...added, ...fromCanvas]
+  }
+
+  /**
+   * 這次生成實際會用的參考圖：臉、身體、三視圖排在前面（模型收得下的張數有限，先留最重要的），
+   * 同一張圖只送一次（用第一個用途），專案裡找不到檔案的略過，最多 `limit` 張。
+   */
+  const usableReferences = (
+    handle: ProjectHandle,
+    characterId: string,
+    limit: number,
+  ): { ref: AssetRef; purpose: CharacterReferencePurpose }[] => {
+    const rank = (purpose: CharacterReferencePurpose): number =>
+      CHARACTER_REFERENCE_PURPOSES.indexOf(purpose)
+    const seen = new Set<string>()
+    const usable: { ref: AssetRef; purpose: CharacterReferencePurpose }[] = []
+    const ordered = listReferences(handle, characterId)
+      .map((reference, index) => ({ reference, index }))
+      .sort((a, b) => rank(a.reference.purpose) - rank(b.reference.purpose) || a.index - b.index)
+    for (const { reference } of ordered) {
+      if (seen.has(reference.assetHash)) continue
+      const ref = assetRefOf(handle, reference.assetHash)
+      if (!ref) continue
+      seen.add(reference.assetHash)
+      usable.push({ ref, purpose: reference.purpose })
+    }
+    return usable.slice(0, Math.max(limit, 0))
+  }
+
+  /** 有參考圖就要用做得到「參考圖再生成」的模型，沒有就是平常的文字生圖模型。 */
+  const modelFor = (
+    handle: ProjectHandle,
+    characterId: string,
+  ): { id?: string; referenceLimit: number; withReferences: boolean } => {
+    if (usableReferences(handle, characterId, Number.MAX_SAFE_INTEGER).length === 0) {
+      const id = settingsService.resolveModel('t2i')
+      return { ...(id ? { id } : {}), referenceLimit: 0, withReferences: false }
+    }
+    const edit = pickEditModel(settingsService, models)
+    return {
+      ...(edit ? { id: edit.id } : {}),
+      referenceLimit: edit?.referenceLimit ?? 0,
+      withReferences: true,
+    }
+  }
 
   const check = (characterId: string): ConceptCheck => {
     const { demoMode, budget } = settings.get()
-    const model = imageModel()
     const handle = projects.current()
     const base = { count: CONCEPTS_PER_ROUND, demoMode }
     if (!handle?.repos.characters.get(characterId)) {
       return { ...base, ok: false, issue: '找不到這個角色。', estimatedUsd: 0 }
     }
+    const { id: model, referenceLimit, withReferences } = modelFor(handle, characterId)
+    const references = withReferences
+      ? usableReferences(handle, characterId, referenceLimit).length
+      : 0
     if (!model) {
       return {
         ...base,
+        references,
         ok: false,
-        issue: '還沒有可用的圖片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。',
+        issue: withReferences
+          ? '這個角色有參考圖，但還沒有能「參考圖片再生成」的圖片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。'
+          : '還沒有可用的圖片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。',
         estimatedUsd: 0,
       }
     }
@@ -123,6 +218,7 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
     })
     return {
       ...base,
+      references,
       estimatedUsd,
       ...(modelName ? { modelName } : {}),
       ...(exceeded
@@ -137,8 +233,10 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
     if (!handle || !character) throw invalid('找不到這個角色。')
     if (active.has(characterId)) throw invalid('這個角色的概念圖正在生成中。')
     const checked = check(characterId)
-    const model = imageModel()
+    const { id: model, referenceLimit, withReferences } = modelFor(handle, characterId)
     if (!checked.ok || !model) throw invalid(checked.issue ?? '現在不能生成概念圖。')
+    const used = withReferences ? usableReferences(handle, characterId, referenceLimit) : []
+    const references = used.map((u) => u.ref)
     const queue = runtime.queue()
     const tool = tools()
     if (!queue || !tool) {
@@ -150,6 +248,12 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
 
     const { characters } = handle.repos
     const subject = {
+      ...(references.length > 0
+        ? {
+            references,
+            referencePurposes: used.map((u) => CHARACTER_REFERENCE_PURPOSE_LABELS[u.purpose]),
+          }
+        : {}),
       name: character.name,
       ...(character.age ? { age: character.age } : {}),
       appearance: character.appearance,
@@ -175,7 +279,16 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
 
     const one = async (slot: number): Promise<void> => {
       const result = await engine.run(
-        buildConceptWorkflow({ model, style, variation: round * CONCEPTS_PER_ROUND + slot }),
+        buildConceptWorkflow({
+          model,
+          style,
+          variation: round * CONCEPTS_PER_ROUND + slot,
+          withReferences: references.length > 0,
+          template: resolveCharacterPrompt(
+            settings.get().characterPrompts[references.length > 0 ? 'conceptRef' : 'concept'],
+            references.length > 0 ? 'conceptRef' : 'concept',
+          ),
+        }),
         {
           projectId: handle.projectId,
           signal: run.controller.signal,
@@ -225,7 +338,11 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
           changed(handle, characterId)
         }
       })
-    log.info(`開始生成「${character.name}」的概念圖（第 ${String(round)} 輪）`)
+    log.info(
+      `開始生成「${character.name}」的概念圖（第 ${String(round)} 輪${
+        references.length > 0 ? `，照 ${String(references.length)} 張參考圖` : ''
+      }）`,
+    )
   }
 
   return {
@@ -237,6 +354,42 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
     generate,
     cancel(characterId) {
       active.get(characterId)?.controller.abort()
+    },
+    references(characterId) {
+      const handle = projects.current()
+      return handle
+        ? { characterId, references: listReferences(handle, characterId) }
+        : { characterId, references: [] }
+    },
+    addReference({ characterId, assetHash, purpose, label }) {
+      const handle = projects.current()
+      if (!handle || handle.closed || !handle.repos.characters.get(characterId)) {
+        throw invalid('找不到這個角色。')
+      }
+      if (!assetRefOf(handle, assetHash)) {
+        throw invalid('專案裡找不到這張圖片，只能用專案裡已有的圖片當參考圖。')
+      }
+      handle.repos.characters.addReference({
+        characterId,
+        assetHash,
+        purpose,
+        ...(label === undefined ? {} : { label }),
+      })
+      return { characterId, references: listReferences(handle, characterId) }
+    },
+    removeReference(characterId, referenceId) {
+      const handle = projects.current()
+      if (!handle || handle.closed || !handle.repos.characters.get(characterId)) {
+        throw invalid('找不到這個角色。')
+      }
+      const found = listReferences(handle, characterId).find((r) => r.id === referenceId)
+      if (found?.source === 'canvas') {
+        throw invalid('這張是在畫布上接到角色「參考圖」的圖，請在畫布上剪掉那條線。')
+      }
+      if (!handle.repos.characters.removeReference(characterId, referenceId)) {
+        throw invalid('找不到這張參考圖。')
+      }
+      return { characterId, references: listReferences(handle, characterId) }
     },
   }
 }

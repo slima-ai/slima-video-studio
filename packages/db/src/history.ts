@@ -9,6 +9,7 @@ import { soundClips } from './tables/sound'
 import {
   acts,
   characterConcepts,
+  characterReferences,
   characterPacks,
   characterTurnarounds,
   characters,
@@ -89,6 +90,12 @@ const TABLES: readonly TrackedTable[] = [
     [
       ['characterPacks', characterPacks, characterPacks.id, characterPacks.characterId],
       ['characterConcepts', characterConcepts, characterConcepts.id, characterConcepts.characterId],
+      [
+        'characterReferences',
+        characterReferences,
+        characterReferences.id,
+        characterReferences.characterId,
+      ],
       [
         'characterTurnarounds',
         characterTurnarounds,

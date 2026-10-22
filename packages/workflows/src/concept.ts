@@ -5,6 +5,7 @@ import type { QuickStyleId } from './styles'
 import {
   NODE_TYPES,
   conceptPromptNode,
+  conceptRefPromptNode,
   imageEditNode,
   imageNode,
   locationAnglePromptNode,
@@ -20,33 +21,66 @@ export interface ConceptWorkflowOptions {
   now?: string
 }
 
-/** 一張概念圖的工作流：[組 Prompt → 圖片]。一輪的 4 張各用不同的變化編號各跑一次。 */
-export function buildConceptWorkflow(options: ConceptWorkflowOptions): Workflow {
+export interface CharacterConceptWorkflowOptions extends ConceptWorkflowOptions {
+  /** 自訂的提示詞範本（設定裡改的）；沒給就用內建預設。 */
+  template?: string
+  /**
+   * 角色有參考圖：改走「帶參考圖的圖片編輯」（照參考圖畫，`model` 要是做得到編輯的模型），
+   * 輸入的 subject 要帶 `references`。
+   */
+  withReferences?: boolean
+}
+
+/**
+ * 一張概念圖的工作流：[組 Prompt → 圖片]，有參考圖時是 [組 Prompt（帶入參考圖）→ 帶參考圖的圖片編輯]。
+ * 一輪的 4 張各用不同的變化編號各跑一次。
+ */
+export function buildConceptWorkflow(options: CharacterConceptWorkflowOptions): Workflow {
   const stamp = options.now ?? new Date().toISOString()
+  const at = { x: 0, y: 0 }
+  const template = options.template?.trim() ? { template: options.template } : {}
+  const withReferences = options.withReferences === true
   return {
-    id: 'character-concept',
+    id: withReferences ? 'character-concept-reference' : 'character-concept',
     name: '角色概念圖',
     version: 1,
     createdAt: stamp,
     updatedAt: stamp,
     nodes: [
-      { id: 'in', type: '$input', version: 1, params: {}, position: { x: 0, y: 0 } },
-      {
-        id: 'prompt',
-        type: NODE_TYPES.conceptPrompt,
-        version: conceptPromptNode.version,
-        params: { style: options.style },
-        position: { x: 0, y: 0 },
-      },
-      {
-        id: 'image',
-        type: NODE_TYPES.image,
-        version: imageNode.version,
-        params: { aspectRatio: '1:1', variation: options.variation },
-        modelId: options.model,
-        position: { x: 0, y: 0 },
-      },
-      { id: 'out', type: '$output', version: 1, params: {}, position: { x: 0, y: 0 } },
+      { id: 'in', type: '$input', version: 1, params: {}, position: at },
+      withReferences
+        ? {
+            id: 'prompt',
+            type: NODE_TYPES.conceptRefPrompt,
+            version: conceptRefPromptNode.version,
+            params: { style: options.style, ...template },
+            position: at,
+          }
+        : {
+            id: 'prompt',
+            type: NODE_TYPES.conceptPrompt,
+            version: conceptPromptNode.version,
+            params: { style: options.style, ...template },
+            position: at,
+          },
+      withReferences
+        ? {
+            id: 'image',
+            type: NODE_TYPES.imageEdit,
+            version: imageEditNode.version,
+            params: { aspectRatio: '1:1', variation: options.variation },
+            modelId: options.model,
+            position: at,
+          }
+        : {
+            id: 'image',
+            type: NODE_TYPES.image,
+            version: imageNode.version,
+            params: { aspectRatio: '1:1', variation: options.variation },
+            modelId: options.model,
+            position: at,
+          },
+      { id: 'out', type: '$output', version: 1, params: {}, position: at },
     ],
     edges: [
       { id: 'c0', from: { nodeId: 'in', port: 'item' }, to: { nodeId: 'prompt', port: 'subject' } },
@@ -55,6 +89,15 @@ export function buildConceptWorkflow(options: ConceptWorkflowOptions): Workflow 
         from: { nodeId: 'prompt', port: 'prompt' },
         to: { nodeId: 'image', port: 'prompt' },
       },
+      ...(withReferences
+        ? [
+            {
+              id: 'c3',
+              from: { nodeId: 'prompt', port: 'references' },
+              to: { nodeId: 'image', port: 'references' },
+            },
+          ]
+        : []),
       { id: 'c2', from: { nodeId: 'image', port: 'image' }, to: { nodeId: 'out', port: 'value' } },
     ],
   }
@@ -65,6 +108,8 @@ export interface TurnaroundWorkflowOptions {
   model: string
   style: QuickStyleId
   variation: number
+  /** 自訂的提示詞範本（設定裡改的）；沒給就用內建預設。 */
+  template?: string
   now?: string
 }
 
@@ -84,7 +129,10 @@ export function buildTurnaroundWorkflow(options: TurnaroundWorkflowOptions): Wor
         id: 'prompt',
         type: NODE_TYPES.turnaroundPrompt,
         version: turnaroundPromptNode.version,
-        params: { style: options.style },
+        params: {
+          style: options.style,
+          ...(options.template?.trim() ? { template: options.template } : {}),
+        },
         position: at,
       },
       {

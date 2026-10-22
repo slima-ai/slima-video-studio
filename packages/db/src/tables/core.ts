@@ -170,6 +170,26 @@ export const characterConcepts = sqliteTable(
   (t) => [unique('character_concepts_slot_uq').on(t.characterId, t.round, t.slot)],
 )
 
+/**
+ * 角色的參考圖：一份「有用途標記的清單」（臉、身體、三視圖、表情、服裝、道具……）。
+ * 用途存成文字（不是資料庫的列舉），之後多一種用途不需要遷移；同一張圖可以有不同的用途。
+ */
+export const characterReferences = sqliteTable(
+  'character_references',
+  {
+    id: text('id').primaryKey(),
+    characterId: text('character_id')
+      .notNull()
+      .references(() => characters.id, { onDelete: 'cascade' }),
+    assetHash: text('asset_hash').notNull(),
+    purpose: text('purpose').notNull(),
+    /** 一句白話備註（例如「原版設定圖」）；沒有就是空字串。 */
+    label: text('label').notNull().default(''),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [unique('character_references_uq').on(t.characterId, t.assetHash, t.purpose)],
+)
+
 /** 三視圖候選：一張橫式的設定稿（sheet）切成正面／側面／背面三張；切線位置可以調整。 */
 export const characterTurnarounds = sqliteTable(
   'character_turnarounds',

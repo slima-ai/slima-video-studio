@@ -94,6 +94,23 @@ describe('TurnaroundService（示範模式）', () => {
     }
   })
 
+  it('設定裡改了三視圖範本：送出的 Prompt 用改過的，參考圖還是主圖', async () => {
+    const h = setup()
+    const { id, heroHash } = await heroReady(h)
+    h.settings.update({ characterPrompts: { turnaround: '我的三視圖範本：{{名稱}}，{{外觀}}' } })
+    h.turnarounds.generate(id)
+    await finish(h, id, 4)
+    const edits = (h.projects.current()?.repos.jobs.list() ?? []).filter(
+      (job) => (job.input as { capability?: string }).capability === 'edit',
+    )
+    expect(edits).toHaveLength(4)
+    for (const job of edits) {
+      const input = job.input as { referenceAssets: string[]; prompt: string }
+      expect(input.prompt).toBe('我的三視圖範本：阿鐵，短黑髮、琥珀色眼睛，深藍工作服')
+      expect(input.referenceAssets).toEqual([heroHash])
+    }
+  })
+
   it('整組重跑：新的一輪在前，舊的保留；進度與結果用事件推送', async () => {
     const h = setup()
     const { id } = await heroReady(h)
