@@ -138,5 +138,12 @@ export const MIGRATIONS: readonly Migration[] = [
       "CREATE TABLE `location_references` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`location_id` text NOT NULL,\n\t`asset_hash` text NOT NULL,\n\t`purpose` text NOT NULL,\n\t`label` text DEFAULT '' NOT NULL,\n\t`created_at` text NOT NULL,\n\tFOREIGN KEY (`location_id`) REFERENCES `locations`(`id`) ON UPDATE no action ON DELETE cascade\n);",
       "CREATE UNIQUE INDEX `location_references_uq` ON `location_references` (`location_id`,`asset_hash`,`purpose`);"
     ]
+  },
+  {
+    "tag": "0014_shot_pins",
+    "statements": [
+      "CREATE TABLE `shot_pins` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`shot_id` text NOT NULL,\n\t`asset_hash` text NOT NULL,\n\t`position` integer NOT NULL,\n\tFOREIGN KEY (`shot_id`) REFERENCES `shots`(`id`) ON UPDATE no action ON DELETE cascade\n);",
+      "CREATE UNIQUE INDEX `shot_pins_uq` ON `shot_pins` (`shot_id`,`asset_hash`);"
+    ]
   }
 ]

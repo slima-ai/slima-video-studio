@@ -148,6 +148,31 @@ describe('StructureHistory：大綱', () => {
   })
 })
 
+describe('StructureHistory：鏡頭的參考圖釘選', () => {
+  it('指定、改順序、清掉、連鏡頭一起刪掉，都能復原', () => {
+    const { repos, history } = setup()
+    const shot = repos.shots.create({ description: '一' })
+    history.record('指定參考圖', () => {
+      repos.shots.setPins(shot.id, [HASH('a'), HASH('b')])
+    })
+    history.record('改順序', () => {
+      repos.shots.setPins(shot.id, [HASH('b'), HASH('a')])
+    })
+    expect(repos.shots.listPins(shot.id)).toEqual([HASH('b'), HASH('a')])
+    history.undo()
+    expect(repos.shots.listPins(shot.id)).toEqual([HASH('a'), HASH('b')])
+    history.undo()
+    expect(repos.shots.listPins(shot.id)).toEqual([])
+    history.redo()
+    history.record('刪除鏡頭', () => {
+      repos.shots.delete(shot.id)
+    })
+    expect(repos.shots.allPins().size).toBe(0)
+    history.undo()
+    expect(repos.shots.listPins(shot.id)).toEqual([HASH('a'), HASH('b')])
+  })
+})
+
 describe('StructureHistory：分鏡表', () => {
   it('刪除鏡頭：連同它生成過的版本一起回來，其他鏡頭的鏡號也還原', () => {
     const { repos, history } = setup()

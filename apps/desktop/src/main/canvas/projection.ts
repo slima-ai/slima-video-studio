@@ -49,7 +49,11 @@ export interface ShotLive {
 export interface StepInfo {
   prompt: string
   edited: boolean
-  refs: { name: string; assetHash?: string }[]
+  refs: { name: string; assetHash?: string; purpose?: string }[]
+  /** 參考圖是自動挑的，還是手動指定的。 */
+  refsAuto: boolean
+  /** 目前的圖片模型最多收幾張參考圖。 */
+  refsLimit: number
   model: string
 }
 
@@ -102,7 +106,7 @@ const PAD = { x: 24, top: 44, bottom: 24 } as const
 const ROW_PITCH = 256
 /** 展開步驟的三格（整理 Prompt、挑參考圖、送出模型）疊在鏡頭下面，寬和鏡頭一樣。 */
 const STEP_STAGES = ['prompt', 'refs', 'model'] as const
-const STEP_H = { prompt: 150, refs: 104, model: 92 } as const
+const STEP_H = { prompt: 150, refs: 140, model: 92 } as const
 const STEP_GAP = 28
 /** 第一格離鏡頭上緣多遠（鏡頭卡片高 160，再空一點）。 */
 const STEP_TOP = 176
@@ -340,7 +344,12 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
               stage === 'prompt'
                 ? { stage, prompt: stepInfo.prompt, edited: stepInfo.edited }
                 : stage === 'refs'
-                  ? { stage, refs: stepInfo.refs }
+                  ? {
+                      stage,
+                      refs: stepInfo.refs,
+                      refsAuto: stepInfo.refsAuto,
+                      refsLimit: stepInfo.refsLimit,
+                    }
                   : { stage, model: stepInfo.model },
           })
           members.push({ key: stepKey, x: at.x, y, w: SIZE.shot.w, h: STEP_H[stage], auto: true })

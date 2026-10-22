@@ -90,6 +90,11 @@ export interface ShotWorkflowOptions {
    * 參考圖張數不超過 referenceLimit。沒傳就一律純文字生圖。
    */
   editModel?: { id: string; referenceLimit: number }
+  /**
+   * 手動指定的參考圖（依序；name 是給圖片模型看的說明，例如「阿鐵的臉」）：有指定就只帶這幾張，
+   * 不再自動挑；要搭配 editModel（沒有做得到編輯的圖片模型就帶不了）。
+   */
+  pinned?: readonly { ref: AssetRef; name: string }[]
   /** 鏡頭接了一張上傳的圖：不生圖，直接用它生影片（「image」節點換成固定的圖）。 */
   firstFrame?: AssetRef
   now?: string
@@ -114,6 +119,7 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
           anchors: options.anchors ?? [],
           scenes: options.scenes ?? [],
           ...(options.editModel ? { referenceLimit: options.editModel.referenceLimit } : {}),
+          ...(options.pinned && options.pinned.length > 0 ? { pinned: options.pinned } : {}),
         },
         undefined,
         shotPromptNode.version,

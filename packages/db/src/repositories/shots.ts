@@ -5,7 +5,7 @@ import type { z } from 'zod'
 
 import type { AppDb } from '../database'
 import { dropNulls } from '../rows'
-import { shots, takes } from '../tables/core'
+import { shotPins, shots, takes } from '../tables/core'
 
 export type NewShot = Omit<z.input<typeof ShotSchema>, 'id' | 'projectId' | 'number' | 'order'>
 type Patchable = Omit<Shot, 'id' | 'projectId' | 'number' | 'order'>
@@ -158,6 +158,57 @@ export class ShotsRepository {
   /** 記下這個版本是用哪一份輸入生成的（輸入指紋，判斷上游改過沒有用）。 */
   setTakeInputHash(takeId: string, inputHash: string): void {
     this.db.update(takes).set({ inputHash }).where(eq(takes.id, takeId)).run()
+  }
+
+  /** 這一鏡手動指定的參考圖（圖檔雜湊，依序）；沒有指定就是空陣列＝自動挑。 */
+  listPins(shotId: string): string[] {
+    return this.db
+      .select({ assetHash: shotPins.assetHash })
+      .from(shotPins)
+      .where(eq(shotPins.shotId, shotId))
+      .orderBy(asc(shotPins.position))
+      .all()
+      .map((row) => row.assetHash)
+  }
+
+  /** 全部鏡頭的手動指定（一次查好；算「需要重新生成」時一鏡一鏡查要好幾百次）。 */
+  allPins(): Map<string, string[]> {
+    const result = new Map<string, string[]>()
+    const rows = this.db
+      .select({ shotId: shotPins.shotId, assetHash: shotPins.assetHash })
+      .from(shotPins)
+      .innerJoin(shots, eq(shotPins.shotId, shots.id))
+      .where(eq(shots.projectId, this.projectId))
+      .orderBy(asc(shotPins.position))
+      .all()
+    for (const row of rows)
+      result.set(row.shotId, [...(result.get(row.shotId) ?? []), row.assetHash])
+    return result
+  }
+
+  /**
+   * 換掉這一鏡手動指定的參考圖（整份換）；空陣列＝清掉、回到自動挑。重複的圖只留第一次出現的。
+   * 原本就有的圖沿用同一列（只改順序），不是整份刪掉重寫：復原才不會撞到「同一張圖只能一列」。
+   */
+  setPins(shotId: string, assetHashes: readonly string[]): void {
+    if (!this.get(shotId)) throw notFound('鏡頭', shotId)
+    const wanted = [...new Set(assetHashes)]
+    this.db.transaction((tx) => {
+      const current = tx.select().from(shotPins).where(eq(shotPins.shotId, shotId)).all()
+      const byHash = new Map(current.map((row) => [row.assetHash, row]))
+      for (const row of current) {
+        if (!wanted.includes(row.assetHash))
+          tx.delete(shotPins).where(eq(shotPins.id, row.id)).run()
+      }
+      wanted.forEach((assetHash, position) => {
+        const existing = byHash.get(assetHash)
+        if (!existing) {
+          tx.insert(shotPins).values({ id: randomUUID(), shotId, assetHash, position }).run()
+        } else if (existing.position !== position) {
+          tx.update(shotPins).set({ position }).where(eq(shotPins.id, existing.id)).run()
+        }
+      })
+    })
   }
 
   /** 標記採用：同一鏡頭同一種類只會有一個採用；影片版本同時更新鏡頭的 activeTakeId。 */

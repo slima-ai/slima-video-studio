@@ -97,6 +97,7 @@ import {
   ModelOptionSchema,
   PickableCapabilitySchema,
 } from './domain/settings'
+import { SHOT_PIN_MAX, ShotReferencesStateSchema } from './domain/shot-references'
 import {
   RegenerateModeSchema,
   ShotBatchCheckSchema,
@@ -703,6 +704,22 @@ export const ipcContract = {
   'shots.update': {
     request: z.object({ shotId: IdSchema, patch: ShotEditSchema }),
     response: ShotViewSchema,
+  },
+  /** 這一鏡的參考圖現況：實際會帶進去的、可以挑的、最多幾張。 */
+  'shots.references': {
+    request: z.object({ shotId: IdSchema }),
+    response: ShotReferencesStateSchema,
+  },
+  /**
+   * 手動指定這一鏡要帶哪幾張參考圖（依序；只能挑 shots.references 的 candidates，張數不超過 limit）。
+   * 傳空陣列＝恢復自動挑。指定了就只帶這幾張，第一張畫面會變成需要重新生成。可以復原。
+   */
+  'shots.setReferences': {
+    request: z.object({
+      shotId: IdSchema,
+      assetHashes: z.array(ContentHashSchema).max(SHOT_PIN_MAX),
+    }),
+    response: ShotReferencesStateSchema,
   },
   /** 重新生成一個鏡頭（在背景執行，進度用 shots.changed 事件推送）。 */
   'shots.regenerate': {

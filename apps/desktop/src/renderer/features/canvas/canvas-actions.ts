@@ -1,4 +1,4 @@
-import type { CanvasUpdateFree, OnelinerParams } from '@svs/schema'
+import type { CanvasUpdateFree, OnelinerParams, ShotReferencesState } from '@svs/schema'
 import { createContext, useContext } from 'react'
 
 import type { ConfirmAnchor } from './run-confirm'
@@ -74,6 +74,10 @@ export interface CanvasActions {
   toggleSteps?: (shotKey: string) => void
   /** 「整理 Prompt」那一格改了送給模型的 Prompt（null 回到自動整理的）。 */
   savePrompt?: (shotKey: string, prompt: string | null) => void
+  /** 「挑參考圖」那一格：讀這一鏡實際會帶的圖和可以挑的圖。 */
+  loadReferences?: (shotKey: string) => Promise<ShotReferencesState>
+  /** 「挑參考圖」那一格：指定這一鏡要帶哪幾張（依序；空陣列＝恢復自動挑）。回傳更新後的現況。 */
+  saveReferences?: (shotKey: string, assetHashes: string[]) => Promise<ShotReferencesState>
   /** 剪輯卡的「重新接片」：用各鏡現在採用的影片重新接成一支。 */
   rejoinFinal?: () => void
   /** 剪輯卡的「匯出 MP4」：把成品存到專案的「匯出」資料夾。 */

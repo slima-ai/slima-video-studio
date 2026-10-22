@@ -36,8 +36,23 @@ export const CanvasStepSchema = z.object({
   /** 整理 Prompt：送給模型的第一張畫面 Prompt；手動改過的話 `edited` 是 true。 */
   prompt: z.string().optional(),
   edited: z.boolean().optional(),
-  /** 挑參考圖：會帶進去的參考圖（鎖定的角色主圖、場景卡主圖）。 */
-  refs: z.array(z.object({ name: z.string(), assetHash: ContentHashSchema.optional() })).optional(),
+  /**
+   * 挑參考圖：實際會帶進去的參考圖（依序；跟生成送出的是同一份）。name 是誰的（角色或地點的名字），
+   * purpose 是什麼用途（主圖、臉、主景、俯視…）。
+   */
+  refs: z
+    .array(
+      z.object({
+        name: z.string(),
+        assetHash: ContentHashSchema.optional(),
+        purpose: z.string().optional(),
+      }),
+    )
+    .optional(),
+  /** 參考圖是自動挑的（true），還是手動指定的（false）。 */
+  refsAuto: z.boolean().optional(),
+  /** 目前的圖片模型最多收幾張參考圖（0＝這一鏡不會帶）。 */
+  refsLimit: z.number().int().nonnegative().optional(),
   /** 送出模型：用哪個模型（接上來的圖就不送模型）。 */
   model: z.string().optional(),
 })

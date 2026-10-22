@@ -123,7 +123,7 @@ export const NODE_SIZE: Readonly<
 }
 
 /** 展開步驟的三格：和鏡頭一樣寬，高度依內容（要和主行程 projection 的 STEP_H 一致）。 */
-export const STEP_SIZE = { w: 230, h: { prompt: 150, refs: 104, model: 92 } } as const
+export const STEP_SIZE = { w: 230, h: { prompt: 150, refs: 140, model: 92 } } as const
 
 export const CUT_WIDTH = 260
 /** 剪輯節點：標題列、每場一列（32px）、16:9 成品縮圖、一行說明。 */

@@ -1,6 +1,8 @@
+import type { ShotReferencesState } from '@svs/schema'
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import { ChevronDown, ChevronRight, Lock, Sparkles, Trash2 } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 
 import { Spinner } from '../../components/skeleton'
 import { useToast } from '../../components/toast'
@@ -796,6 +798,196 @@ function PromptStep({
   )
 }
 
+/**
+ * 「挑參考圖」：顯示這一鏡實際會帶進去的參考圖（誰的、什麼用途），可以改成手動指定。
+ * 按「選參考圖」打開清單，點一張就加進去或拿掉；指定了就只帶指定的，「恢復自動」回到依景別與角度自動挑。
+ */
+function RefsStep({
+  shotKey,
+  refs,
+  auto,
+  limit,
+}: {
+  shotKey: string
+  refs: NonNullable<NonNullable<CanvasNodeData['step']>['refs']>
+  auto: boolean
+  limit: number
+}) {
+  const { loadReferences, saveReferences } = useCanvasActions()
+  const [state, setState] = useState<ShotReferencesState>()
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  /** 清單放在整個畫面的最上層（畫布上下一格的卡片會蓋住卡片裡面的浮層）：位置從按鈕算出來。 */
+  const [at, setAt] = useState<{ left: number; top: number }>()
+  const button = useRef<HTMLButtonElement>(null)
+  const canPick = loadReferences !== undefined && saveReferences !== undefined
+  // 按 Esc 關掉清單
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const show = (): void => {
+    const rect = button.current?.getBoundingClientRect()
+    if (rect) setAt({ left: Math.max(8, rect.right - 288), top: rect.bottom + 4 })
+    setOpen(true)
+    loadReferences?.(shotKey).then(setState, () => undefined)
+  }
+  const save = (hashes: string[]): void => {
+    if (!saveReferences) return
+    setBusy(true)
+    saveReferences(shotKey, hashes)
+      .then(setState, () => undefined)
+      .finally(() => {
+        setBusy(false)
+      })
+  }
+  const chosen = state ? state.picked.map((item) => item.assetHash) : []
+  const toggle = (hash: string): void => {
+    save(chosen.includes(hash) ? chosen.filter((h) => h !== hash) : [...chosen, hash])
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-1">
+      {refs.length === 0 ? (
+        <p className="text-[11px] leading-snug text-fg-muted" data-testid={`step-refs-${shotKey}`}>
+          這一鏡不帶參考圖
+          {limit === 0 ? '（目前的圖片模型不能帶）' : '（出場角色和地點還沒有鎖定的圖片）'}
+        </p>
+      ) : (
+        <ul className="flex gap-1" data-testid={`step-refs-${shotKey}`}>
+          {refs.map((ref, index) => (
+            <li
+              key={`${ref.assetHash ?? ref.name}-${String(index)}`}
+              className="w-11 shrink-0 text-center text-[10px] leading-3 text-fg-muted"
+              title={`${ref.name}${ref.purpose ? `・${ref.purpose}` : ''}`}
+            >
+              <span
+                className="block aspect-square w-full rounded border border-border bg-surface-overlay"
+                style={
+                  ref.assetHash
+                    ? { background: `url("${assetUrl(ref.assetHash)}") center / cover` }
+                    : undefined
+                }
+              />
+              <span className="block truncate">{ref.name}</span>
+              {ref.purpose ? <span className="block truncate">{ref.purpose}</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex items-center justify-between gap-1 text-[11px] text-fg-muted">
+        <span
+          data-testid={`step-refs-mode-${shotKey}`}
+          title={limit > 0 ? `最多 ${String(limit)} 張（場景的圖也算在內）` : undefined}
+        >
+          {auto ? '自動挑的' : '你指定的'}
+          {limit > 0 ? `・最多 ${String(limit)} 張` : ''}
+        </span>
+        {canPick && limit > 0 ? (
+          <button
+            type="button"
+            ref={button}
+            data-testid={`step-refs-pick-${shotKey}`}
+            className="nodrag rounded px-1 hover:bg-fg/10 hover:text-fg"
+            onClick={show}
+          >
+            選參考圖
+          </button>
+        ) : null}
+      </div>
+      {open && at
+        ? createPortal(
+            <div
+              data-testid={`step-refs-panel-${shotKey}`}
+              style={{ left: at.left, top: at.top }}
+              className="nodrag nowheel nopan fixed z-[1000] w-72 rounded-lg border border-border bg-surface-raised p-2 text-[11px] text-fg shadow-card"
+            >
+              <p className="mb-1 text-fg-muted">
+                點一張加進來或拿掉（照點的順序，最多 {String(limit)}{' '}
+                張，場景的圖也算在內）；指定了就只帶指定的。
+              </p>
+              {state === undefined ? (
+                <p className="text-fg-muted">讀取中…</p>
+              ) : state.candidates.length === 0 ? (
+                <p className="text-fg-muted">這一鏡的出場角色和地點都還沒有圖可以挑。</p>
+              ) : (
+                <ul className="grid grid-cols-4 gap-1.5">
+                  {state.candidates.map((item) => {
+                    const index = chosen.indexOf(item.assetHash)
+                    const on = index >= 0
+                    return (
+                      <li key={item.assetHash}>
+                        <button
+                          type="button"
+                          data-testid={`step-refs-option-${item.assetHash.slice(0, 8)}`}
+                          aria-pressed={on}
+                          disabled={busy || (!on && chosen.length >= state.limit)}
+                          title={`${item.ownerName}・${item.purpose}${item.label ? `（${item.label}）` : ''}`}
+                          onClick={() => {
+                            toggle(item.assetHash)
+                          }}
+                          className={cn(
+                            'relative block w-full rounded border-2 text-center text-[10px] text-fg-muted disabled:opacity-40',
+                            on ? 'border-accent' : 'border-transparent hover:border-border',
+                          )}
+                        >
+                          <span
+                            className="block aspect-square w-full rounded bg-surface-overlay"
+                            style={{
+                              background: `url("${assetUrl(item.assetHash)}") center / cover`,
+                            }}
+                          />
+                          {on ? (
+                            <span className="absolute left-0.5 top-0.5 rounded bg-accent px-1 text-[10px] text-white">
+                              {String(index + 1)}
+                            </span>
+                          ) : null}
+                          <span className="block truncate">{item.ownerName}</span>
+                          <span className="block truncate">{item.purpose}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              <div className="mt-1.5 flex items-center justify-between">
+                <button
+                  type="button"
+                  data-testid={`step-refs-auto-${shotKey}`}
+                  disabled={busy || (state?.auto ?? auto)}
+                  className="rounded px-1 hover:bg-fg/10 disabled:opacity-40"
+                  onClick={() => {
+                    save([])
+                  }}
+                >
+                  恢復自動
+                </button>
+                <button
+                  type="button"
+                  data-testid={`step-refs-close-${shotKey}`}
+                  className="rounded px-1 hover:bg-fg/10"
+                  onClick={() => {
+                    setOpen(false)
+                  }}
+                >
+                  完成
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
+  )
+}
+
 /** 展開步驟的一格：整理 Prompt、挑參考圖、送出模型。上面接上一步，下面（送出模型是右邊）接下一步。 */
 function StepImpl({ id, data }: NodeProps<CanvasNode>) {
   const step = data.step
@@ -827,27 +1019,12 @@ function StepImpl({ id, data }: NodeProps<CanvasNode>) {
       {step.stage === 'prompt' ? (
         <PromptStep shotKey={shotKey} prompt={step.prompt ?? ''} edited={step.edited === true} />
       ) : step.stage === 'refs' ? (
-        (step.refs ?? []).length === 0 ? (
-          <p className="text-[11px] leading-snug text-fg-muted">
-            這一鏡不帶參考圖（出場角色和地點都還沒鎖定）
-          </p>
-        ) : (
-          <ul className="flex gap-1.5" data-testid={`step-refs-${shotKey}`}>
-            {(step.refs ?? []).map((ref) => (
-              <li key={ref.name} className="w-12 text-center text-[10px] text-fg-muted">
-                <span
-                  className="block aspect-square w-full rounded border border-border bg-surface-overlay"
-                  style={
-                    ref.assetHash
-                      ? { background: `url("${assetUrl(ref.assetHash)}") center / cover` }
-                      : undefined
-                  }
-                />
-                <span className="block truncate">{ref.name}</span>
-              </li>
-            ))}
-          </ul>
-        )
+        <RefsStep
+          shotKey={shotKey}
+          refs={step.refs ?? []}
+          auto={step.refsAuto !== false}
+          limit={step.refsLimit ?? 0}
+        />
       ) : (
         <p className="text-[11px] leading-snug text-fg-muted" data-testid={`step-model-${shotKey}`}>
           {step.model}

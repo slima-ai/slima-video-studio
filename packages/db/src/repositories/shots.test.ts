@@ -297,3 +297,37 @@ describe('ShotsRepository：時段', () => {
     ).toEqual([a2.id, b1.id].sort())
   })
 })
+
+describe('ShotsRepository：參考圖釘選', () => {
+  it('整份換、依序讀；重複的只留第一次；空陣列＝清掉（回到自動）；沒指定的鏡頭是空陣列', () => {
+    const { repos } = newProject()
+    const a = repos.shots.create({})
+    const b = repos.shots.create({})
+    expect(repos.shots.listPins(a.id)).toEqual([])
+    repos.shots.setPins(a.id, [HASH('c'), HASH('a'), HASH('c'), HASH('b')])
+    repos.shots.setPins(b.id, [HASH('d')])
+    expect(repos.shots.listPins(a.id)).toEqual([HASH('c'), HASH('a'), HASH('b')])
+    expect(repos.shots.allPins()).toEqual(
+      new Map([
+        [a.id, [HASH('c'), HASH('a'), HASH('b')]],
+        [b.id, [HASH('d')]],
+      ]),
+    )
+    repos.shots.setPins(a.id, [HASH('b'), HASH('c')])
+    expect(repos.shots.listPins(a.id)).toEqual([HASH('b'), HASH('c')])
+    repos.shots.setPins(a.id, [])
+    expect(repos.shots.listPins(a.id)).toEqual([])
+    expect(repos.shots.allPins().has(a.id)).toBe(false)
+  })
+
+  it('找不到的鏡頭有白話錯誤；刪鏡頭時它的釘選一起刪掉', () => {
+    const { repos } = newProject()
+    expect(() => {
+      repos.shots.setPins('nope', [HASH('a')])
+    }).toThrow(AppError)
+    const a = repos.shots.create({})
+    repos.shots.setPins(a.id, [HASH('a')])
+    repos.shots.delete(a.id)
+    expect(repos.shots.allPins().size).toBe(0)
+  })
+})

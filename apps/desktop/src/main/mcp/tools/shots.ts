@@ -94,6 +94,51 @@ export function registerShotTools(ctx: ToolContext): void {
   })
 
   defineTool(ctx, {
+    name: 'get_shot_references',
+    title: 'See which reference pictures a shot uses',
+    description:
+      "Which reference pictures go into this shot's first-frame picture, and which ones you could choose instead. `picked` is exactly what will be sent (the same list the app shows on the canvas), in order; `mode` is \"auto\" (the app picks by the shot's size and angle from the LOCKED characters' and places' pictures) or \"pinned\" (someone chose them by hand, so ONLY those are sent). `candidates` are the pictures you may pin: the pictures of the characters in the shot (main picture, three views, added references such as face or body) and of the shot's place (main view, angles, added references such as top_down or depth), each with whose it is and what it shows. `limit` is how many the current image model takes (0 = this shot sends none, see `reason`). Free; changes nothing.",
+    input: { shotId: z.string().min(1).describe('A shot id from list_shots') },
+    hints: { readOnly: true },
+    run: async ({ shotId }) => {
+      const state = await ctx.caller.call('shots.references', { shotId })
+      return {
+        mode: state.auto ? 'auto' : 'pinned',
+        limit: state.limit,
+        ...(state.reason === undefined ? {} : { reason: state.reason }),
+        picked: state.picked,
+        candidates: state.candidates,
+      }
+    },
+  })
+
+  defineTool(ctx, {
+    name: 'set_shot_references',
+    title: 'Choose the reference pictures of a shot',
+    description:
+      "Choose by hand which reference pictures this shot's first-frame picture is drawn from (assetHashes from get_shot_references `candidates`, in order, at most `limit`). Only the pictures you list are sent, so use it when the automatic choice shows the wrong face, outfit or place — e.g. a close-up that needs the face picture, or an overhead shot that needs the place's top-down view. Pass an empty list to go back to the automatic choice. Free, but the shot's first-frame picture then needs regenerating (regenerate_shot what=\"first_frame\"), which costs money: tell the user the price first (estimate_cost). Undo works like the app's own.",
+    input: {
+      shotId: z.string().min(1),
+      assetHashes: z
+        .array(z.string().min(1))
+        .max(12)
+        .describe('Ordered assetHashes from get_shot_references candidates; [] = automatic'),
+    },
+    hints: { readOnly: false, idempotent: true },
+    run: async ({ shotId, assetHashes }) => {
+      const state = await ctx.caller.call('shots.setReferences', { shotId, assetHashes })
+      return {
+        mode: state.auto ? 'auto' : 'pinned',
+        limit: state.limit,
+        picked: state.picked,
+        note: state.auto
+          ? 'Back to the automatic choice.'
+          : 'Pinned. The first-frame picture is now out of date: regenerate it to use these pictures.',
+      }
+    },
+  })
+
+  defineTool(ctx, {
     name: 'update_shot',
     title: 'Edit a shot',
     description:
