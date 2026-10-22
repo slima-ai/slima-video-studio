@@ -32,5 +32,5 @@
 - **「臉一張、不帶臉的身體另一張」** 這個常見說法只找到一篇部落格（HackerNoon），沒有廠商文件或實驗支持，我們也沒有測過（兩隻示範用的角色是沒有手腳的圓球，測不出來）。指南裡把它列在「Not yet proven」，沒有當成規則。
 - **多張參考圖送給影片模型是否更穩**：沒有測過；指南只說「沒驗證」。
 - **「角色多的鏡頭，每個角色分到的參考圖變少」**：這是從 App 的挑圖規則（`pickReferences`：場景占一張、其餘依序分給每個角色）讀出來的，不是實測。
-- 場景卡目前只能由使用者在畫布上建，AI 還沒有工具建立；指南已照實寫（「You cannot create place cards with tools yet」）。之後有了工具要回頭改這一句。
+- 角色的「附上原版設定圖」（`list_project_images`、`add_character_reference`）是 #159 之後有的，指南已提到；場景卡目前只能由使用者在畫布上建，AI 還沒有工具建立；指南已照實寫（「You cannot create place cards with tools yet」）。之後有了工具要回頭改這一句。
 - 三視圖同理：AI 只看得到 `hasTurnaround`，不能建立。

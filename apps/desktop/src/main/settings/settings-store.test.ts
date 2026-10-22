@@ -144,6 +144,8 @@ describe('applyPatch', () => {
     expect(applyPatch(two, { characterPrompts: { concept: '   ' } }).characterPrompts).toEqual({
       turnaround: '三視圖範本',
     })
+  })
+
   it('製片與一致性指南：去掉頭尾空白、傳空字串恢復預設，而且跟分鏡準則各存各的', () => {
     const custom = applyPatch(base, {
       productionGuide: '  臉先鎖定。\n ',
