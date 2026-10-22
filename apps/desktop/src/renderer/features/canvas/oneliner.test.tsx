@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CanvasActionsContext, type CanvasActions } from './canvas-actions'
 import type { CanvasNodeData } from './canvas-model'
-import { choose } from '../../test/select'
+import { choose, optionLabels } from '../../test/select'
 import { GrowConfirm } from './grow-confirm'
 import { OnelinerBody } from './oneliner'
 import type { GrowConfirm as Pending } from './use-grow'
@@ -43,6 +43,20 @@ describe('OnelinerBody', () => {
     expect(updateOneliner).not.toHaveBeenCalled()
     fireEvent.blur(box)
     expect(updateOneliner).toHaveBeenCalledWith('node:one', { story: '一隻貓在雨夜找到家' })
+  })
+
+  it('畫風選單有「手繪電影」；選了就存成 painted', () => {
+    const updateOneliner = vi.fn()
+    renderBody({ updateOneliner })
+    expect(optionLabels('oneliner-style')).toEqual([
+      '寫實',
+      '日系動畫',
+      '3D 動畫',
+      '水彩',
+      '手繪電影',
+    ])
+    choose('oneliner-style', 'painted')
+    expect(updateOneliner).toHaveBeenCalledWith('node:one', { style: 'painted' })
   })
 
   it('聲音三個勾選預設全開；勾掉一個就存起來；生成時帶著目前的勾選', () => {
