@@ -50,9 +50,23 @@ export type Pricing = z.infer<typeof PricingSchema>
  * 供應商文件對照狀態。**endpoint 與價格沒有對照過官方文件前一律是 false**，
  * UI 會把這類價格標為「估算」，正式發佈前要全部核對完。
  */
+/** 實測過的某個功能（用真的金鑰跑過）：結果與日期、證據放哪裡。 */
+export const ModelTestedFeatureSchema = z.object({
+  /** 功能名稱，例如 input_references（參考生影片）。 */
+  feature: z.string().min(1),
+  /** ok＝實測可用；not_recommended＝能送出去但結果不好，App 不走這條路。 */
+  result: z.enum(['ok', 'not_recommended']),
+  checkedAt: z.iso.date(),
+  /** 做了什麼、看到什麼（白話一兩句；細節在 docs/models.md 與 HQ 紀錄）。 */
+  evidence: z.string().min(1),
+})
+export type ModelTestedFeature = z.infer<typeof ModelTestedFeatureSchema>
+
 export const ModelVerificationSchema = z.object({
   endpoint: z.boolean(),
   pricing: z.boolean(),
+  /** 實測過的功能；沒測過的不要列（沒列就是「只有廠商說明」）。 */
+  tested: z.array(ModelTestedFeatureSchema).optional(),
   /** 最後一次對照的日期（YYYY-MM-DD）；沒有核對過就不填。 */
   checkedAt: z.iso.date().optional(),
   /** 價格或 endpoint 的出處（網址或文件名稱）。 */

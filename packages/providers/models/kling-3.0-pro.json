@@ -3,7 +3,7 @@
   "displayName": "Kling 3.0 Pro",
   "userNote": "寫實風格的影片，有聲音",
   "attribution": "Video generated with Kling AI",
-  "tasks": ["t2v", "i2v", "r2v"],
+  "tasks": ["t2v", "i2v"],
   "tier": "premium",
   "recommended": true,
   "features": {
@@ -44,8 +44,7 @@
       "provider": "openrouter",
       "endpoints": {
         "t2v": "kwaivgi/kling-v3.0-pro",
-        "i2v": "kwaivgi/kling-v3.0-pro",
-        "r2v": "kwaivgi/kling-v3.0-pro"
+        "i2v": "kwaivgi/kling-v3.0-pro"
       },
       "pricing": {
         "unit": "second",
@@ -56,18 +55,23 @@
         "endpoint": true,
         "pricing": true,
         "source": "openrouter.ai 官方模型頁與文件（2026-10-12 核對，見 docs/models.md）",
-        "checkedAt": "2026-10-12"
+        "checkedAt": "2026-10-12",
+        "tested": [
+          {
+            "feature": "input_references",
+            "result": "not_recommended",
+            "checkedAt": "2026-10-23",
+            "evidence": "Std 版 2026-10-23 實測不建議（見 kling-3.0-standard）；Pro 與 Std 走同一個供應商（AtlasCloud），沒有另外測，保守起見一樣拿掉 r2v。"
+          }
+        ]
       },
       "durationSec": {
         "min": 3,
         "max": 15
       },
       "resolutions": ["720p", "1080p"],
-      "referenceLimits": {
-        "images": 4
-      },
-      "notes": "畫質最好的選擇之一。OpenRouter 沒有確認支援 Kling Elements，要用 Elements 請填 fal.ai 的金鑰。",
-      "characterMechanism": "reference",
+      "notes": "畫質最好的選擇之一。OpenRouter 沒有確認支援 Kling Elements，要用 Elements 請填 fal.ai 的金鑰。參考生影片（input_references）：Std 版 2026-10-23 實測不建議，Pro 沒另測、一樣不走（見 verification.tested）。",
+      "characterMechanism": "none",
       "prompt": {
         "language": "en"
       }

@@ -232,13 +232,32 @@ describe('內建 ModelCard', () => {
     expect(viaOpenRouter?.displayName).toBe('Kling 3.0 Pro')
     expect(viaOpenRouter?.model).toBe('kling-3.0-pro')
     expect(fal?.characterMechanism).toBe('elements')
-    expect(viaOpenRouter?.characterMechanism).toBe('reference')
+    // OpenRouter 的 Kling 沒有 Elements，參考圖路徑實測不建議（2026-10-23）：不宣稱角色一致性的機制
+    expect(viaOpenRouter?.characterMechanism).toBe('none')
     // 能力看管道的端點：fal 上的 Kling 3.0 Pro 沒有參考生影片
     expect(fal?.capabilities).toEqual(['t2v', 'i2v'])
-    expect(viaOpenRouter?.capabilities).toEqual(['t2v', 'i2v', 'r2v'])
+    expect(viaOpenRouter?.capabilities).toEqual(['t2v', 'i2v'])
     expect(fal?.badges).toEqual(['有聲', '角色一致'])
     // 示範模型沿用舊的 id，舊專案的版本紀錄照樣讀得到
     expect(registry.get('mock/video')?.model).toBe('mock-video')
+  })
+
+  it('Kling 3.0 在 OpenRouter 的參考生影片（r2v）實測不建議：沒有 r2v 端點、沒有參考圖上限，並留著實測紀錄與日期', () => {
+    for (const id of ['openrouter/kling-3.0-standard', 'openrouter/kling-3.0-pro']) {
+      const card = registry.get(id)
+      expect(card?.capabilities, id).not.toContain('r2v')
+      expect(card?.endpoints.r2v, id).toBeUndefined()
+      expect(card?.referenceLimits, id).toBeUndefined()
+      const tested = card?.verification.tested ?? []
+      expect(tested, id).toHaveLength(1)
+      expect(tested[0]).toMatchObject({
+        feature: 'input_references',
+        result: 'not_recommended',
+        checkedAt: '2026-10-23',
+      })
+    }
+    // 其他影片模型的 r2v 不受影響（Seedance 在 fal 上有）
+    expect(registry.get('fal/seedance-2.0')?.capabilities).toContain('r2v')
   })
 
   it('模型檔的檢查：管道的端點要在 tasks 裡、每個 task 都要有管道做得到、同一家只能一個管道', () => {
