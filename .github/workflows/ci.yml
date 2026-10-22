@@ -73,18 +73,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # 媒體套件的測試會真的呼叫 FFmpeg
-      # 下載過的 .deb 留著（鏡像慢的時候不用再下載一次）；每週換一個 key，套件更新了才會重新存
-      - id: week
-        run: echo "week=$(date +%G-%V)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
-        with:
-          path: ~/apt-debs
-          key: apt-debs-${{ runner.os }}-unit-${{ steps.week.outputs.week }}
-          restore-keys: apt-debs-${{ runner.os }}-unit-
-      - name: 安裝 FFmpeg
-        timeout-minutes: 12
-        run: APT_DEB_CACHE="$HOME/apt-debs" bash tools/ci/apt-install.sh ffmpeg
+      # 媒體套件的測試會真的呼叫 FFmpeg：用固定版號的靜態版（核對 SHA-256），不走 apt（鏡像有時慢到下載不完）
+      - name: 安裝 FFmpeg（固定版號、核對 SHA-256）
+        timeout-minutes: 8
+        run: bash tools/ci/install-ffmpeg.sh
       # GitHub 的共用 runner 只有 4 個核心：平行數跟著降成 4（設定檔裡的上限仍是 8，見 tools/config/worker-cap.test.ts）
       - run: pnpm test --coverage --maxWorkers=4
       - uses: actions/upload-artifact@v4
@@ -112,16 +104,12 @@ jobs:
           path: ~/.cache/electron
           key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: electron-${{ runner.os }}-
-      - id: week
-        run: echo "week=$(date +%G-%V)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
-        with:
-          path: ~/apt-debs
-          key: apt-debs-${{ runner.os }}-e2e-${{ steps.week.outputs.week }}
-          restore-keys: apt-debs-${{ runner.os }}-e2e-
-      - name: 安裝 xvfb 與 FFmpeg
+      - name: 安裝 xvfb 等小套件
         timeout-minutes: 12
-        run: APT_DEB_CACHE="$HOME/apt-debs" bash tools/ci/apt-install.sh xvfb libgbm1 libasound2t64 ffmpeg
+        run: bash tools/ci/apt-install.sh xvfb libgbm1 libasound2t64
+      - name: 安裝 FFmpeg（固定版號、核對 SHA-256）
+        timeout-minutes: 8
+        run: bash tools/ci/install-ffmpeg.sh
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @svs/desktop build
       - name: Playwright Electron E2E（xvfb）
