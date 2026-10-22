@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { newProject } from '../__tests__/helpers'
 
@@ -46,5 +46,25 @@ describe('FinalCutRepository', () => {
     const b = repos.finalCuts.record({ assetHash: HASH('b'), takeIds: ['t1'], soundKey: 'k' })
     expect(repos.finalCuts.list()).toEqual([b, a])
     expect(repos.finalCuts.latest()).toEqual(b)
+  })
+
+  it('latest 只向資料庫要最新的一筆（SQL 有 limit），不把所有版本撈回來再挑；結果跟 list 的第一個一樣', () => {
+    const handle = newProject()
+    const { repos, sqlite } = handle
+    for (const c of ['a', 'b', 'c', 'd']) {
+      repos.finalCuts.record({ assetHash: HASH(c), takeIds: [c] })
+    }
+    const prepared: string[] = []
+    const prepare = sqlite.prepare.bind(sqlite)
+    vi.spyOn(sqlite, 'prepare').mockImplementation((sql: string) => {
+      prepared.push(sql)
+      return prepare(sql)
+    })
+    const latest = repos.finalCuts.latest()
+    const selects = prepared.filter((sql) => /^select /i.test(sql) && sql.includes('final_cuts'))
+    expect(selects).toHaveLength(1)
+    expect(selects[0]).toMatch(/limit/i)
+    expect(latest?.version).toBe(4)
+    expect(latest).toEqual(repos.finalCuts.list()[0])
   })
 })

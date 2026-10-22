@@ -8,6 +8,30 @@ import { continueText } from './continue-text'
 import { MessageView } from './message-view'
 import { PrereqCard } from './prereq-card'
 
+/**
+ * 檢查通常很快就有結果（App 預熱過）。過了這麼久還沒有結果，才顯示「正在檢查」；
+ * 一開始就顯示的話，結果在幾十毫秒內回來，這幾個字只會閃一下。
+ */
+export const CHECKING_NOTE_DELAY_MS = 400
+
+function CheckingNote() {
+  const [late, setLate] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLate(true)
+    }, CHECKING_NOTE_DELAY_MS)
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [])
+  if (!late) return null
+  return (
+    <p className="p-4 text-sm text-fg-muted" role="status" data-testid="chat-checking">
+      正在檢查 Claude Code…
+    </p>
+  )
+}
+
 /** 對話框空的時候給的幾個起手式：點一下填進輸入框，不會自己送出。 */
 const STARTERS = [
   '幫我新增三個鏡頭：清晨的街角、公車進站、主角抬頭看天空',
@@ -189,9 +213,8 @@ export function ChatPanel() {
         </Button>
       </header>
       {prereq === undefined || prereq === 'checking' ? (
-        <p className="p-4 text-sm text-fg-muted" role="status" data-testid="chat-checking">
-          正在檢查 Claude Code…
-        </p>
+        // key：還沒開始檢查（undefined）與開始檢查（'checking'）換成不同的元件，計時從開始檢查才算
+        <CheckingNote key={prereq === undefined ? 'idle' : 'checking'} />
       ) : prereq.state !== 'ready' ? (
         <PrereqCard prereq={prereq} onRecheck={recheck} />
       ) : (
