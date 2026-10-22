@@ -216,6 +216,72 @@ describe('shots.regenerate', { timeout: 30_000 }, () => {
     expect(shots.list().shots[0]?.videos).toHaveLength(3)
   })
 
+  it('寫了動作 → 送給影片模型的請求以動作開頭、不重講畫面；首幀圖不重畫；清掉動作又回到畫面描述', async () => {
+    const { shots, runQuickStart, idle, projects } = setup()
+    await runQuickStart()
+    const target = shots.list().shots[0]
+    if (!target) throw new Error('沒有鏡頭')
+    const jobs = (kind: 'image' | 'video'): string[] =>
+      (projects.current()?.repos.jobs.list() ?? [])
+        .filter((job) => job.kind === kind)
+        .map((job) => (job.input as { prompt: string }).prompt)
+    const imagesBefore = jobs('image').length
+
+    shots.update(target.id, { action: '貓向右跳一步，尾巴輕輕擺動' })
+    // 畫面上看到的「自動組出的 Prompt」就是實際送出的
+    const acting = shots.list().shots[0]
+    expect(acting?.action).toBe('貓向右跳一步，尾巴輕輕擺動')
+    expect(acting?.autoPrompt.startsWith('貓向右跳一步，尾巴輕輕擺動')).toBe(true)
+    expect(acting?.autoPrompt).not.toContain(target.description)
+
+    await shots.regenerate(target.id, 'apply')
+    await idle(target.id)
+    const sent = jobs('video').filter((p) => p.startsWith('貓向右跳一步，尾巴輕輕擺動'))
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).not.toContain(target.description)
+    // 動作只影響影片：首幀圖沒有重畫，影片多了一個版本
+    expect(jobs('image')).toHaveLength(imagesBefore)
+    expect(jobs('image').some((p) => p.includes('向右跳'))).toBe(false)
+    expect(shots.list().shots[0]?.firstFrames).toHaveLength(1)
+    expect(shots.list().shots[0]?.videos).toHaveLength(2)
+
+    // 清掉動作 → 影片 Prompt 回到畫面描述（照舊的做法），再做一版影片
+    shots.update(target.id, { action: '' })
+    await shots.regenerate(target.id, 'apply')
+    await idle(target.id)
+    expect(shots.list().shots[0]?.action).toBe('')
+    expect(jobs('video').some((p) => p.startsWith(target.description))).toBe(true)
+  })
+
+  it('沒有動作的鏡頭：加上動作欄之前做好的影片不會變成「需要重跑」；只改動作才會', async () => {
+    const { shots, runQuickStart, idle } = setup()
+    await runQuickStart()
+    const target = shots.list().shots[0]
+    if (!target) throw new Error('沒有鏡頭')
+    // 沒改任何東西、動作維持空白：套用修改什麼都不做
+    shots.update(target.id, { action: '   ' })
+    await shots.regenerate(target.id, 'apply')
+    await idle(target.id)
+    expect(shots.list().shots[0]?.videos).toHaveLength(1)
+    // 只改動作：影片重做，首幀圖沿用
+    shots.update(target.id, { action: '貓慢慢轉頭' })
+    await shots.regenerate(target.id, 'apply')
+    await idle(target.id)
+    expect(shots.list().shots[0]?.videos).toHaveLength(2)
+    expect(shots.list().shots[0]?.firstFrames).toHaveLength(1)
+  })
+
+  it('複製鏡頭會一併複製動作', async () => {
+    const { shots, runQuickStart } = setup()
+    await runQuickStart()
+    const target = shots.list().shots[0]
+    if (!target) throw new Error('沒有鏡頭')
+    shots.update(target.id, { action: '貓向右跳一步' })
+    shots.duplicate(target.id)
+    const copies = shots.list().shots.filter((s) => s.action === '貓向右跳一步')
+    expect(copies).toHaveLength(2)
+  })
+
   it('整個重做：首幀圖和影片都多一個新版本', async () => {
     const { shots, runQuickStart, idle } = setup()
     await runQuickStart()

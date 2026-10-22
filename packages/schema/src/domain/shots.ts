@@ -39,6 +39,8 @@ export const ShotViewSchema = z.object({
   /** 鏡號（從 1 開始）。 */
   number: z.number().int().positive(),
   description: z.string(),
+  /** 這幾秒裡發生什麼動作（和 description 分開：description 只寫靜止的畫面）；沒有就是空字串。 */
+  action: z.string(),
   /** 運鏡的白話描述；固定鏡頭是 null。 */
   cameraMove: z.string().nullable(),
   durationSec: z.number().positive(),
@@ -83,6 +85,8 @@ export type ShotsSnapshot = z.infer<typeof ShotsSnapshotSchema>
 /** 使用者可以改的鏡頭欄位。prompt 傳 null 代表清掉手動修改、回到自動組出的內容。 */
 export const ShotEditSchema = z.object({
   description: z.string().min(1).max(1000).optional(),
+  /** 空字串代表清掉。 */
+  action: z.string().max(1000).optional(),
   cameraMove: z.string().max(100).nullable().optional(),
   durationSec: z.number().min(1).max(15).optional(),
   prompt: z.string().max(4000).nullable().optional(),

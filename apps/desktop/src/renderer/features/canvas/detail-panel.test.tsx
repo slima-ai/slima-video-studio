@@ -14,6 +14,7 @@ const shot: ShotView = {
   id: 's1',
   number: 1,
   description: '貓跳上窗台',
+  action: '',
   cameraMove: null,
   durationSec: 3,
   characters: [],

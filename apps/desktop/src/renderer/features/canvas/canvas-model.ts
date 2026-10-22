@@ -62,6 +62,8 @@ export interface CanvasNodeData extends Record<string, unknown> {
   glow?: boolean | undefined
   /** 剛長出來：播一次長出動畫。 */
   born?: boolean | undefined
+  /** 鏡頭的動作：卡片上寫「動作：…」（沒有就不顯示）。 */
+  action?: string | undefined
   /** 鏡頭的旁白台詞：卡片上寫「旁白：…」，雙擊可以改。 */
   dialogue?: string | undefined
   /** AI 工具剛改過這一格：標「AI 剛改」，直到使用者看過或動過。 */

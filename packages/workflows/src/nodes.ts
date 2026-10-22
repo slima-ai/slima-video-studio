@@ -106,6 +106,8 @@ export const ShotItemSchema = z.object({
   number: z.number().int().positive(),
   /** 這一鏡畫面裡發生什麼事（白話）。 */
   description: z.string().min(1),
+  /** 這幾秒裡發生的動作（給影片模型）；有填，影片 Prompt 就以它開頭，不再重講靜止的畫面。首幀圖不用它。 */
+  action: z.string().optional(),
   size: ShotSizeSchema.default('medium'),
   /** 拍攝角度；一般都是平視，只有明顯從側面或背後拍才是 side／back（自動挑參考圖用）。 */
   angle: ShotAngleSchema.default('eye_level'),
@@ -131,6 +133,7 @@ const LlmShotSchema = ShotItemSchema.omit({
   cameraMove: true,
   locationId: true,
   dialogue: true,
+  action: true,
 }).extend({
   /** 只能從運鏡預設清單裡選（或 null 代表沒特別要求）。 */
   cameraMove: z.enum(CAMERA_MOVE_IDS).nullable().default(null),
@@ -437,7 +440,28 @@ export function composeShotPrompts(
     (looks.length > 0 ? `。角色外觀——${looks.join('；')}` : '') +
     (place ? `。場景（${place.name}）——${place.text}` : '')
   // 運鏡不寫在這裡：送出影片請求時才依模型決定是用原生參數還是加進 Prompt（見 resolveCameraMove）
-  return { imagePrompt: `${base}。${style}`, videoPrompt: `${base}。${style}` }
+  const imagePrompt = `${base}。${style}`
+  const action = shot.action?.trim() ?? ''
+  if (action === '') return { imagePrompt, videoPrompt: imagePrompt }
+  // 有動作：影片 Prompt 以動作開頭，接角色的「不要有…」限制，再接畫風；
+  // 首幀圖已經定了畫面，不再重講一次（重講的外觀與場景描述會讓模型重畫、長出不存在的五官）
+  const limits = anchors
+    .filter((anchor) => shot.characters.includes(anchor.name))
+    .flatMap((anchor) => {
+      const found = negativeLimitsOf(anchor.text)
+      return found === '' ? [] : [`${anchor.name}：${found}`]
+    })
+  const constraint = limits.length > 0 ? `。角色限制——${limits.join('；')}` : ''
+  return { imagePrompt, videoPrompt: `${action}${constraint}。${style}` }
+}
+
+/**
+ * 固定外觀裡「NO mouth, NO arms, NO legs」這類不要有什麼的句子（只認大寫 NO 開頭、用逗號連起來的那一串），
+ * 影片 Prompt 的動作後面要再提醒一次；沒有就是空字串。
+ */
+export function negativeLimitsOf(anchorText: string): string {
+  const found = anchorText.match(/\bNO [A-Za-z]+(?:\s*,\s*(?:and\s+)?NO [A-Za-z]+)*/g)
+  return found ? found.join(', ') : ''
 }
 
 export const shotPromptNode = defineNode({

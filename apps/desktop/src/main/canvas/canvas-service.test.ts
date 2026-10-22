@@ -77,7 +77,12 @@ describe('createCanvasService', () => {
       characters: [{ characterId: hero.id }],
       locationId: loc.id,
     })
-    const b = repos.shots.create({ sceneId: s1.id, description: '貓抬頭', inCut: false })
+    const b = repos.shots.create({
+      sceneId: s1.id,
+      description: '貓抬頭',
+      action: '貓慢慢把頭抬起來',
+      inCut: false,
+    })
     const c = repos.shots.create({ sceneId: s2.id, description: '門縫透光' })
     repos.shots.addTake({ shotId: a.id, kind: 'first_frame', assetHash: HASH('a'), modelId: 'img' })
     repos.shots.addTake({ shotId: a.id, kind: 'video', assetHash: HASH('b'), modelId: 'vid' })
@@ -95,6 +100,9 @@ describe('createCanvasService', () => {
       sceneKey: `scene:${s1.id}`,
       auto: true,
     })
+    // 動作：有寫才帶進節點，沒寫就沒有這個欄位（卡片上不留空位）
+    expect(node(graph, `shot:${b.id}`)?.action).toBe('貓慢慢把頭抬起來')
+    expect(node(graph, `shot:${a.id}`)).not.toHaveProperty('action')
     expect(node(graph, `shot:${a.id}:image`)).toMatchObject({
       status: 'done',
       assetHash: HASH('a'),

@@ -135,6 +135,8 @@ export const ShotSchema = z.object({
   cameraMove: z.string().nullable().default(null),
   durationSec: z.number().positive().default(3),
   description: z.string().default(''),
+  /** 這幾秒裡發生什麼動作（給影片模型）；空字串代表沒有，影片 Prompt 照舊用畫面描述。 */
+  action: z.string().default(''),
   /** 組裝後送給模型的 Prompt；使用者手動改過會存在這裡。 */
   prompt: z.string().optional(),
   dialogue: z.string().default(''),

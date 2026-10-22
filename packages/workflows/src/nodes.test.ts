@@ -14,6 +14,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   breakdownNode,
   composeShotPrompts,
+  negativeLimitsOf,
   frameFillSuffix,
   withoutFrameFillSuffix,
   ShotItemSchema,
@@ -501,6 +502,105 @@ describe('節點：組 Prompt', () => {
       const parsed = ShotItemSchema.parse(shot)
       const { out } = await runNode(shotPromptNode, { params: { anchors }, inputs: { shot } })
       expect(composeShotPrompts(parsed, 'realistic', anchors).imagePrompt).toBe(out.imagePrompt)
+    })
+  })
+
+  describe('動作欄：影片 Prompt 以動作開頭，不重講靜止的畫面', () => {
+    const style = QUICK_STYLES.realistic.fragment
+    const anchors = [
+      {
+        name: '小花',
+        text: 'a small cream dome-shaped slime, two big white eyes. NO mouth, NO arms, NO legs.',
+      },
+      { name: '阿鐵', text: '短黑髮，NO mouth' },
+    ]
+    const acting = { ...shot, characters: ['小花'], action: '小花向左跳一下，落地後輕輕晃動' }
+
+    it('動作 → 角色限制 → 畫風；描述、外觀、氣氛都不重講', async () => {
+      const { out } = await runNode(shotPromptNode, {
+        params: { anchors },
+        inputs: { shot: acting },
+      })
+      expect(out.videoPrompt).toBe(
+        `小花向左跳一下，落地後輕輕晃動。角色限制——小花：NO mouth, NO arms, NO legs。${style}`,
+      )
+      expect(out.videoPrompt).not.toContain('貓跳上窗台')
+      expect(out.videoPrompt).not.toContain('cream dome-shaped')
+      expect(out.videoPrompt).not.toContain('氣氛')
+    })
+
+    it('首幀圖的 Prompt 完全不受動作影響（只講畫面，也沒有運鏡）', async () => {
+      const withAction = await runNode(shotPromptNode, {
+        params: { anchors },
+        inputs: { shot: acting },
+      })
+      const without = await runNode(shotPromptNode, {
+        params: { anchors },
+        inputs: { shot: { ...acting, action: undefined } },
+      })
+      expect(withAction.out.imagePrompt).toBe(without.out.imagePrompt)
+      expect(String(withAction.out.imagePrompt)).not.toContain('向左跳')
+      expect(String(withAction.out.imagePrompt)).not.toContain('push')
+      // 運鏡照舊單獨輸出，沒有寫進任何一個 Prompt
+      expect(withAction.out.cameraMove).toBe('push_in')
+    })
+
+    it('出場角色沒有「NO …」限制 → 動作後面直接接畫風；沒出場的角色限制不帶', async () => {
+      const plain = await runNode(shotPromptNode, { inputs: { shot: acting } })
+      expect(plain.out.videoPrompt).toBe(`小花向左跳一下，落地後輕輕晃動。${style}`)
+      const other = await runNode(shotPromptNode, {
+        params: { anchors: [{ name: '阿鐵', text: '短黑髮，NO mouth' }] },
+        inputs: { shot: acting },
+      })
+      expect(other.out.videoPrompt).toBe(plain.out.videoPrompt)
+    })
+
+    it('多個角色出場 → 每個角色各一段限制，順序和外觀描述一樣（依鎖定角色的順序）', async () => {
+      const both = { ...acting, characters: ['阿鐵', '小花'] }
+      const { out } = await runNode(shotPromptNode, { params: { anchors }, inputs: { shot: both } })
+      expect(out.videoPrompt).toContain(
+        '角色限制——小花：NO mouth, NO arms, NO legs；阿鐵：NO mouth',
+      )
+    })
+
+    it('沒有動作（沒填、空字串、只有空白）→ 逐字和加這個欄位之前一樣', async () => {
+      const before = await runNode(shotPromptNode, { params: { anchors }, inputs: { shot } })
+      for (const action of [undefined, '', '   ']) {
+        const { out } = await runNode(shotPromptNode, {
+          params: { anchors },
+          inputs: { shot: { ...shot, action } },
+        })
+        expect(out).toEqual(before.out)
+      }
+      expect(before.out.videoPrompt).toBe(before.out.imagePrompt)
+    })
+
+    it('手動改過 Prompt 時以使用者寫的為準，動作不會再加進去', async () => {
+      const { out } = await runNode(shotPromptNode, {
+        inputs: { shot: { ...acting, promptOverride: 'my prompt' } },
+      })
+      expect(out.videoPrompt).toBe('my prompt')
+    })
+
+    it('composeShotPrompts 與節點輸出一致', async () => {
+      const parsed = ShotItemSchema.parse(acting)
+      const { out } = await runNode(shotPromptNode, {
+        params: { anchors },
+        inputs: { shot: acting },
+      })
+      expect(composeShotPrompts(parsed, 'realistic', anchors)).toEqual({
+        imagePrompt: out.imagePrompt,
+        videoPrompt: out.videoPrompt,
+      })
+    })
+
+    it('negativeLimitsOf：只取「NO …」那一串，其他字都不帶', () => {
+      expect(negativeLimitsOf('a slime. NO mouth, NO arms, NO legs, NO hands, NO feet.')).toBe(
+        'NO mouth, NO arms, NO legs, NO hands, NO feet',
+      )
+      expect(negativeLimitsOf('矮圓頂；NO mouth, and NO ears。')).toBe('NO mouth, and NO ears')
+      expect(negativeLimitsOf('沒有嘴巴，no mouth，NOT round')).toBe('')
+      expect(negativeLimitsOf('')).toBe('')
     })
   })
 

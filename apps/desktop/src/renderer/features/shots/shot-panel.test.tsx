@@ -30,6 +30,7 @@ const shot = (extra: Partial<ShotView> = {}): ShotView => ({
   id: 's2',
   number: 2,
   description: '貓跳上窗台',
+  action: '',
   cameraMove: null,
   durationSec: 3,
   characters: [],

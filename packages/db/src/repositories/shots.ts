@@ -304,6 +304,7 @@ function toShotRow(shot: Shot): ShotRow {
     cameraMove: shot.cameraMove,
     durationSec: shot.durationSec,
     description: shot.description,
+    action: shot.action,
     prompt: shot.prompt ?? null,
     dialogue: shot.dialogue,
     characters: shot.characters,
