@@ -3,7 +3,7 @@
   "displayName": "Kling 3.0 Standard",
   "userNote": "有聲音的影片，價格適中",
   "attribution": "Video generated with Kling AI",
-  "tasks": ["t2v", "i2v", "r2v"],
+  "tasks": ["t2v", "i2v"],
   "tier": "balanced",
   "recommended": true,
   "features": {
@@ -43,8 +43,7 @@
       "provider": "openrouter",
       "endpoints": {
         "t2v": "kwaivgi/kling-v3.0-std",
-        "i2v": "kwaivgi/kling-v3.0-std",
-        "r2v": "kwaivgi/kling-v3.0-std"
+        "i2v": "kwaivgi/kling-v3.0-std"
       },
       "pricing": {
         "unit": "second",
@@ -55,7 +54,15 @@
         "endpoint": true,
         "pricing": true,
         "source": "openrouter.ai 官方模型頁與文件（2026-10-12 核對，見 docs/models.md）",
-        "checkedAt": "2026-10-12"
+        "checkedAt": "2026-10-12",
+        "tested": [
+          {
+            "feature": "input_references",
+            "result": "not_recommended",
+            "checkedAt": "2026-10-23",
+            "evidence": "2026-10-23 用真的金鑰實測（Std、5 秒、同一段 prompt、各 1 支）：請求被接受、收費不變，但影片第 1 格就是設定圖本身、畫風沒帶進去，2 張參考那支角色中途長出手腳、4 張那支變成沒有五官的圓球。不是『這個角色長這樣』的主體參考，所以 App 不走這條路（拿掉 r2v）；要首尾幀請用 i2v。"
+          }
+        ]
       },
       "durationSec": {
         "min": 3,
@@ -63,11 +70,8 @@
       },
       "minBillableSec": 5,
       "resolutions": ["720p"],
-      "referenceLimits": {
-        "images": 4
-      },
-      "notes": "只填 OpenRouter 金鑰時的預設影片模型。最低計費 5 秒：2026-10-19 實測 3 秒的請求收 US$0.63（有聲）、前一天 3 秒無聲收 US$0.42，都是 5 秒的價錢。模型清單寫 720p，但 2026-10-19 實測 3 秒有聲的輸出是 1920×1080（只有一個資料點）。沒有確認支援 Kling Elements（角色一致性靠參考圖）。",
-      "characterMechanism": "reference",
+      "notes": "只填 OpenRouter 金鑰時的預設影片模型。最低計費 5 秒：2026-10-19 實測 3 秒的請求收 US$0.63（有聲）、前一天 3 秒無聲收 US$0.42，都是 5 秒的價錢。模型清單寫 720p，但 2026-10-19 實測 3 秒有聲的輸出是 1920×1080（只有一個資料點）。沒有確認支援 Kling Elements。參考生影片（input_references）2026-10-23 實測不建議，App 不走這條路（見 verification.tested）；角色一致性靠首幀圖。",
+      "characterMechanism": "none",
       "prompt": {
         "language": "en"
       }
