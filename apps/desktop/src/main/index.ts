@@ -174,6 +174,9 @@ void app.whenReady().then(() => {
     warn: (message) => {
       log.warn(message)
     },
+    info: (message) => {
+      log.info(message)
+    },
   })
   // 測試模式（非打包版才生效）：預設用示範模式、略過第一次使用的引導
   const testMode = !app.isPackaged

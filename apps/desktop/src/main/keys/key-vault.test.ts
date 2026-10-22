@@ -339,3 +339,92 @@ describe('createKeyVault：MemoryVault 只有未打包且明確要求才會啟�
     expect(() => readFileSync(join(base.userDataDir, 'plain.json'))).toThrow()
   })
 })
+
+describe('createKeyVault：開發版啟動時從環境變數帶入金鑰', () => {
+  const base = { safeStorage: fakeSafeStorage() }
+  const OR_KEY = 'sk-or-v1-FAKEFAKEFAKE-0001'
+  const FAL_KEY = 'fal-FAKEFAKEFAKE-0002:zzzz'
+
+  it('未打包、有 OPENROUTER_API_KEY／FAL_KEY：放進記憶體金庫，狀態是已設定、取得到', () => {
+    const vault = createKeyVault({
+      ...base,
+      userDataDir: tmp(),
+      isPackaged: false,
+      env: { OPENROUTER_API_KEY: OR_KEY, FAL_KEY },
+    })
+    expect(vault).toBeInstanceOf(MemoryVault)
+    expect(vault.status('openrouter').configured).toBe(true)
+    expect(vault.get('openrouter')).toBe(OR_KEY)
+    expect(vault.get('fal')).toBe(FAL_KEY)
+  })
+
+  it('未打包、沒有變數：維持空的', () => {
+    const vault = createKeyVault({ ...base, userDataDir: tmp(), isPackaged: false, env: {} })
+    expect(vault.providers()).toEqual([])
+    const empty = createKeyVault({
+      ...base,
+      userDataDir: tmp(),
+      isPackaged: false,
+      env: { OPENROUTER_API_KEY: '', FAL_KEY: '' },
+    })
+    expect(empty.providers()).toEqual([])
+  })
+
+  it('打包版：有變數也完全不讀（用 safeStorage、沒有任何供應商、也沒問 info）', () => {
+    const infos: string[] = []
+    const vault = createKeyVault({
+      ...base,
+      userDataDir: tmp(),
+      isPackaged: true,
+      env: { OPENROUTER_API_KEY: OR_KEY, FAL_KEY },
+      info: (m) => infos.push(m),
+    })
+    expect(vault).toBeInstanceOf(SafeStorageVault)
+    expect(vault.providers()).toEqual([])
+    expect(vault.get('openrouter')).toBeUndefined()
+    expect(infos).toEqual([])
+  })
+
+  it('明確要用真鑰匙圈（SVS_REAL_VAULT=1）時也不讀環境變數', () => {
+    const vault = createKeyVault({
+      ...base,
+      userDataDir: tmp(),
+      isPackaged: false,
+      env: { SVS_REAL_VAULT: '1', OPENROUTER_API_KEY: OR_KEY },
+    })
+    expect(vault).toBeInstanceOf(SafeStorageVault)
+    expect(vault.providers()).toEqual([])
+  })
+
+  it('log 只寫「已從環境變數載入」，不含金鑰、末四碼；格式不對只警告變數名稱', () => {
+    const logs: string[] = []
+    createKeyVault({
+      ...base,
+      userDataDir: tmp(),
+      isPackaged: false,
+      env: { OPENROUTER_API_KEY: OR_KEY, FAL_KEY: 'bad key with spaces' },
+      info: (m) => logs.push(m),
+      warn: (m) => logs.push(m),
+    })
+    expect(logs).toEqual([
+      '已從環境變數載入 OpenRouter 金鑰',
+      '環境變數 FAL_KEY 的格式不正確，已忽略',
+    ])
+    const all = logs.join('\n')
+    expect(all).not.toContain(OR_KEY)
+    expect(all).not.toContain(OR_KEY.slice(-4))
+    expect(all).not.toContain('bad key')
+  })
+
+  it('指定了明文落地檔時，環境變數來的金鑰也不會被寫進去', () => {
+    const file = join(tmp(), 'plain.json')
+    createKeyVault({
+      ...base,
+      userDataDir: tmp(),
+      isPackaged: false,
+      env: { OPENROUTER_API_KEY: OR_KEY },
+      testVaultFile: file,
+    })
+    expect(() => readFileSync(file)).toThrow()
+  })
+})
