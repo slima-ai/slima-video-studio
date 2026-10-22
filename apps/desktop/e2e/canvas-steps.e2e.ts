@@ -90,6 +90,9 @@ test.describe('畫布：鏡頭的「展開步驟」', () => {
       expect
         .soft((toggle?.y ?? 0) + (toggle?.height ?? 0), '「收合步驟」在卡片裡')
         .toBeLessThanOrEqual(a.y + a.height)
+      // 選到鏡頭（它連著的線會亮起來、出現線上的「×」）
+      await shot.click({ position: { x: 60, y: 20 } })
+      await expect(page.getByTestId(`node-${first.id}`)).toBeVisible()
       await page.screenshot({
         path: testInfo.outputPath(`overlap-${label}.png`),
         clip: {
@@ -99,6 +102,10 @@ test.describe('畫布：鏡頭的「展開步驟」', () => {
           height: b.y + 120 - a.y + 30,
         },
       })
+      // 展開步驟的格子之間的線只是顯示用，不出現「×」（剪不掉的線不放剪線鈕）
+      await expect(
+        page.locator('[data-testid^="edge-delete-"][data-testid*=":step:"]'),
+      ).toHaveCount(0)
     })
   }
 

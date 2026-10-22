@@ -200,6 +200,10 @@ export function toFlowGraph(graph: CanvasGraph): Graph {
       },
       nodes,
     )
+    // 展開步驟的格子之間的線只是顯示用：不畫「×」（沒有可以剪的東西）
+    if (e.source.includes(':step:') || e.target.includes(':step:')) {
+      return { ...edge, data: { tone: edge.data?.tone ?? 'main', display: true } }
+    }
     // 資料關係（角色、地點接到鏡頭或場）與獨立圖片接出去的線才能剪；
     // 鏡頭→圖→影片、場→剪輯是固定的一串
     const cuttable = e.free ? e.sourcePort === 'free-img-out' : e.kind === 'reference'

@@ -217,6 +217,53 @@ describe('toFlowGraph', () => {
   })
 })
 
+describe('展開步驟的格子之間的線', () => {
+  it('只是顯示用：標成 display，不畫「×」；鏡頭到圖的固定線與參考線照舊', () => {
+    const steps = toFlowGraph({
+      ...graph,
+      nodes: [
+        ...graph.nodes,
+        {
+          key: 'shot:a:step:prompt',
+          kind: 'step',
+          x: 24,
+          y: 220,
+          auto: true,
+          title: '整理 Prompt',
+          step: { stage: 'prompt', prompt: '貓在雨裡', edited: false },
+        },
+      ],
+      edges: [
+        ...graph.edges,
+        {
+          id: 'e5',
+          source: 'shot:a',
+          sourcePort: 'shot-steps',
+          target: 'shot:a:step:prompt',
+          targetPort: 'step-in',
+          kind: 'data',
+          free: false,
+        },
+        {
+          id: 'e6',
+          source: 'shot:a:step:prompt',
+          sourcePort: 'step-out',
+          target: 'shot:a:image',
+          targetPort: 'img-in',
+          kind: 'data',
+          free: false,
+        },
+      ],
+    })
+    const display = (id: string) => steps.edges.find((e) => e.id.includes(id))?.data?.display
+    expect(display('step-in')).toBe(true)
+    expect(display('step-out')).toBe(true)
+    // 沒有步驟的固定線不標 display（它照舊畫淡的「×」說明剪不掉的原因）；參考線照舊能剪
+    expect(steps.edges.find((e) => e.id.includes('shot-ref-char'))?.data?.display).toBeUndefined()
+    expect(steps.edges.find((e) => e.id.includes('shot-ref-char'))?.data?.cuttable).toBe(true)
+  })
+})
+
 describe('首幀自動裁掉黑邊的提示', () => {
   const image = (letterboxTrimmed: boolean): CanvasGraph => ({
     nodes: [

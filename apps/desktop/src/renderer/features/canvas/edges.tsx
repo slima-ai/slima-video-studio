@@ -110,7 +110,7 @@ function FlowEdgeImpl(props: EdgeProps<CanvasEdge>) {
         pathLength={data?.born === true ? 1 : undefined}
       />
       {/* 滑到線上、選取這條線、或選取它連著的格子時，線中點出現「×」 */}
-      {hover || selected === true || data?.hot === true ? (
+      {data?.display !== true && (hover || selected === true || data?.hot === true) ? (
         <DeleteDot id={id} x={midX} y={midY} cuttable={data?.cuttable === true} />
       ) : null}
     </g>
@@ -147,7 +147,7 @@ function RefEdgeImpl(props: EdgeProps<CanvasEdge>) {
         data-state={stateOf(selected, data?.hot === true, hover)}
       />
       {/* 滑到線上、選取這條線、或選取它連著的格子時，線中點出現「×」 */}
-      {hover || selected === true || data?.hot === true ? (
+      {data?.display !== true && (hover || selected === true || data?.hot === true) ? (
         <DeleteDot id={id} x={midX} y={midY} cuttable={data?.cuttable === true} />
       ) : null}
     </g>

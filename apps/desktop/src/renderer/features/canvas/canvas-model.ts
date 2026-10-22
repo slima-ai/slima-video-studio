@@ -99,6 +99,8 @@ export interface CanvasEdgeData extends Record<string, unknown> {
   born?: boolean
   /** 這條線是資料關係（角色、地點的參考線），可以用「×」剪掉。 */
   cuttable?: boolean
+  /** 展開步驟的格子之間的線：只是顯示用，沒有任何可以剪或改的東西，所以不畫「×」。 */
+  display?: boolean
 }
 export type CanvasEdge = Edge<CanvasEdgeData>
 
