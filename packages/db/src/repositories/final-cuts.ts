@@ -69,9 +69,16 @@ export class FinalCutRepository {
     return cut
   }
 
-  /** 最新的成品；還沒接過就是 undefined。 */
+  /** 最新的成品；還沒接過就是 undefined。只向資料庫要最新的那一筆，不把所有版本撈回來再挑。 */
   latest(): FinalCut | undefined {
-    return this.list()[0]
+    const row = this.db
+      .select()
+      .from(finalCuts)
+      .where(eq(finalCuts.projectId, this.projectId))
+      .orderBy(desc(finalCuts.version))
+      .limit(1)
+      .get()
+    return row === undefined ? undefined : toFinalCut(row)
   }
 
   /** 所有版本，新的在前。 */
@@ -82,15 +89,19 @@ export class FinalCutRepository {
       .where(eq(finalCuts.projectId, this.projectId))
       .orderBy(desc(finalCuts.version))
       .all()
-      .map((row): FinalCut => ({
-        id: row.id,
-        version: row.version,
-        assetHash: row.assetHash,
-        ...(row.durationSec === null ? {} : { durationSec: row.durationSec }),
-        takeIds: row.takeIds,
-        ...(row.baseAssetHash === null ? {} : { baseAssetHash: row.baseAssetHash }),
-        ...(row.soundKey === null ? {} : { soundKey: row.soundKey }),
-        createdAt: row.createdAt,
-      }))
+      .map(toFinalCut)
+  }
+}
+
+function toFinalCut(row: typeof finalCuts.$inferSelect): FinalCut {
+  return {
+    id: row.id,
+    version: row.version,
+    assetHash: row.assetHash,
+    ...(row.durationSec === null ? {} : { durationSec: row.durationSec }),
+    takeIds: row.takeIds,
+    ...(row.baseAssetHash === null ? {} : { baseAssetHash: row.baseAssetHash }),
+    ...(row.soundKey === null ? {} : { soundKey: row.soundKey }),
+    createdAt: row.createdAt,
   }
 }

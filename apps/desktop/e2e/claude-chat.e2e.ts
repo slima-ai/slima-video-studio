@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test'
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { kindCount } from './canvas-helpers'
@@ -482,5 +483,59 @@ test.describe('Claude 對話：還不能用時', () => {
     await page.getByRole('button', { name: '打開 AI 工具連線' }).click()
     await expect(page.getByTestId('chat-prereq')).toContainText('請先登入 Claude Code')
     await expect(page.getByTestId('chat-input')).toHaveCount(0)
+  })
+})
+
+// 「正在檢查」不閃：結果很快回來就不出現；拖過約 0.4 秒才出現。檢查什麼時候有結果，由測試用「檔案出現」決定，不靠真的等
+const SLOW_CLAUDE = join(__dirname, 'fake-claude/claude-slow-check.mjs')
+const GATE_FILE = join(tmpdir(), 'svs-e2e-fake-claude-check-gate') // 跟 claude-slow-check.mjs 約定的同一個路徑
+const watchChecking = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as { __checkingSeen?: boolean }
+    w.__checkingSeen = false
+    new MutationObserver(() => {
+      if (document.querySelector('[data-testid="chat-checking"]')) w.__checkingSeen = true
+    }).observe(document.body, { childList: true, subtree: true })
+  })
+const checkingSeen = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __checkingSeen?: boolean }).__checkingSeen === true)
+
+test.describe('Claude 對話：檢查很快有結果', () => {
+  test('打開 AI 工具連線後檢查（結果很快回來）：「正在檢查」從頭到尾不出現', async ({ page }) => {
+    await useFreeMcpPort(page)
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await page.getByTestId('chat-launcher').click()
+    // 沒開 AI 工具連線時先出說明卡（還沒去問 claude）；打開之後才真的檢查 claude
+    const enable = page.getByRole('button', { name: '打開 AI 工具連線' })
+    await expect(enable).toBeVisible()
+    await watchChecking(page)
+    await enable.click()
+    await expect(page.getByTestId('chat-input')).toBeVisible()
+    expect(await checkingSeen(page)).toBe(false)
+  })
+})
+
+test.describe('Claude 對話：檢查拖很久', () => {
+  test.use({ appEnv: { SVS_CLAUDE_BIN: SLOW_CLAUDE } })
+
+  test('結果一直沒回來：過了一下才出現「正在檢查」；結果回來就消失', async ({ page }) => {
+    rmSync(GATE_FILE, { force: true })
+    try {
+      await useFreeMcpPort(page)
+      await page.getByRole('button', { name: '畫布', exact: true }).click()
+      await page.getByTestId('chat-launcher').click()
+      const enable = page.getByRole('button', { name: '打開 AI 工具連線' })
+      await expect(enable).toBeVisible()
+      await watchChecking(page)
+      await enable.click()
+      await expect(page.getByTestId('chat-checking')).toBeVisible()
+      await expect(page.getByTestId('chat-checking')).toContainText('正在檢查')
+      writeFileSync(GATE_FILE, '')
+      await expect(page.getByTestId('chat-input')).toBeVisible()
+      await expect(page.getByTestId('chat-checking')).toHaveCount(0)
+      expect(await checkingSeen(page)).toBe(true)
+    } finally {
+      rmSync(GATE_FILE, { force: true })
+    }
   })
 })

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFakeSvs } from '../../test/fake-svs'
 import { ChatProvider } from './chat-context'
 import { ChatDrawer } from './chat-drawer'
+import { CHECKING_NOTE_DELAY_MS } from './chat-panel'
 import { ChatLauncher } from './chat-launcher'
 
 const ID = '11111111-1111-4111-8111-111111111111'
@@ -36,6 +37,8 @@ afterEach(cleanup)
 function setup(
   options: {
     prereq?: ChatPrereq
+    /** 自己控制「檢查」什麼時候回來（拿到的函式一呼叫，檢查就有結果）。 */
+    holdStatus?: { release: () => void }
     packaged?: boolean
     claudeChat?: boolean
     conversations?: ChatConversation[]
@@ -63,7 +66,16 @@ function setup(
       audio: { voices: {} },
       experiments: options.claudeChat === undefined ? {} : { claudeChat: options.claudeChat },
     }),
-    'chat.status': () => options.prereq ?? { state: 'ready', version: '2.1.304' },
+    'chat.status': () => {
+      const status = options.prereq ?? { state: 'ready', version: '2.1.304' }
+      const hold = options.holdStatus
+      if (!hold) return status
+      return new Promise<ChatPrereq>((resolve) => {
+        hold.release = () => {
+          resolve(status)
+        }
+      })
+    },
     'chat.list': () => ({ conversations: options.conversations ?? [] }),
     'chat.create': () => conversation({ id: created++ === 0 ? ID : ID2 }),
     'chat.messages': (p: { conversationId: string }) => ({
@@ -419,5 +431,60 @@ describe('Claude 對話面板：講話與串流', () => {
       },
       { timeout: 5000 },
     )
+  })
+})
+
+describe('Claude 對話面板：「正在檢查」不閃', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // 時間用假的（只換 setTimeout／clearTimeout），結果什麼時候回來由測試決定，不靠真的等
+  const setupHeld = async () => {
+    const hold = { release: () => undefined as void }
+    setup({ holdStatus: hold })
+    const launcher = await screen.findByTestId('chat-launcher')
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    // 記下「正在檢查」有沒有在任何時刻出現在畫面上（不只看最後的狀態）
+    let everShown = false
+    const watch = new MutationObserver(() => {
+      if (screen.queryByTestId('chat-checking')) everShown = true
+    })
+    watch.observe(document.body, { childList: true, subtree: true })
+    fireEvent.click(launcher)
+    return { hold, shown: () => everShown, stop: () => watch.disconnect() }
+  }
+
+  it(`${String(CHECKING_NOTE_DELAY_MS)} 毫秒內有結果：「正在檢查」從頭到尾不出現`, async () => {
+    const { hold, shown, stop } = await setupHeld()
+    await vi.advanceTimersByTimeAsync(CHECKING_NOTE_DELAY_MS - 1)
+    expect(screen.queryByTestId('chat-checking')).toBeNull()
+    await act(async () => {
+      hold.release()
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    // 結果出來之後再過一段，也不能補出現
+    await vi.advanceTimersByTimeAsync(CHECKING_NOTE_DELAY_MS * 3)
+    stop()
+    expect(screen.getByTestId('chat-input')).toBeTruthy()
+    expect(shown()).toBe(false)
+  })
+
+  it(`超過 ${String(CHECKING_NOTE_DELAY_MS)} 毫秒還沒有結果：才出現「正在檢查」，結果回來就消失`, async () => {
+    const { hold, shown, stop } = await setupHeld()
+    await vi.advanceTimersByTimeAsync(CHECKING_NOTE_DELAY_MS - 1)
+    expect(screen.queryByTestId('chat-checking')).toBeNull()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(screen.getByTestId('chat-checking').textContent).toContain('正在檢查')
+    await act(async () => {
+      hold.release()
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    stop()
+    expect(shown()).toBe(true)
+    expect(screen.queryByTestId('chat-checking')).toBeNull()
+    expect(screen.getByTestId('chat-input')).toBeTruthy()
   })
 })
