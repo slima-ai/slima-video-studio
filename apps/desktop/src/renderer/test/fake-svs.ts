@@ -121,6 +121,10 @@ export function installFakeSvs(handlers: Partial<Record<IpcChannel, Handler>> = 
     }),
     'characters.list': () => ({ characters: [] }),
     'locations.list': () => ({ locations: [] }),
+    'locations.references': (payload: { locationId: string }) => ({
+      locationId: payload.locationId,
+      references: [],
+    }),
     'locations.images': (payload: { locationId: string }) => ({
       locationId: payload.locationId,
       concepts: [],

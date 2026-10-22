@@ -1,18 +1,21 @@
 import {
   AppError,
+  LOCATION_REFERENCE_PURPOSES,
   LocationCardViewSchema,
   LocationSchema,
   type ConceptView,
   type Location,
   type LocationAngle,
   type LocationCardView,
+  type LocationReferencePurpose,
+  type LocationReferenceView,
 } from '@svs/schema'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 
 import type { AppDb } from '../database'
 import { dropNulls } from '../rows'
-import { locationConcepts, locations } from '../tables/core'
+import { locationConcepts, locationReferences, locations } from '../tables/core'
 
 const notFound = (): AppError =>
   new AppError({ code: 'project_invalid', userMessage: '找不到這個場景卡。' })
@@ -74,6 +77,104 @@ export class LocationCardsRepository {
     this.needDraft(id)
     this.db.update(locations).set({ anchorText: text.trim() }).where(eq(locations.id, id)).run()
     return this.need(id)
+  }
+
+  // ── 參考圖（有用途標記的清單） ──
+
+  /**
+   * 這張場景卡的參考圖清單：場景卡本來的主圖與兩個角度（source: card）在前，另外加的（source: added）在後。
+   * 讀到不認得的用途（較新版本存的）一律當 general。
+   */
+  listReferences(locationId: string): LocationReferenceView[] {
+    const card = this.need(locationId)
+    const own: LocationReferenceView[] = [
+      ...(card.mainAssetHash ? [{ purpose: 'main', hash: card.mainAssetHash } as const] : []),
+      ...(card.angles.reverse ? [{ purpose: 'reverse', hash: card.angles.reverse } as const] : []),
+      ...(card.angles.wide ? [{ purpose: 'wide', hash: card.angles.wide } as const] : []),
+    ].map(({ purpose, hash }) => ({
+      id: `card:${purpose}`,
+      assetHash: hash,
+      purpose,
+      label: '',
+      source: 'card' as const,
+    }))
+    const added = this.db
+      .select()
+      .from(locationReferences)
+      .where(eq(locationReferences.locationId, locationId))
+      .orderBy(asc(sql`rowid`))
+      .all()
+      .map((row): LocationReferenceView => ({
+        id: row.id,
+        assetHash: row.assetHash,
+        purpose: toPurpose(row.purpose),
+        label: row.label,
+        createdAt: row.createdAt,
+        source: 'added',
+      }))
+    return [...own, ...added]
+  }
+
+  /**
+   * 加一張參考圖，並標上用途。同一張圖同一個用途只存一筆（重複加回傳原來那筆）。
+   * 跟場景卡的其他內容一樣，已鎖定的場景卡要先解除鎖定才能改。圖檔存不存在由呼叫的地方檢查。
+   */
+  addReference(input: {
+    locationId: string
+    assetHash: string
+    purpose: LocationReferencePurpose
+    label: string
+  }): LocationReferenceView {
+    this.needDraft(input.locationId)
+    const existing = this.db
+      .select()
+      .from(locationReferences)
+      .where(
+        and(
+          eq(locationReferences.locationId, input.locationId),
+          eq(locationReferences.assetHash, input.assetHash),
+          eq(locationReferences.purpose, input.purpose),
+        ),
+      )
+      .get()
+    if (existing) {
+      return {
+        id: existing.id,
+        assetHash: existing.assetHash,
+        purpose: toPurpose(existing.purpose),
+        label: existing.label,
+        createdAt: existing.createdAt,
+        source: 'added',
+      }
+    }
+    const row = {
+      id: randomUUID(),
+      locationId: input.locationId,
+      assetHash: input.assetHash,
+      purpose: input.purpose,
+      label: input.label.trim(),
+      createdAt: this.now().toISOString(),
+    }
+    this.db.insert(locationReferences).values(row).run()
+    return {
+      id: row.id,
+      assetHash: row.assetHash,
+      purpose: input.purpose,
+      label: row.label,
+      createdAt: row.createdAt,
+      source: 'added',
+    }
+  }
+
+  /** 移除一張「另外加的」參考圖（圖檔本身留在專案裡）；找不到就當作已經沒有了。 */
+  removeReference(locationId: string, referenceId: string): void {
+    this.needDraft(locationId)
+    this.db
+      .delete(locationReferences)
+      .where(
+        and(eq(locationReferences.locationId, locationId), eq(locationReferences.id, referenceId)),
+      )
+      .run()
   }
 
   // ── 概念圖 ──
@@ -219,3 +320,9 @@ function toCard(location: Location): LocationCardView {
     },
   })
 }
+
+/** 資料庫裡存的用途是文字：不認得的（較新版本存的）一律當 general。 */
+const toPurpose = (value: string): LocationReferencePurpose =>
+  (LOCATION_REFERENCE_PURPOSES as readonly string[]).includes(value)
+    ? (value as LocationReferencePurpose)
+    : 'general'

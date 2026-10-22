@@ -892,6 +892,30 @@ describe('場景卡：Prompt 與參考圖', () => {
     expect(pickReferences(shot, [], 4, [{ ...warehouse, images: undefined }])).toEqual([])
   })
 
+  it('俯視圖與縱深感的環境圖：正上方→俯視圖；遠景沒有拉遠全景時用縱深感；都沒有就照一般的挑法', () => {
+    const rich = {
+      ...warehouse,
+      images: { ...warehouse.images, topDown: ref('7'), depth: ref('8') },
+    }
+    const overhead = { ...shot, angle: 'overhead' } as const
+    expect(hashes(pickReferences(overhead, [], 4, [rich]))).toEqual(['7'])
+    // 正上方的遠景也看俯視圖（看得到格局）
+    expect(hashes(pickReferences({ ...overhead, size: 'wide' }, [], 4, [rich]))).toEqual(['7'])
+    // 沒有俯視圖：正上方照一般的挑法（主圖；遠景拉遠全景）
+    const noTop = { ...warehouse, images: { ...warehouse.images, depth: ref('8') } }
+    expect(hashes(pickReferences(overhead, [], 4, [noTop]))).toEqual(['1'])
+    expect(hashes(pickReferences({ ...overhead, size: 'wide' }, [], 4, [noTop]))).toEqual(['3'])
+    // 遠景：拉遠全景 → 縱深感 → 主圖
+    expect(hashes(pickReferences({ ...shot, size: 'wide' }, [], 4, [rich]))).toEqual(['3'])
+    const noWide = { ...warehouse, images: { main: ref('1'), depth: ref('8') } }
+    expect(hashes(pickReferences({ ...shot, size: 'wide' }, [], 4, [noWide]))).toEqual(['8'])
+    expect(hashes(pickReferences({ ...shot, size: 'extreme_wide' }, [], 4, [noWide]))).toEqual([
+      '8',
+    ])
+    // 中景不會用到縱深感或俯視圖
+    expect(hashes(pickReferences(shot, [], 4, [noWide]))).toEqual(['1'])
+  })
+
   it('和角色參考圖一起挑：場景占一張，其餘給角色；只剩一張名額時留給角色', () => {
     const withTie = { ...shot, characters: ['阿鐵'] }
     expect(hashes(pickReferences(withTie, [tie], 4, [warehouse]))).toEqual(['c', 'd', '1'])

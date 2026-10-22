@@ -14,6 +14,7 @@ import {
   characterTurnarounds,
   characters,
   locationConcepts,
+  locationReferences,
   locations,
   scenes,
   shots,
@@ -77,6 +78,15 @@ const TABLES: readonly TrackedTable[] = [
       .select({ row: locationConcepts })
       .from(locationConcepts)
       .innerJoin(locations, eq(locationConcepts.locationId, locations.id))
+      .where(eq(locations.projectId, projectId))
+      .all()
+      .map((r) => r.row),
+  ),
+  track('locationReferences', locationReferences, locationReferences.id, (db, projectId) =>
+    db
+      .select({ row: locationReferences })
+      .from(locationReferences)
+      .innerJoin(locations, eq(locationReferences.locationId, locations.id))
       .where(eq(locations.projectId, projectId))
       .all()
       .map((r) => r.row),

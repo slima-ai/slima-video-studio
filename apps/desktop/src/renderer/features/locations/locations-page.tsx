@@ -1,4 +1,10 @@
-import type { ConceptView, LocationCardView, LocationGenerateKind } from '@svs/schema'
+import {
+  LOCATION_REFERENCE_PURPOSE_LABELS,
+  type ConceptView,
+  type LocationCardView,
+  type LocationGenerateKind,
+  type LocationReferenceView,
+} from '@svs/schema'
 import { Lock, LockOpen, Plus } from 'lucide-react'
 import { useCallback, useEffect, useState, type SyntheticEvent } from 'react'
 
@@ -37,6 +43,16 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
   const [error, setError] = useState<string>()
   const generating = images.state?.generating
   const dirty = text.trim() !== card.anchorText
+  // 另外加的參考圖（俯視、縱深感…）；場景卡本來的主圖與兩個角度已經在下面的「主場景圖與其他角度」
+  const [extras, setExtras] = useState<LocationReferenceView[]>([])
+  const refsVersion = useDataVersion(['locations.changed'])
+  useEffect(() => {
+    call('locations.references', { locationId: card.id })
+      .then((state) => {
+        setExtras(state.references.filter((reference) => reference.source === 'added'))
+      })
+      .catch(() => undefined)
+  }, [card.id, refsVersion])
 
   // 後端的內容變了（別處改了、解除鎖定…）就跟著更新輸入框。在畫面算出來的時候比對，
   // 不用 effect：effect 在掛上時也會跑一次，畫面剛出現就打的字（或按「用故事裡的說明」）會被它蓋回去
@@ -242,6 +258,56 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
             <span className="text-xs text-fg-muted" data-testid="location-angles-cost">
               {costText('angles')}
             </span>
+          </div>
+        ) : null}
+
+        {extras.length > 0 ? (
+          <div data-testid="location-extras">
+            <p className="mb-1 text-xs text-fg-muted">
+              另外加的參考圖（鎖定之後，拍鏡頭時依景別與角度自動挑：正上方的鏡頭用俯視圖，遠景用縱深感的環境圖）
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {extras.map((reference) => {
+                const name = LOCATION_REFERENCE_PURPOSE_LABELS[reference.purpose]
+                return (
+                  <figure key={reference.id} data-testid={`location-extra-${reference.id}`}>
+                    <img
+                      src={assetUrl(reference.assetHash)}
+                      alt={name}
+                      className="aspect-video w-full rounded-md border border-border object-cover"
+                    />
+                    <figcaption className="mt-1 flex items-center justify-between gap-1 text-xs text-fg-muted">
+                      <span className="min-w-0 truncate">
+                        {name}
+                        {reference.label ? `・${reference.label}` : ''}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        data-testid={`location-extra-remove-${reference.id}`}
+                        disabled={locked}
+                        title={locked ? '要先解除鎖定才能拿掉' : undefined}
+                        onClick={() => {
+                          setError(undefined)
+                          call('locations.removeReference', {
+                            locationId: card.id,
+                            referenceId: reference.id,
+                          })
+                            .then((state) => {
+                              setExtras(state.references.filter((r) => r.source === 'added'))
+                            })
+                            .catch((e: unknown) => {
+                              setError(errorText(e))
+                            })
+                        }}
+                      >
+                        拿掉
+                      </Button>
+                    </figcaption>
+                  </figure>
+                )
+              })}
+            </div>
           </div>
         ) : null}
 

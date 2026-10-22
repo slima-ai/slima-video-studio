@@ -27,6 +27,8 @@ export const CHANGE_EVENTS: Partial<Record<IpcChannel, readonly DataEvent[]>> = 
   'locations.pickMain': LOCATIONS,
   'locations.lock': LOCATIONS,
   'locations.unlock': LOCATIONS,
+  'locations.addReference': LOCATIONS,
+  'locations.removeReference': LOCATIONS,
   'outline.edit': ['outline.changed', 'locations.changed'],
   'outline.split': ALL,
   'storyboard.splitScene': ['outline.changed'],
