@@ -26,7 +26,7 @@ const sha256 = (data: Buffer | string): string => createHash('sha256').update(da
 // 2026-10-22 azure 的 Ubuntu 鏡像慢到只剩約 40 KB/s，apt 裝 ffmpeg（87 個套件）下載不完，把 CI 卡住好幾次。
 // CI 改抓 GitHub release 上固定版號的靜態版，核對 SHA-256；裝好後確認有 libx264 與 aac，缺了就失敗，不退回 apt。
 describe('ci.yml：ffmpeg 走 install-ffmpeg.sh（unit 與 e2e-linux），那一步有逾時，unit 完全不用 apt', () => {
-  const jobs = ci.split(/\n(?=  [a-z0-9-]+:\n)/)
+  const jobs = ci.split(/\n(?= {2}[a-z0-9-]+:\n)/)
   const jobOf = (name: string): string => jobs.find((j) => j.startsWith(`  ${name}:`)) ?? ''
 
   it.each(['unit', 'e2e-linux'])(
