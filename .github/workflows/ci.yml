@@ -73,8 +73,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # 媒體套件的測試會真的呼叫 FFmpeg
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      # 媒體套件的測試會真的呼叫 FFmpeg：用固定版號的靜態版（核對 SHA-256），不走 apt（鏡像有時慢到下載不完）
+      - name: 安裝 FFmpeg（固定版號、核對 SHA-256）
+        timeout-minutes: 8
+        run: bash tools/ci/install-ffmpeg.sh
       # GitHub 的共用 runner 只有 4 個核心：平行數跟著降成 4（設定檔裡的上限仍是 8，見 tools/config/worker-cap.test.ts）
       - run: pnpm test --coverage --maxWorkers=4
       - uses: actions/upload-artifact@v4
@@ -102,7 +104,12 @@ jobs:
           path: ~/.cache/electron
           key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: electron-${{ runner.os }}-
-      - run: sudo apt-get update && sudo apt-get install -y xvfb libgbm1 libasound2t64 ffmpeg
+      - name: 安裝 xvfb 等小套件
+        timeout-minutes: 12
+        run: bash tools/ci/apt-install.sh xvfb libgbm1 libasound2t64
+      - name: 安裝 FFmpeg（固定版號、核對 SHA-256）
+        timeout-minutes: 8
+        run: bash tools/ci/install-ffmpeg.sh
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @svs/desktop build
       - name: Playwright Electron E2E（xvfb）
