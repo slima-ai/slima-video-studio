@@ -221,6 +221,18 @@ describe('故事 → 分鏡（示範模式，走完整條路）', () => {
     expect(bad.isError).toBe(true)
   })
 
+  it('configure_project 的畫風：列舉與說明都有「手繪電影」（painted），選了就存', async () => {
+    const { call, client } = await start()
+    await call('create_project', { name: 'x' })
+    const tool = (await client.listTools()).tools.find((t) => t.name === 'configure_project')
+    expect(tool?.description).toContain('painted (手繪電影)')
+    const set = dataOf(
+      z.object({ style: z.string(), styleName: z.string() }),
+      await call('configure_project', { style: 'painted' }),
+    )
+    expect(set).toMatchObject({ style: 'painted', styleName: '手繪電影' })
+  })
+
   it('configure_project 與 set_models／list_models：設畫風與比例、選模型；示範模式只有示範模型', async () => {
     const { call } = await start()
     await call('create_project', { name: 'x' })

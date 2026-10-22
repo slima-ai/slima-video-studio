@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { UsdSchema } from './common'
 
 /** 快速開始可以選的畫風（給畫面與工作流共用）。 */
-export const QUICK_STYLE_IDS = ['realistic', 'anime', '3d', 'watercolor'] as const
+export const QUICK_STYLE_IDS = ['realistic', 'anime', '3d', 'watercolor', 'painted'] as const
 export const QuickStyleIdSchema = z.enum(QUICK_STYLE_IDS)
 export type QuickStyleId = z.infer<typeof QuickStyleIdSchema>
 
@@ -13,6 +13,7 @@ export const QUICK_STYLE_LABELS: Readonly<Record<QuickStyleId, string>> = {
   anime: '日系動畫',
   '3d': '3D 動畫',
   watercolor: '水彩',
+  painted: '手繪電影',
 }
 
 export const QUICK_START_LIMITS = {

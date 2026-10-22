@@ -1,4 +1,5 @@
 import { cameraMoveById, type Take } from '@svs/schema'
+import { QUICK_STYLES } from '@svs/workflows'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -92,6 +93,28 @@ describe('快速開始之後的鏡頭資料', { timeout: 30_000 }, () => {
     expect(second).toHaveLength(3)
     expect(second.map((s) => s.id)).not.toEqual(firstIds)
     expect(second.every((s) => s.videos.length === 1 && s.firstFrames.length === 1)).toBe(true)
+  })
+})
+
+describe('鏡頭的畫風', { timeout: 30_000 }, () => {
+  it('選了「手繪電影」：自動組出的 Prompt 結尾是手繪那段，不是寫實的 photorealistic', async () => {
+    const { shots, runQuickStart } = setup()
+    await runQuickStart({ style: 'painted' })
+    const prompts = shots.list().shots.map((s) => s.autoPrompt)
+    expect(prompts).toHaveLength(3)
+    for (const prompt of prompts) {
+      expect(prompt.endsWith(QUICK_STYLES.painted.fragment)).toBe(true)
+      expect(prompt).not.toContain('photorealistic')
+    }
+  })
+
+  it('專案裡存的畫風這個版本不認得（例如新版 App 加的）：退回寫實，不當掉', async () => {
+    const { shots, projects, runQuickStart } = setup()
+    await runQuickStart({ style: 'painted' })
+    projects.current()?.repos.projects.update({ defaultStyleId: 'style-from-a-newer-version' })
+    for (const shot of shots.list().shots) {
+      expect(shot.autoPrompt.endsWith(QUICK_STYLES.realistic.fragment)).toBe(true)
+    }
   })
 })
 

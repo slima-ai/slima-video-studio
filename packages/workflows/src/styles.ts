@@ -37,4 +37,11 @@ export const QUICK_STYLES: Readonly<Record<QuickStyleId, QuickStyle>> = {
     fragment: '水彩插畫風格，柔和暈染，紙張質感，watercolor illustration, soft washes',
     fit: 'animation',
   },
+  painted: {
+    id: 'painted',
+    label: QUICK_STYLE_LABELS.painted,
+    fragment:
+      '手繪電影感繪景，可見筆觸，體積光與氛圍景深，輕微底片顆粒，不是照片、不是 3D 渲染，hand-painted cinematic animated-feature key art, painterly, volumetric light, atmospheric depth, soft film grain, NOT photographic, NOT 3D render',
+    fit: 'animation',
+  },
 }
