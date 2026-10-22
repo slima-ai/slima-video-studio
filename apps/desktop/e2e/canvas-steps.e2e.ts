@@ -145,6 +145,20 @@ test.describe('畫布：鏡頭的「展開步驟」', () => {
     await expect(refs).toContainText(name)
     await expect(refs).toContainText('主圖')
     await expect(page.getByTestId(`step-refs-mode-${first.id}`)).toContainText('自動挑的')
+    // 截圖要看卡片本身：把左邊的「新增」面板收起來
+    await page.getByTestId('palette-close-text').click()
+    await expect(page.getByTestId('palette-open')).toBeVisible()
+    // 卡片裡的東西（縮圖、標籤、「自動挑的・最多 N 張」那一行）都在卡片範圍內，沒有被切掉或超出
+    const card = page.getByTestId(`node-${first.id}:step:refs`)
+    const inside = async (selector: string): Promise<void> => {
+      const outer = await card.boundingBox()
+      const box = await card.locator(selector).first().boundingBox()
+      if (!outer || !box) throw new Error(`找不到 ${selector}`)
+      expect(box.y + box.height).toBeLessThanOrEqual(outer.y + outer.height)
+    }
+    await inside(`[data-testid="step-refs-mode-${first.id}"]`)
+    await inside(`[data-testid="step-refs-${first.id}"] li:last-child`)
+    await page.screenshot({ path: testInfo.outputPath('refs-auto.png') })
 
     await page.getByTestId(`step-refs-pick-${first.id}`).click()
     const panel = page.getByTestId(`step-refs-panel-${first.id}`)
@@ -160,8 +174,14 @@ test.describe('畫布：鏡頭的「展開步驟」', () => {
     await expect(page.getByTestId('toast').filter({ hasText: '已指定參考圖' })).toBeVisible()
     await expect(options.and(panel.locator('[aria-pressed="true"]'))).toHaveCount(2)
     await expect(page.getByTestId(`step-refs-${first.id}`)).toContainText('臉')
+    await page.screenshot({ path: testInfo.outputPath('refs-picker-pinned.png') })
+    await page.getByTestId(`step-refs-close-${first.id}`).click()
+    await expect(panel).toHaveCount(0)
+    await inside(`[data-testid="step-refs-mode-${first.id}"]`)
+    await inside(`[data-testid="step-refs-${first.id}"] li:last-child`)
     await page.screenshot({ path: testInfo.outputPath('refs-pinned.png') })
 
+    await page.getByTestId(`step-refs-pick-${first.id}`).click()
     await page.getByTestId(`step-refs-auto-${first.id}`).click()
     await expect(page.getByTestId(`step-refs-mode-${first.id}`)).toContainText('自動挑的')
     await page.getByTestId(`step-refs-close-${first.id}`).click()

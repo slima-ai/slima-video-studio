@@ -861,11 +861,11 @@ function RefsStep({
           {limit === 0 ? '（目前的圖片模型不能帶）' : '（出場角色和地點還沒有鎖定的圖片）'}
         </p>
       ) : (
-        <ul className="flex gap-1.5" data-testid={`step-refs-${shotKey}`}>
+        <ul className="flex gap-1" data-testid={`step-refs-${shotKey}`}>
           {refs.map((ref, index) => (
             <li
               key={`${ref.assetHash ?? ref.name}-${String(index)}`}
-              className="w-12 text-center text-[10px] text-fg-muted"
+              className="w-11 shrink-0 text-center text-[10px] leading-3 text-fg-muted"
               title={`${ref.name}${ref.purpose ? `・${ref.purpose}` : ''}`}
             >
               <span
@@ -883,7 +883,10 @@ function RefsStep({
         </ul>
       )}
       <div className="flex items-center justify-between gap-1 text-[11px] text-fg-muted">
-        <span data-testid={`step-refs-mode-${shotKey}`}>
+        <span
+          data-testid={`step-refs-mode-${shotKey}`}
+          title={limit > 0 ? `最多 ${String(limit)} 張（場景的圖也算在內）` : undefined}
+        >
           {auto ? '自動挑的' : '你指定的'}
           {limit > 0 ? `・最多 ${String(limit)} 張` : ''}
         </span>
@@ -907,7 +910,8 @@ function RefsStep({
               className="nodrag nowheel nopan fixed z-[1000] w-72 rounded-lg border border-border bg-surface-raised p-2 text-[11px] text-fg shadow-card"
             >
               <p className="mb-1 text-fg-muted">
-                點一張加進來或拿掉（照點的順序，最多 {String(limit)} 張）；指定了就只帶指定的。
+                點一張加進來或拿掉（照點的順序，最多 {String(limit)}{' '}
+                張，場景的圖也算在內）；指定了就只帶指定的。
               </p>
               {state === undefined ? (
                 <p className="text-fg-muted">讀取中…</p>
