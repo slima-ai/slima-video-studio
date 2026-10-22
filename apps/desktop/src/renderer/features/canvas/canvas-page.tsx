@@ -543,6 +543,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             flowing: running.has(edge.target),
             ...(grown.has(edge.target) ? { born: true } : {}),
             ...(edge.data?.cuttable === true ? { cuttable: true } : {}),
+            ...(edge.data?.display === true ? { display: true } : {}),
           },
         },
       ]
