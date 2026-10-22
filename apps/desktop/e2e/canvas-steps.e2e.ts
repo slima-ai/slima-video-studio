@@ -49,6 +49,59 @@ test.describe('畫布：鏡頭的「展開步驟」', () => {
     await expect.poll(async () => (await positionOf(page, second.id))?.y).toBe(before?.y)
   })
 
+  for (const [label, description] of [
+    ['描述短', '阿鐵推開門。'],
+    [
+      '描述長',
+      '深夜的舊倉庫，阿鐵一手拿著手電筒、一手推開生鏽的鐵門，門軸發出長長的摩擦聲，灰塵在光柱裡慢慢飄起，遠處傳來滴水的聲音，他停了一下才走進去。',
+    ],
+  ] as const) {
+    test(`展開步驟：鏡頭卡片的內容與下面的「整理 Prompt」不重疊（${label}）`, async ({
+      page,
+    }, testInfo) => {
+      await generateAndOpenCanvas(page)
+      const [first] = (await canvasNodes(page)).filter((n) => n.data.kind === 'shot')
+      if (!first) throw new Error('沒有鏡頭')
+      const shotId = first.id.replace(/^shot:/, '')
+      await page.evaluate(
+        async ([id, text]) => {
+          const done = await window.svs.invoke('shots.update', {
+            shotId: id ?? '',
+            patch: { description: text ?? '' },
+          })
+          if (!done.ok) throw new Error(done.error.userMessage)
+        },
+        [shotId, description],
+      )
+      await page.getByTestId('palette-close-text').click()
+      await centerOn(page, first.id)
+      await page.getByTestId(`steps-toggle-${first.id}`).click()
+      await centerOn(page, `${first.id}:step:prompt`)
+      const shot = page.getByTestId(`node-${first.id}`)
+      const prompt = page.getByTestId(`node-${first.id}:step:prompt`)
+      await expect(prompt).toBeVisible()
+      const a = await shot.boundingBox()
+      const b = await prompt.boundingBox()
+      if (!a || !b) throw new Error('量不到卡片')
+      // 鏡頭卡片的下緣在「整理 Prompt」上緣之上（中間留得出連線）
+      expect.soft(a.y + a.height, '鏡頭卡片下緣不超過「整理 Prompt」上緣').toBeLessThanOrEqual(b.y)
+      // 鏡頭卡片自己的「收合步驟」在卡片裡面（沒有掉到卡片外）
+      const toggle = await page.getByTestId(`steps-toggle-${first.id}`).boundingBox()
+      expect
+        .soft((toggle?.y ?? 0) + (toggle?.height ?? 0), '「收合步驟」在卡片裡')
+        .toBeLessThanOrEqual(a.y + a.height)
+      await page.screenshot({
+        path: testInfo.outputPath(`overlap-${label}.png`),
+        clip: {
+          x: Math.max(0, a.x - 40),
+          y: Math.max(0, a.y - 30),
+          width: a.width + 80,
+          height: b.y + 120 - a.y + 30,
+        },
+      })
+    })
+  }
+
   test('在「整理 Prompt」直接改送給模型的 Prompt：第一張畫面標需要重跑；可以回到自動整理的', async ({
     page,
   }) => {

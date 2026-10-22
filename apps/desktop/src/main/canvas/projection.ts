@@ -108,8 +108,8 @@ const ROW_PITCH = 256
 const STEP_STAGES = ['prompt', 'refs', 'model'] as const
 const STEP_H = { prompt: 150, refs: 140, model: 92 } as const
 const STEP_GAP = 28
-/** 第一格離鏡頭上緣多遠（鏡頭卡片高 160，再空一點）。 */
-const STEP_TOP = 176
+/** 第一格離鏡頭上緣多遠：鏡頭卡片整張高，再空一個格間距（接線的連接點要放得下）。 */
+const STEP_TOP = SIZE.shot.h + STEP_GAP
 /** 展開的那一列多佔的高度：下面的列整體往下讓開。 */
 const STEPS_EXTRA =
   STEP_TOP + STEP_H.prompt + STEP_H.refs + STEP_H.model + STEP_GAP * 2 + 26 - ROW_PITCH
