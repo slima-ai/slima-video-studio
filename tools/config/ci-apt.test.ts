@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -13,7 +21,7 @@ const script = join(root, 'tools/ci/apt-install.sh')
 describe('ci.yml：系統套件只走 apt-install.sh，而且那一步有逾時', () => {
   const steps = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8')
     .split(/\n(?=\s+- )/)
-    .filter((step) => step.includes('apt'))
+    .filter((step) => /apt-get|apt-install\.sh/.test(step))
 
   it('有裝系統套件的步驟（unit、e2e-linux 各一個）', () => {
     expect(steps.length).toBeGreaterThanOrEqual(2)
@@ -72,9 +80,16 @@ if [ "$1" = install ]; then
 fi
 exit 0`,
     )
+    const archives = join(dir, 'archives')
+    mkdirSync(archives)
     const result = spawnSync('bash', [script, 'xvfb', 'ffmpeg'], {
       encoding: 'utf8',
-      env: { ...process.env, PATH: `${dir}:${process.env.PATH ?? ''}`, ...options.env },
+      env: {
+        ...process.env,
+        PATH: `${dir}:${process.env.PATH ?? ''}`,
+        APT_ARCHIVES_DIR: archives,
+        ...options.env,
+      },
     })
     const calls = readFileSync(log, 'utf8').trim().split('\n')
     return { ...result, calls, installs: calls.filter((c) => c.startsWith('apt-get install')) }
@@ -83,7 +98,13 @@ exit 0`,
   it('第一次就成功：只裝一次，帶 --no-install-recommends 與全部套件，每次呼叫都包在 300 秒的 timeout 裡', () => {
     const r = run({})
     expect(r.status).toBe(0)
-    expect(r.installs).toEqual(['apt-get install -y --no-install-recommends xvfb ffmpeg'])
+    expect(r.installs).toEqual([
+      'apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 xvfb ffmpeg',
+    ])
+    // update 與 install 都帶網路逾時與重連，停住的連線會被切掉重連，不是乾等
+    expect(r.calls.find((c) => c.startsWith('apt-get update'))).toContain(
+      'Acquire::http::Timeout=20',
+    )
     const timeouts = r.calls.filter((c) => c.startsWith('timeout'))
     expect(timeouts).toEqual(['timeout 300', 'timeout 300'])
   })
@@ -115,5 +136,38 @@ exit 0`,
     expect(r.status).toBe(1)
     expect(r.installs).toHaveLength(3)
     expect(r.calls.filter((c) => c === 'timeout 45')).toHaveLength(6)
+  })
+
+  it('有 .deb 快取：先放回 apt 的快取資料夾再安裝；裝成功後把新下載的 .deb 存回快取', () => {
+    const cache = mkdtempSync(join(tmpdir(), 'svs-apt-cache-'))
+    const archives = mkdtempSync(join(tmpdir(), 'svs-apt-archives-'))
+    dirs.push(cache, archives)
+    writeFileSync(join(cache, 'old_1.0_amd64.deb'), 'old')
+    // 假的 apt-get install 不會真的下載，所以先在 archives 放一個「剛下載好」的檔
+    writeFileSync(join(archives, 'fresh_2.0_amd64.deb'), 'fresh')
+    const r = run({ env: { APT_DEB_CACHE: cache, APT_ARCHIVES_DIR: archives } })
+    expect(r.status).toBe(0)
+    expect(existsSync(join(archives, 'old_1.0_amd64.deb'))).toBe(true) // 快取放回 archives
+    expect(readFileSync(join(cache, 'fresh_2.0_amd64.deb'), 'utf8')).toBe('fresh') // 新的存回快取
+    expect(r.stdout).toContain('從快取放回 1 個 .deb')
+  })
+
+  it('沒有設 APT_DEB_CACHE：不碰任何快取', () => {
+    const r = run({})
+    expect(r.status).toBe(0)
+    expect(r.stdout).not.toContain('從快取放回')
+  })
+
+  it('安裝失敗時不會把半套的 .deb 存進快取', () => {
+    const cache = mkdtempSync(join(tmpdir(), 'svs-apt-cache-'))
+    const archives = mkdtempSync(join(tmpdir(), 'svs-apt-archives-'))
+    dirs.push(cache, archives)
+    writeFileSync(join(archives, 'partial_1.0_amd64.deb'), 'x')
+    const r = run({
+      failInstall: [1, 2],
+      env: { APT_DEB_CACHE: cache, APT_ARCHIVES_DIR: archives },
+    })
+    expect(r.status).toBe(1)
+    expect(existsSync(join(cache, 'partial_1.0_amd64.deb'))).toBe(false)
   })
 })
