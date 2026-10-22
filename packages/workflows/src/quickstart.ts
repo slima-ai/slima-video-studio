@@ -32,6 +32,8 @@ export interface QuickStartOptions {
   /** 想換一批結果時改這個數字（拆鏡、首幀、影片都會重新生成）。 */
   variation?: number
   audio?: boolean
+  /** 影片的負面提示（見 ShotWorkflowOptions.negativePrompt）。 */
+  negativePrompt?: string
   /** 已鎖定角色的固定外觀描述；出場的角色對得上名字就帶進每個 Prompt。 */
   anchors?: readonly CharacterAnchor[]
   /** 專案裡已經建好的角色名字（不管有沒有鎖定）：拆鏡時請 AI 用一模一樣的名字。 */
@@ -82,6 +84,8 @@ export interface ShotWorkflowOptions {
   /** 影片的變化編號；改這個只會重生影片，首幀沿用。 */
   videoVariation?: number
   audio?: boolean
+  /** 影片的負面提示（使用者在設定頁改過的）；沒給或空字串就用各模型內建的清單。 */
+  negativePrompt?: string
   anchors?: readonly CharacterAnchor[]
   /** 已鎖定的場景卡；鏡頭指定的地點對得上，就帶入場景描述與參考圖。 */
   scenes?: readonly SceneAnchor[]
@@ -151,6 +155,8 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
           aspectRatio: options.aspectRatio,
           audio: options.audio ?? false,
           variation: options.videoVariation ?? 0,
+          // 沒改過就不放進參數，舊專案的節點參數（與快取）完全不變
+          ...(options.negativePrompt ? { negativePrompt: options.negativePrompt } : {}),
         },
         options.models.video,
         videoNode.version,
@@ -188,6 +194,7 @@ export function buildQuickStart(options: QuickStartOptions): Workflow {
     ...(options.anchors ? { anchors: options.anchors } : {}),
     ...(options.editModel ? { editModel: options.editModel } : {}),
     ...(options.audio === undefined ? {} : { audio: options.audio }),
+    ...(options.negativePrompt ? { negativePrompt: options.negativePrompt } : {}),
     now: stamp,
   })
 

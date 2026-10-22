@@ -20,6 +20,7 @@ export const SETTINGS: AppSettings = {
   storyboardGuide: '',
   characterPrompts: {},
   productionGuide: '',
+  videoNegativePrompt: '',
   mcp: { enabled: false, port: 47821, allowanceUsd: 0 },
   theme: 'system',
   models: {},

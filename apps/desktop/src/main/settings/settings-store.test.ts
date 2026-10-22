@@ -28,6 +28,7 @@ describe('createSettingsStore', () => {
       budget: { perRunLimitUsd: 5 },
       modelNotices: [],
       storyboardGuide: '',
+      videoNegativePrompt: '',
       characterPrompts: {},
       productionGuide: '',
       mcp: { enabled: false, port: 47821, allowanceUsd: 0 },
@@ -128,6 +129,13 @@ describe('applyPatch', () => {
     expect(custom.storyboardGuide).toBe('多用遠景。')
     expect(applyPatch(custom, { demoMode: true }).storyboardGuide).toBe('多用遠景。')
     expect(applyPatch(custom, { storyboardGuide: '' }).storyboardGuide).toBe('')
+  })
+
+  it('影片的負面提示：存前後空白會去掉；別的更新不動它；空字串就是恢復各模型內建的清單', () => {
+    const custom = applyPatch(base, { videoNegativePrompt: '  mouth, arms \n' })
+    expect(custom.videoNegativePrompt).toBe('mouth, arms')
+    expect(applyPatch(custom, { demoMode: true }).videoNegativePrompt).toBe('mouth, arms')
+    expect(applyPatch(custom, { videoNegativePrompt: '' }).videoNegativePrompt).toBe('')
   })
 
   it('角色提示詞範本：逐項合併、去掉頭尾空白；空白表示那一項恢復預設，沒提到的項目不動', () => {

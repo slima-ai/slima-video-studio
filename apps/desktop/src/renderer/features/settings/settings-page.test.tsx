@@ -18,6 +18,9 @@ vi.mock('./project-models-section', () => ({
 vi.mock('./storyboard-guide-section', () => ({
   StoryboardGuideSection: () => <div data-testid="storyboard-guide-section" />,
 }))
+vi.mock('./video-negative-section', () => ({
+  VideoNegativeSection: () => <div data-testid="video-negative-section" />,
+}))
 vi.mock('./experiments-section', () => ({
   ExperimentsSection: () => <div data-testid="experiments-section" />,
 }))

@@ -950,6 +950,30 @@ describe('createOpenRouterDriver：影片', () => {
     ])
   })
 
+  it('負面提示：放在 provider.options.<實際供應商 slug>.parameters.negative_prompt；沒有供應商 slug 或沒有負面提示就不送 provider', async () => {
+    const { driver, calls, services } = makeMedia(
+      json({ id: 'a' }),
+      json({ id: 'b' }),
+      json({ id: 'c' }),
+    )
+    const first = await services.assets.put(PNG, 'image/png')
+    const i2v = { ...t2v, capability: 'i2v' as const, startFrameAsset: first.hash }
+    await driver.submit(
+      mediaJob({ ...i2v, negativePrompt: 'mouth, arms, legs', negativePromptRoute: 'atlas-cloud' }),
+      { signal },
+    )
+    // 請求真的帶著它（OpenRouter 只會把選項轉給實際接手的供應商）
+    expect(calls[0]?.body?.provider).toEqual({
+      options: { 'atlas-cloud': { parameters: { negative_prompt: 'mouth, arms, legs' } } },
+    })
+    // 沒有 slug：不知道要放在誰底下，就不送（不亂猜）
+    await driver.submit(mediaJob({ ...i2v, negativePrompt: 'mouth' }), { signal })
+    expect(calls[1]?.body).not.toHaveProperty('provider')
+    // 沒有負面提示：請求和以前一樣
+    await driver.submit(mediaJob({ ...i2v, negativePromptRoute: 'atlas-cloud' }), { signal })
+    expect(calls[2]?.body).not.toHaveProperty('provider')
+  })
+
   it('圖生影片沒有起始畫面：直接回報請求不完整，不會送出', async () => {
     const { driver, calls } = makeMedia()
     expect(

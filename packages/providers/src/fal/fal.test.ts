@@ -287,6 +287,33 @@ describe('createFalDriver', () => {
     expect(calls[0]?.body).not.toHaveProperty('cameraMove')
   })
 
+  it('submit i2v／t2v：負面提示放進 negative_prompt；沒有就不送這個欄位', async () => {
+    const { impl, calls } = fakeFetch(
+      json({ request_id: 'n-1' }),
+      json({ request_id: 'n-2' }),
+      json({ request_id: 'n-3' }),
+    )
+    const { driver, services } = makeDriver(impl)
+    const start = await services.assets.put(PNG, 'image/png')
+    const base = { modelId: 'fal/kling-3.0-pro', prompt: 'walk', durationSec: 5 }
+    await driver.submit(
+      job({
+        ...base,
+        capability: 'i2v',
+        startFrameAsset: start.hash,
+        negativePrompt: 'mouth, arms',
+      }),
+      { signal },
+    )
+    expect(calls[0]?.body).toMatchObject({ negative_prompt: 'mouth, arms' })
+    await driver.submit(job({ ...base, capability: 't2v', negativePrompt: 'blur' }), { signal })
+    expect(calls[1]?.body).toMatchObject({ negative_prompt: 'blur' })
+    await driver.submit(job({ ...base, capability: 'i2v', startFrameAsset: start.hash }), {
+      signal,
+    })
+    expect(calls[2]?.body).not.toHaveProperty('negative_prompt')
+  })
+
   it('submit i2v 沒有起始畫面 → invalid_request；t2v 不需要', async () => {
     const { impl, calls } = fakeFetch(json({ request_id: 'r-4' }))
     const { driver } = makeDriver(impl)

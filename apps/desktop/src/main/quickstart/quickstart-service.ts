@@ -287,6 +287,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
         storyboardOnly,
         models: { llm: chosen.llm, image: chosen.image, video: chosen.video },
         audio: handle.repos.sound.getSettings().nativeAudio,
+        negativePrompt: settings.get().videoNegativePrompt,
         anchors,
         ...(editModel ? { editModel } : {}),
         knownCharacters: handle.repos.characters.list().map((c) => c.name),

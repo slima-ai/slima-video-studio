@@ -683,6 +683,29 @@ describe('節點：首幀圖、圖生影片、接片', () => {
     expect(await run({ image, prompt: 'p' })).not.toHaveProperty('cameraMove')
   })
 
+  it('圖生影片：負面提示有填就帶進請求，空字串（預設）就不帶——由任務那一層依模型卡決定送什麼', async () => {
+    const run = async (params: Record<string, unknown>) => {
+      const { studio, requests } = fakeStudio([assets(video)])
+      await runNode(videoNode, { params, inputs: { image, prompt: 'p' }, modelId: 'm', studio })
+      return requests[0] as { negativePrompt?: string }
+    }
+    expect((await run({ negativePrompt: 'mouth, arms' })).negativePrompt).toBe('mouth, arms')
+    expect(await run({})).not.toHaveProperty('negativePrompt')
+    expect(await run({ negativePrompt: '' })).not.toHaveProperty('negativePrompt')
+  })
+
+  it('單鏡流程：設定頁改過負面提示才會出現在影片節點的參數裡（改了清單，快取就會失效）；沒改的流程與以前完全一樣', () => {
+    const options = shotWorkflowOptions
+    const video = (flow: ReturnType<typeof buildShotWorkflow>): unknown =>
+      flow.nodes.find((n) => n.id === 'video')?.params
+    const plain = buildShotWorkflow(options)
+    expect(video(plain)).not.toHaveProperty('negativePrompt')
+    expect(video(buildShotWorkflow({ ...options, negativePrompt: '' }))).toEqual(video(plain))
+    const custom = buildShotWorkflow({ ...options, negativePrompt: 'extra mouth' })
+    expect(video(custom)).toMatchObject({ negativePrompt: 'extra mouth' })
+    expect(video(custom)).not.toEqual(video(plain))
+  })
+
   it('圖生影片：用上一步的圖當首幀；回傳的不是影片時回報錯誤', async () => {
     const { studio, requests } = fakeStudio([assets(video), assets(image)])
     const params = { durationSec: 5, audio: true }

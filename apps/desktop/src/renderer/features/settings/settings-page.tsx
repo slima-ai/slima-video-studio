@@ -12,6 +12,7 @@ import { ProjectModelsSection } from './project-models-section'
 import { SettingsTags, type SettingsTag } from './settings-tags'
 import { ProductionGuideSection } from './production-guide-section'
 import { StoryboardGuideSection } from './storyboard-guide-section'
+import { VideoNegativeSection } from './video-negative-section'
 import type { AppDataState } from './use-app-data'
 import { Page } from '../../components/page'
 
@@ -100,6 +101,11 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
                 ) : null}
                 <StoryboardGuideSection settings={state.data.settings} onChanged={reload} />
                 <ProductionGuideSection settings={state.data.settings} onChanged={reload} />
+                <VideoNegativeSection
+                  settings={state.data.settings}
+                  videoModel={state.data.models.find((m) => m.id === state.data.selected.i2v)}
+                  onChanged={reload}
+                />
               </>
             </SettingGroup>
             <SettingGroup id="experiments" title="實驗功能" hint="還在試的功能，可能隨時改變。">

@@ -91,6 +91,17 @@ const DurationRangeSchema = z
       ctx.addIssue({ code: 'custom', path: ['steps'], message: '允許的秒數要由小到大、不能重複' })
     }
   })
+/** 影片的負面提示（不想要出現的東西）。`default` 是內建的清單，使用者可以在設定頁改。 */
+export const NEGATIVE_PROMPT_MAX_CHARS = 1000
+const NegativePromptSchema = z.object({
+  default: z.string().min(1).max(NEGATIVE_PROMPT_MAX_CHARS),
+  /**
+   * 走 OpenRouter 時，負面提示放在 `provider.options[<這個 slug>].parameters.negative_prompt`
+   * （OpenRouter 只把選項轉給「實際接手的供應商」，所以要填出這個模型實際由誰供應）。fal 管道不需要。
+   */
+  routeProvider: z.string().min(1).optional(),
+})
+export type NegativePromptSpec = z.infer<typeof NegativePromptSchema>
 const ReferenceLimitsSchema = z.object({
   images: z.number().int().nonnegative().default(0),
   videos: z.number().int().nonnegative().default(0),
@@ -182,6 +193,8 @@ export const ModelCardSchema = z
      * 沒有對應的運鏡一律加進 Prompt。供應商文件還沒核對過的模型不要填。
      */
     cameraParams: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+    /** 這個模型接受負面提示時才填（供應商文件核對過的模型才填）。 */
+    negativePrompt: NegativePromptSchema.optional(),
     notes: z.string().optional(),
   })
   .superRefine((card, ctx) => {
@@ -274,6 +287,7 @@ export const ModelChannelSchema = z.object({
   cjkCharWeight: z.number().positive().optional(),
   prompt: PromptHintSchema.optional(),
   cameraParams: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+  negativePrompt: NegativePromptSchema.optional(),
   notes: z.string().optional(),
 })
 export type ModelChannel = z.infer<typeof ModelChannelSchema>
@@ -384,6 +398,7 @@ export function expandModelSpec(spec: ModelSpec): ModelCard[] {
       styleFit: spec.styleFit,
       ...(prompt === undefined ? {} : { prompt }),
       ...(channel.cameraParams === undefined ? {} : { cameraParams: channel.cameraParams }),
+      ...(channel.negativePrompt === undefined ? {} : { negativePrompt: channel.negativePrompt }),
       ...(notes === '' ? {} : { notes }),
     })
   })

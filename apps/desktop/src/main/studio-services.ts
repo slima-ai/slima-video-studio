@@ -9,6 +9,8 @@ import {
   type GenerationRequest,
   type Job,
   type JobKind,
+  type ModelCard,
+  type VideoRequest,
 } from '@svs/schema'
 import {
   resolveCameraMove,
@@ -47,6 +49,29 @@ function jobError(job: Job): AppError {
   })
 }
 
+/**
+ * 影片的負面提示：模型卡有 `negativePrompt` 才送（沒有的模型一律不送）。
+ * 使用者在設定頁改過的清單（節點參數帶進來）優先，沒有就用卡上內建的；走 OpenRouter 時一併帶上實際供應商的 slug。
+ */
+export function withNegativePrompt<R extends VideoRequest>(
+  request: R,
+  card: Pick<ModelCard, 'negativePrompt'> | undefined,
+): R {
+  const spec = card?.negativePrompt
+  if (!spec) {
+    // 模型不接受負面提示：就算有人在請求裡帶了也拿掉，不送給供應商
+    const rest: Partial<VideoRequest> = { ...request }
+    delete rest.negativePrompt
+    delete rest.negativePromptRoute
+    return rest as R
+  }
+  return {
+    ...request,
+    negativePrompt: request.negativePrompt ?? spec.default,
+    ...(spec.routeProvider === undefined ? {} : { negativePromptRoute: spec.routeProvider }),
+  }
+}
+
 export interface StudioDeps {
   queue: JobQueue
   handle: ProjectHandle
@@ -64,7 +89,10 @@ export function createStudioServices({ queue, handle, tools, models }: StudioDep
         original.capability === 't2v' ||
         original.capability === 'i2v' ||
         original.capability === 'r2v'
-          ? resolveCameraMove(original, models?.get(original.modelId))
+          ? withNegativePrompt(
+              resolveCameraMove(original, models?.get(original.modelId)),
+              models?.get(original.modelId),
+            )
           : original
       const provider = providerOf(request.modelId)
       const job = queue.enqueue({

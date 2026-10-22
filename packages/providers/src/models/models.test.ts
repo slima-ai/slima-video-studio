@@ -188,6 +188,36 @@ describe('內建 ModelCard', () => {
     )
   })
 
+  it('Kling 3.0 Standard 兩個管道都有負面提示；OpenRouter 管道寫明實際供應商（atlas-cloud），fal 不需要', () => {
+    const fal = registry.get('fal/kling-3.0-standard')
+    const viaOpenRouter = registry.get('openrouter/kling-3.0-standard')
+    for (const card of [fal, viaOpenRouter]) {
+      // 模型卡上的內建清單只放通用的畫質字；fal 預設的 "blur, distort, and low quality" 不能因為換成我們的清單而不見
+      expect(card?.negativePrompt?.default).toMatch(/blur.*distort.*low quality/)
+      expect(card?.negativePrompt?.default).toContain('extra limbs')
+      // 任何角色的特徵（嘴、手腳、耳朵…）都不能放在模型卡上：所有影片都會帶，換成別的角色就變成「不要嘴、不要手」
+      for (const trait of [
+        'mouth',
+        'arms',
+        'legs',
+        'hands',
+        'feet',
+        'ears',
+        'eyebrows',
+        'eyelids',
+      ]) {
+        expect(card?.negativePrompt?.default, `模型卡上不能有角色特徵 ${trait}`).not.toContain(
+          trait,
+        )
+      }
+    }
+    expect(viaOpenRouter?.negativePrompt?.routeProvider).toBe('atlas-cloud')
+    expect(fal?.negativePrompt?.routeProvider).toBeUndefined()
+    // 沒核對過文件的模型不填
+    expect(registry.get('openrouter/kling-3.0-pro')?.negativePrompt).toBeUndefined()
+    expect(registry.get('fal/kling-3.0-pro')?.negativePrompt).toBeUndefined()
+  })
+
   it('新增 GPT Image 2 不改變既有的預設圖片模型，使用者要自己切換', () => {
     const only = { configuredProviders: new Set(['openrouter']) }
     for (const capability of ['t2i', 'edit'] as const) {

@@ -89,5 +89,6 @@ export function toModelOption(
       .map((c) => providerName(c.provider)),
     ...(card.notes ? { notes: card.notes } : {}),
     ...(card.userNote ? { userNote: card.userNote } : {}),
+    ...(card.negativePrompt ? { negativePromptDefault: card.negativePrompt.default } : {}),
   }
 }
