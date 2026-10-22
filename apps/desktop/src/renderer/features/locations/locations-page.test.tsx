@@ -236,4 +236,61 @@ describe('LocationsPage', () => {
     fireEvent.click(screen.getByTestId('location-anchor-save'))
     expect((await screen.findByTestId('location-error')).textContent).toContain('已經鎖定')
   })
+
+  it('另外加的參考圖：列出用途與備註；草稿時可以拿掉，鎖定時不能；場景卡本來的三張不重複列', async () => {
+    let refs = [
+      { id: 'card:main', assetHash: H('a'), purpose: 'main', label: '', source: 'card' },
+      {
+        id: 'r1',
+        assetHash: H('b'),
+        purpose: 'top_down',
+        label: '從上面看的格局',
+        source: 'added',
+      },
+    ]
+    const svs = installFakeSvs({
+      'locations.list': () => ({ locations: [card({ mainAssetHash: H('a') })] }),
+      'locations.references': () => ({ locationId: 'l1', references: refs }),
+      'locations.removeReference': () => {
+        refs = refs.filter((r) => r.id !== 'r1')
+        return { locationId: 'l1', references: refs }
+      },
+    })
+    render(<LocationsPage />)
+    const extras = await screen.findByTestId('location-extras')
+    expect(extras.textContent).toContain('俯視・從上面看的格局')
+    expect(screen.queryByTestId('location-extra-card:main')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('location-extra-remove-r1'))
+    await waitFor(() => {
+      expect(svs.payloadsOf('locations.removeReference')).toEqual([
+        { locationId: 'l1', referenceId: 'r1' },
+      ])
+    })
+    await waitFor(() => {
+      expect(screen.queryByTestId('location-extras')).toBeNull()
+    })
+  })
+
+  it('已鎖定的場景卡：另外加的參考圖不能拿掉（要先解除鎖定）', async () => {
+    installFakeSvs({
+      'locations.list': () => ({
+        locations: [card({ status: 'locked', anchorText: '舊倉庫', mainAssetHash: H('a') })],
+      }),
+      'locations.references': () => ({
+        locationId: 'l1',
+        references: [{ id: 'r1', assetHash: H('b'), purpose: 'depth', label: '', source: 'added' }],
+      }),
+    })
+    render(<LocationsPage />)
+    const remove = await screen.findByTestId('location-extra-remove-r1')
+    expect(remove.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('沒有另外加的參考圖就不顯示那一區', async () => {
+    installFakeSvs({ 'locations.list': () => ({ locations: [card()] }) })
+    render(<LocationsPage />)
+    await screen.findByTestId('location-card')
+    expect(screen.queryByTestId('location-extras')).toBeNull()
+  })
 })

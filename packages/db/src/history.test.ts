@@ -115,6 +115,37 @@ describe('StructureHistory：大綱', () => {
     expect(repos.shots.get(shot.id)?.locationId).toBe(place.id)
     expect(repos.locationCards.listConcepts(place.id)).toHaveLength(1)
   })
+
+  it('場景卡的參考圖：加上、拿掉、連地點一起刪掉，都能復原', () => {
+    const { repos, history } = setup()
+    const place = repos.outline.addLocation({ name: '舊倉庫' })
+    const added = history.record('加上場景參考圖', () =>
+      repos.locationCards.addReference({
+        locationId: place.id,
+        assetHash: HASH('a'),
+        purpose: 'top_down',
+        label: '格局',
+      }),
+    )
+    expect(repos.locationCards.listReferences(place.id)).toHaveLength(1)
+    history.undo()
+    expect(repos.locationCards.listReferences(place.id)).toHaveLength(0)
+    history.redo()
+    expect(repos.locationCards.listReferences(place.id).map((r) => r.id)).toEqual([added.id])
+    history.record('拿掉場景參考圖', () => {
+      repos.locationCards.removeReference(place.id, added.id)
+    })
+    expect(repos.locationCards.listReferences(place.id)).toHaveLength(0)
+    history.undo()
+    expect(repos.locationCards.listReferences(place.id).map((r) => r.id)).toEqual([added.id])
+    history.record('刪除地點', () => {
+      repos.outline.deleteLocation(place.id)
+    })
+    history.undo()
+    expect(repos.locationCards.listReferences(place.id)).toMatchObject([
+      { id: added.id, purpose: 'top_down', label: '格局' },
+    ])
+  })
 })
 
 describe('StructureHistory：分鏡表', () => {

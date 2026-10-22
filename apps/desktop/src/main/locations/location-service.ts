@@ -14,6 +14,8 @@ import {
   type LocationCardView,
   type LocationGenerateKind,
   type LocationImagesState,
+  type LocationReferencePurpose,
+  type LocationReferencesState,
 } from '@svs/schema'
 import {
   QUICK_STYLE_IDS,
@@ -58,6 +60,17 @@ export interface LocationService {
   pickMain: (locationId: string, conceptId: string) => LocationCardView
   lock: (locationId: string) => LocationCardView
   unlock: (locationId: string) => LocationCardView
+  /** 這張場景卡的參考圖清單（每張有用途標記）。 */
+  references: (locationId: string) => LocationReferencesState
+  /** 把專案裡已有的一張圖片加成參考圖並標上用途；同一張圖同一個用途只存一筆。 */
+  addReference: (request: {
+    locationId: string
+    assetHash: string
+    purpose: LocationReferencePurpose
+    label: string
+  }) => LocationReferencesState
+  /** 移除一張另外加的參考圖（圖檔留在專案裡）。 */
+  removeReference: (locationId: string, referenceId: string) => LocationReferencesState
 }
 
 const ImageOutputSchema = z.object({ image: AssetRefSchema })
@@ -343,5 +356,26 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
     },
 
     unlock: (locationId) => need().repos.locationCards.unlock(locationId),
+
+    references: (locationId) => ({
+      locationId,
+      references: need().repos.locationCards.listReferences(locationId),
+    }),
+
+    addReference({ locationId, assetHash, purpose, label }) {
+      const handle = need()
+      const meta = handle.assets.getMeta(assetHash)
+      if (!meta?.mime.startsWith('image/')) {
+        throw invalid('專案裡找不到這張圖片，請先把圖放進專案（例如放到畫布上）。')
+      }
+      handle.repos.locationCards.addReference({ locationId, assetHash, purpose, label })
+      return { locationId, references: handle.repos.locationCards.listReferences(locationId) }
+    },
+
+    removeReference(locationId, referenceId) {
+      const handle = need()
+      handle.repos.locationCards.removeReference(locationId, referenceId)
+      return { locationId, references: handle.repos.locationCards.listReferences(locationId) }
+    },
   }
 }

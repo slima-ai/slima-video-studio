@@ -247,6 +247,13 @@ export function testSettingsDeps(
       unlock: () => {
         throw new Error('測試用的場景卡服務不能解除鎖定')
       },
+      references: (locationId) => ({ locationId, references: [] }),
+      addReference: () => {
+        throw new Error('測試用的場景卡服務不能加參考圖')
+      },
+      removeReference: () => {
+        throw new Error('測試用的場景卡服務不能移除參考圖')
+      },
     },
     library: {
       list: () => ({ folder: '/tmp', projects: [] }),

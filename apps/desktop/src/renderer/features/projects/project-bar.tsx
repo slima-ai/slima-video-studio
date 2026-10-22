@@ -8,7 +8,7 @@ import {
   House,
   Pencil,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { AppView } from '../../components/app-layout'
 import { call, errorText } from '../../lib/svs'
@@ -112,8 +112,10 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
     [],
   )
 
-  // ⌘S／Ctrl+S：專案是自動儲存的，沒有東西要存；習慣按的人會看到這句，知道已經存好了
-  useEffect(() => {
+  // ⌘S／Ctrl+S：專案是自動儲存的，沒有東西要存；習慣按的人會看到這句，知道已經存好了。
+  // 用 useLayoutEffect：畫面一更新（讀到存檔時間）處理函式就同步換成新的；用 useEffect 的話，
+  // 兩者之間有一小段空檔，這時按下去會讀到舊的狀態（顯示「還沒有專案」）——電腦忙的時候測試會撞到
+  useLayoutEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (
         (event.metaKey || event.ctrlKey) &&

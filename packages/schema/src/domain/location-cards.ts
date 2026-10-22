@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { ContentHashSchema, IdSchema, LockStatusSchema } from './common'
+import { ContentHashSchema, IdSchema, IsoDateTimeSchema, LockStatusSchema } from './common'
 import { ConceptViewSchema } from './characters'
 
 /** 每一輪生成幾張場景概念圖。 */
@@ -10,6 +10,60 @@ export const LOCATION_CONCEPTS_PER_ROUND = 4
 export const LOCATION_ANGLES = ['reverse', 'wide'] as const
 export const LocationAngleSchema = z.enum(LOCATION_ANGLES)
 export type LocationAngle = z.infer<typeof LocationAngleSchema>
+
+/**
+ * 場景參考圖的用途。參考圖是一份「有用途標記的清單」（跟角色的參考圖同一個形狀）：同一個地點可以有主景、
+ * 反方向、拉遠全景、俯視、縱深感……好幾張。資料庫裡用途存成文字，之後多一種用途不需要遷移；
+ * 讀到不認得的用途（較新版本存的）一律當成 general。
+ * main／reverse／wide 就是場景卡本來的三張圖；top_down、depth 是之後多的：俯視圖（看得到格局）、
+ * 有縱深感的環境圖（前景到遠景層次分明）。
+ */
+export const LOCATION_REFERENCE_PURPOSES = [
+  'main',
+  'reverse',
+  'wide',
+  'top_down',
+  'depth',
+  'general',
+] as const
+export const LocationReferencePurposeSchema = z.enum(LOCATION_REFERENCE_PURPOSES)
+export type LocationReferencePurpose = z.infer<typeof LocationReferencePurposeSchema>
+
+/** 用途的白話名稱（畫面與給圖片模型的說明都用這份）。 */
+export const LOCATION_REFERENCE_PURPOSE_LABELS: Readonly<Record<LocationReferencePurpose, string>> =
+  {
+    main: '主景',
+    reverse: '反方向',
+    wide: '拉遠全景',
+    top_down: '俯視',
+    depth: '縱深感',
+    general: '一般',
+  }
+
+/** 一張參考圖的備註上限（一句白話，例如「從上面看的格局」）。 */
+export const LOCATION_REFERENCE_LABEL_MAX = 60
+
+export const LocationReferenceViewSchema = z.object({
+  /** 場景卡本來的三張圖（source 是 card）沒有自己的 id，用 `card:<用途>`。 */
+  id: z.string().min(1),
+  assetHash: ContentHashSchema,
+  purpose: LocationReferencePurposeSchema,
+  label: z.string(),
+  createdAt: IsoDateTimeSchema.optional(),
+  /**
+   * added：用「加參考圖」存的（可以移除）；
+   * card：場景卡本來的主圖與兩個角度（要在場景卡上換圖、不能在這裡移除）。
+   */
+  source: z.enum(['added', 'card']),
+})
+export type LocationReferenceView = z.infer<typeof LocationReferenceViewSchema>
+
+/** 某個場景卡的參考圖清單。 */
+export const LocationReferencesStateSchema = z.object({
+  locationId: IdSchema,
+  references: z.array(LocationReferenceViewSchema),
+})
+export type LocationReferencesState = z.infer<typeof LocationReferencesStateSchema>
 
 /** 場景卡：一個地點固定的樣子（鎖定後，用到這個地點的鏡頭會自動帶入描述與參考圖）。 */
 export const LocationCardViewSchema = z.object({

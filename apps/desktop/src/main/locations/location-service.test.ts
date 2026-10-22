@@ -189,3 +189,51 @@ describe('LocationService（示範模式）', () => {
     expect(states.map((s) => s.generating?.done)).toEqual([0, 1, 2, 3, 4, undefined])
   })
 })
+
+describe('LocationService：參考圖清單', () => {
+  const putImage = async (h: Harness, byte: number, mime = 'image/png'): Promise<string> => {
+    const handle = h.projects.current()
+    if (!handle) throw new Error('沒有專案')
+    return (await handle.assets.put(new Uint8Array([137, 80, 78, 71, byte]), mime)).hash
+  }
+
+  it('加上、列出、移除；同一張圖同一個用途只存一筆；回傳的是更新後的完整清單', async () => {
+    const h = setup()
+    const id = addPlace(h)
+    expect(h.locations.references(id)).toEqual({ locationId: id, references: [] })
+    const hash = await putImage(h, 1)
+    const added = h.locations.addReference({
+      locationId: id,
+      assetHash: hash,
+      purpose: 'top_down',
+      label: '格局',
+    })
+    expect(added.references).toMatchObject([
+      { assetHash: hash, purpose: 'top_down', label: '格局', source: 'added' },
+    ])
+    expect(
+      h.locations.addReference({ locationId: id, assetHash: hash, purpose: 'top_down', label: '' })
+        .references,
+    ).toHaveLength(1)
+    const [reference] = added.references
+    if (!reference) throw new Error('沒有參考圖')
+    expect(h.locations.removeReference(id, reference.id).references).toEqual([])
+  })
+
+  it('專案裡沒有的圖、不是圖片的檔案、找不到的場景卡：白話說明原因', async () => {
+    const h = setup()
+    const id = addPlace(h)
+    const request = { locationId: id, purpose: 'depth', label: '' } as const
+    expect(() => h.locations.addReference({ ...request, assetHash: 'f'.repeat(64) })).toThrow(
+      '專案裡找不到這張圖片',
+    )
+    const notImage = await putImage(h, 2, 'video/mp4')
+    expect(() => h.locations.addReference({ ...request, assetHash: notImage })).toThrow(
+      '專案裡找不到這張圖片',
+    )
+    const hash = await putImage(h, 3)
+    expect(() =>
+      h.locations.addReference({ ...request, locationId: 'nope', assetHash: hash }),
+    ).toThrow('找不到這個場景卡')
+  })
+})

@@ -632,6 +632,15 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   )
   registry.registerHandler('locations.lock', ({ locationId }) => locations.lock(locationId))
   registry.registerHandler('locations.unlock', ({ locationId }) => locations.unlock(locationId))
+  registry.registerHandler('locations.references', ({ locationId }) =>
+    locations.references(locationId),
+  )
+  registry.registerHandler('locations.addReference', (request) =>
+    history.record('加上場景參考圖', () => locations.addReference(request)),
+  )
+  registry.registerHandler('locations.removeReference', ({ locationId, referenceId }) =>
+    history.record('拿掉場景參考圖', () => locations.removeReference(locationId, referenceId)),
+  )
 
   const missing = registry.missingHandlers()
   if (missing.length > 0) {

@@ -77,7 +77,10 @@ import {
   UpgradeResultSchema,
 } from './domain/quickstart'
 import {
+  LOCATION_REFERENCE_LABEL_MAX,
   LocationCardViewSchema,
+  LocationReferencePurposeSchema,
+  LocationReferencesStateSchema,
   LocationGenerateKindSchema,
   LocationImagesStateSchema,
 } from './domain/location-cards'
@@ -1031,6 +1034,29 @@ export const ipcContract = {
   'locations.unlock': {
     request: z.object({ locationId: IdSchema }),
     response: LocationCardViewSchema,
+  },
+  /** 這張場景卡的參考圖清單（每張有用途標記：主景、反方向、拉遠全景、俯視、縱深感、一般）。 */
+  'locations.references': {
+    request: z.object({ locationId: IdSchema }),
+    response: LocationReferencesStateSchema,
+  },
+  /**
+   * 把專案裡已有的一張圖片加成這張場景卡的參考圖，並標上用途；同一張圖同一個用途只會有一筆。
+   * 已鎖定的場景卡要先解除鎖定。回傳更新後的清單。可以復原。
+   */
+  'locations.addReference': {
+    request: z.object({
+      locationId: IdSchema,
+      assetHash: ContentHashSchema,
+      purpose: LocationReferencePurposeSchema.default('general'),
+      label: z.string().max(LOCATION_REFERENCE_LABEL_MAX).default(''),
+    }),
+    response: LocationReferencesStateSchema,
+  },
+  /** 移除一張另外加的參考圖（圖本身留在專案裡）。回傳更新後的清單。可以復原。 */
+  'locations.removeReference': {
+    request: z.object({ locationId: IdSchema, referenceId: z.string().min(1) }),
+    response: LocationReferencesStateSchema,
   },
   /**
    * 右下角 Claude 對話（實驗功能）。以下 `chat.*` 都只給畫面用，不開放給 MCP：

@@ -82,12 +82,14 @@ export const SceneAnchorSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   text: z.string().min(1),
-  /** 主場景圖與另外兩個角度（沒有的角度用主圖頂替）。 */
+  /** 主場景圖與另外兩個角度（沒有的角度用主圖頂替），以及另外加的俯視圖、有縱深感的環境圖。 */
   images: z
     .object({
       main: AssetRefSchema.optional(),
       reverse: AssetRefSchema.optional(),
       wide: AssetRefSchema.optional(),
+      topDown: AssetRefSchema.optional(),
+      depth: AssetRefSchema.optional(),
     })
     .optional(),
 })
@@ -279,8 +281,8 @@ export const breakdownNode = defineNode({
 /**
  * 依鏡頭的景別與角度挑參考圖。
  * 角色（出場且有參考圖的已鎖定角色）：側面 → 側視圖、背影 → 背視圖、近景／特寫 → 主圖，其他 → 主圖＋正視圖；
- * 缺的圖用主圖頂替。場景（鏡頭指定的地點有已鎖定的場景卡）：遠景以上 → 拉遠的全景、背面或過肩 → 反方向的角度，
- * 其他 → 主場景圖；缺的角度用主場景圖頂替。
+ * 缺的圖用主圖頂替。場景（鏡頭指定的地點有已鎖定的場景卡）：正上方 → 俯視圖、遠景以上 → 拉遠的全景（沒有就用有縱深感的環境圖）、
+ * 背面或過肩 → 反方向的角度，其他 → 主場景圖；缺的角度用主場景圖頂替。
  * 總數不超過 limit：場景占一張，其餘給角色（多個角色時每個角色先拿到第一張再拿第二張）；只剩一張名額時留給角色。
  */
 export function pickReferences(
@@ -335,9 +337,11 @@ function pickSceneReference(
 ): AssetRef | undefined {
   const images = scenes.find((scene) => scene.id === shot.locationId)?.images
   if (!images) return undefined
-  const { main, reverse, wide } = images
+  const { main, reverse, wide, topDown, depth } = images
   const establishing = shot.size === 'extreme_wide' || shot.size === 'wide' || shot.size === 'full'
-  if (establishing) return wide ?? main
+  // 正上方的鏡頭看俯視圖（看得到格局）；沒有俯視圖就照一般的挑法。遠景要有縱深：拉遠的全景 → 有縱深感的環境圖 → 主圖
+  if (shot.angle === 'overhead' && topDown) return topDown
+  if (establishing) return wide ?? depth ?? main
   if (shot.angle === 'back' || shot.angle === 'over_shoulder') return reverse ?? main
   return main
 }

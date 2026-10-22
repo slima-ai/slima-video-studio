@@ -68,6 +68,67 @@ describe('lockedScenes', () => {
   })
 })
 
+describe('lockedScenes：另外加的參考圖', () => {
+  it('俯視圖與縱深感的環境圖帶進場景；另外加的主景、拉遠全景只在場景卡本來那張缺的時候頂替', async () => {
+    const h = setup()
+    const { handle, place, hashes } = await lockedWarehouse(h)
+    const put = async (byte: number) =>
+      (await handle.assets.put(new Uint8Array([137, 80, 78, 71, byte]), 'image/png')).hash
+    const [topDown, depth, otherWide] = [await put(11), await put(12), await put(13)]
+    if (!topDown || !depth || !otherWide) throw new Error('素材沒有寫入')
+    const cards = handle.repos.locationCards
+    cards.addReference({ locationId: place.id, assetHash: topDown, purpose: 'top_down', label: '' })
+    cards.addReference({ locationId: place.id, assetHash: depth, purpose: 'depth', label: '' })
+    cards.addReference({ locationId: place.id, assetHash: otherWide, purpose: 'wide', label: '' })
+    cards.lock(place.id)
+    const [scene] = lockedScenes(handle)
+    expect(scene?.images?.topDown?.hash).toBe(topDown)
+    expect(scene?.images?.depth?.hash).toBe(depth)
+    // 場景卡本來就有拉遠全景：另外加的那張不頂替
+    expect(scene?.images?.wide?.hash).toBe(hashes.wide)
+  })
+
+  it('場景卡本來沒有的角度，用另外加的頂替；「一般」用途不會自動帶進去', async () => {
+    const h = setup()
+    const { handle, place, hashes } = await lockedWarehouse(h)
+    const put = async (byte: number) =>
+      (await handle.assets.put(new Uint8Array([137, 80, 78, 71, byte]), 'image/png')).hash
+    const [extraWide, general] = [await put(21), await put(22)]
+    if (!extraWide || !general) throw new Error('素材沒有寫入')
+    const cards = handle.repos.locationCards
+    cards.setAngles(place.id, { wide: '' })
+    cards.addReference({ locationId: place.id, assetHash: extraWide, purpose: 'wide', label: '' })
+    cards.addReference({ locationId: place.id, assetHash: general, purpose: 'general', label: '' })
+    cards.lock(place.id)
+    const [scene] = lockedScenes(handle)
+    expect(scene?.images?.wide?.hash).toBe(extraWide)
+    expect(scene?.images?.main?.hash).toBe(hashes.main)
+    expect(Object.keys(scene?.images ?? {}).sort()).toEqual(['main', 'reverse', 'wide'])
+  })
+
+  it('正上方的鏡頭生首幀時，請求帶的是俯視圖', async () => {
+    const h = setup()
+    const { handle, place, shot } = await lockedWarehouse(h)
+    const topDown = (await handle.assets.put(new Uint8Array([137, 80, 78, 71, 31]), 'image/png'))
+      .hash
+    handle.repos.locationCards.addReference({
+      locationId: place.id,
+      assetHash: topDown,
+      purpose: 'top_down',
+      label: '',
+    })
+    handle.repos.locationCards.lock(place.id)
+    h.shots.update(shot.id, { angle: 'overhead' })
+    const before = imageInputs(h).length
+    await h.shots.regenerate(shot.id, 'all')
+    await h.idle(shot.id)
+    expect(imageInputs(h).slice(before).at(-1)).toMatchObject({
+      capability: 'edit',
+      referenceAssets: [topDown],
+    })
+  })
+})
+
 describe('已鎖定場景卡 → 鏡頭自動帶入', () => {
   it('鎖定後，鏡頭的畫面 Prompt 帶入場景描述並附上主場景圖當參考圖；草稿時完全不帶', async () => {
     const h = setup()

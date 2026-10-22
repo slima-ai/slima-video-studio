@@ -245,6 +245,27 @@ export const locationConcepts = sqliteTable(
   (t) => [unique('location_concepts_slot_uq').on(t.locationId, t.round, t.slot)],
 )
 
+/**
+ * 場景卡的參考圖：一份「有用途標記的清單」（主景、反方向、拉遠全景、俯視、縱深感……），跟角色的參考圖同一個形狀。
+ * 用途存成文字（不是資料庫的列舉），之後多一種用途不需要遷移；同一張圖可以有不同的用途。
+ * 場景卡本來的主圖與兩個角度仍存在 locations 裡，不搬過來；這張表只放「另外加的」。
+ */
+export const locationReferences = sqliteTable(
+  'location_references',
+  {
+    id: text('id').primaryKey(),
+    locationId: text('location_id')
+      .notNull()
+      .references(() => locations.id, { onDelete: 'cascade' }),
+    assetHash: text('asset_hash').notNull(),
+    purpose: text('purpose').notNull(),
+    /** 一句白話備註（例如「從上面看的格局」）；沒有就是空字串。 */
+    label: text('label').notNull().default(''),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [unique('location_references_uq').on(t.locationId, t.assetHash, t.purpose)],
+)
+
 export const styles = sqliteTable('styles', {
   id: text('id').primaryKey(),
   projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
