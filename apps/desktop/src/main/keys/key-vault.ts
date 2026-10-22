@@ -90,6 +90,12 @@ export class MemoryVault implements KeyVault {
     return this.status(provider)
   }
 
+  /** 只放進記憶體、不寫 persistPath（環境變數來的金鑰不該因為測試用的明文檔落地）。 */
+  seed(provider: string, key: string): KeyStatus {
+    this.keys.set(provider, normalizeKey(key))
+    return this.status(provider)
+  }
+
   delete(provider: string): KeyStatus {
     this.keys.delete(provider)
     this.persist()
@@ -293,7 +299,15 @@ export interface CreateKeyVaultOptions {
   /** MemoryVault 的明文落地檔（只給 E2E 驗證重開用）。 */
   testVaultFile?: string
   warn?: (message: string) => void
+  /** 只用來記「已從環境變數載入某供應商金鑰」；絕不帶金鑰內容。 */
+  info?: (message: string) => void
 }
+
+/** 開發版啟動時可以從環境變數帶進來的金鑰；變數名稱與 `pnpm smoke:real` 一致。 */
+const ENV_KEYS = [
+  { provider: 'openrouter', variable: 'OPENROUTER_API_KEY', label: 'OpenRouter' },
+  { provider: 'fal', variable: 'FAL_KEY', label: 'fal.ai' },
+] as const
 
 export const KEY_FILE_NAME = 'keys.enc.json'
 
@@ -301,10 +315,24 @@ export const KEY_FILE_NAME = 'keys.enc.json'
  * 決定使用哪個金庫。**未打包版（pnpm dev、E2E、各種測試與腳本）預設用 MemoryVault，不碰作業系統的鑰匙圈**
  * （macOS 的鑰匙圈會跳密碼提示、而且授權綁執行檔，反覆測試會一直打擾使用者）；
  * 要在開發版用真的鑰匙圈，必須明確設 `SVS_REAL_VAULT=1`。打包版不論環境變數怎麼設，都一定是 safeStorage。
+ * 開發版的記憶體金庫啟動時會讀 `OPENROUTER_API_KEY`／`FAL_KEY`（給展示片與手動試用，不用在畫面上貼金鑰）。
  */
 export function createKeyVault(options: CreateKeyVaultOptions): KeyVault {
   if (!options.isPackaged && options.env.SVS_REAL_VAULT !== '1') {
-    return new MemoryVault(options.testVaultFile)
+    const vault = new MemoryVault(options.testVaultFile)
+    // 開發版專用：環境變數有金鑰就放進記憶體金庫（重開就沒了、不寫檔、不碰鑰匙圈）。
+    // 打包版不會走到這裡，所以永遠不讀環境變數。
+    for (const { provider, variable, label } of ENV_KEYS) {
+      const value = options.env[variable]
+      if (!value) continue
+      try {
+        vault.seed(provider, value)
+        options.info?.(`已從環境變數載入 ${label} 金鑰`)
+      } catch {
+        options.warn?.(`環境變數 ${variable} 的格式不正確，已忽略`)
+      }
+    }
+    return vault
   }
   const crypto =
     options.crypto ?? (options.safeStorage ? directKeyCrypto(options.safeStorage) : undefined)
