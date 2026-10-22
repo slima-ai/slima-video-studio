@@ -142,10 +142,13 @@ describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段�
   }
 
   it('標記很多的長輸入：時間跟長度成正比（不是 n²）——長度變 4 倍，時間不到 8 倍', () => {
-    // 比的是兩種長度之間的倍數：線性約 4 倍（實測 4～5.3）、平方約 16 倍（實測 15），門檻 8 倍在兩者中間。
-    // 機器忙不忙不能讓它紅，所以：量的是這個行程實際用掉的 CPU 時間（不是牆鐘時間，被別的行程搶走的不算）、
-    // 只量解析（renderBlocks），不含 jsdom 的畫面更新（那部分垃圾回收的雜訊大）、
-    // 每種長度跑 5 次取最小的（垃圾回收偶爾多出來的那幾次不影響）。
+    // 比的是兩種長度之間的倍數：線性約 4 倍（實測 3.6～4.6，偶爾冒出 6 以上的離群值）、平方約 16 倍，門檻 8 倍在兩者中間。
+    // 機器忙不忙不能讓它紅，所以：
+    // - 量這個行程實際用掉的 CPU 時間（不是牆鐘時間，被別的行程搶走的不算）；
+    // - 只量解析（renderBlocks），不含 jsdom 的畫面更新（那部分垃圾回收的雜訊大）；
+    // - 兩種長度交錯著量、各取最小的一次（雜訊只會讓時間變長，不會變短；交錯是讓兩邊遇到同樣的環境）；
+    // - 整組量測最多重做 3 次，只要有一次倍數在門檻內就過。真正退化成 n² 時每一次都會是 12 倍以上，不可能有一次過；
+    //   偶發的離群值（垃圾回收剛好落在大的那次）要連續 3 次都發生才會紅。
     // 輸入是標記和一般的字混在一起：標記那邊和「每個字」那邊的 n² 都量得到
     const mixed = (n: number): string =>
       `*a **b ~~c \`d [e](f) ![g](h) ${'字'.repeat(30)}`.repeat(n)
@@ -157,18 +160,33 @@ describe('Markdown：沒收尾的長輸入不會卡住（串流時每來一段�
       const { user, system } = nodeProcess.cpuUsage()
       return (user + system) / 1000
     }
-    const fastest = (n: number): number => {
-      let best = Infinity
-      for (let run = 0; run < 5; run++) {
-        const start = cpuMs()
-        void renderBlocks(mixed(n))
-        best = Math.min(best, cpuMs() - start)
-      }
-      return Math.max(best, 1)
+    const SMALL = mixed(1000)
+    const LARGE = mixed(4000)
+    const timed = (input: string): number => {
+      const start = cpuMs()
+      void renderBlocks(input)
+      return cpuMs() - start
     }
-    fastest(500) // 暖機
-    const small = fastest(1500)
-    const large = fastest(6000)
-    expect(large / small).toBeLessThan(8)
-  })
+    const measureRatio = (): number => {
+      let small = Infinity
+      let large = Infinity
+      for (let run = 0; run < 7; run++) {
+        small = Math.min(small, timed(SMALL))
+        large = Math.min(large, timed(LARGE))
+      }
+      return Math.max(large, 1) / Math.max(small, 1)
+    }
+    // 暖機：兩種長度都先跑過，讓 JIT 與垃圾回收的狀態穩定
+    timed(SMALL)
+    timed(LARGE)
+    const ratios: number[] = []
+    for (let attempt = 0; attempt < 3; attempt++) {
+      ratios.push(measureRatio())
+      if ((ratios[attempt] ?? Infinity) < 8) break
+    }
+    expect(
+      Math.min(...ratios),
+      `每次量到的倍數：${ratios.map((r) => r.toFixed(2)).join('、')}`,
+    ).toBeLessThan(8)
+  }, 60_000)
 })
