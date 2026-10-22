@@ -4,9 +4,11 @@ import {
   CAMERA_MOVES,
   CAMERA_MOVE_IDS,
   AssetRefSchema,
+  DEFAULT_CHARACTER_PROMPTS,
   ShotAngleSchema,
   ShotSizeSchema,
   defineNode,
+  renderCharacterPrompt,
   storyboardGuidePrompt,
   type AssetRef,
   type GenerationOutput,
@@ -27,6 +29,7 @@ export const NODE_TYPES = {
   video: 'video.generate',
   concat: 'video.concat',
   conceptPrompt: 'character.conceptPrompt',
+  conceptRefPrompt: 'character.conceptRefPrompt',
   turnaroundPrompt: 'character.turnaroundPrompt',
   imageEdit: 'image.edit',
   locationConceptPrompt: 'location.conceptPrompt',
@@ -47,6 +50,7 @@ export const NODE_INFO: Readonly<Record<string, { title: string; category: Graph
   [NODE_TYPES.video]: { title: '圖生影片', category: 'video' },
   [NODE_TYPES.concat]: { title: '接成一支影片', category: 'join' },
   [NODE_TYPES.conceptPrompt]: { title: '角色概念圖 Prompt', category: 'prompt' },
+  [NODE_TYPES.conceptRefPrompt]: { title: '角色概念圖 Prompt（照參考圖）', category: 'prompt' },
   [NODE_TYPES.turnaroundPrompt]: { title: '角色三視圖 Prompt', category: 'prompt' },
   [NODE_TYPES.locationConceptPrompt]: { title: '場景概念圖 Prompt', category: 'prompt' },
   [NODE_TYPES.locationAnglePrompt]: { title: '場景角度 Prompt', category: 'prompt' },
@@ -406,19 +410,54 @@ export const ConceptSubjectSchema = z.object({
 })
 export type ConceptSubject = z.input<typeof ConceptSubjectSchema>
 
-/**
- * 角色概念圖的 Prompt：全身、正面、乾淨的背景，方便之後挑成主圖、再延伸成三視圖。
- * 有固定外觀描述就用它（原封不動），沒有才用長相與服裝。
- */
-export function composeConceptPrompt(subject: ConceptSubject, styleId: QuickStyleId): string {
-  const looks = subject.anchor?.trim()
+/** 固定外觀描述（有就原封不動用），沒有才用長相與服裝。 */
+interface CharacterLook {
+  name: string
+  age?: string | undefined
+  anchor?: string | undefined
+  appearance?: string | undefined
+  outfit?: string | undefined
+}
+
+const looksOf = (subject: CharacterLook): string =>
+  subject.anchor?.trim()
     ? subject.anchor.trim()
     : [(subject.appearance ?? '').trim(), (subject.outfit ?? '').trim()]
         .filter((part) => part !== '')
         .join('，')
+
+/** 節點參數裡的自訂範本；空白（或直接呼叫節點沒給參數）就回 undefined，讓呼叫端用內建預設。 */
+const customTemplate = (template: string | undefined): string | undefined =>
+  template?.trim() ? template : undefined
+
+/** 範本裡可以用的記號（見 CHARACTER_PROMPT_VARS）換成這個角色的內容。 */
+function characterPromptVars(
+  subject: CharacterLook,
+  styleId: QuickStyleId,
+  referenceNote = '',
+): Record<string, string> {
+  const looks = looksOf(subject)
   const age = subject.age?.trim() ? `，${subject.age.trim()}` : ''
-  const body = looks === '' ? subject.name : `${subject.name}${age}：${looks}`
-  return `角色設定圖，${body}。全身站立，面向前方，表情自然，單色乾淨的背景。${QUICK_STYLES[styleId].fragment}`
+  return {
+    名稱: subject.name,
+    角色: looks === '' ? subject.name : `${subject.name}${age}：${looks}`,
+    外觀: looks,
+    外觀句: looks === '' ? '' : `外觀：${looks}。`,
+    畫風: QUICK_STYLES[styleId].fragment,
+    參考圖說明: referenceNote,
+  }
+}
+
+/**
+ * 角色概念圖的 Prompt：全身、正面、乾淨的背景，方便之後挑成主圖、再延伸成三視圖。
+ * 有固定外觀描述就用它（原封不動），沒有才用長相與服裝。範本可以在設定裡改（預設見 DEFAULT_CHARACTER_PROMPTS）。
+ */
+export function composeConceptPrompt(
+  subject: ConceptSubject,
+  styleId: QuickStyleId,
+  template: string = DEFAULT_CHARACTER_PROMPTS.concept,
+): string {
+  return renderCharacterPrompt(template, characterPromptVars(subject, styleId))
 }
 
 export const conceptPromptNode = defineNode({
@@ -426,10 +465,70 @@ export const conceptPromptNode = defineNode({
   version: 1,
   inputs: { subject: { type: 'json' } },
   outputs: { prompt: 'text' },
-  params: z.object({ style: StyleIdSchema.default('realistic') }),
-  run: ({ inputs, params }) => ({
-    prompt: composeConceptPrompt(ConceptSubjectSchema.parse(inputs.subject), params.style),
+  params: z.object({
+    style: StyleIdSchema.default('realistic'),
+    /** 自訂範本；空字串＝內建預設。放在參數裡，範本一改，快取就不會拿到舊範本畫的圖。 */
+    template: z.string().default(''),
   }),
+  run: ({ inputs, params }) => ({
+    prompt: composeConceptPrompt(
+      ConceptSubjectSchema.parse(inputs.subject),
+      params.style,
+      customTemplate(params.template),
+    ),
+  }),
+})
+
+export const ConceptRefSubjectSchema = ConceptSubjectSchema.extend({
+  /** 參考圖（上傳或接到角色「參考圖」的圖）：概念圖照它們畫。 */
+  references: z.array(AssetRefSchema).min(1),
+  /** 每張參考圖的用途（白話：臉、身體、三視圖……），順序和 references 一樣；沒給就不特別說明。 */
+  referencePurposes: z.array(z.string()).default([]),
+})
+export type ConceptRefSubject = z.input<typeof ConceptRefSubjectSchema>
+
+/** 有參考圖的概念圖 Prompt：照參考圖畫同一個角色，不重新設計（範本預設見 DEFAULT_CHARACTER_PROMPTS.conceptRef）。 */
+export function composeConceptRefPrompt(
+  subject: Omit<ConceptRefSubject, 'references' | 'referencePurposes'>,
+  styleId: QuickStyleId,
+  template: string = DEFAULT_CHARACTER_PROMPTS.conceptRef,
+  referencePurposes: readonly string[] = [],
+): string {
+  return renderCharacterPrompt(
+    template,
+    characterPromptVars(subject, styleId, referenceNoteOf(referencePurposes)),
+  )
+}
+
+/**
+ * 告訴圖片模型每一張參考圖是什麼：「參考圖依序是：第 1 張是臉，第 2 張是身體。」
+ * 全部都是「一般」（沒標用途）就不特別說明。
+ */
+export function referenceNoteOf(purposes: readonly string[]): string {
+  if (purposes.every((purpose) => purpose === '一般')) return ''
+  return `參考圖依序是：${purposes.map((purpose, i) => `第 ${String(i + 1)} 張是${purpose}`).join('，')}。`
+}
+
+export const conceptRefPromptNode = defineNode({
+  type: NODE_TYPES.conceptRefPrompt,
+  version: 1,
+  inputs: { subject: { type: 'json' } },
+  outputs: { prompt: 'text', references: 'json' },
+  params: z.object({ style: StyleIdSchema.default('realistic'), template: z.string().default('') }),
+  run: ({ inputs, params }) => {
+    const { references, referencePurposes, ...subject } = ConceptRefSubjectSchema.parse(
+      inputs.subject,
+    )
+    return {
+      prompt: composeConceptRefPrompt(
+        subject,
+        params.style,
+        customTemplate(params.template),
+        referencePurposes,
+      ),
+      references,
+    }
+  },
 })
 
 // ------------------------------------------------------------------ 角色三視圖
@@ -447,25 +546,14 @@ export type TurnaroundSubject = z.input<typeof TurnaroundSubjectSchema>
 
 /**
  * 三視圖設定稿的 Prompt：同一個角色，正面／側面／背面三個全身站姿並排在一張橫式圖上，白色背景。
- * 重點是「完全照參考圖」，不要重新設計角色。
+ * 重點是「完全照參考圖」，不要重新設計角色。範本可以在設定裡改（預設見 DEFAULT_CHARACTER_PROMPTS）。
  */
 export function composeTurnaroundPrompt(
   subject: Omit<TurnaroundSubject, 'hero'>,
   styleId: QuickStyleId,
+  template: string = DEFAULT_CHARACTER_PROMPTS.turnaround,
 ): string {
-  const looks = subject.anchor?.trim()
-    ? subject.anchor.trim()
-    : [(subject.appearance ?? '').trim(), (subject.outfit ?? '').trim()]
-        .filter((part) => part !== '')
-        .join('，')
-  const detail = looks === '' ? '' : `外觀：${looks}。`
-  return (
-    `角色三視圖設定稿（character turnaround sheet）：參考圖裡的角色「${subject.name}」，` +
-    '在同一張橫式圖上由左到右並排三個全身站姿：正面、側面（面向右）、背面；A-pose，三個視角大小一致、站在同一條水平線上，' +
-    '純白背景，沒有文字、標示或邊框。臉、髮型、服裝、配色必須和參考圖完全一致，不要重新設計。' +
-    `${detail}${QUICK_STYLES[styleId].fragment}。` +
-    'Full-body character turnaround sheet, front view, side view, back view side by side, A-pose, plain white background, no text, strictly consistent with the reference image.'
-  )
+  return renderCharacterPrompt(template, characterPromptVars(subject, styleId))
 }
 
 export const turnaroundPromptNode = defineNode({
@@ -473,10 +561,13 @@ export const turnaroundPromptNode = defineNode({
   version: 1,
   inputs: { subject: { type: 'json' } },
   outputs: { prompt: 'text', references: 'json' },
-  params: z.object({ style: StyleIdSchema.default('realistic') }),
+  params: z.object({ style: StyleIdSchema.default('realistic'), template: z.string().default('') }),
   run: ({ inputs, params }) => {
     const { hero, ...subject } = TurnaroundSubjectSchema.parse(inputs.subject)
-    return { prompt: composeTurnaroundPrompt(subject, params.style), references: [hero] }
+    return {
+      prompt: composeTurnaroundPrompt(subject, params.style, customTemplate(params.template)),
+      references: [hero],
+    }
   },
 })
 
@@ -742,6 +833,7 @@ export const QUICK_START_NODES: readonly NodeDefinition[] = [
   breakdownNode,
   shotPromptNode,
   conceptPromptNode,
+  conceptRefPromptNode,
   turnaroundPromptNode,
   locationConceptPromptNode,
   locationAnglePromptNode,

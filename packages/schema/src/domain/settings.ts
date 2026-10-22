@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { UsdSchema } from './common'
+import { CHARACTER_PROMPT_KINDS, CHARACTER_PROMPT_MAX_CHARS } from './character-prompts'
 import { CapabilitySchema, ModelTierSchema, VoiceSchema } from './models'
 import { STORYBOARD_GUIDE_MAX_CHARS } from './storyboard-guide'
 
@@ -80,6 +81,10 @@ export const AppSettingsSchema = z.object({
   modelNotices: z.array(z.string().min(1)).default([]),
   /** 自訂的分鏡準則；空字串表示用內建預設（DEFAULT_STORYBOARD_GUIDE）。 */
   storyboardGuide: z.string().max(STORYBOARD_GUIDE_MAX_CHARS).default(''),
+  /** 自訂的角色提示詞範本（概念圖、有參考圖的概念圖、三視圖）；沒有的項目用內建預設（DEFAULT_CHARACTER_PROMPTS）。 */
+  characterPrompts: z
+    .partialRecord(z.enum(CHARACTER_PROMPT_KINDS), z.string().max(CHARACTER_PROMPT_MAX_CHARS))
+    .default({}),
   mcp: McpSettingsSchema.default({ enabled: false, port: DEFAULT_MCP_PORT, allowanceUsd: 0 }),
   audio: AudioSettingsSchema.default({ voices: {} }),
   experiments: ExperimentsSettingsSchema.default({}),
@@ -97,6 +102,10 @@ export const AppSettingsPatchSchema = z.object({
   budget: BudgetSettingsSchema.optional(),
   /** 自訂的分鏡準則；傳空字串表示恢復預設。 */
   storyboardGuide: z.string().max(STORYBOARD_GUIDE_MAX_CHARS).optional(),
+  /** 角色提示詞範本：逐項合併，值為空字串表示那一項恢復預設。 */
+  characterPrompts: z
+    .partialRecord(z.enum(CHARACTER_PROMPT_KINDS), z.string().max(CHARACTER_PROMPT_MAX_CHARS))
+    .optional(),
   /** 旁白的聲音：逐模型合併，值為 null 表示改回該模型的預設聲音。 */
   audio: z
     .object({ voices: z.record(z.string(), z.string().min(1).nullable()).optional() })

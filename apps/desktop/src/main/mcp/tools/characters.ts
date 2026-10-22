@@ -1,4 +1,11 @@
-import { CharacterEditSchema, type CharacterView } from '@svs/schema'
+import {
+  CHARACTER_REFERENCE_LABEL_MAX,
+  CHARACTER_REFERENCE_PURPOSES,
+  CHARACTER_REFERENCE_PURPOSE_LABELS,
+  CharacterEditSchema,
+  type CharacterView,
+  type ReferenceView,
+} from '@svs/schema'
 import { z } from 'zod'
 
 import { McpToolError } from '../bridge'
@@ -10,7 +17,16 @@ export const IMAGE_RESERVE_FACTOR = 1.25
 /** 「幫我把長相整理成固定外觀描述」是一次文字模型的小呼叫（約幾美分）；沒有預估介面，用固定金額預留。 */
 export const SUGGEST_ANCHOR_ESTIMATE_USD = 0.03
 
-const characterView = (c: CharacterView) => ({
+const referenceView = (r: ReferenceView) => ({
+  referenceId: r.id,
+  assetHash: r.assetHash,
+  purpose: r.purpose,
+  label: r.label,
+  /** canvas＝在畫布上接到「參考圖」的圖，只能在畫布上剪線拿掉。 */
+  source: r.source,
+})
+
+const characterView = (c: CharacterView, references?: ReferenceView[]) => ({
   id: c.id,
   name: c.name,
   age: c.age ?? null,
@@ -21,6 +37,7 @@ const characterView = (c: CharacterView) => ({
   version: c.version,
   hasHeroImage: c.heroAssetHash !== undefined,
   hasTurnaround: c.turnaround !== undefined,
+  ...(references === undefined ? {} : { references: references.map(referenceView) }),
 })
 
 /** 角色：建立、寫固定外觀、生成概念圖、挑主圖、鎖定。看圖（view_character_images）也在這裡。 */
@@ -29,12 +46,17 @@ export function registerCharacterTools(ctx: ToolContext): void {
     name: 'list_characters',
     title: 'List characters',
     description:
-      'The characters of the current project (split_story_into_scenes creates draft characters for you). Each has an id, the fixed look text ("anchor": none/draft/locked — a LOCKED anchor is sent unchanged with every shot prompt that includes the character) and whether it has a hero picture.',
+      'The characters of the current project (split_story_into_scenes creates draft characters for you). Each has an id, the fixed look text ("anchor": none/draft/locked — a LOCKED anchor is sent unchanged with every shot prompt that includes the character), whether it has a hero picture, and references: its reference pictures, each with a purpose (face, body, turnaround, expression, costume, prop, general; see add_character_reference).',
     input: {},
     hints: { readOnly: true },
     run: async () => {
       const { characters } = await ctx.caller.call('characters.list', {})
-      return { characters: characters.map(characterView) }
+      const views = []
+      for (const c of characters) {
+        const { references } = await ctx.caller.call('characters.references', { characterId: c.id })
+        views.push(characterView(c, references))
+      }
+      return { characters: views }
     },
   })
 
@@ -100,10 +122,80 @@ export function registerCharacterTools(ctx: ToolContext): void {
   })
 
   defineTool(ctx, {
+    name: 'list_project_images',
+    title: 'List the pictures in the project',
+    description:
+      'The pictures already stored in the current project (newest first): assetHash, size, and where each is used ("usedBy"; empty = a picture the user uploaded or dropped on the canvas that nothing uses yet). Use the assetHash with add_character_reference to make one a character reference. Free. This cannot import files from the computer: ask the user to drop the picture onto the canvas first.',
+    input: { limit: z.number().int().min(1).max(60).default(20) },
+    hints: { readOnly: true },
+    run: async ({ limit }) => {
+      const { files } = await ctx.caller.call('files.list', { kind: 'image' })
+      return {
+        images: files.slice(0, limit).map((f) => ({
+          assetHash: f.hash,
+          width: f.width ?? null,
+          height: f.height ?? null,
+          usedBy: f.usedBy,
+        })),
+        total: files.length,
+      }
+    },
+  })
+
+  defineTool(ctx, {
+    name: 'add_character_reference',
+    title: 'Add a reference picture to a character',
+    description: `Make a picture that is ALREADY in the project (assetHash from list_project_images) a reference picture of the character, and say what it shows (purpose: ${CHARACTER_REFERENCE_PURPOSES.join(', ')}). A character can have several references with different purposes (for example a face close-up, a body without the face, a turnaround sheet, an expression sheet, a costume, a prop). From then on generate_character_images draws the concept pictures FROM the references (an image-edit model keeps the face, colours, markings and proportions; only the art style changes), and tells the model what each reference is, instead of working from the text alone. Add the character's original design sheet to keep it identical to the original. The same picture with the same purpose is stored once. Free. Only pictures already in the project can be used.`,
+    input: {
+      characterId: z.string().min(1),
+      assetHash: z.string().min(1).describe('assetHash of a picture in the project'),
+      purpose: z
+        .enum(CHARACTER_REFERENCE_PURPOSES)
+        .default('general')
+        .describe('What the picture shows; "general" = a design sheet or anything else'),
+      label: z
+        .string()
+        .max(CHARACTER_REFERENCE_LABEL_MAX)
+        .default('')
+        .describe('Optional short note, e.g. "original design sheet"'),
+    },
+    hints: { readOnly: false, idempotent: true },
+    run: async ({ characterId, assetHash, purpose, label }) => {
+      const state = await ctx.caller.call('characters.addReference', {
+        characterId,
+        assetHash,
+        purpose,
+        label,
+      })
+      return {
+        references: state.references.map(referenceView),
+        purposes: CHARACTER_REFERENCE_PURPOSE_LABELS,
+        next: 'Call generate_character_images: it will draw the next round from the reference picture(s). To look at the references use view_character_images with includeReferences.',
+      }
+    },
+  })
+
+  defineTool(ctx, {
+    name: 'remove_character_reference',
+    title: "Remove a character's reference picture",
+    description:
+      'Remove one reference picture added with add_character_reference (referenceId from list_characters). The picture itself stays in the project. References with source "canvas" were connected on the canvas and can only be removed there. Free.',
+    input: { characterId: z.string().min(1), referenceId: z.string().min(1) },
+    hints: { readOnly: false, idempotent: true },
+    run: async ({ characterId, referenceId }) => {
+      const state = await ctx.caller.call('characters.removeReference', {
+        characterId,
+        referenceId,
+      })
+      return { references: state.references.map(referenceView) }
+    },
+  })
+
+  defineTool(ctx, {
     name: 'generate_character_images',
     title: 'Generate character pictures',
     description:
-      "Start one round of concept pictures (4 candidates) for a character, from its look text and the project's art style. Runs in the background: this returns at once; then call wait_for_generation and view_character_images. Calls the image model, so it counts against the spending allowance (see estimate_cost-style numbers in the reply); free in demo mode.",
+      "Start one round of concept pictures (4 candidates) for a character, from its look text and the project's art style — or, if the character has reference pictures (add_character_reference), drawn from those references so the character stays the same as the original. Runs in the background: this returns at once; then call wait_for_generation and view_character_images. Calls the image model, so it counts against the spending allowance (see estimate_cost-style numbers in the reply); free in demo mode.",
     input: { characterId: z.string().min(1) },
     hints: { readOnly: false },
     run: async ({ characterId }) => {
@@ -121,6 +213,7 @@ export function registerCharacterTools(ctx: ToolContext): void {
         started: true,
         images: check.count,
         model: check.modelName ?? null,
+        referencePictures: check.references ?? 0,
         demoMode: check.demoMode,
         spending: { estimatedUsd: check.estimatedUsd, ...reserved },
         next: 'Call wait_for_generation, then view_character_images to look at them.',
@@ -143,15 +236,30 @@ export function registerCharacterTools(ctx: ToolContext): void {
         .default(4)
         .describe('How many concept pictures to return'),
       includeHero: z.boolean().default(true).describe('Also return the picked hero picture'),
+      includeReferences: z
+        .boolean()
+        .default(false)
+        .describe("Also return the character's reference pictures (first, with their purposes)"),
     },
     hints: { readOnly: true },
-    run: async ({ characterId, maxImages, includeHero }) => {
+    run: async ({ characterId, maxImages, includeHero, includeReferences }) => {
       const state = await ctx.caller.call('characters.concepts', { characterId })
       const list = await ctx.caller.call('characters.list', {})
       const character = list.characters.find((c) => c.id === characterId)
       const concepts = state.concepts.slice(0, maxImages)
       const images = []
-      const order: ({ conceptId: string; round: number } | { hero: true })[] = []
+      const order: (
+        | { conceptId: string; round: number }
+        | { hero: true }
+        | { referenceId: string; purpose: string }
+      )[] = []
+      if (includeReferences) {
+        const { references } = await ctx.caller.call('characters.references', { characterId })
+        for (const reference of references) {
+          images.push(await ctx.viewer.image(reference.assetHash))
+          order.push({ referenceId: reference.id, purpose: reference.purpose })
+        }
+      }
       if (includeHero && character?.heroAssetHash) {
         images.push(await ctx.viewer.image(character.heroAssetHash))
         order.push({ hero: true })

@@ -603,3 +603,36 @@ describe('StructureHistory：group（Claude 一輪的改動併成一步）', () 
     expect(after?.mood).toBe('熱鬧')
   })
 })
+
+describe('StructureHistory：角色參考圖', () => {
+  it('加參考圖、拿掉參考圖都能復原與重做；刪掉角色再復原，參考圖一起回來', () => {
+    const { repos, history } = setup()
+    const hero = repos.characters.create('小饅頭')
+    const ref = history.record('加上參考圖', () =>
+      repos.characters.addReference({
+        characterId: hero.id,
+        assetHash: HASH('a'),
+        purpose: 'face',
+        label: '原版設定圖',
+      }),
+    )
+    history.undo()
+    expect(repos.characters.listReferences(hero.id)).toEqual([])
+    history.redo()
+    expect(repos.characters.listReferences(hero.id).map((r) => r.id)).toEqual([ref.id])
+
+    history.record('拿掉參考圖', () => repos.characters.removeReference(hero.id, ref.id))
+    expect(repos.characters.listReferences(hero.id)).toEqual([])
+    history.undo()
+    expect(repos.characters.listReferences(hero.id)).toMatchObject([
+      { id: ref.id, purpose: 'face', label: '原版設定圖' },
+    ])
+
+    history.record('刪除角色', () => {
+      repos.characters.delete(hero.id)
+    })
+    expect(repos.characters.listReferences(hero.id)).toEqual([])
+    history.undo()
+    expect(repos.characters.listReferences(hero.id).map((r) => r.id)).toEqual([ref.id])
+  })
+})

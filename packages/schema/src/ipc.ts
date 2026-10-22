@@ -1,12 +1,15 @@
 import { z } from 'zod'
 
 import {
+  CHARACTER_REFERENCE_LABEL_MAX,
   CharacterEditSchema,
   CharacterNameSchema,
+  CharacterReferencePurposeSchema,
   CharacterVersionSchema,
   CharacterViewSchema,
   ConceptCheckSchema,
   ConceptsStateSchema,
+  ReferencesStateSchema,
   TurnaroundCutsSchema,
   TurnaroundViewSchema,
   TurnaroundsStateSchema,
@@ -19,7 +22,7 @@ import {
   ChatPrereqSchema,
   ChatTitleSchema,
 } from './domain/chat'
-import { AspectRatioSchema, IdSchema } from './domain/common'
+import { AspectRatioSchema, ContentHashSchema, IdSchema } from './domain/common'
 import {
   OUTLINE_TEXT_MAX,
   OutlineOpSchema,
@@ -897,6 +900,29 @@ export const ipcContract = {
   'characters.conceptCheck': {
     request: z.object({ characterId: IdSchema }),
     response: ConceptCheckSchema,
+  },
+  /** 這個角色的參考圖清單（每張有用途標記）。 */
+  'characters.references': {
+    request: z.object({ characterId: IdSchema }),
+    response: ReferencesStateSchema,
+  },
+  /**
+   * 把專案裡已有的一張圖片加成這個角色的參考圖，並標上用途（臉、身體、三視圖……）；
+   * 之後生成概念圖會照它們畫。同一張圖同一個用途只會有一筆。回傳更新後的清單。可以復原。
+   */
+  'characters.addReference': {
+    request: z.object({
+      characterId: IdSchema,
+      assetHash: ContentHashSchema,
+      purpose: CharacterReferencePurposeSchema.default('general'),
+      label: z.string().max(CHARACTER_REFERENCE_LABEL_MAX).default(''),
+    }),
+    response: ReferencesStateSchema,
+  },
+  /** 移除一張用「加參考圖」存的參考圖（圖本身留在專案裡）。回傳更新後的清單。可以復原。 */
+  'characters.removeReference': {
+    request: z.object({ characterId: IdSchema, referenceId: IdSchema }),
+    response: ReferencesStateSchema,
   },
   /** 生成新的一輪概念圖（在背景執行，進度用 characters.conceptsChanged 事件推送）。 */
   'characters.generateConcepts': {

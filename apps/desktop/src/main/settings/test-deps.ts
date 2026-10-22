@@ -210,6 +210,13 @@ export function testSettingsDeps(
         throw new Error('測試用的概念圖服務不能生成')
       },
       cancel: () => undefined,
+      references: (characterId) => ({ characterId, references: [] }),
+      addReference: () => {
+        throw new Error('測試用的概念圖服務不能加參考圖')
+      },
+      removeReference: () => {
+        throw new Error('測試用的概念圖服務不能拿掉參考圖')
+      },
     },
     turnarounds: {
       state: (characterId) => ({ characterId, turnarounds: [] }),

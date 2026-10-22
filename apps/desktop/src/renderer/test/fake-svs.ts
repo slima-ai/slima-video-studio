@@ -18,6 +18,7 @@ export const SETTINGS: AppSettings = {
   demoMode: false,
   advancedMode: false,
   storyboardGuide: '',
+  characterPrompts: {},
   mcp: { enabled: false, port: 47821, allowanceUsd: 0 },
   theme: 'system',
   models: {},

@@ -28,6 +28,7 @@ describe('createSettingsStore', () => {
       budget: { perRunLimitUsd: 5 },
       modelNotices: [],
       storyboardGuide: '',
+      characterPrompts: {},
       mcp: { enabled: false, port: 47821, allowanceUsd: 0 },
       audio: { voices: {} },
       experiments: {},
@@ -126,6 +127,22 @@ describe('applyPatch', () => {
     expect(custom.storyboardGuide).toBe('多用遠景。')
     expect(applyPatch(custom, { demoMode: true }).storyboardGuide).toBe('多用遠景。')
     expect(applyPatch(custom, { storyboardGuide: '' }).storyboardGuide).toBe('')
+  })
+
+  it('角色提示詞範本：逐項合併、去掉頭尾空白；空白表示那一項恢復預設，沒提到的項目不動', () => {
+    const one = applyPatch(base, { characterPrompts: { concept: '  我的概念圖範本 {{名稱}}\n' } })
+    expect(one.characterPrompts).toEqual({ concept: '我的概念圖範本 {{名稱}}' })
+    const two = applyPatch(one, { characterPrompts: { turnaround: '三視圖範本' } })
+    expect(two.characterPrompts).toEqual({
+      concept: '我的概念圖範本 {{名稱}}',
+      turnaround: '三視圖範本',
+    })
+    // 改別的設定不會動到範本
+    expect(applyPatch(two, { demoMode: true }).characterPrompts).toEqual(two.characterPrompts)
+    // 空白＝恢復預設：設定檔裡就不留那一項
+    expect(applyPatch(two, { characterPrompts: { concept: '   ' } }).characterPrompts).toEqual({
+      turnaround: '三視圖範本',
+    })
   })
 })
 

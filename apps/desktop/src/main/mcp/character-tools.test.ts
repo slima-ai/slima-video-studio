@@ -126,6 +126,110 @@ describe('角色：建立、寫外觀、生成概念圖、看圖、挑主圖、�
     expect(locked.anchor.status).toBe('locked')
   })
 
+  it('參考圖：列出專案裡的圖（不帶電腦上的路徑）→ 加成有用途的參考圖 → 下一輪照參考圖畫；不在專案裡的圖被擋下', async () => {
+    const { call } = await start()
+    await call('create_project', { name: 'x' })
+    await call('split_story_into_scenes', { story: '故事' })
+    const bun = dataOf(Characters, await call('list_characters')).characters[0]
+    if (!bun) throw new Error('沒有角色')
+    const waitDone = async (): Promise<void> => {
+      let waited = dataOf(Waited, await call('wait_for_generation', { maxSeconds: 30 }))
+      for (let i = 0; i < 3 && !waited.finished; i++)
+        waited = dataOf(Waited, await call('wait_for_generation', { maxSeconds: 30 }))
+      expect(waited.finished).toBe(true)
+    }
+    await call('generate_character_images', { characterId: bun.id })
+    await waitDone()
+
+    // 專案裡有哪些圖：只有雜湊、尺寸、用途，沒有檔案路徑
+    const listed = JSON.parse(textOf(await call('list_project_images', {}))) as {
+      images: Record<string, unknown>[]
+      total: number
+    }
+    expect(listed.total).toBeGreaterThanOrEqual(4)
+    for (const image of listed.images) {
+      expect(Object.keys(image).sort()).toEqual(['assetHash', 'height', 'usedBy', 'width'])
+    }
+    expect(JSON.stringify(listed)).not.toMatch(/\.svsproj|\/Users\/|\/tmp\/|\\\\/)
+    const [first, second] = listed.images.map((i) => String(i.assetHash))
+
+    // 加成有用途的參考圖：角色清單看得到；沒標用途就是 general
+    const Refs = z.object({
+      references: z.array(
+        z.looseObject({ referenceId: z.string(), purpose: z.string(), label: z.string() }),
+      ),
+    })
+    const added = dataOf(
+      Refs,
+      await call('add_character_reference', {
+        characterId: bun.id,
+        assetHash: first,
+        purpose: 'face',
+        label: '原版設定圖',
+      }),
+    )
+    expect(added.references).toMatchObject([{ purpose: 'face', label: '原版設定圖' }])
+    const two = dataOf(
+      Refs,
+      await call('add_character_reference', { characterId: bun.id, assetHash: second }),
+    )
+    expect(two.references.map((r) => r.purpose)).toEqual(['face', 'general'])
+    const after = dataOf(
+      z.object({ characters: z.array(z.looseObject({ references: Refs.shape.references })) }),
+      await call('list_characters'),
+    )
+    expect(after.characters[0]?.references).toHaveLength(2)
+
+    // 看得到參考圖（含用途）
+    const viewed = await call('view_character_images', {
+      characterId: bun.id,
+      includeReferences: true,
+      includeHero: false,
+      maxImages: 1,
+    })
+    expect(imageBlocks(viewed)).toHaveLength(3)
+    const info = JSON.parse(textOf(viewed)) as { imagesInOrder: { purpose?: string }[] }
+    expect(info.imagesInOrder.slice(0, 2).map((o) => o.purpose)).toEqual(['face', 'general'])
+
+    // 下一輪照參考圖畫：回傳說用了幾張參考圖
+    const started = JSON.parse(
+      textOf(await call('generate_character_images', { characterId: bun.id })),
+    ) as { started: boolean; referencePictures: number }
+    expect(started).toMatchObject({ started: true, referencePictures: 2 })
+    await waitDone()
+
+    // 移除一張
+    const removed = dataOf(
+      Refs,
+      await call('remove_character_reference', {
+        characterId: bun.id,
+        referenceId: String(added.references[0]?.referenceId),
+      }),
+    )
+    expect(removed.references.map((r) => r.purpose)).toEqual(['general'])
+
+    // 不在專案裡的圖、不存在的角色、不存在的用途：白話錯誤
+    const missing = await call('add_character_reference', {
+      characterId: bun.id,
+      assetHash: 'f'.repeat(64),
+    })
+    expect(missing.isError).toBe(true)
+    expect(textOf(missing)).toContain('專案裡找不到這張圖片')
+    expect(textOf(missing)).not.toMatch(/undefined|\.ts:|at .*\(/)
+    expect(
+      (await call('add_character_reference', { characterId: 'nope', assetHash: first })).isError,
+    ).toBe(true)
+    expect(
+      (
+        await call('add_character_reference', {
+          characterId: bun.id,
+          assetHash: first,
+          purpose: 'x',
+        })
+      ).isError,
+    ).toBe(true)
+  })
+
   it('看不存在的素材、不存在的角色：白話錯誤，不是例外', async () => {
     const { call } = await start()
     await call('create_project', { name: 'x' })

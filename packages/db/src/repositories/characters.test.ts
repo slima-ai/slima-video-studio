@@ -1,7 +1,7 @@
 import { AppError } from '@svs/schema'
 import { describe, expect, it } from 'vitest'
 
-import { newProject, tempDir } from '../__tests__/helpers'
+import { newProject, reopen, tempDir } from '../__tests__/helpers'
 import { openProject } from '../project-folder'
 import { outfitOf } from './characters'
 
@@ -269,6 +269,95 @@ describe('CharactersRepository：概念圖與主圖', () => {
     })
     repos.characters.delete(hero.id)
     expect(repos.characters.listConcepts(hero.id)).toEqual([])
+  })
+})
+
+describe('CharactersRepository：參考圖（有用途標記的清單）', () => {
+  const H = (c: string): string => c.repeat(64)
+
+  it('加參考圖：先加的在前，每一筆有用途與備註；沒有的角色回報錯誤', () => {
+    const { repos } = newProject()
+    const hero = repos.characters.create('小饅頭')
+    expect(repos.characters.listReferences(hero.id)).toEqual([])
+    const face = repos.characters.addReference({
+      characterId: hero.id,
+      assetHash: H('a'),
+      purpose: 'face',
+      label: '  原版設定圖 ',
+    })
+    repos.characters.addReference({ characterId: hero.id, assetHash: H('b'), purpose: 'body' })
+    expect(face).toMatchObject({ purpose: 'face', label: '原版設定圖', source: 'added' })
+    expect(repos.characters.listReferences(hero.id).map((r) => [r.assetHash, r.purpose])).toEqual([
+      [H('a'), 'face'],
+      [H('b'), 'body'],
+    ])
+    expect(() =>
+      repos.characters.addReference({ characterId: 'nope', assetHash: H('a'), purpose: 'face' }),
+    ).toThrow(AppError)
+  })
+
+  it('同一張圖同一個用途只有一筆（只更新備註）；同一張圖可以有不同的用途', () => {
+    const { repos } = newProject()
+    const hero = repos.characters.create('小饅頭')
+    const first = repos.characters.addReference({
+      characterId: hero.id,
+      assetHash: H('a'),
+      purpose: 'face',
+    })
+    const again = repos.characters.addReference({
+      characterId: hero.id,
+      assetHash: H('a'),
+      purpose: 'face',
+      label: '新備註',
+    })
+    expect(again.id).toBe(first.id)
+    expect(repos.characters.listReferences(hero.id)).toHaveLength(1)
+    expect(repos.characters.listReferences(hero.id)[0]?.label).toBe('新備註')
+    // 沒給備註再加一次不會把備註清掉
+    repos.characters.addReference({ characterId: hero.id, assetHash: H('a'), purpose: 'face' })
+    expect(repos.characters.listReferences(hero.id)[0]?.label).toBe('新備註')
+    repos.characters.addReference({ characterId: hero.id, assetHash: H('a'), purpose: 'prop' })
+    expect(repos.characters.listReferences(hero.id).map((r) => r.purpose)).toEqual(['face', 'prop'])
+  })
+
+  it('移除：只刪那一筆；別的角色的參考圖動不了；沒有的回 false', () => {
+    const { repos } = newProject()
+    const a = repos.characters.create('小饅頭')
+    const b = repos.characters.create('獸人')
+    const ref = repos.characters.addReference({
+      characterId: a.id,
+      assetHash: H('a'),
+      purpose: 'face',
+    })
+    repos.characters.addReference({ characterId: a.id, assetHash: H('b'), purpose: 'body' })
+    expect(repos.characters.removeReference(b.id, ref.id)).toBe(false)
+    expect(repos.characters.removeReference(a.id, 'nope')).toBe(false)
+    expect(repos.characters.removeReference(a.id, ref.id)).toBe(true)
+    expect(repos.characters.listReferences(a.id).map((r) => r.purpose)).toEqual(['body'])
+  })
+
+  it('讀到不認得的用途（較新版本存的）當成 general，整份清單照樣讀得出來；重新開啟專案後還在', () => {
+    const first = newProject()
+    const hero = first.repos.characters.create('小饅頭')
+    first.repos.characters.addReference({
+      characterId: hero.id,
+      assetHash: H('a'),
+      purpose: 'face',
+    })
+    first.sqlite.prepare("UPDATE character_references SET purpose = 'weapon-from-the-future'").run()
+    first.close()
+    const reopened = reopen(first)
+    expect(reopened.repos.characters.listReferences(hero.id)).toMatchObject([
+      { assetHash: H('a'), purpose: 'general' },
+    ])
+  })
+
+  it('刪除角色連同參考圖一起刪掉', () => {
+    const { repos } = newProject()
+    const hero = repos.characters.create('小饅頭')
+    repos.characters.addReference({ characterId: hero.id, assetHash: H('a'), purpose: 'face' })
+    repos.characters.delete(hero.id)
+    expect(repos.characters.listReferences(hero.id)).toEqual([])
   })
 })
 

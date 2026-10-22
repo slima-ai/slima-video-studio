@@ -527,6 +527,15 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('characters.conceptCheck', ({ characterId }) =>
     concepts.check(characterId),
   )
+  registry.registerHandler('characters.references', ({ characterId }) =>
+    concepts.references(characterId),
+  )
+  registry.registerHandler('characters.addReference', (request) =>
+    history.record('加上參考圖', () => concepts.addReference(request)),
+  )
+  registry.registerHandler('characters.removeReference', ({ characterId, referenceId }) =>
+    history.record('拿掉參考圖', () => concepts.removeReference(characterId, referenceId)),
+  )
   registry.registerHandler('characters.generateConcepts', ({ characterId }) => {
     concepts.generate(characterId)
     return {}

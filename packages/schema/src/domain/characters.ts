@@ -73,6 +73,60 @@ export const ConceptViewSchema = z.object({
 })
 export type ConceptView = z.infer<typeof ConceptViewSchema>
 
+/**
+ * 角色參考圖的用途。參考圖是一份「有用途標記的清單」：同一個角色可以有臉、身體、三視圖、表情、服裝、道具……
+ * 好幾張，生成時依用途告訴圖片模型每一張是什麼。資料庫裡用途存成文字，之後多一種用途不需要遷移；
+ * 讀到不認得的用途（較新版本存的）一律當成 general。
+ */
+export const CHARACTER_REFERENCE_PURPOSES = [
+  'face',
+  'body',
+  'turnaround',
+  'expression',
+  'costume',
+  'prop',
+  'general',
+] as const
+export const CharacterReferencePurposeSchema = z.enum(CHARACTER_REFERENCE_PURPOSES)
+export type CharacterReferencePurpose = z.infer<typeof CharacterReferencePurposeSchema>
+
+/** 用途的白話名稱（畫面與給圖片模型的說明都用這份）。 */
+export const CHARACTER_REFERENCE_PURPOSE_LABELS: Readonly<
+  Record<CharacterReferencePurpose, string>
+> = {
+  face: '臉',
+  body: '身體',
+  turnaround: '三視圖',
+  expression: '表情',
+  costume: '服裝',
+  prop: '道具',
+  general: '一般',
+}
+
+/** 一張參考圖的備註上限（一句白話，例如「原版設定圖」）。 */
+export const CHARACTER_REFERENCE_LABEL_MAX = 60
+
+export const ReferenceViewSchema = z.object({
+  id: IdSchema,
+  assetHash: ContentHashSchema,
+  purpose: CharacterReferencePurposeSchema,
+  label: z.string(),
+  createdAt: IsoDateTimeSchema,
+  /**
+   * added：用「加參考圖」存的（可以移除）；
+   * canvas：在畫布上把圖接到角色的「參考圖」接點（要在畫布上剪掉那條線才會拿掉）。
+   */
+  source: z.enum(['added', 'canvas']),
+})
+export type ReferenceView = z.infer<typeof ReferenceViewSchema>
+
+/** 某個角色的參考圖清單。 */
+export const ReferencesStateSchema = z.object({
+  characterId: IdSchema,
+  references: z.array(ReferenceViewSchema),
+})
+export type ReferencesState = z.infer<typeof ReferencesStateSchema>
+
 /** 某個角色的概念圖與目前的生成進度（完整快照）。 */
 export const ConceptsStateSchema = z.object({
   characterId: IdSchema,
@@ -96,6 +150,8 @@ export const ConceptCheckSchema = z.object({
   count: z.number().int().positive(),
   demoMode: z.boolean(),
   modelName: z.string().optional(),
+  /** 這一輪會拿幾張參考圖（上傳或接到角色「參考圖」的圖）當依據；0 或沒有就是只用文字描述。 */
+  references: z.number().int().nonnegative().optional(),
 })
 export type ConceptCheck = z.infer<typeof ConceptCheckSchema>
 
