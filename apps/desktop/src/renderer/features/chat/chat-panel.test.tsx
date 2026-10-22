@@ -441,7 +441,11 @@ describe('Claude 對話面板：「正在檢查」不閃', () => {
 
   // 時間用假的（只換 setTimeout／clearTimeout），結果什麼時候回來由測試決定，不靠真的等
   const setupHeld = async () => {
-    const hold = { release: () => undefined as void }
+    const hold: { release: () => void } = {
+      release: () => {
+        throw new Error('檢查還沒開始，沒有東西可以放行')
+      },
+    }
     setup({ holdStatus: hold })
     const launcher = await screen.findByTestId('chat-launcher')
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
@@ -452,7 +456,13 @@ describe('Claude 對話面板：「正在檢查」不閃', () => {
     })
     watch.observe(document.body, { childList: true, subtree: true })
     fireEvent.click(launcher)
-    return { hold, shown: () => everShown, stop: () => watch.disconnect() }
+    return {
+      hold,
+      shown: () => everShown,
+      stop: () => {
+        watch.disconnect()
+      },
+    }
   }
 
   it(`${String(CHECKING_NOTE_DELAY_MS)} 毫秒內有結果：「正在檢查」從頭到尾不出現`, async () => {

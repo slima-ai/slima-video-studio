@@ -56,10 +56,10 @@ describe('FinalCutRepository', () => {
     }
     const prepared: string[] = []
     const prepare = sqlite.prepare.bind(sqlite)
-    vi.spyOn(sqlite, 'prepare').mockImplementation(((sql: string) => {
+    vi.spyOn(sqlite, 'prepare').mockImplementation((sql: string) => {
       prepared.push(sql)
       return prepare(sql)
-    }) as typeof sqlite.prepare)
+    })
     const latest = repos.finalCuts.latest()
     const selects = prepared.filter((sql) => /^select /i.test(sql) && sql.includes('final_cuts'))
     expect(selects).toHaveLength(1)
