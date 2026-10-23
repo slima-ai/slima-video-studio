@@ -1,6 +1,7 @@
 import {
   DEFAULT_QUICK_START_SOUND,
   QuickStartSoundSchema,
+  lowerFirst,
   isAppError,
   type CanvasNotice,
   type CanvasRunSoundPlan,
@@ -90,7 +91,10 @@ export function soundDoneNotice(result: RunSoundResult): CanvasNotice {
         : t('canvas.added2', { value: done.join(t('list.and')) })
   return {
     tone: 'success',
-    message: why === undefined || done.length > 1 ? head : `${head}；${why}`,
+    message:
+      why === undefined || done.length > 1
+        ? head
+        : `${head}${t('list.semicolon')}${lowerFirst(why)}`,
   }
 }
 

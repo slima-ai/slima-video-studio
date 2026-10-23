@@ -87,6 +87,37 @@ test.describe('英文介面的畫布', () => {
     await pick(page, 'oneliner-shots', '3')
     await pick(page, 'oneliner-duration', '3')
     expect(await visibleBadText(page), '一句話卡片').toBeUndefined()
+    // 一句話卡片的尺寸固定：英文字再長，故事輸入框也要完整露出來（不被下面那排壓扁、蓋住），整張卡的內容不超出卡片
+    const layout = await page.evaluate(() => {
+      const rect = (testId: string) =>
+        document.querySelector(`[data-testid="${testId}"]`)?.getBoundingClientRect()
+      const story = rect('oneliner-story')
+      const rows = ['oneliner-style', 'oneliner-shots', 'oneliner-duration', 'oneliner-aspect'].map(
+        (id) => rect(id),
+      )
+      // 卡片裡每一個有字的元素（含最下面那句說明）的最低點
+      const cardEl = document
+        .querySelector('[data-testid="oneliner-story"]')
+        ?.closest('.react-flow__node')
+      let lowest = 0
+      for (const el of cardEl?.querySelectorAll('*') ?? []) {
+        if (el.children.length === 0 && el.textContent.trim() !== '') {
+          lowest = Math.max(lowest, el.getBoundingClientRect().bottom)
+        }
+      }
+      return {
+        storyHeight: story ? Math.round(story.height) : 0,
+        storyBottom: story?.bottom ?? 0,
+        rowTops: rows.map((r) => r?.top ?? 0),
+        lastBottom: lowest,
+        cardBottom: cardEl?.getBoundingClientRect().bottom ?? 0,
+      }
+    })
+    expect(layout.storyHeight, '故事輸入框被壓扁').toBeGreaterThanOrEqual(60)
+    for (const top of layout.rowTops) {
+      expect(top, '故事輸入框和下面那排重疊').toBeGreaterThanOrEqual(layout.storyBottom)
+    }
+    expect(layout.lastBottom, '一句話卡片的內容超出卡片').toBeLessThanOrEqual(layout.cardBottom + 1)
     await page.getByTestId('oneliner-generate').click()
     expect(await visibleBadText(page), '執行確認').toBeUndefined()
     await page.getByTestId('run-confirm-ok').click()
@@ -95,7 +126,7 @@ test.describe('英文介面的畫布', () => {
       timeout: 60_000,
     })
     await expect(
-      page.getByTestId('toast').filter({ hasText: 'The film is generated' }),
+      page.getByTestId('toast').filter({ hasText: 'Film ready — narration and music added' }),
     ).toBeVisible()
     expect(await kindCount(page, 'shot')).toBe(3)
     expect(await visibleBadText(page), '長完之後').toBeUndefined()

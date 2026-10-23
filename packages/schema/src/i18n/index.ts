@@ -3,6 +3,7 @@ export { LANGUAGE_NAMES } from './locales/zh-TW/language-names'
 export {
   formatDate,
   formatNumber,
+  lowerFirst,
   lookupMessage,
   messageVariants,
   msg,

@@ -5,7 +5,7 @@ import { useToast } from '../../components/toast'
 import { useHistory } from '../../lib/history'
 import { call, errorText } from '../../lib/svs'
 import type { ConfirmAnchor } from './run-confirm'
-import { messageVariants, t } from '@svs/schema'
+import { lowerFirst, messageVariants, t } from '@svs/schema'
 
 /** 還沒回報是哪個節點在生成（例如離開畫布再回來）時，所有一句話節點都顯示生成中。 */
 export const ANY_ONELINER = '*'
@@ -90,7 +90,9 @@ export function useGrow(options: {
               ? t('canvas.theFilmIsGeneratedBut')
               : progress.soundDone !== undefined &&
                   !messageVariants('canvas.theFilmIsJoined').includes(progress.soundDone)
-                ? t('canvas.theFilmIsGenerated', { soundDone: progress.soundDone })
+                ? t('canvas.theFilmIsGenerated', {
+                    soundDone: lowerFirst(progress.soundDone),
+                  })
                 : t('canvas.theFilmIsGenerated2'),
             action,
           })

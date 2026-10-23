@@ -9,13 +9,9 @@ import { t } from '@svs/schema'
 /** 完成後自動加的旁白與配樂（照卡片上勾的）；花費已經算進預估。 */
 function soundLines(sound: OnelinerParams['sound']): string[] {
   if (!sound) return []
-  const parts = [
-    ...(sound.narration ? [t('canvas.narrationReadsTheShotsThat')] : []),
-    ...(sound.music ? [t('canvas.aPieceOfMusic')] : []),
-  ]
-  return parts.length === 0
-    ? []
-    : [t('canvas.afterJoiningAddsTheCost', { value: parts.join(t('list.comma')) })]
+  if (sound.narration && sound.music) return [t('canvas.afterJoiningAddsBoth')]
+  if (sound.narration) return [t('canvas.afterJoiningAddsNarration')]
+  return sound.music ? [t('canvas.afterJoiningAddsMusic')] : []
 }
 
 /**

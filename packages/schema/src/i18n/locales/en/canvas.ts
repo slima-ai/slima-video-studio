@@ -378,10 +378,11 @@ export const canvas = {
   'canvas.soundChangedNeedsANew': 'Sound changed; needs a new mix',
   'canvas.shotsChangedNeedsJoiningAgain': 'Shots changed; needs joining again',
   'canvas.filmNotJoinedYet': 'Film not joined yet',
-  'canvas.narrationReadsTheShotsThat': 'Narration (reads the shots that have lines)',
-  'canvas.aPieceOfMusic': 'A piece of music',
-  'canvas.afterJoiningAddsTheCost':
-    'After joining, adds {value}; the cost is already in the estimate',
+  'canvas.afterJoiningAddsBoth':
+    'Then adds narration (shots with lines) and music — already in the estimate',
+  'canvas.afterJoiningAddsNarration':
+    'Then adds narration (shots with lines) — already in the estimate',
+  'canvas.afterJoiningAddsMusic': 'Then adds music — already in the estimate',
   'canvas.deleteWhatSThereAnd': 'Delete what’s there and write the storyboard again',
   'canvas.deleteWhatSThereAnd2': 'Delete what’s there and generate again',
   'canvas.writeTheStoryboardFirst': 'Write the storyboard first',
@@ -516,14 +517,14 @@ export const canvas = {
   'canvas.groupColor': 'Group color',
   'canvas.changeTo': 'Change to {label}',
   'canvas.shots2': '{value} shots',
-  'canvas.secPerShot': '{value} sec per shot',
-  'canvas.videoSound': 'Video sound',
+  'canvas.secPerShot': '{value} sec',
+  'canvas.videoSound': 'Video',
   'canvas.generateSoundAlongWithThe':
     'Generate sound along with the video (the video costs about 50% more)',
   'canvas.readEachShotSLines': 'Read each shot’s lines aloud when done',
   'canvas.addBackgroundMusicWhenDone': 'Add background music when done',
-  'canvas.landscape169': 'Landscape 16:9',
-  'canvas.portrait916': 'Portrait 9:16',
+  'canvas.landscape169': 'Wide 16:9',
+  'canvas.portrait916': 'Tall 9:16',
   'canvas.style': 'Style',
   'canvas.numberOfShots': 'Number of shots',
   'canvas.secondsPerShot': 'Seconds per shot',
@@ -532,13 +533,13 @@ export const canvas = {
   'canvas.narrationAndMusicMadeWhen':
     'Narration and music: made when you do the whole film in one go, or later when you press “Generate all”; they’re added when the video is joined',
   'canvas.narrationAndMusicAreAdded':
-    'Narration and music are added automatically when the video is joined: after “Make the whole film in one go” finishes; with “Write the storyboard first”, after you press “Generate all” at the top right. Narration only reads shots that have lines.',
+    'Narration and music are added when the film is joined. Narration only reads shots with lines.',
   'canvas.generating3': 'Generating…',
   'canvas.generatesTheStoryboardPicturesAnd':
     'Generates the storyboard, pictures and video all at once (pictures and video cost money). The sounds ticked above are added too.',
   'canvas.wholeFilmInOneGo': 'Whole film in one go',
   'canvas.writeOnlyTheStoryboardFirst':
-    'Write only the storyboard first (text model, low cost): look at it, fix it, then make pictures and video.',
+    'Storyboard only, at low cost: review and fix it, then make pictures and video.',
   'canvas.generatingTheStoryAndSettings':
     'Generating: the story and settings are locked. Press “Stop” first to change them.',
   'canvas.writeTheStoryFirstTo': 'Write the story first to get a storyboard',
@@ -571,8 +572,8 @@ export const canvas = {
   'canvas.thereSMoreBelowScroll': '↓ There’s more below; scroll to see it all',
   'canvas.about': 'About',
   'canvas.confirmRun': 'Confirm run',
-  'canvas.atLeastTheRealCost': ' (at least; the real cost may be more)',
-  'canvas.anythingThatAlreadyHasA': ' (anything that already has a result won’t run again)',
+  'canvas.atLeastTheRealCost': ' or more',
+  'canvas.anythingThatAlreadyHasA': '. Steps that already have results won’t run again.',
   'canvas.cancel': 'Cancel',
   'canvas.justThisOne': 'Just this one',
   'canvas.redoOnlyThisFirstFrame': 'Redo only this first frame',
@@ -624,8 +625,8 @@ export const canvas = {
     'The storyboard is written, but pictures and video aren’t generated yet. Look at it, fix it, then press “Generate all” at the top right for an exact estimate.',
   'canvas.theFilmIsGeneratedBut':
     'The film is generated, but the sound wasn’t added. You can try again in the film panel.',
-  'canvas.theFilmIsGenerated': 'The film is generated ({soundDone})',
-  'canvas.theFilmIsGenerated2': 'The film is generated',
+  'canvas.theFilmIsGenerated': 'Film ready — {soundDone}',
+  'canvas.theFilmIsGenerated2': 'Film ready',
   'canvas.generationFailedPleaseTryAgain': 'Generation failed. Please try again.',
   'canvas.generationStoppedWhatSDone': 'Generation stopped. What’s done is kept.',
   'canvas.canTGenerateRightNow': 'Can’t generate right now.',
@@ -660,7 +661,7 @@ export const canvas = {
     'Cleared {value}’s first frame (the version in use; the version stays in Records)',
   'canvas.redoWithVersions': '{label} (redo: makes v{next}, keeps v{current})',
   'canvas.redoLabel': '{label} (redo)',
-  'canvas.costAtLeast': 'About US${value} (at least)',
+  'canvas.costAtLeast': 'About US${value} or more',
   'canvas.costAbout': 'About US${value}',
   'canvas.undoWithKey': '{label} (Ctrl/Cmd+Z)',
   'canvas.redoWithKey': '{label} (Ctrl/Cmd+Shift+Z)',
