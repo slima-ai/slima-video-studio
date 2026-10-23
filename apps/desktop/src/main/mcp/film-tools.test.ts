@@ -211,6 +211,104 @@ describe('影片線：首幀圖 → 看 → 影片 → 接片 → 匯出（示�
     expect(noCard.fileName).toMatch(/\.mp4$/)
   })
 
+  it('剪每一鏡的頭尾：trim_shot 設入點／出點，回報實際用的數字；assemble_film 照裁切接、回每鏡的起訖秒數；atSeconds 看指定的秒；清掉回整支', async () => {
+    const r = await start()
+    const ids = await withShots(r)
+    await r.call('generate_first_frames')
+    await waitDone(r)
+    await r.call('generate_videos')
+    await waitDone(r)
+
+    // 說明：trim_shot 在工具清單裡，講明裁切屬於影片版本、要重新 assemble_film、數字會被改要告訴使用者
+    const listed = await r.client.listTools()
+    const trimTool = listed.tools.find((t) => t.name === 'trim_shot')
+    expect(trimTool?.description).toContain('assemble_film')
+    expect(trimTool?.description).toContain('adjustments')
+    const assembleTool = listed.tools.find((t) => t.name === 'assemble_film')
+    expect(assembleTool?.description).toContain('trim_shot')
+
+    // 還沒裁：get_shot 的 trim 是 null，成品秒數是整支（示範影片每鏡 5 秒）
+    const rawShot = async (id: string) =>
+      JSON.parse(textOf(await r.call('get_shot', { shotId: id }))) as object
+    const plain = await rawShot(ids[0] ?? '')
+    expect(plain).toMatchObject({ filmSeconds: 5, video: { trim: null } })
+
+    const Trimmed = z.looseObject({
+      shot: z.number(),
+      trimmed: z.boolean(),
+      usesFromSec: z.number(),
+      usesToSec: z.number(),
+      secondsInFilm: z.number(),
+      framesInFilm: z.number(),
+      cutFromStartSec: z.number(),
+      cutFromEndSec: z.number(),
+      adjustments: z.array(
+        z.looseObject({ field: z.string(), asked: z.number(), used: z.number(), why: z.string() }),
+      ),
+    })
+    // 展示片的情境：鏡 1 只留開頭 3.5 秒（84 格）
+    const first = dataOf(Trimmed, await r.call('trim_shot', { shotId: ids[0], outSec: 3.5 }))
+    expect(first).toMatchObject({
+      shot: 1,
+      trimmed: true,
+      usesFromSec: 0,
+      usesToSec: 3.5,
+      secondsInFilm: 3.5,
+      framesInFilm: 84,
+      cutFromStartSec: 0,
+      adjustments: [],
+    })
+    expect(first.cutFromEndSec).toBeCloseTo(1.5, 2)
+    // 使用者（或 Claude）打的數字被格線改掉，要寫出來
+    const snapped = dataOf(Trimmed, await r.call('trim_shot', { shotId: ids[1], inSec: 1.01 }))
+    expect(snapped.adjustments).toEqual([
+      { field: 'inSec', asked: 1.01, used: 1, why: 'snapped to the nearest frame' },
+    ])
+    expect(snapped.secondsInFilm).toBeCloseTo(4, 2)
+    // 出點超過影片長度：夾回影片長度並寫出來
+    const clamped = dataOf(Trimmed, await r.call('trim_shot', { shotId: ids[2], outSec: 99 }))
+    expect(clamped.adjustments[0]).toMatchObject({ field: 'outSec', asked: 99 })
+    expect(clamped.adjustments[0]?.why).toContain('cut back to the end')
+    expect(clamped.trimmed).toBe(false)
+
+    // get_shot / list_shots 看得到裁切與成品秒數
+    expect(await rawShot(ids[0] ?? '')).toMatchObject({
+      filmSeconds: 3.5,
+      video: { trim: { outSec: 3.5 } },
+    })
+
+    // 還沒重新接：成品過期（list_shots 的 hasFinalCut 不管這個）；接片照裁切
+    const assembled = JSON.parse(textOf(await r.call('assemble_film'))) as {
+      totalSeconds: number
+      timeline: { shot: number; startSec: number; endSec: number }[]
+    }
+    expect(assembled.timeline).toEqual([
+      { shot: 1, startSec: 0, endSec: 3.5 },
+      { shot: 2, startSec: 3.5, endSec: 7.5 },
+      { shot: 3, startSec: 7.5, endSec: 12.5 },
+    ])
+    expect(assembled.totalSeconds).toBe(12.5)
+
+    // 看指定的秒（找該在哪裡剪）：回的秒數就是要的秒數，超過影片長度的夾到最後一刻前
+    const looked = await r.call('view_video_stills', { shotId: ids[0], atSeconds: [0, 3.5, 99] })
+    expect(imageBlocks(looked)).toHaveLength(3)
+    const at = (JSON.parse(textOf(looked)) as { framesAtSeconds: number[] }).framesAtSeconds
+    expect(at[0]).toBe(0)
+    expect(at[1]).toBe(3.5)
+    expect(at[2]).toBeGreaterThan(4.8)
+    expect(at[2]).toBeLessThan(5)
+
+    // 清掉回整支；什麼都沒給、不合法的、沒有影片的：白話錯誤
+    const cleared = dataOf(Trimmed, await r.call('trim_shot', { shotId: ids[0], clear: true }))
+    expect(cleared).toMatchObject({ trimmed: false, secondsInFilm: 5 })
+    const nothing = await r.call('trim_shot', { shotId: ids[0] })
+    expect(nothing.isError).toBe(true)
+    expect(textOf(nothing)).toContain('clear=true')
+    const inverted = await r.call('trim_shot', { shotId: ids[0], inSec: 4, outSec: 2 })
+    expect(inverted.isError).toBe(true)
+    expect(textOf(inverted)).toContain('入點要比出點早')
+  })
+
   it('運鏡：說明列出所有預設 id、也說自由文字會原樣進影片的 Prompt；自由文字真的被接受並存起來', async () => {
     const r = await start()
     const { tools } = await r.client.listTools()

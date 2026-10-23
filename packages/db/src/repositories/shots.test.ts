@@ -151,6 +151,37 @@ describe('ShotsRepository', () => {
       expect(repos.shots.get(shot.id)?.activeTakeId).toBe(v1.id)
     })
 
+    it('影片版本的裁切：沒裁是沒有；設了能往返、各版本各自一份、清掉回到整支；不影響輸入指紋', () => {
+      const { repos } = newProject()
+      const shot = repos.shots.create({})
+      const v1 = repos.shots.addTake({
+        shotId: shot.id,
+        kind: 'video',
+        assetHash: HASH('a'),
+        modelId: 'kling',
+        inputHash: 'h1',
+      })
+      const v2 = repos.shots.addTake({
+        shotId: shot.id,
+        kind: 'video',
+        assetHash: HASH('b'),
+        modelId: 'kling',
+      })
+      expect(v1.trimInSec).toBeUndefined()
+      expect(v1.trimOutSec).toBeUndefined()
+
+      repos.shots.setTakeTrim(v1.id, { outSec: 3.5 })
+      repos.shots.setTakeTrim(v2.id, { inSec: 1, outSec: 4 })
+      const [r1, r2] = repos.shots.listTakes(shot.id, 'video')
+      expect([r1?.trimInSec, r1?.trimOutSec]).toEqual([undefined, 3.5])
+      expect([r2?.trimInSec, r2?.trimOutSec]).toEqual([1, 4])
+      expect(r1?.inputHash).toBe('h1')
+
+      repos.shots.setTakeTrim(v1.id, undefined)
+      const cleared = repos.shots.listTakes(shot.id, 'video')[0]
+      expect([cleared?.trimInSec, cleared?.trimOutSec]).toEqual([undefined, undefined])
+    })
+
     it('deleteTake 拿掉採用中的版本：改採用同種類最新的那一個；都沒了就沒有採用中的', () => {
       const { repos } = newProject()
       const shot = repos.shots.create({})

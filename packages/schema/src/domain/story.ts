@@ -175,6 +175,9 @@ export const TakeSchema = z.object({
   nodeRunId: IdSchema.optional(),
   /** 生成當下的內容雜湊（描述、Prompt、參考、模型）；和現在的不同就標「需要重跑」。舊資料沒有，視為未知。 */
   inputHash: z.string().optional(),
+  /** 成品裡只用這支影片的哪一段（秒）；沒有就是那一端不裁。不是生成輸入，改了不用重跑。 */
+  trimInSec: z.number().nonnegative().optional(),
+  trimOutSec: z.number().positive().optional(),
   createdAt: IsoDateTimeSchema,
 })
 export type Take = z.infer<typeof TakeSchema>

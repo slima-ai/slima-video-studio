@@ -102,6 +102,7 @@ export const chat = {
   'chat.switchToAnotherVersion': 'Switch to another version',
   'chat.lookAtFirstFrames': 'Look at first frames',
   'chat.lookAtVideoFrames': 'Look at video frames',
+  'chat.trimAShot': 'Trim a shot',
   'chat.assembleTheFilm': 'Assemble the film',
   'chat.exportMp4': 'Export MP4',
   'chat.checkTheSound': 'Check the sound',

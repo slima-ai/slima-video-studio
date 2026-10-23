@@ -128,6 +128,10 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'shots.cancel': [{ shotId: 's1' }],
   'shots.adopt': [{ takeId: 't1' }],
   'shots.rejoin': [{}],
+  'shots.trim': [
+    { shotId: 's1', edit: { outSec: 3.5 } },
+    { shotId: 's1', edit: { clear: true } },
+  ],
   'characters.list': [{}],
   'characters.create': [{ name: '阿鐵' }],
   'characters.update': [{ characterId: 'c1', patch: { appearance: '短黑髮' } }],

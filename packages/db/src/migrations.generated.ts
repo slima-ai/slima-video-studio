@@ -163,5 +163,13 @@ export const MIGRATIONS: readonly Migration[] = [
     "statements": [
       "ALTER TABLE `shots` ADD `end_description` text DEFAULT '' NOT NULL;"
     ]
+  },
+  {
+    "tag": "0018_take_trim",
+    "statements": [
+      "ALTER TABLE `takes` ADD `trim_in_sec` real;",
+      "ALTER TABLE `takes` ADD `trim_out_sec` real;",
+      "ALTER TABLE `final_cuts` ADD `trim_key` text;"
+    ]
   }
 ]

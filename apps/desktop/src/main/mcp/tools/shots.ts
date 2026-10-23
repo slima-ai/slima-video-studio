@@ -29,7 +29,14 @@ export function shotSummary(shot: ShotView) {
       versions: shot.firstFrames.length,
       adoptedVersion: adoptedVersion(shot.firstFrames),
     },
-    video: { versions: shot.videos.length, adoptedVersion: adoptedVersion(shot.videos) },
+    video: {
+      versions: shot.videos.length,
+      adoptedVersion: adoptedVersion(shot.videos),
+      // 成品只用這支影片的哪一段（trim_shot 設的）；沒裁就是 null
+      trim: shot.videos.find((t) => t.adopted)?.trim ?? null,
+    },
+    // 這一鏡在成品裡實際佔幾秒（照裁切算；durationSec 是送給影片模型的生成秒數，不是成品長度）
+    filmSeconds: shot.filmSeconds ?? null,
     hasEndFrame: shot.endFrame !== undefined,
     ...(shot.error === undefined ? {} : { error: shot.error }),
   }
@@ -40,6 +47,7 @@ const takeView = (t: ShotView['firstFrames'][number]) => ({
   kind: t.kind,
   version: t.version,
   adopted: t.adopted,
+  ...(t.trim === undefined ? {} : { trim: t.trim }),
   model: t.modelId,
   createdAt: t.createdAt,
   ...(t.costUsd === undefined

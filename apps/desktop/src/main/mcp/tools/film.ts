@@ -340,7 +340,7 @@ export function registerFilmTools(ctx: ToolContext): void {
     name: 'view_video_stills',
     title: 'Look at frames of a video',
     description:
-      "Pull evenly spaced still frames out of one shot's adopted video (or of the assembled final film with finalCut=true) as images you can look at. Use it to check a generated video for mistakes (extra mouths, arms or legs, a changed character, flicker) before you accept it; if it is wrong use regenerate_shot. 1–6 frames.",
+      "Pull still frames out of one shot's adopted video (or of the assembled final film with finalCut=true) as images you can look at. Use it to check a generated video for mistakes (extra mouths, arms or legs, a changed character, flicker) before you accept it; if it is wrong use regenerate_shot. By default 1–6 evenly spaced frames; pass atSeconds (up to 6 times, counted from the start of the ORIGINAL video, or of the final film) to look at exact moments, for example to find where a shot should be cut for trim_shot.",
     input: {
       shotId: z.string().min(1).optional().describe('Which shot (omit when finalCut=true)'),
       finalCut: z
@@ -348,6 +348,12 @@ export function registerFilmTools(ctx: ToolContext): void {
         .default(false)
         .describe('Use the assembled final film instead of a shot'),
       count: z.number().int().min(1).max(6).default(4),
+      atSeconds: z
+        .array(z.number().min(0))
+        .min(1)
+        .max(6)
+        .optional()
+        .describe('Look at these exact seconds instead of evenly spaced frames (count is ignored)'),
       version: z
         .number()
         .int()
@@ -356,7 +362,7 @@ export function registerFilmTools(ctx: ToolContext): void {
         .describe('A specific video version of the shot'),
     },
     hints: { readOnly: true },
-    run: async ({ shotId, finalCut, count, version }) => {
+    run: async ({ shotId, finalCut, count, atSeconds, version }) => {
       const snapshot = await ctx.caller.call('shots.list', {})
       let hash: string | undefined
       let label: string
@@ -384,7 +390,7 @@ export function registerFilmTools(ctx: ToolContext): void {
         hash = take.assetHash
         label = `shot ${String(shot.number)} (video version ${String(take.version)})`
       }
-      const stills = await ctx.viewer.videoStills(hash, count)
+      const stills = await ctx.viewer.videoStills(hash, count, atSeconds)
       return new WithImages(
         { source: label, framesAtSeconds: stills.map((s) => s.atSec) },
         stills.map((s) => s.image),
@@ -393,9 +399,63 @@ export function registerFilmTools(ctx: ToolContext): void {
   })
 
   defineTool(ctx, {
+    name: 'trim_shot',
+    title: 'Cut the start or end off a shot',
+    description:
+      "Choose which part of a shot's adopted video goes into the film: inSec is where the shot starts in the original video, outSec where it ends (seconds; give one or both, the one you leave out stays as it is). clear=true goes back to the whole video. The trim belongs to that video version (switching to another version with adopt_version uses that version's own trim, the whole video by default). Use view_video_stills with atSeconds to find the moment to cut at. Numbers are snapped to the film's frame grid and an outSec past the end of the video is cut back to the end; the result lists every number that was changed (adjustments), so tell the user the values actually used. The cut is not applied until assemble_film is run again; the sound (narration, music) follows the trimmed length automatically. Free; it does not make any shot 'need regenerating'. Do not use it to shorten what the model generates: that is update_shot durationSec.",
+    input: {
+      shotId: z.string().min(1).describe('A shot id from list_shots'),
+      inSec: z.number().min(0).optional().describe('Start of the part to keep, in seconds'),
+      outSec: z.number().positive().optional().describe('End of the part to keep, in seconds'),
+      clear: z.boolean().optional().describe('Remove the trim (use the whole video)'),
+    },
+    hints: { readOnly: false, idempotent: true },
+    run: async ({ shotId, inSec, outSec, clear }) => {
+      if (clear !== true && inSec === undefined && outSec === undefined) {
+        throw new McpToolError(
+          'Give inSec and/or outSec, or clear=true to use the whole video.',
+          'nothing_to_trim',
+        )
+      }
+      const edit = {
+        ...(inSec === undefined ? {} : { inSec }),
+        ...(outSec === undefined ? {} : { outSec }),
+        ...(clear === true ? { clear: true } : {}),
+      }
+      const r = await ctx.caller.call('shots.trim', { shotId, edit })
+      const cutHead = r.startSec
+      const cutTail = Math.max(0, r.videoSec - r.endSec)
+      return {
+        shot: r.shot.number,
+        trimmed: r.trim !== undefined,
+        // 成品裡用到原影片的哪一段
+        usesFromSec: r.startSec,
+        usesToSec: r.endSec,
+        secondsInFilm: r.lengthSec,
+        framesInFilm: r.frames,
+        originalVideoSec: Number(r.videoSec.toFixed(3)),
+        cutFromStartSec: Number(cutHead.toFixed(3)),
+        cutFromEndSec: Number(cutTail.toFixed(3)),
+        frameRate: r.fps,
+        // 使用者給的數字被改掉的（對齊格線、出點超過影片長度夾回影片長度）
+        adjustments: r.adjustments.map((a) => ({
+          field: a.field,
+          asked: a.from,
+          used: a.to,
+          why:
+            a.reason === 'clamped'
+              ? 'past the end of the video, cut back to the end'
+              : 'snapped to the nearest frame',
+        })),
+        note: 'Run assemble_film again to apply this to the film.',
+      }
+    },
+  })
+
+  defineTool(ctx, {
     name: 'assemble_film',
     title: 'Join the shots into one film',
-    description: `Join the adopted video of every shot that is in the cut into one film, in shot order (local FFmpeg, costs nothing). Do this after the videos are final, then look at it with view_video_stills(finalCut=true) and save it with export_film. The app's own words for this: the button is ${joinIntoFilmButton()} (on the ${cutCard()} card and in the ${filmName()} panel) and the result is the ${filmName()}; use those words when you talk to the user.`,
+    description: `Join the adopted video of every shot that is in the cut into one film, in shot order (local FFmpeg, costs nothing). Each shot is joined as trimmed with trim_shot (the whole video if it was not trimmed). The result lists where every shot starts and ends in the film, in seconds, so you can place narration and music. Do this after the videos are final, then look at it with view_video_stills(finalCut=true) and save it with export_film. The app's own words for this: the button is ${joinIntoFilmButton()} (on the ${cutCard()} card and in the ${filmName()} panel) and the result is the ${filmName()}; use those words when you talk to the user.`,
     input: {},
     hints: { readOnly: false, idempotent: true },
     run: async () => {
@@ -407,11 +467,23 @@ export function registerFilmTools(ctx: ToolContext): void {
       if (ready.length === 0)
         throw new McpToolError('No shot has a video yet: call generate_videos first.', 'no_videos')
       await ctx.caller.call('shots.rejoin', {})
+      // 每一鏡在成品裡的起訖秒數：和聲音時間軸（旁白、配樂的位置）同一份，照裁切後的長度算
+      const { shots: placed } = await ctx.caller.call('sound.get', {})
+      const timeline = placed
+        .filter((p) => p.hasVideo)
+        .map((p) => ({
+          shot: p.number,
+          startSec: Number(p.startSec.toFixed(3)),
+          endSec: Number((p.startSec + p.durationSec).toFixed(3)),
+        }))
+      const last = timeline.at(-1)
       return {
         assembled: true,
         shotsInFilm: ready.map((s) => s.number),
         ...(missing.length > 0 ? { shotsLeftOutBecauseNoVideo: missing } : {}),
-        totalSeconds: ready.reduce((sum, s) => sum + s.durationSec, 0),
+        totalSeconds:
+          last?.endSec ?? ready.reduce((sum, s) => sum + (s.filmSeconds ?? s.durationSec), 0),
+        timeline,
       }
     },
   })

@@ -203,6 +203,29 @@ describe('StructureHistory：分鏡表', () => {
     expect(repos.shots.listTakes(first.id)).toHaveLength(0)
   })
 
+  it('剪裁影片：復原回到整支、重做又剪回去（裁切是版本的欄位，歷史自動涵蓋）', () => {
+    const { repos, history } = setup()
+    const shot = repos.shots.create({ description: '一' })
+    const take = repos.shots.addTake({
+      shotId: shot.id,
+      kind: 'video',
+      assetHash: HASH('a'),
+      modelId: 'm',
+    })
+    const trimOf = () => {
+      const t = repos.shots.listTakes(shot.id, 'video')[0]
+      return [t?.trimInSec, t?.trimOutSec]
+    }
+    history.record('剪裁鏡頭', () => {
+      repos.shots.setTakeTrim(take.id, { inSec: 0.5, outSec: 3.5 })
+    })
+    expect(trimOf()).toEqual([0.5, 3.5])
+    history.undo()
+    expect(trimOf()).toEqual([undefined, undefined])
+    history.redo()
+    expect(trimOf()).toEqual([0.5, 3.5])
+  })
+
   it('重新排序：復原回到原本的順序與鏡號', () => {
     const { repos, history } = setup()
     const a = repos.shots.create({ description: 'a' })

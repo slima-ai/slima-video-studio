@@ -163,6 +163,18 @@ export class ShotsRepository {
     })
   }
 
+  /** 設這支影片版本在成品裡用哪一段；傳 undefined 就是整支。不是生成輸入，不影響「需要重跑」。 */
+  setTakeTrim(
+    takeId: string,
+    trim: { inSec?: number | undefined; outSec?: number | undefined } | undefined,
+  ): void {
+    this.db
+      .update(takes)
+      .set({ trimInSec: trim?.inSec ?? null, trimOutSec: trim?.outSec ?? null })
+      .where(eq(takes.id, takeId))
+      .run()
+  }
+
   /** 記下這個版本是用哪一份輸入生成的（輸入指紋，判斷上游改過沒有用）。 */
   setTakeInputHash(takeId: string, inputHash: string): void {
     this.db.update(takes).set({ inputHash }).where(eq(takes.id, takeId)).run()

@@ -196,6 +196,11 @@ export const services = {
   'services.noShotsAreIncludedIn':
     'No shots are included in the film. Turn on “Include in film” for some shots first.',
   'services.shotHasNoUsableVideo': 'Shot {value} has no usable video yet. Generate it first.',
+  'services.trimShot': 'Trim a shot',
+  'services.shotHasNoVideoToTrim':
+    'Shot {value} has no usable video yet, so there is nothing to trim.',
+  'services.theTrimLeavesNothing':
+    'That trim leaves no picture (from {value} s to {value2} s): the start must be before the end, with at least one frame left.',
   'services.canTFindTheVideo2': 'Can’t find the video tool (FFmpeg), so the film can’t be joined.',
   'services.theFileIsEmpty': 'The file is empty',
   'services.canTReadThisFile': 'Can’t read this file',

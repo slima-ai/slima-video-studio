@@ -62,6 +62,8 @@ export const finalCuts = sqliteTable(
     baseAssetHash: text('base_asset_hash'),
     /** 混音用了哪一組聲音（採用中的片段與設定的指紋）；沒有聲音就是空的。 */
     soundKey: text('sound_key'),
+    /** 接片當下各鏡裁切的指紋；一鏡都沒裁就是空的（舊的成品也是空的，所以升級不會變過期）。 */
+    trimKey: text('trim_key'),
     createdAt: text('created_at').notNull(),
   },
   (t) => [unique('final_cuts_project_version_uq').on(t.projectId, t.version)],

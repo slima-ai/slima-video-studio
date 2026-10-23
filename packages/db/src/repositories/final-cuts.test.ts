@@ -24,6 +24,19 @@ describe('FinalCutRepository', () => {
     expect(repos.finalCuts.latest()?.durationSec).toBeUndefined()
   })
 
+  it('成品記住接片當下各鏡裁切的指紋；沒有裁切（舊的成品也是）就沒有', () => {
+    const { repos } = newProject()
+    const plain = repos.finalCuts.record({ assetHash: HASH('a'), takeIds: ['t1'] })
+    expect(plain.trimKey).toBeUndefined()
+    const trimmed = repos.finalCuts.record({
+      assetHash: HASH('b'),
+      takeIds: ['t1'],
+      trimKey: '[["t1",0,3.5]]',
+    })
+    expect(repos.finalCuts.latest()).toEqual(trimmed)
+    expect(repos.finalCuts.list().map((c) => c.trimKey)).toEqual(['[["t1",0,3.5]]', undefined])
+  })
+
   it('有聲音的成品記住接片的結果（重混從這支開始）與聲音的指紋；沒有聲音就都沒有', () => {
     const { repos } = newProject()
     const plain = repos.finalCuts.record({ assetHash: HASH('a'), takeIds: ['t1'] })

@@ -4,6 +4,7 @@ import {
   type GenerationOutput,
   type GenerationRequest,
   type NodeServices,
+  type Trim,
   t,
 } from '@svs/schema'
 
@@ -28,8 +29,15 @@ export interface GenerateContext {
 
 export interface StudioServices {
   generate: (request: GenerationRequest, ctx: GenerateContext) => Promise<GenerateResult>
-  /** 把多段影片接成一支，存進素材庫。 */
-  concatVideos: (videos: readonly AssetRef[], ctx: { signal: AbortSignal }) => Promise<AssetRef>
+  /**
+   * 把多段影片接成一支，存進素材庫。trims 和 videos 一一對應：那一段只用 [inSec, outSec]；
+   * 沒給（或那一項是 undefined）就整支，接法和沒有裁切功能之前完全一樣。
+   */
+  concatVideos: (
+    videos: readonly AssetRef[],
+    ctx: { signal: AbortSignal },
+    trims?: readonly (Trim | undefined)[],
+  ) => Promise<AssetRef>
 }
 
 export const STUDIO_SERVICE_KEY = 'studio'

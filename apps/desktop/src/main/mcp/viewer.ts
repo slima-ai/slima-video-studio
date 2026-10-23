@@ -16,8 +16,15 @@ export interface ViewImage {
 export interface AssetViewer {
   /** 把專案裡的一張圖縮成給 AI 看的大小。 */
   image: (hash: string) => Promise<ViewImage>
-  /** 從影片均勻抽幾張畫面（檢查有沒有長出多餘的嘴、手腳）。 */
-  videoStills: (hash: string, count: number) => Promise<{ atSec: number; image: ViewImage }[]>
+  /**
+   * 從影片抽幾張畫面（檢查有沒有長出多餘的嘴、手腳）：沒指定秒數就均勻抽 count 張；
+   * 指定了 atSeconds 就看那幾秒（超過影片長度的夾到最後一刻前），用來找該在哪一秒剪。
+   */
+  videoStills: (
+    hash: string,
+    count: number,
+    atSeconds?: readonly number[],
+  ) => Promise<{ atSec: number; image: ViewImage }[]>
 }
 
 /** 給 AI 看的圖最寬幾像素：夠看清楚構圖與臉，又不會讓一張圖佔掉太多對話長度。 */
@@ -84,11 +91,20 @@ export function createAssetViewer(deps: AssetViewerDeps): AssetViewer {
       const { path, tools } = need(hash)
       return render(tools, path)
     },
-    videoStills: async (hash, count) => {
+    videoStills: async (hash, count, atSeconds) => {
       const { path, tools } = need(hash)
       const n = Math.min(Math.max(Math.floor(count), 1), MAX_STILLS)
       const { durationSec } = await probe(tools, path)
       const stills: { atSec: number; image: ViewImage }[] = []
+      if (atSeconds !== undefined && atSeconds.length > 0) {
+        // 最後一格之前一點點：剛好是影片長度的那一刻沒有畫面
+        const last = Math.max(0, durationSec - 0.05)
+        for (const want of atSeconds.slice(0, MAX_STILLS)) {
+          const atSec = Math.min(Math.max(want, 0), last)
+          stills.push({ atSec: Number(atSec.toFixed(3)), image: await render(tools, path, atSec) })
+        }
+        return stills
+      }
       for (let i = 0; i < n; i++) {
         // 取每一段的正中間，避開第一格與最後一格（常常是黑的或轉場）
         const atSec = ((i + 0.5) / n) * Math.max(durationSec, 0.1)

@@ -90,6 +90,7 @@ export const chat = {
   'chat.switchToAnotherVersion': '換用另一個版本',
   'chat.lookAtFirstFrames': '查看第一張畫面',
   'chat.lookAtVideoFrames': '查看影片畫面',
+  'chat.trimAShot': '剪裁鏡頭',
   'chat.assembleTheFilm': '接成成品',
   'chat.exportMp4': '匯出 MP4',
   'chat.checkTheSound': '查看聲音',

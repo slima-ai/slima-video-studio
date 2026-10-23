@@ -139,6 +139,12 @@ export function testSettingsDeps(
       live: () => new Map(),
       staleness: () => new Map(),
       references: (shotId) => ({ shotId, limit: 0, auto: true, picked: [], candidates: [] }),
+      planTrim: () => {
+        throw new Error('not used')
+      },
+      applyTrim: () => {
+        throw new Error('not used')
+      },
       setEndFrame: () => {
         throw new Error('not used')
       },

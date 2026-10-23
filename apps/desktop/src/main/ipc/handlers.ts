@@ -448,6 +448,11 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   })
   registry.registerHandler('shots.adopt', ({ takeId }) => shots.adopt(takeId))
   registry.registerHandler('shots.rejoin', () => shots.rejoin())
+  registry.registerHandler('shots.trim', async ({ shotId, edit }) => {
+    // 量影片、整理數字在歷史之外（要等 FFmpeg）；寫進去的那一下同步記成一步，Claude 一輪的多個裁切併成一步
+    const plan = await shots.planTrim(shotId, edit)
+    return history.record(t('services.trimShot'), () => shots.applyTrim(plan))
+  })
 
   registry.registerHandler('history.state', () => history.state())
   // 復原／重做之後，哪些畫布節點因此變了：畫面把它們的「AI 剛改」拿掉（內容已經退回去）
