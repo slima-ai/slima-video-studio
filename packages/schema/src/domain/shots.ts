@@ -214,6 +214,8 @@ export type EndFrameCheck = z.infer<typeof EndFrameCheckSchema>
 /** 批次生成開始之後的結果：某個鏡頭沒辦法開始不影響其他鏡頭。 */
 export const ShotBatchResultSchema = z.object({
   started: z.number().int().nonnegative(),
+  /** 只做影片時：首幀是用舊的描述畫的（描述之後改過）的鏡號；照用這張首幀，不重生。 */
+  staleFrameShots: z.array(z.number().int().positive()).optional(),
   skippedGenerated: z.number().int().nonnegative(),
   skippedBusy: z.number().int().nonnegative(),
   failed: z.array(

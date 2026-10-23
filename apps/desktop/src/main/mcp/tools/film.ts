@@ -112,6 +112,14 @@ async function startBatch(
     skippedAlreadyDone: result.skippedGenerated,
     skippedNoFirstFrame: check.skippedNoFrame,
     skippedBusy: result.skippedBusy,
+    ...(result.staleFrameShots === undefined
+      ? {}
+      : {
+          staleFirstFrames: {
+            shots: result.staleFrameShots,
+            note: 'These videos were drawn from the adopted first frame as it is (no picture was generated or paid for), but that first frame was drawn from an OLDER description of the shot. If the picture should follow the new description, regenerate the first frame (generate_first_frames redo=true), look at it, then redo the video.',
+          },
+        }),
     failedToStart: result.failed.map((f) => ({ shot: f.number, problem: f.error })),
     model: stage === 'frame' ? (check.models.image ?? null) : (check.models.video ?? null),
     demoMode: check.demoMode,
@@ -157,7 +165,7 @@ export function registerFilmTools(ctx: ToolContext): void {
     name: 'generate_videos',
     title: 'Generate the videos',
     description:
-      'Generate the video of each shot from its ADOPTED first-frame picture (shots without a first frame are skipped; make them with generate_first_frames first). Default: every shot in the cut that has no video yet; redo=true makes a NEW video version for shots that already have one. Runs in the background: call wait_for_generation (it can take minutes). Calls the video model, the expensive step: it counts against the spending allowance: the app checks the estimate itself and refuses, saying the estimate, if the allowance is too small (estimate_cost action generate_videos tells you the price first; see load_guide("spending")); free in demo mode.',
+      'Generate the video of each shot from its ADOPTED first-frame picture, exactly as it is: no picture is ever generated or paid for here, even if the description of the shot changed after the picture was drawn (the result lists staleFirstFrames then; the video prompt still uses the current action/description). Shots without a first frame are skipped; make them with generate_first_frames first. Default: every shot in the cut that has no video yet; redo=true makes a NEW video version for shots that already have one. Runs in the background: call wait_for_generation (it can take minutes). Calls the video model, the expensive step: it counts against the spending allowance: the app checks the estimate itself and refuses, saying the estimate, if the allowance is too small (estimate_cost action generate_videos tells you the price first; see load_guide("spending")); free in demo mode.',
     input: {
       shotIds: z
         .array(z.string().min(1))
@@ -188,7 +196,7 @@ export function registerFilmTools(ctx: ToolContext): void {
     name: 'regenerate_shot',
     title: 'Redo one shot',
     description:
-      'Make a NEW version of one shot after you changed it or did not like the result (older versions are kept): what="first_frame" (new picture, video untouched), "video" (new video from the current first frame) or "both" (new picture AND new video). Counts against the spending allowance; free in demo mode. Then wait_for_generation.',
+      'Make a NEW version of one shot after you changed it or did not like the result (older versions are kept): what="first_frame" (new picture, video untouched), "video" (new video from the current first frame as it is; no picture is generated or paid for, and it needs an adopted first frame) or "both" (new picture AND new video). Counts against the spending allowance; free in demo mode. Then wait_for_generation.',
     input: {
       shotId: z.string().min(1),
       what: z.enum(['first_frame', 'video', 'both']),
