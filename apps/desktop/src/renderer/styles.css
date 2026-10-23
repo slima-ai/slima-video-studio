@@ -253,3 +253,13 @@ html.theme-changing *::after {
     color 300ms ease,
     border-color 300ms ease !important;
 }
+
+/* 英文比中文長：卡片尺寸是固定的，「In: … Out: …」那一行在英文下字小一點才放得下（繁中不受影響） */
+html[lang='en'] [data-testid='node-io'] {
+  font-size: 10px;
+}
+
+/* 一句話卡片的尺寸固定：字比繁中長的語言，故事輸入框不能被下面那排壓扁（繁中的版面維持原樣） */
+html:not([lang='zh-Hant']) .oneliner-story-field {
+  min-height: min-content;
+}

@@ -1,4 +1,5 @@
 import type { CanvasRunStep } from '@svs/schema'
+import { t } from '@svs/schema'
 
 /** 一行列得下幾個鏡頭；再多就寫「等 N 個鏡頭」。 */
 const MAX_GROUPS = 3
@@ -15,15 +16,16 @@ export function runSummary(steps: readonly CanvasRunStep[]): string {
       join = true
       continue
     }
-    const [shot = '', part = step.label] = step.label.split('：')
+    const [shot = '', part = step.label] = step.label.split(/\s*[：:]\s*/u)
     const group = groups.find((g) => g.shot === shot)
     if (group) group.parts.push(part)
     else groups.push({ shot, parts: [part] })
   }
-  const shown = groups.slice(0, MAX_GROUPS).map((g) => `${g.shot} ${g.parts.join('、')}`)
-  const more = groups.length > MAX_GROUPS ? `等 ${String(groups.length)} 個鏡頭` : ''
-  const list = [shown.join('；') + more, ...(join ? ['接成成品'] : [])]
+  const shown = groups.slice(0, MAX_GROUPS).map((g) => `${g.shot} ${g.parts.join(t('list.comma'))}`)
+  const more =
+    groups.length > MAX_GROUPS ? t('canvas.andShotsInAll', { value: String(groups.length) }) : ''
+  const list = [shown.join(t('list.semicolon')) + more, ...(join ? [t('canvas.joinIntoFilm')] : [])]
     .filter((text) => text !== '')
-    .join('、')
-  return `${list}（${String(steps.length)} 步）`
+    .join(t('list.comma'))
+  return t('canvas.steps2', { list, value: String(steps.length) })
 }

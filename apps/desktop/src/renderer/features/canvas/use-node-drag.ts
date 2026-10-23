@@ -17,6 +17,7 @@ import {
   snapToNodes,
   type Guide,
 } from './geometry'
+import { t } from '@svs/schema'
 
 interface XY {
   x: number
@@ -78,7 +79,7 @@ export interface UseNodeDragOptions {
   persist: (request: CanvasMove, sceneTitle: string | undefined) => Promise<void>
 }
 
-const sceneTitleOf = (frame: CanvasNode): string => frame.data.title.split('・')[0] ?? ''
+const sceneTitleOf = (frame: CanvasNode): string => frame.data.title.split(/\s*[・·]\s*/u)[0] ?? ''
 
 /**
  * 拖曳：吸附格線與對齊輔助線、鏡頭整串一起動（Alt 單獨）、拖場框就是整個場一起動、
@@ -101,7 +102,9 @@ export function useNodeDrag({ rf, grid, base, persist }: UseNodeDragOptions): No
       if (raised) next = { ...next, zIndex: RAISED_Z }
       if (isFrame(node)) {
         const want =
-          live.target === node.id ? `放開後移到第 ${String(node.data.sceneNo ?? '')} 場` : undefined
+          live.target === node.id
+            ? t('canvas.releaseToMoveIntoScene', { value: String(node.data.sceneNo ?? '') })
+            : undefined
         if (node.data.hint !== want) next = { ...next, data: { ...next.data, hint: want } }
       }
       return next

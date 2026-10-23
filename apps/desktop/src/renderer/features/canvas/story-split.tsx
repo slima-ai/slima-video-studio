@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import { useToast } from '../../components/toast'
 import { call, errorText } from '../../lib/svs'
 import { RunConfirm, type ConfirmAnchor } from './run-confirm'
+import { t } from '@svs/schema'
 
 /** 「把故事拆成分鏡」按下去、檢查過、等使用者確認花費的那一刻。 */
 export interface SplitPending {
@@ -31,7 +32,7 @@ export function useStorySplit(options: { onChanged: () => void }) {
       call('outline.splitCheck', { text })
         .then((check) => {
           if (!check.ok) {
-            toast.show({ message: check.issue ?? '現在不能把故事拆成分鏡。', tone: 'danger' })
+            toast.show({ message: check.issue ?? t('canvas.theStoryCanTBe'), tone: 'danger' })
             return
           }
           setPending({ text, check, anchor })
@@ -55,7 +56,7 @@ export function useStorySplit(options: { onChanged: () => void }) {
     }
     void (async () => {
       try {
-        toast.show({ key: 'split', message: '正在把故事拆成場…' })
+        toast.show({ key: 'split', message: t('canvas.splittingTheStoryIntoScenes') })
         const result = await call('outline.split', { text: current.text })
         onChanged.current()
         const scenes = result.outline.acts.flatMap((act) => act.scenes)
@@ -64,13 +65,16 @@ export function useStorySplit(options: { onChanged: () => void }) {
         for (const [index, scene] of scenes.entries()) {
           toast.show({
             key: 'split',
-            message: `正在替第 ${String(index + 1)}／${String(scenes.length)} 場拆鏡頭…`,
+            message: t('canvas.splittingSceneOfIntoShots', {
+              value: String(index + 1),
+              value2: String(scenes.length),
+            }),
           })
           const check = await call('storyboard.splitCheck', { sceneId: scene.id })
           if (!check.ok) {
             toast.show({
               key: 'split',
-              message: check.issue ?? '這一場現在不能拆成鏡頭，先停在這裡。',
+              message: check.issue ?? t('canvas.thisSceneCanTBe'),
               tone: 'danger',
             })
             onChanged.current()
@@ -83,7 +87,11 @@ export function useStorySplit(options: { onChanged: () => void }) {
         }
         toast.show({
           key: 'split',
-          message: `已拆成 ${String(scenes.length)} 場、共 ${String(shots)} 個鏡頭（只用文字模型，約 US$${usd.toFixed(2)}）。圖片和影片還沒生成：看過、改好再按右上角的「全部生成」`,
+          message: t('canvas.splitIntoScenesAndShots', {
+            value: String(scenes.length),
+            value2: String(shots),
+            value3: usd.toFixed(2),
+          }),
           ms: 12_000,
         })
       } catch (error) {
@@ -117,20 +125,22 @@ export function SplitConfirm({
     <RunConfirm
       anchor={pending.anchor}
       count={2}
-      title="把故事拆成分鏡"
+      title={t('canvas.splitTheStoryIntoA')}
       lines={[
-        '把故事拆成幕和場，抽出角色與地點（文字模型）',
-        '再替每一場拆成幾個鏡頭，寫好畫面描述（文字模型，每場一次）',
-        '不會生成圖片和影片：拆好之後你可以先看、先改，要生成再按「全部生成」',
+        t('canvas.splitTheStoryIntoActs'),
+        t('canvas.thenSplitEachSceneInto'),
+        t('canvas.noPicturesOrVideoAre'),
       ]}
       pinnedLines={[
-        ...(check.modelName === undefined ? [] : [`用：${check.modelName}`]),
-        ...(check.demoMode ? ['示範模式：不會真的花錢，拆出來的內容是假的'] : []),
+        ...(check.modelName === undefined
+          ? []
+          : [t('canvas.uses2', { modelName: check.modelName })]),
+        ...(check.demoMode ? [t('canvas.demoModeNothingIsCharged2')] : []),
       ]}
       costUsd={check.estimatedUsd}
       lowerBound
       cachedNote={false}
-      okLabel="拆成分鏡"
+      okLabel={t('canvas.splitIntoStoryboard')}
       onOk={onOk}
       onCancel={onCancel}
     />

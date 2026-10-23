@@ -21,6 +21,7 @@ import type { CanvasNode, NodeKind } from './canvas-model'
 import { FinalCutPanel } from './final-cut-panel'
 import { FloatingPanel, type PanelTab } from './floating-panel'
 import { QualitySwitch, runLines } from './run-confirm-plan'
+import { t } from '@svs/schema'
 
 /** 打開的是哪一格的面板。 */
 export type PanelTarget =
@@ -73,8 +74,9 @@ const canRejoin = (snapshot: ShotsSnapshot): boolean =>
 /** 標題：鏡頭的圖與影片帶上是第幾鏡。 */
 function titleOf(target: PanelTarget, nodes: readonly CanvasNode[]): string {
   const title = (key: string): string => nodes.find((n) => n.id === key)?.data.title ?? ''
-  if (target.kind === 'image') return `${title(`shot:${target.shotId}`)}・第一張畫面`
-  if (target.kind === 'video') return `${title(`shot:${target.shotId}`)}・影片`
+  if (target.kind === 'image')
+    return t('canvas.firstFrame4', { value: title(`shot:${target.shotId}`) })
+  if (target.kind === 'video') return t('canvas.video4', { value: title(`shot:${target.shotId}`) })
   return title(keyOfTarget(target))
 }
 
@@ -219,13 +221,13 @@ function TakesPanel({
             <img
               data-testid="takes-preview"
               src={assetUrl(shown.assetHash)}
-              alt={`版本 ${String(shown.version)}`}
+              alt={t('canvas.version', { value: String(shown.version) })}
               className="size-full object-cover"
             />
           )
         ) : (
           <p className="flex size-full items-center justify-center text-sm text-fg-muted">
-            {kind === 'video' ? '還沒有採用的影片' : '還沒有採用的第一張畫面'}
+            {kind === 'video' ? t('canvas.noVideoInUseYet') : t('canvas.noFirstFrameInUse')}
           </p>
         )}
       </div>
@@ -235,12 +237,10 @@ function TakesPanel({
         </p>
       ) : null}
       {takes.length === 0 ? (
-        <p className="text-sm text-fg-muted">
-          還沒有任何版本。到「試跑」分頁看這次會做哪些步驟、要花多少，再按「執行」。
-        </p>
+        <p className="text-sm text-fg-muted">{t('canvas.noVersionsYetOpenThe')}</p>
       ) : (
         <VersionList
-          title={kind === 'video' ? '影片的各個版本' : '第一張畫面的各個版本'}
+          title={kind === 'video' ? t('canvas.videoVersions') : t('canvas.firstFrameVersions')}
           takes={takes}
           modelName={modelName}
           previewId={shown?.id}
@@ -309,18 +309,18 @@ function TrialTab({
       </p>
     )
   }
-  if (!plan) return <p className="p-4 text-sm text-fg-muted">正在計算…</p>
+  if (!plan) return <p className="p-4 text-sm text-fg-muted">{t('canvas.workingItOut')}</p>
   if (!plan.ok) {
     return (
       <p className="p-4 text-sm text-fg-muted" data-testid="trial-issue">
-        {plan.issue ?? '現在不能執行。'}
+        {plan.issue ?? t('canvas.canTRunRightNow2')}
       </p>
     )
   }
   if (plan.steps.length === 0) {
     return (
       <p className="p-4 text-sm text-fg-muted" data-testid="trial-empty">
-        都已經生成好了，沒有要補跑的。
+        {t('canvas.everythingIsAlreadyGeneratedSo')}
       </p>
     )
   }
@@ -330,15 +330,18 @@ function TrialTab({
       {onQuality && plan.shotCount > 0 ? (
         <QualitySwitch value={quality} onChange={onQuality} />
       ) : null}
-      <p className="text-sm font-medium">這次會做 {plan.steps.length} 步</p>
+      <p className="text-sm font-medium">
+        {t('canvas.thisWillDoSteps', { value: String(plan.steps.length) })}
+      </p>
       <ul className="list-disc space-y-1 pl-5 text-sm text-fg-muted" data-testid="trial-steps">
         {lines.map((line) => (
           <li key={line}>{line}</li>
         ))}
       </ul>
       <p className="text-sm" data-testid="trial-cost">
-        預估花費 US${plan.estimatedUsd.toFixed(2)}
-        {plan.estimateIsLowerBound ? '（至少）' : ''}
+        {plan.estimateIsLowerBound
+          ? t('canvas.estimatedCostAtLeastUs', { value: plan.estimatedUsd.toFixed(2) })
+          : t('canvas.estimatedCostUs', { value: plan.estimatedUsd.toFixed(2) })}
       </p>
       <Button
         variant="primary"
@@ -347,7 +350,7 @@ function TrialTab({
           onRun(request, plan)
         }}
       >
-        執行
+        {t('canvas.run')}
       </Button>
     </section>
   )
@@ -473,7 +476,7 @@ function SceneBody({
   return (
     <section className="space-y-3 p-4" data-testid="scene-panel">
       <CommitText
-        label="場的名字"
+        label={t('canvas.sceneName')}
         value={scene.title}
         testId="scene-panel-title"
         maxLength={200}
@@ -482,7 +485,7 @@ function SceneBody({
         }}
       />
       <CommitText
-        label="這一場發生什麼事"
+        label={t('canvas.whatHappensInThisScene')}
         value={scene.summary}
         testId="scene-panel-summary"
         rows={4}
@@ -491,13 +494,13 @@ function SceneBody({
         }}
       />
       <div className="space-y-1 text-sm font-medium">
-        <span>地點</span>
+        <span>{t('canvas.location')}</span>
         <SimpleSelect
           testId="scene-panel-location"
-          label="地點"
+          label={t('canvas.location')}
           value={scene.locationId ?? ''}
           options={[
-            { value: '', label: '（沒有指定）' },
+            { value: '', label: t('canvas.notSet') },
             ...value.locations.map((l) => ({ value: l.id, label: l.name })),
           ]}
           onChange={(locationId) => {
@@ -506,7 +509,7 @@ function SceneBody({
         />
       </div>
       <CommitText
-        label="時段（例如：黃昏、深夜）"
+        label={t('canvas.timeOfDayForExample')}
         value={scene.timeOfDay ?? ''}
         testId="scene-panel-time"
         maxLength={100}
@@ -515,7 +518,7 @@ function SceneBody({
         }}
       />
       <CommitText
-        label="氣氛"
+        label={t('canvas.mood')}
         value={scene.mood ?? ''}
         testId="scene-panel-mood"
         maxLength={100}

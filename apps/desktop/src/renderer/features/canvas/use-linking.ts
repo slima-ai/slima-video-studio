@@ -15,6 +15,7 @@ import { call, errorText } from '../../lib/svs'
 import type { Linking, PortRef } from './canvas-actions'
 import { portsOf, type CanvasEdge, type CanvasNode, type Graph } from './canvas-model'
 import { choicesFor, explainLink, replacedEdge } from './connection-rules'
+import { t } from '@svs/schema'
 
 type OnReconnectStart = NonNullable<ReactFlowProps<CanvasNode, CanvasEdge>['onReconnectStart']>
 type OnReconnectEnd = NonNullable<ReactFlowProps<CanvasNode, CanvasEdge>['onReconnectEnd']>
@@ -53,14 +54,17 @@ function linkMessage(connection: Connection, titleOf: (id: string) => string): s
   const to = titleOf(connection.target)
   switch (connection.targetHandle ?? '') {
     case 'shot-ref-char':
-      return `「${from}」加進${to}的出場角色`
+      return t('canvas.addedToSCharacters', { from, to })
     case 'img-first':
-      return `「${from}」設成${titleOf(connection.target.replace(/:image$/, ''))}的第一張畫面，影片要重跑才會用到`
+      return t('canvas.setAsSFirstFrame', {
+        from,
+        value: titleOf(connection.target.replace(/:image$/, '')),
+      })
     case 'char-ref':
     case 'loc-ref':
-      return `「${from}」加成「${to}」的參考圖`
+      return t('canvas.addedAsAReferencePicture', { from, to })
     default:
-      return `「${from}」設成${to.split('・')[0] ?? ''}的地點`
+      return t('canvas.setAsSLocation', { from, value: to.split(/\s*[・·]\s*/u)[0] ?? '' })
   }
 }
 
@@ -132,9 +136,9 @@ export function useLinking({ graph, onChanged, openAddMenu, addableCount }: UseL
           toast.show({
             key: 'canvas-link',
             message: replaced
-              ? `${message}（原本的「${titleOf(replaced.source)}」拿掉了）`
+              ? t('canvas.theEarlierWasRemoved', { message, value: titleOf(replaced.source) })
               : message,
-            action: { label: '復原', onAction: history.undo },
+            action: { label: t('canvas.undo'), onAction: history.undo },
           })
         })
         .catch(fail)
@@ -162,8 +166,8 @@ export function useLinking({ graph, onChanged, openAddMenu, addableCount }: UseL
           onChanged()
           toast.show({
             key: 'canvas-link',
-            message: `已改接：${message}`,
-            action: { label: '復原', onAction: history.undo },
+            message: t('canvas.reconnected', { message }),
+            action: { label: t('canvas.undo'), onAction: history.undo },
           })
         })
         .catch(fail)
@@ -220,7 +224,7 @@ export function useLinking({ graph, onChanged, openAddMenu, addableCount }: UseL
     const at = { x: (point?.clientX ?? 0) + 14, y: (point?.clientY ?? 0) + 14 }
     setHint({
       at,
-      text: state.toHandle ? '這裡接不上，線留在原處' : '沒有接到任何點，線留在原處',
+      text: state.toHandle ? t('canvas.canTConnectHereThe') : t('canvas.notConnectedToAnyDot'),
     })
   }, [])
 
@@ -296,7 +300,7 @@ export function useLinking({ graph, onChanged, openAddMenu, addableCount }: UseL
         if (addableCount(portId, side) === 0 || choicesFor(portId, side).length === 0) {
           setHint({
             at: { x: at.x + 14, y: at.y + 14 },
-            text: '這裡沒有可以接上的東西，請拉到另一格的圓點上',
+            text: t('canvas.nothingToConnectToHere'),
           })
         } else {
           openAddMenu({ nodeId: fromNode.id, portId, side }, at)
@@ -318,8 +322,8 @@ export function useLinking({ graph, onChanged, openAddMenu, addableCount }: UseL
           onChanged()
           toast.show({
             key: 'canvas-link',
-            message: `已剪掉「${from}」到${to}的線`,
-            action: { label: '復原', onAction: history.undo },
+            message: t('canvas.cutTheLineFromTo', { from, to }),
+            action: { label: t('canvas.undo'), onAction: history.undo },
           })
         })
         .catch(fail)

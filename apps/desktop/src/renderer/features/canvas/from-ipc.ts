@@ -12,6 +12,7 @@ import {
   type NodeKind,
 } from './canvas-model'
 import { edgeFor, isRewirable } from './connection-rules'
+import { t, msg } from '@svs/schema'
 
 /** 主行程的節點種類 → 畫面上的種類（舊的「上傳素材」種類畫成圖片卡）。 */
 const KIND: Readonly<Record<CanvasNodeKind, NodeKind>> = {
@@ -35,7 +36,7 @@ const thumbOf = (hash: string | undefined): string | undefined =>
   hash === undefined ? undefined : `url("${assetUrl(hash)}") center / cover no-repeat`
 
 /** 首幀被自動裁掉黑邊時，卡片底部那一行的說明。 */
-export const LETTERBOX_NOTE = '已自動裁掉黑邊，畫質可能較差，想要更好的畫面可以重新生成。'
+export const LETTERBOX_NOTE = msg('canvas.blackBarsWereTrimmedAutomatically')
 
 /** 影片長度：「0:15」「1:05」。 */
 export const clockOf = (sec: number): string => {
@@ -48,12 +49,12 @@ function usageTextOf(usage: IpcNode['usage']): string | undefined {
   if (!usage) return undefined
   const line = usageLine({ durationMs: usage.durationMs, costUsd: usage.costUsd })
   return [
-    line ? `${line}${usage.costEstimated === true ? '（估算）' : ''}` : undefined,
+    line ? (usage.costEstimated === true ? t('canvas.usageEstimated', { line }) : line) : undefined,
     timeAgo(usage.createdAt),
-    usage.letterboxTrimmed === true ? '已自動裁掉黑邊' : undefined,
+    usage.letterboxTrimmed === true ? t('canvas.blackBarsTrimmedAutomatically') : undefined,
   ]
     .filter(Boolean)
-    .join('・')
+    .join(t('list.dot'))
 }
 
 function toNode(n: IpcNode): CanvasNode {
@@ -86,11 +87,11 @@ function toNode(n: IpcNode): CanvasNode {
     step: n.step,
     expanded: n.expanded,
     usageText: usageTextOf(n.usage),
-    ...(n.usage?.letterboxTrimmed === true ? { usageNote: LETTERBOX_NOTE } : {}),
+    ...(n.usage?.letterboxTrimmed === true ? { usageNote: t(LETTERBOX_NOTE) } : {}),
     footer:
       n.version === undefined
         ? undefined
-        : `v${String(n.version)}${n.modelId === undefined ? '' : `・${n.modelName ?? n.modelId}`}`,
+        : `v${String(n.version)}${n.modelId === undefined ? '' : `${t('list.dot')}${n.modelName ?? n.modelId}`}`,
   }
   if (kind === 'scene') {
     return {
@@ -131,10 +132,13 @@ function toNode(n: IpcNode): CanvasNode {
     const slots = (n.slots ?? []).map((slot) => ({
       id: slot.id,
       label: slot.label,
-      note: `${String(slot.used)}/${String(slot.total)} 鏡`,
+      note: t('canvas.shots', { value: String(slot.used), value2: String(slot.total) }),
       partial: slot.used < slot.total,
       ...(slot.used < slot.total
-        ? { why: slot.excluded > 0 ? '有鏡頭沒放進成品' : '有鏡頭還沒有影片' }
+        ? {
+            why:
+              slot.excluded > 0 ? t('canvas.someShotsArenTIn') : t('canvas.someShotsHaveNoVideo'),
+          }
         : {}),
     }))
     const final = n.final
@@ -151,12 +155,23 @@ function toNode(n: IpcNode): CanvasNode {
           ? {
               videoSrc: assetUrl(final.assetHash),
               thumb: undefined,
-              footer: `成品 v${String(final.version)}${
-                final.durationSec === undefined ? '' : ` · ${clockOf(final.durationSec)}`
-              }${final.stale ? (final.staleReason === 'sound' ? ' · 聲音有變動，要重新混音' : ' · 鏡頭有變動，要重新接') : ''}`,
+              footer: [
+                t('canvas.filmV', { value: String(final.version) }),
+                final.durationSec === undefined ? '' : clockOf(final.durationSec),
+                final.stale
+                  ? final.staleReason === 'sound'
+                    ? t('canvas.soundChangedNeedsANew')
+                    : t('canvas.shotsChangedNeedsJoiningAgain')
+                  : '',
+              ]
+                .filter((part) => part !== '')
+                .join(' · '),
               finalStale: final.stale,
             }
-          : { footer: '成品還沒接', thumb: 'linear-gradient(135deg,#1f3d3a,#0c1a19)' }),
+          : {
+              footer: t('canvas.filmNotJoinedYet'),
+              thumb: 'linear-gradient(135deg,#1f3d3a,#0c1a19)',
+            }),
       },
     }
   }

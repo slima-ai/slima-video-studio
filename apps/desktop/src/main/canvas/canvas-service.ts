@@ -22,6 +22,9 @@ import {
   type CanvasUpdateFree,
   type CanvasUpdateOneliner,
   type CanvasViewport,
+  t,
+  cardNameOf,
+  displayNameOf,
 } from '@svs/schema'
 
 import { createReadStream } from 'node:fs'
@@ -136,7 +139,7 @@ const IMPORT_CARD = { w: 220, h: 190 } as const
 /** 檔名當格子的名字：拿掉副檔名，太長就截斷。 */
 const titleOf = (name: string): string => {
   const base = basename(name, extname(name)).trim()
-  return (base === '' ? '上傳的檔案' : base).slice(0, 40)
+  return (base === '' ? t('canvas.uploadedFile') : base).slice(0, 40)
 }
 
 const EMPTY: CanvasGraph = { nodes: [], edges: [] }
@@ -197,10 +200,10 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
       const image = deps.shots.flowOf(view.id).nodes.find((n) => n.id === 'image')
       const model =
         image?.type === NODE_TYPES.fixedImage
-          ? '用接上來的圖（不送模型）'
+          ? t('canvas.useTheConnectedPictureNot')
           : image?.modelId
-            ? (deps.models?.get(image.modelId)?.displayName ?? image.modelId)
-            : '還沒選圖片模型（到設定選一個）'
+            ? displayNameOf(deps.models?.get(image.modelId), image.modelId)
+            : t('canvas.noImageModelChosenYet')
       result.set(view.id, {
         prompt: view.prompt ?? view.autoPrompt,
         edited: view.prompt !== undefined,
@@ -222,7 +225,7 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
   ): Promise<CanvasAddResult> => {
     const handle = projects.current()
     if (!handle || handle.closed) {
-      throw new AppError({ code: 'invalid_request', userMessage: '請先開啟或建立一個專案。' })
+      throw new AppError({ code: 'invalid_request', userMessage: t('canvas.openOrCreateAProject') })
     }
     const stored = await handle.assets.put(content, mime)
     const video = mime.startsWith('video/')
@@ -253,7 +256,7 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
     )
     const first = result.added.find((a) => images.has(a.key))
     if (!first) {
-      if (result.added.length > 0) result.notice = '影片還不能接到這裡，先放在畫布上'
+      if (result.added.length > 0) result.notice = t('canvas.aVideoCanTConnect')
       return
     }
     try {
@@ -261,7 +264,10 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
       result.connected = true
     } catch (error) {
       if (!(error instanceof AppError)) throw error
-      result.notice = `「${first.title}」放在畫布上了，但沒接上：${error.userMessage}`
+      result.notice = t('canvas.wasPlacedOnTheCanvas', {
+        title: first.title,
+        userMessage: error.userMessage,
+      })
     }
     revision += 1
     broadcast('canvas.changed', { revision })
@@ -304,8 +310,8 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
           shots.adoptedTakes().flatMap((take) => {
             const name =
               take.modelId === UPLOAD_MODEL
-                ? '接上來的圖'
-                : deps.models?.get(take.modelId)?.displayName
+                ? t('canvas.connectedPicture')
+                : cardNameOf(deps.models?.get(take.modelId))
             return name === undefined ? [] : [[take.modelId, name] as const]
           }),
         ),
@@ -334,7 +340,12 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
 
     add(request) {
       if (request.kind === 'oneliner' && deps.projectsDir !== undefined) {
-        ensureProject(projects, deps.projectsDir, '我的短片', deps.now?.() ?? new Date())
+        ensureProject(
+          projects,
+          deps.projectsDir,
+          t('canvas.myShortFilm'),
+          deps.now?.() ?? new Date(),
+        )
       }
       // 從獨立圖片的「＋」新增角色或地點：先新增，再把這張圖接成它的參考圖
       const { from, ...plain } = request
@@ -422,7 +433,7 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
         if (!known.has(key)) {
           throw new AppError({
             code: 'invalid_request',
-            userMessage: '畫布上找不到這一格，可能已經被刪掉了。',
+            userMessage: t('canvas.couldnTFindThisCell'),
           })
         }
       }
@@ -465,7 +476,7 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
       if (node?.type !== 'oneliner') {
         throw new AppError({
           code: 'invalid_request',
-          userMessage: '找不到這個「一句話」，可能已經被刪掉了。',
+          userMessage: t('canvas.couldnTFindThisOne'),
         })
       }
       // 改了聲音勾選＝重新決定要不要自動加：之後的「全部生成」再照新的勾選加
@@ -488,14 +499,14 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
         if (!mime) {
           result.skipped.push({
             name,
-            reason: '不支援這種檔案（可以放 PNG、JPG、WebP 圖片或 MP4、WebM、MOV 影片）',
+            reason: t('canvas.thisKindOfFileIsn'),
           })
           continue
         }
         try {
           const info = await stat(path)
           if (!info.isFile() || info.size === 0) {
-            result.skipped.push({ name, reason: '讀不到這個檔案' })
+            result.skipped.push({ name, reason: t('canvas.couldnTReadThisFile') })
             continue
           }
           const want = { x: (x ?? 60) + index * IMPORT_STEP, y: y ?? 60 }
@@ -504,7 +515,7 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
           result.added.push(await placeAsset(createReadStream(path), mime, name, at))
         } catch (error) {
           if (error instanceof AppError) throw error
-          result.skipped.push({ name, reason: '讀不到這個檔案' })
+          result.skipped.push({ name, reason: t('canvas.couldnTReadThisFile') })
         }
       }
       if (connectTo) connectFirstImage(result, connectTo)
@@ -522,14 +533,14 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
       const node = handle.repos.canvas.listNodes().find((n) => `node:${n.id}` === key)
       const invalid = (userMessage: string): AppError =>
         new AppError({ code: 'invalid_request', userMessage })
-      if (!node) throw invalid('找不到這一格，可能已經被刪掉了。')
+      if (!node) throw invalid(t('canvas.couldnTFindThisCell2'))
       if (node.type === 'note') {
         if (patch.title !== undefined || patch.color !== undefined)
-          throw invalid('便條只能改裡面的字。')
+          throw invalid(t('canvas.aNoteSTextIs'))
       } else if (node.type === 'group') {
-        if (patch.text !== undefined) throw invalid('群組沒有文字，只能改名字、顏色和大小。')
+        if (patch.text !== undefined) throw invalid(t('canvas.aGroupHasNoText'))
       } else {
-        throw invalid('這一格不能改名：場、角色、地點、群組才能改名。')
+        throw invalid(t('canvas.thisCellCanTBe3'))
       }
       handle.repos.canvas.updateNodeParams(node.id, patch)
       revision += 1

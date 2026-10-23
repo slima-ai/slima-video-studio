@@ -143,3 +143,8 @@ export function formatDate(value: Date | string | number, style: DateStyle): str
     ? date.toLocaleString(tag, DATE_OPTIONS[style])
     : date.toLocaleTimeString(tag, DATE_OPTIONS[style])
 }
+
+/** 句子拿來接在別的句子中間時，把第一個字母改小寫（英文用；中文沒有大小寫，原樣回傳）。 */
+export function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1)
+}

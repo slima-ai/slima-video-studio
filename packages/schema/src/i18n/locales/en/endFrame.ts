@@ -3,7 +3,7 @@ export const endFrame = {
   'endFrame.card.firstShort': 'First',
   'endFrame.card.end': 'End',
   'endFrame.card.action': 'Action',
-  'endFrame.card.endFrame': 'End frame',
+  'endFrame.card.endFrame': 'End',
   'endFrame.history.set': 'Set end frame',
   'endFrame.history.clear': 'Remove end frame',
   'endFrame.error.noShot': "Can't find this shot. It may have been deleted.",

@@ -534,3 +534,13 @@ export function cardText(card: ModelCard): {
     voices: card.voices.map((v) => (v.labelEn === undefined ? v : { ...v, label: v.labelEn })),
   }
 }
+
+/** 目前介面語言要顯示的模型名稱；查不到這張卡（例如已經下架的模型）就用模型 id。 */
+export function displayNameOf(card: ModelCard | undefined, fallback: string): string {
+  return card ? cardText(card).displayName : fallback
+}
+
+/** 同上，查不到就回 `undefined`（讓呼叫的地方自己決定要不要列）。 */
+export function cardNameOf(card: ModelCard | undefined): string | undefined {
+  return card ? cardText(card).displayName : undefined
+}

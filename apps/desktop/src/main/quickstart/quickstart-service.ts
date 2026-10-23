@@ -17,6 +17,7 @@ import {
   type QuickStartCheck,
   type QuickStartProgress,
   type QuickStartRequest,
+  displayNameOf,
 } from '@svs/schema'
 import {
   STUDIO_SERVICE_KEY,
@@ -160,7 +161,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
     video: settingsService.resolveModel('i2v'),
   })
   const nameOf = (id: string | undefined): string | undefined =>
-    id ? (models.get(id)?.displayName ?? id) : undefined
+    id ? displayNameOf(models.get(id), id) : undefined
 
   const check = (request: QuickStartRequest): QuickStartCheck => {
     const storyboardOnly = request.stage === 'storyboard'

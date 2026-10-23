@@ -5,6 +5,7 @@ import { useToast } from '../../components/toast'
 import { useHistory } from '../../lib/history'
 import { call, errorText } from '../../lib/svs'
 import type { ConfirmAnchor } from './run-confirm'
+import { lowerFirst, messageVariants, t } from '@svs/schema'
 
 /** 還沒回報是哪個節點在生成（例如離開畫布再回來）時，所有一句話節點都顯示生成中。 */
 export const ANY_ONELINER = '*'
@@ -70,7 +71,7 @@ export function useGrow(options: {
         setFinishing(false)
         // 整次生成是一筆可以復原的動作：按「復原」回到按下「生成影片」之前（「取代全部」刪掉的也會回來）
         const action = {
-          label: '復原',
+          label: t('canvas.undo'),
           onAction: () => {
             undoRef.current()
           },
@@ -78,8 +79,7 @@ export function useGrow(options: {
         if (progress.status === 'succeeded' && stageRef.current === 'storyboard') {
           toast.show({
             key: 'grow',
-            message:
-              '分鏡寫好了，圖片和影片還沒生成。看過、改好，再按右上角的「全部生成」，那裡會給你準確的預估',
+            message: t('canvas.theStoryboardIsWrittenBut'),
             action,
             ms: 12_000,
           })
@@ -87,20 +87,23 @@ export function useGrow(options: {
           toast.show({
             key: 'grow',
             message: progress.soundFailed
-              ? '短片生成好了，但聲音沒加成，可以在成品面板再試'
-              : progress.soundDone !== undefined && progress.soundDone !== '成品接好了'
-                ? `短片生成好了（${progress.soundDone}）`
-                : '短片生成好了',
+              ? t('canvas.theFilmIsGeneratedBut')
+              : progress.soundDone !== undefined &&
+                  !messageVariants('canvas.theFilmIsJoined').includes(progress.soundDone)
+                ? t('canvas.theFilmIsGenerated', {
+                    soundDone: lowerFirst(progress.soundDone),
+                  })
+                : t('canvas.theFilmIsGenerated2'),
             action,
           })
         } else if (progress.status === 'failed') {
           toast.show({
             key: 'grow',
-            message: progress.error?.userMessage ?? '生成失敗了，請再試一次。',
+            message: progress.error?.userMessage ?? t('canvas.generationFailedPleaseTryAgain'),
             tone: 'danger',
           })
         } else {
-          toast.show({ key: 'grow', message: '已經停止生成，做好的部分留著', action })
+          toast.show({ key: 'grow', message: t('canvas.generationStoppedWhatSDone'), action })
         }
       }
       onFinished.current(progress.status).then(say, say)
@@ -150,7 +153,10 @@ export function useGrow(options: {
         .then(([check, full]) => {
           const [issue] = check.issues
           if (!check.ok || issue) {
-            toast.show({ message: issue?.message ?? '現在不能生成。', tone: 'danger' })
+            toast.show({
+              message: issue?.message ?? t('canvas.canTGenerateRightNow'),
+              tone: 'danger',
+            })
             return
           }
           const nextUsd =

@@ -5,6 +5,7 @@ import {
   type CanvasGraph,
   type CanvasPaste,
   type CanvasPasteResult,
+  t,
 } from '@svs/schema'
 
 import type { CharacterService } from '../characters/character-service'
@@ -33,7 +34,7 @@ const idOf = (key: string, prefix: string): string | undefined => {
 
 /** 名字不能跟現有的撞：「小明 副本」「小明 副本 2」…。 */
 function copyName(name: string, taken: readonly string[]): string {
-  const base = `${name} 副本`
+  const base = t('canvas.copy', { name })
   if (!taken.includes(base)) return base
   for (let n = 2; ; n++) {
     const candidate = `${base} ${String(n)}`
@@ -51,7 +52,7 @@ export function createCanvasCopier(deps: CanvasCopierDeps) {
 
   const handleOf = () => {
     const handle = projects.current()
-    if (!handle || handle.closed) throw invalid('請先開啟或建立一個專案。')
+    if (!handle || handle.closed) throw invalid(t('canvas.openOrCreateAProject'))
     return handle
   }
 
@@ -76,7 +77,7 @@ export function createCanvasCopier(deps: CanvasCopierDeps) {
       for (const sceneId of sceneIds) {
         const scene = view.acts.flatMap((a) => a.scenes).find((s) => s.id === sceneId)
         if (!scene) {
-          skipped.push({ name: '場', reason: '找不到這一場，可能已經被刪掉了' })
+          skipped.push({ name: t('canvas.scene'), reason: t('canvas.couldnTFindThisScene') })
           continue
         }
         // 選到的場一定在某一幕裡，所以最後一幕一定有
@@ -87,8 +88,8 @@ export function createCanvasCopier(deps: CanvasCopierDeps) {
           .edit({ op: 'addScene', actId: lastAct.id })
           .acts.flatMap((a) => a.scenes)
           .find((s) => !known.has(s.id))
-        if (!created) throw invalid('複製場失敗，請再試一次。')
-        const title = `${scene.title} 副本`
+        if (!created) throw invalid(t('canvas.couldnTCopyTheScene'))
+        const title = t('canvas.copy2', { title: scene.title })
         outline.edit({
           op: 'updateScene',
           sceneId: created.id,
@@ -113,7 +114,10 @@ export function createCanvasCopier(deps: CanvasCopierDeps) {
           const sceneId = sceneOfShot.get(shotId)
           if (sceneId !== undefined && sceneIds.includes(sceneId)) continue
           const copy = shots.duplicate(shotId)
-          added.push({ key: `shot:${copy.id}`, title: `第 ${String(copy.number)} 鏡` })
+          added.push({
+            key: `shot:${copy.id}`,
+            title: t('canvas.shot', { value: String(copy.number) }),
+          })
           continue
         }
 
@@ -126,14 +130,16 @@ export function createCanvasCopier(deps: CanvasCopierDeps) {
           const found = hash === undefined ? undefined : handle.assets.find(hash)
           if (!node || hash === undefined || !found) {
             skipped.push({
-              name: node?.title ?? '圖',
-              reason: '這一格還沒有圖或影片，沒有東西可以貼',
+              name: node?.title ?? t('canvas.picture'),
+              reason: t('canvas.thisCellHasNoPicture'),
             })
             continue
           }
           const video = derived[2] === 'video'
           const shotTitle = nodeOf.get(`shot:${derived[1]}`)?.title ?? ''
-          const title = `${shotTitle}的${video ? '影片' : '圖'}`
+          const title = video
+            ? t('canvas.shotVideoTitle', { shotTitle })
+            : t('canvas.shotPictureTitle', { shotTitle })
           const row = handle.repos.canvas.addNode({
             type: video ? 'free_video' : 'free_image',
             params: { assetHash: hash, mime: found.mime, title, source: 'copy' },
@@ -149,7 +155,10 @@ export function createCanvasCopier(deps: CanvasCopierDeps) {
         if (characterId !== undefined) {
           const source = handle.repos.characters.get(characterId)
           if (!source) {
-            skipped.push({ name: '角色', reason: '找不到這個角色，可能已經被刪掉了' })
+            skipped.push({
+              name: t('canvas.character'),
+              reason: t('canvas.couldnTFindThisCharacter2'),
+            })
             continue
           }
           const name = copyName(
@@ -176,14 +185,17 @@ export function createCanvasCopier(deps: CanvasCopierDeps) {
           const current = outline.get()
           const source = current.locations.find((l) => l.id === locationId)
           if (!source) {
-            skipped.push({ name: '地點', reason: '找不到這個地點，可能已經被刪掉了' })
+            skipped.push({
+              name: t('canvas.location'),
+              reason: t('canvas.couldnTFindThisLocation'),
+            })
             continue
           }
           const known = new Set(current.locations.map((l) => l.id))
           const created = outline
             .edit({ op: 'addLocation' })
             .locations.find((l) => !known.has(l.id))
-          if (!created) throw invalid('複製地點失敗，請再試一次。')
+          if (!created) throw invalid(t('canvas.couldnTCopyTheLocation'))
           const name = copyName(
             source.name,
             current.locations.map((l) => l.name),
@@ -204,7 +216,7 @@ export function createCanvasCopier(deps: CanvasCopierDeps) {
         if (freeId !== undefined) {
           const row = handle.repos.canvas.listNodes().find((n) => n.id === freeId)
           if (!row) {
-            skipped.push({ name: '這一格', reason: '找不到，可能已經被刪掉了' })
+            skipped.push({ name: t('canvas.thisCell'), reason: t('canvas.couldnTFindItIt') })
             continue
           }
           const copy = handle.repos.canvas.addNode({
@@ -218,9 +230,9 @@ export function createCanvasCopier(deps: CanvasCopierDeps) {
         }
 
         if (idOf(key, 'scene') === undefined && key !== 'cut') {
-          skipped.push({ name: nodeOf.get(key)?.title ?? key, reason: '這一格不能複製' })
+          skipped.push({ name: nodeOf.get(key)?.title ?? key, reason: t('canvas.thisCellCanTBe') })
         } else if (key === 'cut') {
-          skipped.push({ name: '剪輯', reason: '剪輯只有一個，不能複製' })
+          skipped.push({ name: t('canvas.cut'), reason: t('canvas.thereSOnlyOneCut') })
         }
       }
       if (moves.length > 0) {

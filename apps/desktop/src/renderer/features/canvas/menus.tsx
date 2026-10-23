@@ -4,27 +4,32 @@ import { cn } from '../../lib/cn'
 import { KIND_LABEL, type NodeKind } from './canvas-model'
 import type { AddChoice } from './connection-rules'
 import { KindBadge } from './kind-icon'
+import { t, msg, type MessageRef } from '@svs/schema'
 
 export interface AddItem {
   kind: AddChoice['kind']
-  label: string
-  desc: string
+  label: MessageRef
+  desc: MessageRef
 }
 
 /** 新增節點的種類與一行說明（左側節點面板、新增選單共用）。 */
 export const ADD_ITEMS: readonly AddItem[] = [
   {
     kind: 'oneliner',
-    label: '一句話',
-    desc: '寫一句話，先看分鏡再決定要不要生成（會花錢，按之前先給預估）',
+    label: msg('canvas.oneLiner'),
+    desc: msg('canvas.writeOneLineAndLook'),
   },
-  { kind: 'scene', label: '場', desc: '一段故事：地點、時間、氣氛' },
-  { kind: 'shot', label: '鏡頭', desc: '一個畫面：描述、台詞、運鏡' },
-  { kind: 'character', label: '角色', desc: '人物或動物：外貌、服裝' },
-  { kind: 'location', label: '地點', desc: '常出現的場景' },
-  { kind: 'freeImage', label: '圖片或影片', desc: '上傳一張圖或一段影片' },
-  { kind: 'note', label: '便條', desc: '寫備註給自己' },
-  { kind: 'group', label: '群組', desc: '框住幾格，一起搬動' },
+  { kind: 'scene', label: msg('canvas.scene'), desc: msg('canvas.aPieceOfTheStory') },
+  {
+    kind: 'shot',
+    label: msg('canvas.shot2'),
+    desc: msg('canvas.onePictureDescriptionLinesCamera'),
+  },
+  { kind: 'character', label: msg('canvas.character'), desc: msg('canvas.aPersonOrAnimalLook') },
+  { kind: 'location', label: msg('canvas.location'), desc: msg('canvas.aPlaceThatComesUp') },
+  { kind: 'freeImage', label: msg('canvas.pictureOrVideo'), desc: msg('canvas.uploadAPictureOrA') },
+  { kind: 'note', label: msg('canvas.note'), desc: msg('canvas.writeANoteToYourself') },
+  { kind: 'group', label: msg('canvas.group'), desc: msg('canvas.frameAFewCellsAnd') },
 ]
 
 export const itemFor = (kind: NodeKind): AddItem | undefined =>
@@ -85,22 +90,28 @@ export function AddMenu({ at, choices, title, kinds, onPick, onClose }: AddMenuP
       ? choices.flatMap((choice) => {
           // 從輸入點的「＋」選圖：選好就直接接上去
           if (choice.kind === 'freeImage') {
-            return [{ choice, label: '上傳圖片', desc: '選一張圖，直接接上去' }]
+            return [
+              {
+                choice,
+                label: t('canvas.uploadPicture'),
+                desc: t('canvas.pickAPictureAndConnect'),
+              },
+            ]
           }
           const base = itemFor(choice.kind)
-          const label = base?.label ?? KIND_LABEL[choice.kind]
-          return [{ choice, label, desc: base?.desc ?? '' }]
+          const label = base ? t(base.label) : t(KIND_LABEL[choice.kind])
+          return [{ choice, label, desc: base ? t(base.desc) : '' }]
         })
       : ADD_ITEMS.map((item): { choice: AddChoice; label: string; desc: string } => ({
           choice: { kind: item.kind },
-          label: item.label,
-          desc: item.desc,
+          label: t(item.label),
+          desc: t(item.desc),
         }))
     const allowed = pool.filter((p) => kinds === undefined || kinds.includes(p.choice.kind))
-    const text = query.trim()
+    const text = query.trim().toLowerCase()
     // 名稱有符合就只列名稱符合的；名稱都不符合才看說明（打「地點」不該連「場」也跑出來）
-    const byLabel = allowed.filter((p) => p.label.includes(text))
-    return byLabel.length > 0 ? byLabel : allowed.filter((p) => p.desc.includes(text))
+    const byLabel = allowed.filter((p) => p.label.toLowerCase().includes(text))
+    return byLabel.length > 0 ? byLabel : allowed.filter((p) => p.desc.toLowerCase().includes(text))
   }, [choices, kinds, query])
   const ref = useRef<HTMLDivElement>(null)
   const pos = clamp(at, 120 + items.length * 52)
@@ -111,7 +122,7 @@ export function AddMenu({ at, choices, title, kinds, onPick, onClose }: AddMenuP
       data-floating-menu
       data-testid="add-menu"
       role="dialog"
-      aria-label="新增"
+      aria-label={t('canvas.add')}
       className="fixed z-50 flex flex-col gap-1 rounded-xl border border-border bg-surface-raised p-2 shadow-panel animate-scale-in"
       style={{ ...pos, width: MENU_W }}
     >
@@ -119,8 +130,8 @@ export function AddMenu({ at, choices, title, kinds, onPick, onClose }: AddMenuP
       <input
         // 開啟時直接可以打字搜尋
         autoFocus
-        aria-label="搜尋要新增的種類"
-        placeholder="輸入名稱，例如「鏡頭」"
+        aria-label={t('canvas.searchForWhatToAdd')}
+        placeholder={t('canvas.typeANameForExample')}
         value={query}
         onChange={(event) => {
           setQuery(event.target.value)
@@ -141,7 +152,7 @@ export function AddMenu({ at, choices, title, kinds, onPick, onClose }: AddMenuP
         }}
         className="rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm"
       />
-      <ul role="listbox" aria-label="可以新增的種類" className="flex flex-col">
+      <ul role="listbox" aria-label={t('canvas.thingsYouCanAdd')} className="flex flex-col">
         {items.map((item, i) => (
           <li
             key={`${item.choice.kind}-${item.choice.port ?? ''}`}
@@ -170,7 +181,7 @@ export function AddMenu({ at, choices, title, kinds, onPick, onClose }: AddMenuP
           </li>
         ))}
         {items.length === 0 ? (
-          <li className="px-2 py-2 text-xs text-fg-muted">沒有符合的種類</li>
+          <li className="px-2 py-2 text-xs text-fg-muted">{t('canvas.nothingMatches')}</li>
         ) : null}
       </ul>
     </div>

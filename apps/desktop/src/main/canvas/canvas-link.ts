@@ -1,4 +1,10 @@
-import { AppError, type CanvasLink, type CanvasRemove, type CanvasRemoveResult } from '@svs/schema'
+import {
+  AppError,
+  type CanvasLink,
+  type CanvasRemove,
+  type CanvasRemoveResult,
+  t,
+} from '@svs/schema'
 
 import type { CharacterService } from '../characters/character-service'
 import type { OutlineService } from '../outline/outline-service'
@@ -48,7 +54,7 @@ function relationOf({ source, target }: CanvasLink): Relation {
       return { kind: 'sceneLocation', locationId, sceneId }
     }
   }
-  throw invalid('這裡接不起來：角色可以接到鏡頭，地點可以接到場或鏡頭。')
+  throw invalid(t('canvas.theseCanTConnectA'))
 }
 
 /**
@@ -64,7 +70,7 @@ export function createCanvasLinker(deps: CanvasLinkerDeps): {
 
   const shotOf = (shotId: string) => {
     const shot = shots.list().shots.find((s) => s.id === shotId)
-    if (!shot) throw invalid('找不到這個鏡頭。')
+    if (!shot) throw invalid(t('canvas.couldnTFindThisShot'))
     return shot
   }
   const sceneOf = (sceneId: string) => {
@@ -72,17 +78,17 @@ export function createCanvasLinker(deps: CanvasLinkerDeps): {
       .get()
       .acts.flatMap((a) => a.scenes)
       .find((s) => s.id === sceneId)
-    if (!scene) throw invalid('找不到這個場。')
+    if (!scene) throw invalid(t('canvas.couldnTFindThisScene2'))
     return scene
   }
   const characterOf = (characterId: string) => {
     const character = characters.list().find((c) => c.id === characterId)
-    if (!character) throw invalid('找不到這個角色。')
+    if (!character) throw invalid(t('canvas.couldnTFindThisCharacter'))
     return character
   }
   const requireLocation = (locationId: string): void => {
     if (!outline.get().locations.some((l) => l.id === locationId)) {
-      throw invalid('找不到這個地點。')
+      throw invalid(t('canvas.couldnTFindThisLocation2'))
     }
   }
 
@@ -93,20 +99,22 @@ export function createCanvasLinker(deps: CanvasLinkerDeps): {
         const character = characterOf(relation.characterId)
         const shot = shotOf(relation.shotId)
         if (shot.characters.includes(character.name)) {
-          throw invalid(`${character.name}已經在這一鏡。`)
+          throw invalid(t('canvas.isAlreadyInThisShot', { name: character.name }))
         }
         shots.update(shot.id, { characters: [...shot.characters, character.name] })
       } else if (relation.kind === 'shotLocation') {
         requireLocation(relation.locationId)
         const shot = shotOf(relation.shotId)
-        if (shot.locationId === relation.locationId) throw invalid('這兩個已經接在一起了。')
-        if (shot.locationId !== undefined) throw invalid('這一鏡已經有地點了，先剪掉原本的線。')
+        if (shot.locationId === relation.locationId)
+          throw invalid(t('canvas.theseTwoAreAlreadyConnected'))
+        if (shot.locationId !== undefined) throw invalid(t('canvas.thisShotAlreadyHasA'))
         shots.update(shot.id, { locationId: relation.locationId })
       } else {
         requireLocation(relation.locationId)
         const scene = sceneOf(relation.sceneId)
-        if (scene.locationId === relation.locationId) throw invalid('這兩個已經接在一起了。')
-        if (scene.locationId !== undefined) throw invalid('這一場已經有地點了，先剪掉原本的線。')
+        if (scene.locationId === relation.locationId)
+          throw invalid(t('canvas.theseTwoAreAlreadyConnected'))
+        if (scene.locationId !== undefined) throw invalid(t('canvas.thisSceneAlreadyHasA'))
         outline.edit({
           op: 'updateScene',
           sceneId: scene.id,
@@ -153,7 +161,7 @@ export function createCanvasLinker(deps: CanvasLinkerDeps): {
         else if (characterId !== undefined) characterIds.push(characterId)
         else {
           const derived = /^shot:([^:]+):(image|video)$/.exec(key)
-          if (!derived?.[1] || !derived[2]) throw invalid('這一格不能刪除。')
+          if (!derived?.[1] || !derived[2]) throw invalid(t('canvas.thisCellCanTBe2'))
           clears.push({ shotId: derived[1], kind: derived[2] === 'image' ? 'image' : 'video' })
         }
       }

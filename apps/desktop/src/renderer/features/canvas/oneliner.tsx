@@ -4,6 +4,9 @@ import {
   QUICK_STYLE_LABELS,
   type OnelinerParams,
   type QuickStartSound,
+  t,
+  msg,
+  type MessageRef,
 } from '@svs/schema'
 import { Lock } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -15,27 +18,30 @@ import type { CanvasNodeData } from './canvas-model'
 import { anchorOf } from './run-confirm'
 
 const STYLE_OPTIONS = QUICK_STYLE_IDS.map((id) => ({ value: id, label: QUICK_STYLE_LABELS[id] }))
-const SHOT_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
-  value: String(i + 1),
-  label: `${String(i + 1)} 個鏡頭`,
-}))
-const DURATION_OPTIONS = Array.from({ length: 13 }, (_, i) => ({
-  value: String(i + 3),
-  label: `每鏡 ${String(i + 3)} 秒`,
-}))
+// 選項的字要在畫的時候才翻（模組載入時語言還沒定下來），所以是函式
+const shotOptions = () =>
+  Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1),
+    label: t('canvas.shots2', { value: String(i + 1) }),
+  }))
+const durationOptions = () =>
+  Array.from({ length: 13 }, (_, i) => ({
+    value: String(i + 3),
+    label: t('canvas.secPerShot', { value: String(i + 3) }),
+  }))
 /** 欄位上方的小標籤：選了、寫了之後還看得出這一格是什麼。 */
 const FIELD_LABEL = 'text-[11px] font-medium text-fg-muted'
 
 /** 聲音三個勾選（預設全開）：原聲在生成影片時帶；旁白與配樂在影片完成後自動加。 */
-const SOUND_CHOICES: { key: keyof QuickStartSound; label: string; hint: string }[] = [
-  { key: 'native', label: '影片原聲', hint: '生成影片時一起生成聲音（影片費約多 50%）' },
-  { key: 'narration', label: '旁白', hint: '完成後念每個鏡頭的台詞' },
-  { key: 'music', label: '配樂', hint: '完成後配一首背景音樂' },
+const SOUND_CHOICES: { key: keyof QuickStartSound; label: MessageRef; hint: MessageRef }[] = [
+  { key: 'native', label: msg('canvas.videoSound'), hint: msg('canvas.generateSoundAlongWithThe') },
+  { key: 'narration', label: msg('canvas.narration'), hint: msg('canvas.readEachShotSLines') },
+  { key: 'music', label: msg('canvas.music'), hint: msg('canvas.addBackgroundMusicWhenDone') },
 ]
 
 const ASPECT_OPTIONS = [
-  { value: '16:9', label: '橫式 16:9' },
-  { value: '9:16', label: '直式 9:16' },
+  { value: '16:9', label: msg('canvas.landscape169') },
+  { value: '9:16', label: msg('canvas.portrait916') },
 ]
 
 /**
@@ -79,13 +85,13 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
   }
   return (
     <>
-      <label className="lod-full flex min-h-0 flex-1 flex-col gap-0.5">
-        <span className={FIELD_LABEL}>故事</span>
+      <label className="oneliner-story-field lod-full flex min-h-0 flex-1 flex-col gap-0.5">
+        <span className={FIELD_LABEL}>{t('canvas.story')}</span>
         <textarea
           data-testid="oneliner-story"
           value={story}
           maxLength={4000}
-          placeholder="例如：一隻貓在下雨的夜晚找到溫暖的家"
+          placeholder={t('canvas.forExampleACatFinds')}
           disabled={running}
           className="nodrag nowheel nopan lod-full min-h-[64px] flex-1 resize-none rounded-lg border border-border bg-surface p-2 text-sm placeholder:text-fg-subtle disabled:opacity-60"
           onFocus={() => {
@@ -103,10 +109,10 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
       <div className="nodrag nowheel nopan lod-full grid grid-cols-2 gap-1.5">
         <div className="flex flex-col gap-0.5">
           <span className={FIELD_LABEL} aria-hidden>
-            畫風
+            {t('canvas.style')}
           </span>
           <SimpleSelect
-            label="畫風"
+            label={t('canvas.style')}
             testId="oneliner-style"
             value={picked?.style}
             options={STYLE_OPTIONS}
@@ -119,13 +125,13 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
         </div>
         <div className="flex flex-col gap-0.5">
           <span className={FIELD_LABEL} aria-hidden>
-            鏡頭數
+            {t('canvas.numberOfShots')}
           </span>
           <SimpleSelect
-            label="鏡頭數"
+            label={t('canvas.numberOfShots')}
             testId="oneliner-shots"
             value={picked === undefined ? undefined : String(picked.shotCount)}
-            options={SHOT_OPTIONS}
+            options={shotOptions()}
             disabled={running}
             onChange={(value) => {
               commit({ shotCount: Number(value) })
@@ -134,13 +140,13 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
         </div>
         <div className="flex flex-col gap-0.5">
           <span className={FIELD_LABEL} aria-hidden>
-            每鏡幾秒
+            {t('canvas.secondsPerShot')}
           </span>
           <SimpleSelect
-            label="每鏡幾秒"
+            label={t('canvas.secondsPerShot')}
             testId="oneliner-duration"
             value={picked === undefined ? undefined : String(picked.durationSec)}
-            options={DURATION_OPTIONS}
+            options={durationOptions()}
             disabled={running}
             onChange={(value) => {
               commit({ durationSec: Number(value) })
@@ -149,13 +155,13 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
         </div>
         <div className="flex flex-col gap-0.5">
           <span className={FIELD_LABEL} aria-hidden>
-            畫面比例
+            {t('canvas.aspectRatio')}
           </span>
           <SimpleSelect
-            label="畫面比例"
+            label={t('canvas.aspectRatio')}
             testId="oneliner-aspect"
             value={picked?.aspectRatio}
-            options={ASPECT_OPTIONS}
+            options={ASPECT_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
             disabled={running}
             onChange={(value) => {
               if (value === '16:9' || value === '9:16') commit({ aspectRatio: value })
@@ -169,16 +175,12 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
           disabled={running}
           data-testid="oneliner-sound"
         >
-          <legend className="sr-only">聲音</legend>
-          <span
-            className={FIELD_LABEL}
-            aria-hidden
-            title="旁白與配樂：一次做完整支，或之後按「全部生成」，影片接好時自動加"
-          >
-            聲音
+          <legend className="sr-only">{t('canvas.sound')}</legend>
+          <span className={FIELD_LABEL} aria-hidden title={t('canvas.narrationAndMusicMadeWhen')}>
+            {t('canvas.sound')}
           </span>
           {SOUND_CHOICES.map(({ key, label, hint }) => (
-            <label key={key} className="flex items-center gap-1 text-xs" title={hint}>
+            <label key={key} className="flex items-center gap-1 text-xs" title={t(hint)}>
               <input
                 type="checkbox"
                 data-testid={`oneliner-sound-${key}`}
@@ -192,7 +194,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
                   })
                 }}
               />
-              {label}
+              {t(label)}
             </label>
           ))}
         </fieldset>
@@ -202,7 +204,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
           className="lod-full text-[11px] leading-snug text-fg-muted"
           data-testid="oneliner-sound-note"
         >
-          旁白與配樂會在影片接好時自動加：「一次做完整支」做完就加；「先產生分鏡」的話，等你按右上角的「全部生成」。旁白只念有台詞的鏡頭。
+          {t('canvas.narrationAndMusicAreAdded')}
         </p>
       ) : null}
       {growStory && picked ? (
@@ -224,11 +226,11 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
             >
               {running ? (
                 <>
-                  <Spinner label="生成中" />
-                  生成中…
+                  <Spinner label={t('canvas.generating')} />
+                  {t('canvas.generating3')}
                 </>
               ) : (
-                '先產生分鏡'
+                t('canvas.writeTheStoryboardFirst')
               )}
             </button>
             {running && stopGrow ? (
@@ -238,7 +240,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
                 className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-fg/10"
                 onClick={stopGrow}
               >
-                停止
+                {t('canvas.stop')}
               </button>
             ) : null}
           </div>
@@ -246,7 +248,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
             type="button"
             data-testid="oneliner-generate"
             disabled={running || story.trim() === ''}
-            title="分鏡、圖片、影片一次都生成（圖片和影片會花錢），上面勾的聲音也一起加"
+            title={t('canvas.generatesTheStoryboardPicturesAnd')}
             className="rounded-lg border border-border px-3 py-1 text-xs hover:bg-fg/10 disabled:opacity-50"
             onClick={(event) => {
               growStory(
@@ -257,10 +259,10 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
               )
             }}
           >
-            一次做完整支
+            {t('canvas.wholeFilmInOneGo')}
           </button>
           <p className="text-[11px] leading-snug text-fg-muted">
-            先只寫分鏡（文字模型、花得少）：看過、改好，再生圖片和影片。
+            {t('canvas.writeOnlyTheStoryboardFirst')}
           </p>
         </div>
       ) : null}
@@ -270,11 +272,11 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
           className="lod-full flex items-center gap-1 text-[11px] text-fg-muted"
         >
           <Lock className="size-3 shrink-0" aria-hidden />
-          生成中，故事和設定先鎖住；要改請先按「停止」
+          {t('canvas.generatingTheStoryAndSettings')}
         </p>
       ) : story.trim() === '' ? (
         <p data-testid="oneliner-locked" className="lod-full text-[11px] text-fg-muted">
-          先寫下故事，才能產生分鏡
+          {t('canvas.writeTheStoryFirstTo')}
         </p>
       ) : null}
     </>

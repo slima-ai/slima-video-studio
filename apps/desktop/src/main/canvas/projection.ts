@@ -17,6 +17,8 @@ import {
   type Scene,
   type Shot,
   type Take,
+  t,
+  msg,
 } from '@svs/schema'
 
 /** 一個自由節點（存在 canvas_nodes）。 */
@@ -93,7 +95,11 @@ export interface CanvasSource {
   final?: CanvasFinalCut | undefined
 }
 
-const STEP_TITLES = { prompt: '整理 Prompt', refs: '挑參考圖', model: '送出模型' } as const
+const STEP_TITLES = {
+  prompt: msg('canvas.preparePrompt'),
+  refs: msg('canvas.pickReferences'),
+  model: msg('canvas.sendToModel'),
+} as const
 
 // ── 自動排版（尺寸與間距和畫面上的節點卡片一致，見 uiux-spec §3、§12） ──
 const SIZE = {
@@ -269,12 +275,16 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
         x: at.x,
         y: at.y,
         auto: savedShot === undefined,
-        title: `第 ${String(shot.number)} 鏡`,
+        title: t('canvas.shot', { value: String(shot.number) }),
         ...(stepInfo ? { expanded: true } : {}),
         summary: shot.description,
         ...(shot.action.trim() === '' ? {} : { action: shot.action }),
         ...(shot.dialogue.trim() === '' ? {} : { dialogue: shot.dialogue }),
-        meta: `${SHOT_SIZE_LABELS[shot.size]}・${SHOT_ANGLE_LABELS[shot.angle]}・${String(shot.durationSec)} 秒`,
+        meta: t('canvas.sec', {
+          value: SHOT_SIZE_LABELS[shot.size],
+          value2: SHOT_ANGLE_LABELS[shot.angle],
+          value3: String(shot.durationSec),
+        }),
         tags,
         ...(Object.keys(lockedTags).length > 0 ? { lockedTags } : {}),
       })
@@ -327,10 +337,10 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
         }
       }
       // 圖和影片的標題帶鏡頭號（「第 1 鏡・第一張畫面」）：一次長出十幾個節點時才分得出誰是誰
-      const shotTitle = `第 ${String(shot.number)} 鏡`
+      const shotTitle = t('canvas.shot', { value: String(shot.number) })
       nodes.push(
-        derived('image', takeImage, `${shotTitle}・第一張畫面`),
-        derived('video', takeVideo, `${shotTitle}・影片`),
+        derived('image', takeImage, t('canvas.firstFrame2', { shotTitle })),
+        derived('video', takeVideo, t('canvas.video2', { shotTitle })),
       )
       if (stepInfo) {
         // 鏡頭 → 整理 Prompt → 挑參考圖 → 送出模型 → 圖：鏡頭和圖之間的線改走這三格
@@ -345,7 +355,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
             x: at.x,
             y,
             auto: true,
-            title: STEP_TITLES[stage],
+            title: t(STEP_TITLES[stage]),
             step:
               stage === 'prompt'
                 ? { stage, prompt: stepInfo.prompt, edited: stepInfo.edited }
@@ -403,7 +413,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
         width: box.w,
         height: box.h,
         auto: members.every((m) => m.auto),
-        title: `第 ${String(sceneNo)} 場・${scene.title}`,
+        title: t('canvas.scene2', { value: String(sceneNo), title: scene.title }),
         ...(scene.summary === '' ? {} : { summary: scene.summary }),
         ...(sceneNo === undefined ? {} : { sceneNo }),
       })
@@ -490,7 +500,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
     const hero = source.heroHashes.get(character.id)
     left(characterKey(character.id), 'character', character.id, {
       title: character.name,
-      summary: character.currentPackId === undefined ? '草稿' : '已鎖定',
+      summary: character.currentPackId === undefined ? t('canvas.draft') : t('canvas.locked'),
       ...(hero ? { assetHash: hero } : {}),
     })
   }
@@ -511,7 +521,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
       return {
         id: `cut-slot-${String(index + 1)}`,
         sceneKey: sceneKey(scene.id),
-        label: `${String(index + 1)}・第 ${String(index + 1)} 場`,
+        label: t('canvas.scene3', { value: String(index + 1), value2: String(index + 1) }),
         total: group.length,
         // 只算真的會接進成品的：放進成品、而且已經有影片（還在生成的不算，免得顯示「4/4」卻少一段）
         used: group.filter((s) => s.inCut && takeOf.has(`${s.id}:video`)).length,
@@ -524,7 +534,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
       x: saved?.x ?? BASE_X + columns * COLUMN_WIDTH - 40,
       y: saved?.y ?? BASE_Y + 200,
       auto: saved === undefined,
-      title: '剪輯',
+      title: t('canvas.cut'),
       slots,
       ...(source.final ? { final: source.final } : {}),
     })
@@ -549,7 +559,13 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
       auto: false,
       title:
         text(free.params.title) ??
-        (oneliner ? '一句話' : free.type === 'group' ? '群組' : free.type === 'note' ? '便條' : ''),
+        (oneliner
+          ? t('canvas.oneLiner')
+          : free.type === 'group'
+            ? t('canvas.group')
+            : free.type === 'note'
+              ? t('canvas.note')
+              : ''),
       ...(oneliner ? { oneliner, summary: oneliner.story } : {}),
       ...(summary === undefined || oneliner ? {} : { summary }),
       ...(hash === undefined ? {} : { assetHash: hash }),

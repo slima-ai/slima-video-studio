@@ -1,4 +1,4 @@
-import { t, type ShotReferencesState } from '@svs/schema'
+import { t, type ShotReferencesState, msg, type MessageRef } from '@svs/schema'
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import { ChevronDown, ChevronRight, Lock, Sparkles, Trash2 } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
@@ -70,14 +70,18 @@ function Port({ nodeId, port }: { nodeId: string; port: PortDef }) {
         data-dangling={!connected}
       />
       <span className="port-label" data-side={port.side} data-link={link} style={{ top: port.top }}>
-        {port.tone === 'ref' && port.side === 'in' && !port.label.startsWith('參考')
-          ? `參考・${port.label}`
+        {port.tone === 'ref' && port.side === 'in' && !port.label.startsWith(t('canvas.reference'))
+          ? t('canvas.reference2', { label: port.label })
           : port.label}
       </span>
       {addable ? (
         <button
           type="button"
-          aria-label={out ? `從「${port.label}」接一個新的` : `為「${port.label}」新增一個`}
+          aria-label={
+            out
+              ? t('canvas.connectANewOneFrom', { label: port.label })
+              : t('canvas.addOneFor', { label: port.label })
+          }
           data-testid={`plus-${nodeId}-${port.id}`}
           data-side={port.side}
           className="port-plus nodrag"
@@ -112,8 +116,8 @@ function OpenButton({ id }: { id: string }) {
   return (
     <button
       type="button"
-      aria-label="開啟詳情"
-      title="開啟詳情"
+      aria-label={t('canvas.openDetails')}
+      title={t('canvas.openDetails')}
       data-testid={`open-${id}`}
       className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
       onClick={() => {
@@ -128,16 +132,16 @@ function OpenButton({ id }: { id: string }) {
 /** ▶ 滑過時的說明：依這一格現在的狀態，說清楚按下去會做什麼。 */
 export function runTipOf(data: CanvasNodeData): string {
   const status = data.status
-  if (status === 'failed') return '重試這一步'
-  if (data.kind === 'shot') return '生成這一鏡還缺的第一張畫面與影片'
+  if (status === 'failed') return t('canvas.retryThisStep')
+  if (data.kind === 'shot') return t('canvas.generateTheFirstFrameAnd')
   if (data.kind === 'image') {
-    if (status === 'done') return '重做這一步：第一張畫面和影片都產生新的一版，舊的保留'
-    if (status === 'stale') return '重跑：鏡頭改過了，第一張畫面和影片都重新生成'
-    return '生成第一張畫面，接著生成影片（2 步）'
+    if (status === 'done') return t('canvas.redoThisStepMakesA')
+    if (status === 'stale') return t('canvas.runAgainTheShotChanged')
+    return t('canvas.generateTheFirstFrameThen')
   }
-  if (status === 'done') return '重做這一步：產生新的一版，舊的保留'
-  if (status === 'stale') return '重跑影片：鏡頭改過了'
-  return data.imageReady === true ? '生成影片' : '補跑第一張畫面後生成影片（2 步）'
+  if (status === 'done') return t('canvas.redoThisStepMakesA2')
+  if (status === 'stale') return t('canvas.runTheVideoAgainThe')
+  return data.imageReady === true ? t('canvas.generateVideo') : t('canvas.fillInTheFirstFrame')
 }
 
 /**
@@ -162,7 +166,7 @@ function DeleteButton({
   return (
     <button
       type="button"
-      aria-label="刪除"
+      aria-label={t('canvas.delete')}
       aria-disabled={why === undefined ? undefined : true}
       data-tip={why ?? deleteTip(data.kind)}
       data-testid={`delete-${id}`}
@@ -197,8 +201,8 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
     return (
       <button
         type="button"
-        aria-label={`停止：${data.title}`}
-        data-tip="停止這一鏡（做好的部分留著）"
+        aria-label={t('canvas.stop2', { title: data.title })}
+        data-tip={t('canvas.stopThisShotWhatS')}
         data-testid={`stop-${id}`}
         className="nodrag flex size-6 items-center justify-center rounded border border-border bg-surface text-[11px] hover:border-danger hover:text-danger"
         onClick={() => {
@@ -216,7 +220,7 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
       <button
         type="button"
         aria-label={`${status === 'failed' ? '重試' : '執行'}：${data.title}`}
-        data-tip={tipText ? `${runTipOf(data)}・${tipText}` : runTipOf(data)}
+        data-tip={tipText ? `${runTipOf(data)}${t('list.dot')}${tipText}` : runTipOf(data)}
         data-testid={`run-${id}`}
         className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
         onPointerEnter={() => {
@@ -230,14 +234,14 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
           run(id, anchorOf(event.currentTarget))
         }}
       >
-        {status === 'failed' ? '重試' : '▶'}
+        {status === 'failed' ? t('canvas.retry') : '▶'}
       </button>
       {generating && openRunMenu ? (
         <button
           type="button"
-          aria-label={`選要跑多少：${data.title}`}
+          aria-label={t('canvas.chooseHowMuchToRun', { title: data.title })}
           aria-haspopup="menu"
-          data-tip="只跑這個、這個和後面的、整條"
+          data-tip={t('canvas.justThisOneThisOne')}
           data-testid={`run-mode-${id}`}
           className="nodrag -ml-1 rounded px-1 py-0.5 text-[10px] text-fg-muted hover:bg-fg/10 hover:text-fg"
           onClick={(event) => {
@@ -254,8 +258,10 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
 /** 預估的一句話：約多少錢、都生成好了、或為什麼還不能跑。 */
 export function estimateText(estimate: RunEstimate): string {
   if (estimate.issue) return estimate.issue
-  if (estimate.nothing) return '都已經生成好了'
-  return `預估約 US$${estimate.usd.toFixed(2)}${estimate.lowerBound ? '（至少）' : ''}`
+  if (estimate.nothing) return t('canvas.everythingIsAlreadyGenerated')
+  return estimate.lowerBound
+    ? t('canvas.aboutUsAtLeast', { value: estimate.usd.toFixed(2) })
+    : t('canvas.aboutUs', { value: estimate.usd.toFixed(2) })
 }
 
 /** 生成中、排隊中：骨架畫面，寫這一步在做什麼、已經幾秒（排隊中說明在等什麼）。 */
@@ -274,10 +280,12 @@ function Working({ data }: { data: CanvasNodeData }) {
     }
   }, [running])
   const text = running
-    ? `${data.kind === 'image' ? '正在畫第一張畫面' : '正在生成影片'}… ${String(sec)} 秒`
+    ? data.kind === 'image'
+      ? t('canvas.drawingTheFirstFrameSec', { value: String(sec) })
+      : t('canvas.generatingTheVideoSec', { value: String(sec) })
     : data.kind === 'video'
-      ? '排隊中：第一張畫面好了就開始'
-      : '排隊中'
+      ? t('canvas.queuedStartsWhenTheFirst')
+      : t('canvas.queued')
   return (
     <span
       data-testid="node-working"
@@ -288,10 +296,10 @@ function Working({ data }: { data: CanvasNodeData }) {
   )
 }
 
-const STATUS_BADGE: Readonly<Partial<Record<NonNullable<CanvasNodeData['status']>, string>>> = {
-  queued: '排隊中',
-  stale: '需要重跑',
-  failed: '失敗',
+const STATUS_BADGE: Readonly<Partial<Record<NonNullable<CanvasNodeData['status']>, MessageRef>>> = {
+  queued: msg('canvas.queued'),
+  stale: msg('canvas.needsARerun'),
+  failed: msg('canvas.failed'),
 }
 
 /**
@@ -335,13 +343,20 @@ function IoLine({ id, data, bottom }: { id: string; data: CanvasNodeData; bottom
   const out = ports.filter((port) => port.side === 'out')
   // 影片節點沒有輸出連接點（成品由「放進成品」開關接），但它做出的就是影片
   if (data.kind === 'video' && out.length === 0) {
-    out.push({ id: 'video-out', side: 'out', tone: 'main', type: 'video', label: '影片', top: 0 })
+    out.push({
+      id: 'video-out',
+      side: 'out',
+      tone: 'main',
+      type: 'video',
+      label: t('canvas.video3'),
+      top: 0,
+    })
   }
   if (eat.length === 0 && out.length === 0) return null
-  const group = (name: string, list: readonly PortDef[]) =>
+  const group = (key: '吃' | '出', name: string, list: readonly PortDef[]) =>
     list.length === 0 ? null : (
-      <span className="flex min-w-0 shrink-0 items-center gap-1" data-testid={`io-${name}`}>
-        <b className="font-semibold">{name}：</b>
+      <span className="flex min-w-0 shrink-0 items-center gap-1" data-testid={`io-${key}`}>
+        <b className="font-semibold">{name}</b>
         {list.map((port) => {
           const linked = pseudo.has(port.id)
             ? port.id === 'vid-end' || data.hasAction === true
@@ -375,8 +390,8 @@ function IoLine({ id, data, bottom }: { id: string; data: CanvasNodeData; bottom
         bottom && 'mt-auto',
       )}
     >
-      {group('吃', eat)}
-      {group('出', out)}
+      {group('吃', t('canvas.in'), eat)}
+      {group('出', t('canvas.out'), out)}
     </p>
   )
 }
@@ -388,9 +403,9 @@ function Title({ id, data }: { id: string; data: CanvasNodeData }) {
   return (
     <b
       className="lod-mid flex min-w-0 cursor-default items-center gap-1.5 text-sm font-semibold"
-      title={renamable ? '雙擊改名' : undefined}
+      title={renamable ? t('canvas.doubleClickToRename') : undefined}
       // 鏡頭號是自動編的、不能改名：雙擊是打開設定，先說清楚（不然會以為可以像場名一樣就地改）
-      {...(data.kind === 'shot' ? { 'data-tip': '鏡頭號是自動編的；雙擊打開設定' } : {})}
+      {...(data.kind === 'shot' ? { 'data-tip': t('canvas.shotNumbersAreAutomaticDouble') } : {})}
       onDoubleClick={() => {
         if (renamable) startRename(id)
         else focusNode(id)
@@ -436,8 +451,8 @@ function Thumb({ data, ghost }: { data: CanvasNodeData; ghost: boolean }) {
         data-testid="node-ghost"
         className="lod-mid flex aspect-video w-full shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-fg-muted/60 text-[11px] text-fg-muted"
       >
-        <span>還沒生成</span>
-        <span className="lod-full text-fg-subtle">按 ▶ 開始</span>
+        <span>{t('canvas.notGeneratedYet')}</span>
+        <span className="lod-full text-fg-subtle">{t('canvas.pressToStart')}</span>
       </div>
     )
   }
@@ -448,7 +463,7 @@ function Thumb({ data, ghost }: { data: CanvasNodeData; ghost: boolean }) {
         muted
         playsInline
         preload="metadata"
-        aria-label={`${data.title}的預覽`}
+        aria-label={t('canvas.previewOf', { title: data.title })}
         className="lod-mid aspect-video w-full shrink-0 rounded-md bg-black object-cover"
       />
     )
@@ -496,15 +511,15 @@ function InCutSwitch({ id, on }: { id: string; on: boolean }) {
       type="button"
       role="switch"
       aria-checked={on}
-      aria-label="放進成品"
-      title={on ? '這一鏡會接進成品；關掉就跳過它' : '這一鏡接成成品時會跳過；打開才放進去'}
+      aria-label={t('canvas.includeInFilm')}
+      title={on ? t('canvas.thisShotWillBeJoined') : t('canvas.thisShotIsSkippedWhen')}
       data-testid={`incut-${id}`}
       className="nodrag lod-full flex shrink-0 items-center gap-1.5 rounded-full text-[11px] text-fg-muted"
       onClick={() => {
         toggleInCut(id)
       }}
     >
-      放進成品
+      {t('canvas.includeInFilm')}
       <span
         aria-hidden
         className={cn(
@@ -568,7 +583,7 @@ function AiBadge({ id }: { id: string }) {
       className="pointer-events-none absolute -top-2.5 left-3 z-10 flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold leading-none text-accent-fg shadow-card"
     >
       <Sparkles aria-hidden className="size-3" />
-      AI 剛改
+      {t('canvas.aiJustChangedThis')}
     </span>
   )
 }
@@ -578,7 +593,8 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
   const generating = data.kind === 'image' || data.kind === 'video'
   const status = data.status
   const ghost = generating && status === 'idle'
-  const badge = status ? STATUS_BADGE[status] : undefined
+  const badgeRef = status ? STATUS_BADGE[status] : undefined
+  const badge = badgeRef ? t(badgeRef) : undefined
   const linkState = useLinkState(id)
   return (
     <div
@@ -653,7 +669,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                   className="lod-full truncate text-[11px] leading-snug text-fg-muted"
                   title={data.action}
                 >
-                  動作：{data.action}
+                  {t('canvas.action', { action: data.action })}
                 </p>
               ) : null}
               {data.dialogue ? <ShotDialogue id={id} text={data.dialogue} /> : null}
@@ -662,10 +678,10 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                 {data.sceneId === undefined ? (
                   <span
                     data-testid="loose-badge"
-                    data-tip="這個鏡頭不屬於任何場，不會接進成品；把它拖進場框，或按畫布上方的「歸進」"
+                    data-tip={t('canvas.thisShotIsnTIn')}
                     className="shrink-0 rounded-full border border-warning px-2 py-px text-[11px] text-warning"
                   >
-                    沒歸場
+                    {t('canvas.noScene')}
                   </span>
                 ) : null}
               </p>
@@ -680,7 +696,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                       title={
                         locked === undefined
                           ? undefined
-                          : `${tag} 已鎖定第 ${String(locked)} 版：生成時會帶入固定外觀與參考圖`
+                          : t('canvas.isLockedAtVersionGenerating', { tag, value: String(locked) })
                       }
                       className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 text-[11px] text-fg-muted"
                     >
@@ -688,7 +704,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                         tag
                       ) : (
                         <>
-                          <Lock className="size-2.5" aria-label="已鎖定" />
+                          <Lock className="size-2.5" aria-label={t('canvas.locked')} />
                           {`${tag} v${String(locked)}`}
                         </>
                       )}
@@ -707,8 +723,8 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                     data-testid="running-badge"
                     className="flex shrink-0 items-center gap-1 rounded-full bg-accent px-2 py-px text-[11px] text-accent-fg"
                   >
-                    <Spinner label="生成中" />
-                    生成中
+                    <Spinner label={t('canvas.generating')} />
+                    {t('canvas.generating')}
                   </span>
                 ) : null}
                 {badge ? (
@@ -767,7 +783,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
         <Port key={port.id} nodeId={id} port={port} />
       ))}
       {data.kind === 'shot' ? <StepsToggle id={id} expanded={data.expanded === true} /> : null}
-      <span className="sr-only">{KIND_LABEL[data.kind]}</span>
+      <span className="sr-only">{t(KIND_LABEL[data.kind])}</span>
     </div>
   )
 }
@@ -793,7 +809,7 @@ function StepsToggle({ id, expanded }: { id: string; expanded: boolean }) {
             toggleSteps(id)
           }}
         >
-          {expanded ? '收合步驟' : '展開步驟'}
+          {expanded ? t('canvas.collapseSteps') : t('canvas.expandSteps')}
           {expanded ? (
             <ChevronDown className="size-3" aria-hidden />
           ) : (
@@ -836,7 +852,7 @@ function PromptStep({
     <div className="flex min-h-0 flex-1 flex-col gap-1">
       <textarea
         data-testid={`step-prompt-${shotKey}`}
-        aria-label="送給模型的 Prompt"
+        aria-label={t('canvas.promptSentToTheModel')}
         value={draft}
         maxLength={4000}
         onChange={(event) => {
@@ -849,7 +865,7 @@ function PromptStep({
         className="nodrag nowheel nopan min-h-0 flex-1 resize-none rounded border border-border bg-surface p-1.5 text-[11px] leading-snug"
       />
       <div className="flex h-4 items-center justify-between text-[11px] text-fg-muted">
-        <span>{edited ? '你改過了' : '自動整理的'}</span>
+        <span>{edited ? t('canvas.youEditedIt') : t('canvas.automatic')}</span>
         {edited ? (
           <button
             type="button"
@@ -857,7 +873,7 @@ function PromptStep({
             className="nodrag rounded px-1 hover:bg-fg/10 hover:text-fg"
             onClick={() => savePrompt?.(shotKey, null)}
           >
-            用自動整理的
+            {t('canvas.useTheAutomaticOne')}
           </button>
         ) : null}
       </div>
@@ -924,8 +940,7 @@ function RefsStep({
     <div className="flex min-h-0 flex-1 flex-col gap-1">
       {refs.length === 0 ? (
         <p className="text-[11px] leading-snug text-fg-muted" data-testid={`step-refs-${shotKey}`}>
-          這一鏡不帶參考圖
-          {limit === 0 ? '（目前的圖片模型不能帶）' : '（出場角色和地點還沒有鎖定的圖片）'}
+          {limit === 0 ? t('canvas.thisShotHasNoReference') : t('canvas.thisShotHasNoReference2')}
         </p>
       ) : (
         <ul className="flex gap-1" data-testid={`step-refs-${shotKey}`}>
@@ -933,7 +948,7 @@ function RefsStep({
             <li
               key={`${ref.assetHash ?? ref.name}-${String(index)}`}
               className="w-11 shrink-0 text-center text-[10px] leading-3 text-fg-muted"
-              title={`${ref.name}${ref.purpose ? `・${ref.purpose}` : ''}`}
+              title={`${ref.name}${ref.purpose ? `${t('list.dot')}${ref.purpose}` : ''}`}
             >
               <span
                 className="block aspect-square w-full rounded border border-border bg-surface-overlay"
@@ -952,10 +967,12 @@ function RefsStep({
       <div className="flex items-center justify-between gap-1 text-[11px] text-fg-muted">
         <span
           data-testid={`step-refs-mode-${shotKey}`}
-          title={limit > 0 ? `最多 ${String(limit)} 張（場景的圖也算在內）` : undefined}
+          title={
+            limit > 0 ? t('canvas.upToLocationPicturesCount', { value: String(limit) }) : undefined
+          }
         >
-          {auto ? '自動挑的' : '你指定的'}
-          {limit > 0 ? `・最多 ${String(limit)} 張` : ''}
+          {auto ? t('canvas.pickedAutomatically') : t('canvas.setByYou')}
+          {limit > 0 ? t('canvas.upTo', { value: String(limit) }) : ''}
         </span>
         {canPick && limit > 0 ? (
           <button
@@ -965,7 +982,7 @@ function RefsStep({
             className="nodrag rounded px-1 hover:bg-fg/10 hover:text-fg"
             onClick={show}
           >
-            選參考圖
+            {t('canvas.chooseReferences')}
           </button>
         ) : null}
       </div>
@@ -977,13 +994,12 @@ function RefsStep({
               className="nodrag nowheel nopan fixed z-[1000] w-72 rounded-lg border border-border bg-surface-raised p-2 text-[11px] text-fg shadow-card"
             >
               <p className="mb-1 text-fg-muted">
-                點一張加進來或拿掉（照點的順序，最多 {String(limit)}{' '}
-                張，場景的圖也算在內）；指定了就只帶指定的。
+                {t('canvas.clickAPictureToAdd', { value: String(limit) })}
               </p>
               {state === undefined ? (
-                <p className="text-fg-muted">讀取中…</p>
+                <p className="text-fg-muted">{t('canvas.loading')}</p>
               ) : state.candidates.length === 0 ? (
-                <p className="text-fg-muted">這一鏡的出場角色和地點都還沒有圖可以挑。</p>
+                <p className="text-fg-muted">{t('canvas.thisShotSCharactersAnd')}</p>
               ) : (
                 <ul className="grid grid-cols-4 gap-1.5">
                   {state.candidates.map((item) => {
@@ -996,7 +1012,15 @@ function RefsStep({
                           data-testid={`step-refs-option-${item.assetHash.slice(0, 8)}`}
                           aria-pressed={on}
                           disabled={busy || (!on && chosen.length >= state.limit)}
-                          title={`${item.ownerName}・${item.purpose}${item.label ? `（${item.label}）` : ''}`}
+                          title={
+                            item.label
+                              ? t('canvas.refTipWithLabel', {
+                                  owner: item.ownerName,
+                                  purpose: item.purpose,
+                                  label: item.label,
+                                })
+                              : t('canvas.refTip', { owner: item.ownerName, purpose: item.purpose })
+                          }
                           onClick={() => {
                             toggle(item.assetHash)
                           }}
@@ -1034,7 +1058,7 @@ function RefsStep({
                     save([])
                   }}
                 >
-                  恢復自動
+                  {t('canvas.backToAutomatic')}
                 </button>
                 <button
                   type="button"
@@ -1044,7 +1068,7 @@ function RefsStep({
                     setOpen(false)
                   }}
                 >
-                  完成
+                  {t('canvas.done')}
                 </button>
               </div>
             </div>,
@@ -1125,7 +1149,7 @@ function FinalPreview({ data }: { data: CanvasNodeData }) {
         playsInline
         preload="metadata"
         controls={playing}
-        aria-label="成品"
+        aria-label={t('canvas.film')}
         className="nodrag nowheel aspect-video w-full rounded-md bg-black object-cover"
         onEnded={() => {
           setPlaying(false)
@@ -1135,7 +1159,7 @@ function FinalPreview({ data }: { data: CanvasNodeData }) {
         <button
           type="button"
           data-testid="cut-play"
-          aria-label="播放成品"
+          aria-label={t('canvas.playFilm')}
           className="nodrag absolute inset-0 m-auto flex size-10 items-center justify-center rounded-full bg-black/60 text-base text-white hover:bg-black/75"
           onClick={() => {
             setPlaying(true)
@@ -1187,8 +1211,8 @@ function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
             {run ? (
               <button
                 type="button"
-                aria-label="全部生成再接成成品"
-                data-tip="把還沒生成的都生成，再接成一支影片"
+                aria-label={t('canvas.generateAllThenJoinInto')}
+                data-tip={t('canvas.generateWhateverIsnTGenerated')}
                 data-testid="run-cut"
                 className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
                 onClick={(event) => {
@@ -1213,7 +1237,7 @@ function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
               <em className="inline-flex size-[18px] items-center justify-center rounded-full bg-accent text-[11px] not-italic text-accent-fg">
                 {index + 1}
               </em>
-              <span className="flex-1">第 {index + 1} 場</span>
+              <span className="flex-1">{t('canvas.scene4', { value: String(index + 1) })}</span>
               {slot.note ? (
                 <span
                   className={cn(
@@ -1246,21 +1270,21 @@ function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
               type="button"
               data-testid="cut-rejoin"
               disabled={!hasFinal || !rejoinFinal}
-              title="用每一鏡現在用的影片重新接成一支（在本機處理、免費）"
+              title={t('canvas.joinTheVideosEachShot')}
               className="nodrag flex-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-fg/10 disabled:opacity-40"
               onClick={() => rejoinFinal?.()}
             >
-              接成成品
+              {t('canvas.joinIntoFilm')}
             </button>
             <button
               type="button"
               data-testid="cut-export"
               disabled={!hasFinal || !exportFinal}
-              title="把成品存成 MP4，放在專案的「匯出」資料夾"
+              title={t('canvas.saveTheFilmAsAn')}
               className="nodrag flex-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-fg/10 disabled:opacity-40"
               onClick={() => exportFinal?.()}
             >
-              匯出 MP4
+              {t('canvas.exportMp4')}
             </button>
           </div>
         </div>
@@ -1295,7 +1319,7 @@ function FrameImpl({ id, data, selected }: NodeProps<CanvasNode>) {
       >
         <p
           className="svs-frame-grip svs-frame-title absolute inset-x-0 top-0 h-9 cursor-grab truncate px-4 pt-2.5 text-[13px] font-semibold text-fg-muted active:cursor-grabbing"
-          title={startRename ? '雙擊改名' : undefined}
+          title={startRename ? t('canvas.doubleClickToRename') : undefined}
           onDoubleClick={() => {
             if (startRename) startRename(id)
             else focusNode(id)
@@ -1308,7 +1332,7 @@ function FrameImpl({ id, data, selected }: NodeProps<CanvasNode>) {
         <DeleteButton id={id} data={data} selected={selected} className="absolute right-3 top-2" />
         {/* 縮小時字會小到看不見：改成跟著縮放放大的「第 N 場」，一眼看得出結構 */}
         <p aria-hidden className="svs-frame-grip svs-frame-big">
-          第 {data.sceneNo ?? ''} 場
+          {t('canvas.scene4', { value: String(data.sceneNo ?? '') })}
         </p>
       </div>
       {portsOf(data).map((port) => (
@@ -1346,7 +1370,7 @@ function NoteBody({ id, text }: { id: string; text: string }) {
         // 一打開就可以打字
         autoFocus
         data-testid="note-text"
-        aria-label="便條的內容"
+        aria-label={t('canvas.noteText')}
         value={value}
         maxLength={2000}
         className="nodrag nowheel nopan min-h-0 flex-1 resize-none rounded-md border border-border bg-surface p-1.5 text-xs leading-snug"
@@ -1378,7 +1402,7 @@ function NoteBody({ id, text }: { id: string; text: string }) {
         setEditing(true)
       }}
     >
-      {text === '' ? '雙擊寫字' : text}
+      {text === '' ? t('canvas.doubleClickToWrite') : text}
     </p>
   )
 }
@@ -1408,7 +1432,7 @@ function ShotDescription({ id, text }: { id: string; text: string }) {
       <textarea
         autoFocus
         data-testid="shot-desc-edit"
-        aria-label="這一鏡的畫面描述"
+        aria-label={t('canvas.thisShotSDescription')}
         value={value}
         maxLength={1000}
         className="nodrag nowheel nopan lod-full h-[46px] shrink-0 resize-none rounded-md border border-accent bg-surface px-1 py-0.5 text-xs leading-snug"
@@ -1434,7 +1458,7 @@ function ShotDescription({ id, text }: { id: string; text: string }) {
   return (
     <p
       data-testid="shot-desc"
-      title={saveShotDescription ? '雙擊修改描述' : undefined}
+      title={saveShotDescription ? t('canvas.doubleClickToEditThe') : undefined}
       className="lod-full line-clamp-2 text-xs leading-snug"
       onDoubleClick={() => {
         if (!saveShotDescription) return
@@ -1473,7 +1497,7 @@ function ShotDialogue({ id, text }: { id: string; text: string }) {
       <input
         autoFocus
         data-testid="shot-dialogue-edit"
-        aria-label="這一鏡的旁白"
+        aria-label={t('canvas.thisShotSNarration')}
         value={value}
         maxLength={200}
         className="nodrag nowheel nopan lod-full h-5 shrink-0 rounded-md border border-accent bg-surface px-1 text-[11px]"
@@ -1499,7 +1523,7 @@ function ShotDialogue({ id, text }: { id: string; text: string }) {
   return (
     <p
       data-testid="shot-dialogue"
-      title={saveShotDialogue ? '雙擊修改旁白' : undefined}
+      title={saveShotDialogue ? t('canvas.doubleClickToEditThe2') : undefined}
       className="lod-full truncate text-[11px] leading-snug text-fg-muted"
       onDoubleClick={() => {
         if (!saveShotDialogue) return
@@ -1508,7 +1532,7 @@ function ShotDialogue({ id, text }: { id: string; text: string }) {
         setEditing(true)
       }}
     >
-      旁白：{text}
+      {t('canvas.narration2', { text })}
     </p>
   )
 }
@@ -1532,7 +1556,7 @@ function GroupImpl({ id, data, selected }: NodeProps<CanvasNode>) {
         <div className="svs-group-grip absolute inset-x-0 top-0 flex h-9 cursor-grab items-center gap-2 px-3 active:cursor-grabbing">
           <span
             className="svs-group-title truncate text-[13px] font-semibold"
-            title={startRename ? '雙擊改名' : undefined}
+            title={startRename ? t('canvas.doubleClickToRename') : undefined}
             onDoubleClick={() => {
               startRename?.(id)
             }}
@@ -1540,13 +1564,17 @@ function GroupImpl({ id, data, selected }: NodeProps<CanvasNode>) {
             {data.title}
           </span>
           {selected ? (
-            <span className="nodrag ml-auto flex shrink-0 gap-1" role="group" aria-label="群組顏色">
+            <span
+              className="nodrag ml-auto flex shrink-0 gap-1"
+              role="group"
+              aria-label={t('canvas.groupColor')}
+            >
               {Object.entries(GROUP_COLOR).map(([key, swatch]) => (
                 <button
                   key={key}
                   type="button"
                   data-testid={`group-color-${key}`}
-                  aria-label={`換成${swatch.label}色`}
+                  aria-label={t('canvas.changeTo', { label: t(swatch.label) })}
                   aria-pressed={key === color}
                   className={cn(
                     'size-4 rounded-full border-2',

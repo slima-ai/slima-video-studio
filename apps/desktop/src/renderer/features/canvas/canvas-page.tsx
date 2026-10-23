@@ -20,6 +20,7 @@ import {
   type CanvasImportResult,
   type CanvasMove,
   type CanvasViewport,
+  t,
 } from '@svs/schema'
 import {
   useCallback,
@@ -213,8 +214,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         if (sceneTitle !== undefined) {
           toast.show({
             key: 'canvas-move',
-            message: `已移到${sceneTitle}`,
-            action: { label: '復原', onAction: history.undo },
+            message: t('canvas.movedTo', { sceneTitle }),
+            action: { label: t('canvas.undo'), onAction: history.undo },
           })
         }
       } catch (error) {
@@ -234,7 +235,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       toast.show({
         key: 'ai-removed',
         message,
-        action: { label: '復原', onAction: history.undo },
+        action: { label: t('canvas.undo'), onAction: history.undo },
         ms: 10_000,
       })
     },
@@ -421,7 +422,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           usd: plan.estimatedUsd,
           lowerBound: plan.estimateIsLowerBound,
           nothing: plan.ok && plan.steps.length === 0,
-          ...(plan.ok ? {} : { issue: plan.issue ?? '現在不能跑。' }),
+          ...(plan.ok ? {} : { issue: plan.issue ?? t('canvas.canTRunRightNow') }),
         }
       } catch {
         return undefined
@@ -768,8 +769,10 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             key: 'canvas-add',
             message:
               after?.message ??
-              (kind === 'character' ? `已新增角色「${result.title}」` : `已新增${result.title}`),
-            action: { label: '復原', onAction: history.undo },
+              (kind === 'character'
+                ? t('canvas.addedCharacter', { title: result.title })
+                : t('canvas.added3', { title: result.title })),
+            action: { label: t('canvas.undo'), onAction: history.undo },
             ...(after?.message === undefined ? {} : { ms: 10_000 }),
           })
         })
@@ -802,14 +805,14 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   }, [rf, loose])
   const assignLoose = useCallback((): void => {
     const shotIds = loose.map((n) => n.id.replace(/^shot:/, ''))
-    const where = lastScene === undefined ? '新的場' : `「${lastScene.data.title}」`
+    const where = lastScene === undefined ? t('canvas.newScene') : `「${lastScene.data.title}」`
     call('shots.assignScene', { shotIds })
       .then(() => {
         onChanged()
         toast.show({
           key: 'canvas-assign',
-          message: `已把 ${String(shotIds.length)} 個鏡頭歸進${where}，它們會接進成品`,
-          action: { label: '復原', onAction: history.undo },
+          message: t('canvas.movedShotsIntoTheyWill', { value: String(shotIds.length), where }),
+          action: { label: t('canvas.undo'), onAction: history.undo },
           ms: 10_000,
         })
       })
@@ -853,9 +856,11 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           key: 'canvas-tidy',
           message:
             result.reset === 0
-              ? '已經是排好的樣子了'
-              : `已整理：${String(result.reset)} 格回到自動排好的位置`,
-          ...(result.reset === 0 ? {} : { action: { label: '復原', onAction: history.undo } }),
+              ? t('canvas.alreadyInTheTidyLayout')
+              : t('canvas.tidiedCellsWentBackTo', { value: String(result.reset) }),
+          ...(result.reset === 0
+            ? {}
+            : { action: { label: t('canvas.undo'), onAction: history.undo } }),
         })
       })
       .catch((error: unknown) => {
@@ -874,7 +879,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           toast.show({
             key: 'canvas-delete',
             message: plan.message,
-            action: { label: '復原', onAction: history.undo },
+            action: { label: t('canvas.undo'), onAction: history.undo },
             ms: DELETE_TOAST_MS,
           })
         })
@@ -900,7 +905,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const edgeKeyRef = useRef<(edges: { id: string; cuttable: boolean }[]) => void>(() => undefined)
   edgeKeyRef.current = (edges) => {
     const cuttable = edges.filter((e) => e.cuttable)
-    if (cuttable.length === 0) toast.show({ message: FIXED_EDGE_REASON })
+    if (cuttable.length === 0) toast.show({ message: t(FIXED_EDGE_REASON) })
     for (const edge of cuttable) linking.unlinkEdge(edge.id)
   }
 
@@ -937,7 +942,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     (at?: XY): void => {
       const board = clipboard.current
       if (!board) {
-        toast.show({ key: 'paste', message: '先選取格子按 Ctrl+C 複製，再按 Ctrl+V 貼上' })
+        toast.show({ key: 'paste', message: t('canvas.selectCellsAndPressCtrl') })
         return
       }
       board.pasted += 1
@@ -963,14 +968,16 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
               key: 'canvas-paste',
               message:
                 result.added.length === 1 && only
-                  ? `已貼上「${only.title}」`
-                  : `已貼上 ${String(result.added.length)} 格`,
-              action: { label: '復原', onAction: history.undo },
+                  ? t('canvas.pasted', { title: only.title })
+                  : t('canvas.pastedCells', { value: String(result.added.length) }),
+              action: { label: t('canvas.undo'), onAction: history.undo },
             })
           }
           if (result.skipped.length > 0) {
             toast.show({
-              message: result.skipped.map((x) => `「${x.name}」沒貼上：${x.reason}`).join('\n'),
+              message: result.skipped
+                .map((x) => t('canvas.wasnTPasted', { name: x.name, reason: x.reason }))
+                .join('\n'),
               tone: 'danger',
             })
           }
@@ -1030,15 +1037,21 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           key: 'canvas-import',
           message:
             result.added.length === 1 && only
-              ? `已放上「${only.title}」${result.connected === true ? '，也接上去了' : ''}`
-              : `已放上 ${String(result.added.length)} 個檔案${result.connected === true ? '，第一張圖接上去了' : ''}`,
-          action: { label: '復原', onAction: history.undo },
+              ? result.connected === true
+                ? t('canvas.placedAndConnectedIt', { title: only.title })
+                : t('canvas.placed', { title: only.title })
+              : result.connected === true
+                ? t('canvas.placedFilesAndConnectedThe', { value: String(result.added.length) })
+                : t('canvas.placedFiles', { value: String(result.added.length) }),
+          action: { label: t('canvas.undo'), onAction: history.undo },
         })
       }
       if (result.notice !== undefined) toast.show({ message: result.notice, tone: 'danger' })
       if (result.skipped.length > 0) {
         toast.show({
-          message: result.skipped.map((s) => `「${s.name}」沒放上去：${s.reason}`).join('\n'),
+          message: result.skipped
+            .map((s) => t('canvas.wasnTPlaced', { name: s.name, reason: s.reason }))
+            .join('\n'),
           tone: 'danger',
         })
       }
@@ -1077,7 +1090,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           skipped: [
             {
               name: file.name,
-              reason: '不支援這種檔案（可以放 PNG、JPG、WebP 圖片或 MP4、WebM、MOV 影片）',
+              reason: t('canvas.thisKindOfFileIsn'),
             },
           ],
         })
@@ -1086,9 +1099,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       if (file.size > CANVAS_IMPORT_MAX_BYTES) {
         reportImport({
           added: [],
-          skipped: [
-            { name: file.name, reason: '檔案太大（超過 200 MB），請改用左側的「圖片或影片」選檔' },
-          ],
+          skipped: [{ name: file.name, reason: t('canvas.theFileIsTooLarge') }],
         })
         continue
       }
@@ -1162,11 +1173,11 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         onExpanded(next)
       },
       rejoinFinal: () => {
-        toast.show({ key: 'final', message: '接成成品中…' })
+        toast.show({ key: 'final', message: t('canvas.joiningTheFilm') })
         call('shots.rejoin', {})
           .then(() => {
             onChanged()
-            toast.show({ key: 'final', message: '成品接好了' })
+            toast.show({ key: 'final', message: t('canvas.theFilmIsJoined') })
           })
           .catch((error: unknown) => {
             toast.show({ key: 'final', message: errorText(error), tone: 'danger' })
@@ -1178,7 +1189,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             const name = path.split(/[\\/]/).pop() ?? path
             toast.show({
               key: 'final',
-              message: `已匯出到專案的「匯出」資料夾：${name}`,
+              message: t('canvas.exportedToTheProjectS', { name }),
               // 比一般提示久：第一次匯出的人要來得及看到檔名、按下去找檔案
               ms: LONG_TOAST_MS,
               action: {
@@ -1203,8 +1214,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             onChanged()
             toast.show({
               key: 'shot-description',
-              message: '已改鏡頭描述：第一張畫面和影片要重跑才會用到',
-              action: { label: '復原', onAction: history.undo },
+              message: t('canvas.shotDescriptionChangedRunThe'),
+              action: { label: t('canvas.undo'), onAction: history.undo },
             })
           })
           .catch((error: unknown) => {
@@ -1219,8 +1230,11 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             onChanged()
             toast.show({
               key: 'shot-dialogue',
-              message: dialogue === '' ? '已清掉這一鏡的旁白' : '已改這一鏡的旁白',
-              action: { label: '復原', onAction: history.undo },
+              message:
+                dialogue === ''
+                  ? t('canvas.clearedThisShotSNarration')
+                  : t('canvas.changedThisShotSNarration'),
+              action: { label: t('canvas.undo'), onAction: history.undo },
             })
           })
           .catch((error: unknown) => {
@@ -1237,9 +1251,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
               key: 'step-prompt',
               message:
                 prompt === null
-                  ? '回到自動整理的 Prompt'
-                  : '已改送給模型的 Prompt：第一張畫面和影片要重跑才會用到',
-              action: { label: '復原', onAction: history.undo },
+                  ? t('canvas.backToTheAutomaticPrompt')
+                  : t('canvas.promptChangedRunTheFirst'),
+              action: { label: t('canvas.undo'), onAction: history.undo },
             })
           })
           .catch((error: unknown) => {
@@ -1256,9 +1270,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
           toast.show({
             key: 'step-references',
             message: state.auto
-              ? '回到自動挑參考圖'
-              : '已指定參考圖：第一張畫面和影片要重跑才會用到',
-            action: { label: '復原', onAction: history.undo },
+              ? t('canvas.backToAutomaticReferences')
+              : t('canvas.referencesSetRunTheFirst'),
+            action: { label: t('canvas.undo'), onAction: history.undo },
           })
           return state
         } catch (error) {
@@ -1302,7 +1316,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         if (shotId === undefined) return
         call('shots.cancel', { shotId })
           .then(() => {
-            toast.show({ key: 'run', message: '已經停止這一鏡，做好的部分留著' })
+            toast.show({ key: 'run', message: t('canvas.stoppedThisShotWhatS') })
           })
           .catch((error: unknown) => {
             toast.show({ message: errorText(error), tone: 'danger' })
@@ -1337,16 +1351,16 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         const shotId = shotKey?.replace(/^shot:/, '')
         if (!node || !shotKey || !shotId) return
         const on = node.data.inCut === false
-        const name = rf.getNode(shotKey)?.data.title ?? '這一鏡'
+        const name = rf.getNode(shotKey)?.data.title ?? t('canvas.thisShot')
         call('shots.update', { shotId, patch: { inCut: on } })
           .then(() => {
             // 說清楚影響：剪輯會跳過它（或放回去），而且可以復原
             toast.show({
               key: 'canvas-incut',
               message: on
-                ? `${name}放回成品：接成成品時會用到它。`
-                : `${name}不放進成品：接成成品時會跳過這一鏡，剪輯的鏡數跟著少一。`,
-              action: { label: '復原', onAction: history.undo },
+                ? t('canvas.isBackInTheFilm', { name })
+                : t('canvas.isOutOfTheFilm', { name }),
+              action: { label: t('canvas.undo'), onAction: history.undo },
             })
           })
           .catch((error: unknown) => {
@@ -1388,7 +1402,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         .filter((n) => n.selected === true && isRunnable(n.id))
         .map((n) => n.id)
       if (keys.length === 0) {
-        toast.show({ key: 'run-hint', message: '先選取要執行的鏡頭、圖、影片或剪輯' })
+        toast.show({ key: 'run-hint', message: t('canvas.selectTheShotsPicturesVideos') })
         return
       }
       const first = containerRef.current?.querySelector(
@@ -1421,7 +1435,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       const box = head.getBoundingClientRect()
       // 場框的標題是「第 N 場・標題」，只改後面的標題
       const title = node.data.title
-      const initial = isFrame(node) ? title.slice(title.indexOf('・') + 1) : title
+      const sep = /[・·]\s*/u.exec(title)
+      const initial = isFrame(node) && sep ? title.slice(sep.index + sep[0].length) : title
       setRenaming({
         key: nodeId,
         initial,
@@ -1438,8 +1453,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         onChanged()
         toast.show({
           key: 'canvas-rename',
-          message: `已改名為「${title}」`,
-          action: { label: '復原', onAction: history.undo },
+          message: t('canvas.renamedTo', { title }),
+          action: { label: t('canvas.undo'), onAction: history.undo },
         })
       })
       .catch((error: unknown) => {
@@ -1481,12 +1496,12 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       }
       const [only] = picked
       if (picked.length !== 1 || !only) {
-        tell.show({ key: 'select-one', message: '一次選一格再按 Enter 或 F2' })
+        tell.show({ key: 'select-one', message: t('canvas.selectOneCellThenPress') })
         return
       }
       if (event.key === 'F2') {
         if (isRenamable(only.id, only.data.kind)) rename(only.id)
-        else tell.show({ key: 'select-one', message: '場、角色、地點、群組才能改名' })
+        else tell.show({ key: 'select-one', message: t('canvas.onlyScenesCharactersLocationsAnd') })
         return
       }
       if (only.data.kind === 'note') {
@@ -1510,9 +1525,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         key: 'select-one',
         message: isRenamable(only.id, only.data.kind)
           ? only.data.kind === 'group'
-            ? '按 F2 改名；選取時標題列右邊可以換顏色'
-            : '按 F2 改名；詳細內容在左側的大綱、角色頁'
-          : '這一格沒有面板可以打開',
+            ? t('canvas.pressF2ToRenameWhen')
+            : t('canvas.pressF2ToRenameDetails')
+          : t('canvas.thisCellHasNoPanel'),
       })
     }
     window.addEventListener('keydown', onKeyDown, true)
@@ -1533,21 +1548,21 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       at: { x: anchor.right - CONTEXT_W, y: anchor.bottom + 6 },
       entries: [
         {
-          label: '怎麼開始',
-          hint: '三個步驟',
+          label: t('canvas.howToStart'),
+          hint: t('canvas.threeSteps'),
           onSelect: () => {
             setGettingStartedOpen(true)
           },
         },
         {
-          label: '鍵盤快捷鍵',
+          label: t('canvas.keyboardShortcuts'),
           onSelect: () => {
             setShortcutsOpen(true)
           },
         },
         {
-          label: '效能自測',
-          hint: '看每秒幾格',
+          label: t('canvas.performanceCheck'),
+          hint: t('canvas.seeFramesPerSecond'),
           onSelect: () => {
             setPerfOpen(true)
           },
@@ -1630,7 +1645,10 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         break
       case 'copy': {
         const count = copyNodes(new Set(targets.map((n) => n.id)))
-        toast.show({ key: 'copy', message: `已複製 ${String(count)} 格，按 Ctrl+V 貼上` })
+        toast.show({
+          key: 'copy',
+          message: t('canvas.copiedCellsPressCtrlV', { value: String(count) }),
+        })
         break
       }
       case 'duplicate':
@@ -1708,11 +1726,15 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       event.preventDefault()
       const count = copy()
       if (count === 0) {
-        toast.show({ key: 'select-one', message: '先選取要複製的格子' })
+        toast.show({ key: 'select-one', message: t('canvas.selectTheCellsToCopy') })
         return
       }
       if (key === 'd') paste()
-      else toast.show({ key: 'copy', message: `已複製 ${String(count)} 格，按 Ctrl+V 貼上` })
+      else
+        toast.show({
+          key: 'copy',
+          message: t('canvas.copiedCellsPressCtrlV', { value: String(count) }),
+        })
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
@@ -1734,7 +1756,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         return
       event.preventDefault()
       if (!rf.getNodes().some((n) => n.selected === true)) {
-        toast.show({ key: 'select-one', message: '先選取要框起來的格子，再按 Ctrl+G' })
+        toast.show({ key: 'select-one', message: t('canvas.selectTheCellsToGroup') })
         return
       }
       addNodeRef.current('group')
@@ -1940,7 +1962,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
               {addMenu ? (
                 <AddMenu
                   at={addMenu.at}
-                  title={addMenu.from ? '接上新的一格' : '新增'}
+                  title={addMenu.from ? t('canvas.connectANewCell') : t('canvas.add')}
                   kinds={MENU_KINDS}
                   {...(addMenu.from
                     ? { choices: addableAt(addMenu.from.portId, addMenu.from.side) }
@@ -1968,10 +1990,14 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 undoCount={history.state.undoCount ?? 0}
                 redoCount={history.state.redoCount ?? 0}
                 undoLabel={
-                  history.state.canUndo ? `復原：${history.state.undoLabel ?? ''}` : '復原'
+                  history.state.canUndo
+                    ? t('canvas.undo2', { value: history.state.undoLabel ?? '' })
+                    : t('canvas.undo')
                 }
                 redoLabel={
-                  history.state.canRedo ? `重做：${history.state.redoLabel ?? ''}` : '重做'
+                  history.state.canRedo
+                    ? t('canvas.redo', { value: history.state.redoLabel ?? '' })
+                    : t('canvas.redo2')
                 }
                 onUndo={history.undo}
                 onRedo={history.redo}
@@ -2083,8 +2109,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                   onManual={() => {
                     addNode('shot', undefined, undefined, undefined, {
                       fit: true,
-                      message:
-                        '已加上第一個鏡頭（放在新的場裡）。雙擊卡片上的描述寫畫面，寫好按 ▶ 生成；要更多設定按卡片右上的 ↗',
+                      message: t('canvas.addedTheFirstShotIn'),
                     })
                   }}
                   onSplit={split.start}
@@ -2121,8 +2146,8 @@ export function CanvasPage() {
   if (state.status === 'loading') {
     return (
       <p className="flex items-center gap-2 p-6 text-fg-muted" data-testid="canvas-loading">
-        <Spinner label="載入畫布" />
-        載入畫布…
+        <Spinner label={t('canvas.loadingCanvas')} />
+        {t('canvas.loadingCanvas2')}
       </p>
     )
   }
@@ -2131,7 +2156,7 @@ export function CanvasPage() {
       <div className="flex flex-col items-start gap-3 p-6" role="alert">
         <p className="text-danger">{state.message}</p>
         <Button variant="secondary" onClick={reload}>
-          重試
+          {t('canvas.retry')}
         </Button>
       </div>
     )

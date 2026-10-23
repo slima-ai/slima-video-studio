@@ -1,4 +1,8 @@
+import { t } from '@svs/schema'
+
 import { Button } from '../../components/button'
+
+const COUNT_MARK = '\u0001'
 
 /**
  * 有鏡頭不屬於任何場：它們排在最右邊一欄、沒有場框，不會接進成品，卻照樣算進「全部生成」。
@@ -16,6 +20,8 @@ export function LooseBanner({
   onShow: () => void
   onAssign: () => void
 }) {
+  // 數字要粗體：訊息裡的 {count} 先放記號，再把記號換成 <b>
+  const [before = '', after = ''] = t('canvas.looseShots', { count: COUNT_MARK }).split(COUNT_MARK)
   return (
     <div
       data-testid="loose-banner"
@@ -23,7 +29,9 @@ export function LooseBanner({
       className="absolute left-1/2 top-[68px] z-20 flex max-w-[760px] -translate-x-1/2 items-center gap-3 rounded-xl border border-warning/60 bg-surface-raised px-4 py-2 text-sm shadow-panel"
     >
       <span className="leading-snug">
-        有 <b>{count}</b> 個鏡頭還沒歸到任何場：沒歸場的鏡頭不會接進成品（排在最右邊一欄）。
+        {before}
+        <b>{count}</b>
+        {after}
       </span>
       <Button
         size="sm"
@@ -32,7 +40,7 @@ export function LooseBanner({
         data-testid="loose-show"
         onClick={onShow}
       >
-        看它們
+        {t('canvas.showThem')}
       </Button>
       <Button
         size="sm"
@@ -41,7 +49,9 @@ export function LooseBanner({
         data-testid="loose-assign"
         onClick={onAssign}
       >
-        {sceneName === undefined ? '歸進一個新的場' : `歸進「${sceneName}」`}
+        {sceneName === undefined
+          ? t('canvas.moveIntoANewScene')
+          : t('canvas.moveInto', { sceneName })}
       </Button>
     </div>
   )

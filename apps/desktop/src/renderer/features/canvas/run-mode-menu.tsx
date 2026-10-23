@@ -3,24 +3,37 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cn } from '../../lib/cn'
 import type { RunEstimate, RunScope } from './canvas-actions'
 import type { ConfirmAnchor } from './run-confirm'
+import { t, msg, type MessageRef } from '@svs/schema'
 
 /** 選單裡的一列：只跑這個／這個和後面的／整條，各寫它會做什麼。 */
 interface Choice {
   scope: RunScope
-  title: string
-  detail: string
+  title: MessageRef
+  detail: MessageRef
 }
 
 /** 圖的 ▾：只跑這張圖，或者連影片一起（再接成品；「整條」對圖來說就是「這個和後面的」，不重複列）。 */
 const IMAGE_CHOICES: readonly Choice[] = [
-  { scope: 'this', title: '只跑這個', detail: '只重做這張第一張畫面' },
-  { scope: 'from-here', title: '這個和後面的', detail: '第一張畫面、影片，再接成品' },
+  { scope: 'this', title: msg('canvas.justThisOne'), detail: msg('canvas.redoOnlyThisFirstFrame') },
+  {
+    scope: 'from-here',
+    title: msg('canvas.thisOneAndWhatFollows'),
+    detail: msg('canvas.firstFrameVideoThenJoin'),
+  },
 ]
 
 const VIDEO_CHOICES: readonly Choice[] = [
-  { scope: 'this', title: '只跑這個', detail: '只重做這支影片' },
-  { scope: 'from-here', title: '這個和後面的', detail: '這支影片，再接成品' },
-  { scope: 'chain', title: '整條', detail: '第一張畫面、影片，再接成品' },
+  { scope: 'this', title: msg('canvas.justThisOne'), detail: msg('canvas.redoOnlyThisVideo') },
+  {
+    scope: 'from-here',
+    title: msg('canvas.thisOneAndWhatFollows'),
+    detail: msg('canvas.thisVideoThenJoinThe'),
+  },
+  {
+    scope: 'chain',
+    title: msg('canvas.theWholeChain'),
+    detail: msg('canvas.firstFrameVideoThenJoin'),
+  },
 ]
 
 export const choicesOf = (kind: 'image' | 'video'): readonly Choice[] =>
@@ -95,7 +108,7 @@ export function RunModeMenu({
     <div
       ref={ref}
       role="menu"
-      aria-label="選要跑多少"
+      aria-label={t('canvas.chooseHowMuchToRun2')}
       data-testid="run-mode-menu"
       className="fixed z-50 flex flex-col gap-0.5 rounded-lg border border-border bg-surface-raised p-1.5 text-fg shadow-panel"
       style={{
@@ -125,18 +138,20 @@ export function RunModeMenu({
             }}
           >
             <span className="flex w-full items-baseline justify-between gap-2 text-sm font-semibold">
-              {choice.title}
+              {t(choice.title)}
               <span className="text-xs font-normal text-fg-muted" data-testid="run-mode-cost">
                 {result === undefined
                   ? '…'
                   : result.issue !== undefined
                     ? ''
                     : result.nothing
-                      ? '都生成好了'
-                      : `約 US$${result.usd.toFixed(2)}${result.lowerBound ? '（至少）' : ''}`}
+                      ? t('canvas.allGenerated')
+                      : t(result.lowerBound ? 'canvas.costAtLeast' : 'canvas.costAbout', {
+                          value: result.usd.toFixed(2),
+                        })}
               </span>
             </span>
-            <span className="text-xs text-fg-muted">{choice.detail}</span>
+            <span className="text-xs text-fg-muted">{t(choice.detail)}</span>
             {result?.issue !== undefined ? (
               <span className="text-xs text-warning" data-testid="run-mode-issue">
                 {result.issue}

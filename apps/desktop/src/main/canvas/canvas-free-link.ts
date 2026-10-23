@@ -1,4 +1,4 @@
-import { AppError, type CanvasLink } from '@svs/schema'
+import { AppError, type CanvasLink, t } from '@svs/schema'
 
 import type { ProjectManager } from '../project-manager'
 import { UPLOAD_MODEL, type ShotService } from '../shots/shot-service'
@@ -28,7 +28,7 @@ const idOf = (key: string, prefix: string): string | undefined =>
 export function createFreeLinker(deps: FreeLinkerDeps) {
   const handleOf = () => {
     const handle = deps.projects.current()
-    if (!handle || handle.closed) throw invalid('請先開啟或建立一個專案。')
+    if (!handle || handle.closed) throw invalid(t('canvas.openOrCreateAProject'))
     return handle
   }
   /** 線的起點是哪一張獨立圖片（不是就回 undefined）。 */
@@ -36,10 +36,10 @@ export function createFreeLinker(deps: FreeLinkerDeps) {
     if (!link.source.key.startsWith('node:')) return undefined
     const handle = handleOf()
     const node = handle.repos.canvas.listNodes().find((n) => `node:${n.id}` === link.source.key)
-    if (!node) throw invalid('找不到這張圖，可能已經被刪掉了。')
+    if (!node) throw invalid(t('canvas.couldnTFindThisPicture'))
     const hash = node.params.assetHash
     if (node.type !== 'free_image' || typeof hash !== 'string') {
-      throw invalid('只有圖片可以接上去當第一張畫面或參考圖。')
+      throw invalid(t('canvas.onlyPicturesCanBeConnected'))
     }
     return { handle, hash }
   }
@@ -65,7 +65,7 @@ export function createFreeLinker(deps: FreeLinkerDeps) {
             e.targetKey === target.key &&
             e.targetPort === target.port,
         )
-      if (exists) throw invalid('這張圖已經接在這裡了。')
+      if (exists) throw invalid(t('canvas.thisPictureIsAlreadyConnected'))
 
       const shotId = shotOfImage(target.key)
       if (target.port === 'img-first' && shotId !== undefined) {
@@ -101,7 +101,7 @@ export function createFreeLinker(deps: FreeLinkerDeps) {
         canvas.addEdge({ ...edgeOf(link), kind: 'reference' })
         return true
       }
-      throw invalid('圖片可以接到鏡頭的「第一張畫面」，或角色、地點的「參考圖」。')
+      throw invalid(t('canvas.aPictureCanConnectTo'))
     },
 
     unlink(link: CanvasLink): boolean {
