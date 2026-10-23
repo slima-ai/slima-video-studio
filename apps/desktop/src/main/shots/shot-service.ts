@@ -75,6 +75,7 @@ import { SHOT_NODE } from '../quickstart/progress-tracker'
 import { createDraftCharacters } from '../quickstart/draft-characters'
 import { sceneKey, shotKey } from '../canvas/projection'
 import { currentFinal, cutTrimKeyOf } from './current-final'
+import { measureVideoAssets } from './measure-videos'
 import { trimOfTake } from './trim'
 import { isAiCall } from '../history/ai-origin'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
@@ -242,6 +243,8 @@ export interface ShotService {
   flowOf: (shotId: string) => Workflow
   /** 用各鏡頭採用中的影片重新接成一支。 */
   rejoin: () => Promise<{ videoHash: string }>
+  /** 舊專案的影片長度量完才回來（混音放旁白的依據是這個長度；量過的馬上回來）。 */
+  whenMeasured: () => Promise<void>
   /**
    * 設這一鏡採用中的影片在成品裡用哪一段（入點／出點，秒；沒給的那端不動，clear 回整支）。
    * 對齊到輸出幀率的格線、出點超過影片長度就夾到影片長度，改了使用者給的數字就寫在回傳的 adjustments。
@@ -436,7 +439,20 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ? { handle, regens: new Map(), activity: new Map(), errors: new Map(), quickShotIds: [] }
       : undefined
   }
+
+  /**
+   * 舊專案的影片長度記的是要求的秒數（5 秒），實際檔案是 5.0417 秒：量過一次更正，
+   * 聲音時間軸與旁白位置才對得上畫面。開專案時背景量；接片、剪裁之前也確認一次（量過的馬上略過）。
+   */
+  const ensureMeasured = async (handle: ProjectHandle): Promise<void> => {
+    const tool = tools()
+    if (!tool || handle.closed) return
+    if ((await measureVideoAssets(handle, tool)) > 0 && session?.handle === handle) {
+      broadcast('shots.changed', snapshot())
+    }
+  }
   open(projects.current())
+  if (session) void ensureMeasured(session.handle)
 
   const need = (): Session => {
     const current = session
@@ -583,6 +599,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   projects.onChange((handle) => {
     open(handle)
     broadcast('shots.changed', snapshot())
+    if (handle) void ensureMeasured(handle)
   })
 
   /**
@@ -2058,8 +2075,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       return view(s, shot)
     },
 
+    async whenMeasured() {
+      if (session && !session.handle.closed) await ensureMeasured(session.handle)
+    },
+
     async planTrim(shotId, edit) {
       const s = need()
+      await ensureMeasured(s.handle)
       const { shots } = s.handle.repos
       const shot = shots.get(shotId)
       if (!shot) throw invalid(t('services.canTFindTheShot'))
@@ -2112,6 +2134,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated11'))
       const { handle } = s
       if (handle.repos.shots.list().length === 0) throw invalid(t('services.thereAreNoShotsTo2'))
+      await ensureMeasured(handle)
       // 只接「放進成品」的鏡頭
       const list = cutTakes(handle)
       if (list.length === 0) throw invalid(t('services.noShotsAreIncludedIn'))

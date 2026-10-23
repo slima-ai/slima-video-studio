@@ -54,7 +54,7 @@ export interface SoundServiceDeps {
   log: Pick<Logger, 'info' | 'warn' | 'error'>
   tools?: () => MediaTools | undefined
   /** 混音後成品有變動時，叫鏡頭服務推送最新的快照（成品面板跟著更新）。 */
-  shots?: Pick<ShotService, 'list'>
+  shots?: Pick<ShotService, 'list' | 'whenMeasured'>
 }
 
 export interface SoundService {
@@ -752,6 +752,8 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
 
     async mix() {
       const handle = need()
+      // 旁白放在鏡頭起點上，起點靠影片的實際長度：舊專案還沒量完就先等它量完
+      await deps.shots?.whenMeasured()
       const current = currentFinal(handle, () => soundKeyOf(handle))
       if (!current) throw invalid(t('services.thereSNoJoinedFilm'))
       // 目前的版本已經跟現在的聲音對得上（例如剛復原，自動重混的計時還沒到）：不用混，也不加新的版本號

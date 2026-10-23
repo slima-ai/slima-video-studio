@@ -66,6 +66,19 @@ describe('AssetStore', () => {
     })
   })
 
+  it('updateMeta：補上或更正長度與大小，沒給的欄位不動', async () => {
+    const { assets } = newProject()
+    const { hash } = await assets.put(Buffer.from('video-bytes'), 'video/mp4', { durationSec: 5 })
+    expect(assets.getMeta(hash)).toMatchObject({ durationSec: 5 })
+    expect(assets.getMeta(hash)?.width).toBeUndefined()
+    assets.updateMeta(hash, { width: 1280, height: 720, durationSec: 5.041667 })
+    expect(assets.getMeta(hash)).toMatchObject({ width: 1280, height: 720, durationSec: 5.041667 })
+    assets.updateMeta(hash, { durationSec: 4 })
+    expect(assets.getMeta(hash)).toMatchObject({ width: 1280, height: 720, durationSec: 4 })
+    assets.updateMeta(hash, {})
+    expect(assets.getMeta(hash)?.durationSec).toBe(4)
+  })
+
   it('串流中途出錯：丟出型別化錯誤，不留下暫存檔也不留下素材', async () => {
     const { assets } = newProject()
     const broken = new Readable({

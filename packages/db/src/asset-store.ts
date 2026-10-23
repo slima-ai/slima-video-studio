@@ -149,6 +149,20 @@ export class AssetStore {
     return row ? (dropNulls(row) as Asset) : undefined
   }
 
+  /**
+   * 補上（或更正）素材的長度與大小。供應商回報的影片長度是「送出去的要求秒數」（5 秒），
+   * 實際檔案可能是 5.0417 秒（121 格）；量過實際檔案之後用這個改成真的。
+   */
+  updateMeta(hash: string, meta: { width?: number; height?: number; durationSec?: number }): void {
+    const patch = {
+      ...(meta.width === undefined ? {} : { width: meta.width }),
+      ...(meta.height === undefined ? {} : { height: meta.height }),
+      ...(meta.durationSec === undefined ? {} : { durationSec: meta.durationSec }),
+    }
+    if (Object.keys(patch).length === 0) return
+    this.db.update(assets).set(patch).where(eq(assets.hash, hash)).run()
+  }
+
   /** 專案裡所有素材的資料（新的在前）。 */
   list(): Asset[] {
     return this.db
