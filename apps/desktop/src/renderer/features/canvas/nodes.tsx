@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Lock, Sparkles, Trash2 } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 
+import { InlineVideo } from '../../components/inline-video'
 import { Spinner } from '../../components/skeleton'
 import { useToast } from '../../components/toast'
 import { assetUrl } from '../../lib/asset'
@@ -459,6 +460,16 @@ function Thumb({ data, ghost }: { data: CanvasNodeData; ghost: boolean }) {
     )
   }
   if (data.videoSrc) {
+    // 自己上傳的影片（「圖片或影片」卡）：點 ▶ 就在卡片上播，有控制列；生成出來的影片格只放預覽
+    if (data.kind === 'freeVideo') {
+      return (
+        <InlineVideo
+          src={data.videoSrc}
+          label={t('canvas.previewOf', { title: data.title })}
+          className="lod-mid w-full shrink-0 rounded-md"
+        />
+      )
+    }
     return (
       <video
         src={data.videoSrc}

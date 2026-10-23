@@ -12,6 +12,7 @@ import { claude } from './claude'
 import { list } from './list'
 import { canvas } from './canvas'
 import { files } from './files'
+import { player } from './player'
 import { queue } from './queue'
 import { records } from './records'
 import { outline } from './outline'
@@ -43,6 +44,7 @@ export const en = {
   ...list,
   ...canvas,
   ...files,
+  ...player,
   ...queue,
   ...records,
   ...outline,
