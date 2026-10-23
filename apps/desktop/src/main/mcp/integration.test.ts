@@ -553,6 +553,12 @@ describe('工具', () => {
       expect(text).toContain(field)
       expect(fields).toContain(field)
     }
+    // 角色的 avoid（不要出現的特徵）：指南教的欄位真的在 update_character 與 create_character 裡
+    expect(text).toContain('avoid')
+    for (const name of ['create_character', 'update_character']) {
+      const tool = (await client.listTools()).tools.find((candidate) => candidate.name === name)
+      expect(Object.keys(tool?.inputSchema.properties ?? {})).toContain('avoid')
+    }
     env.settings.update({ productionGuide: '臉先鎖定，再拍鏡頭。' })
     expect(await read()).toContain('臉先鎖定，再拍鏡頭。')
     expect(await read()).not.toContain('Production and consistency')

@@ -69,8 +69,8 @@ describe('load_guide("production")', () => {
     expect(guideText('getting-started', '')).toContain('load_guide("production")')
   })
 
-  it('約 1,000 字以內：每個工作階段載入都要花 token（原則勝過硬規則，不寫死張數與模型）', () => {
-    expect(production.split(/\s+/).length).toBeLessThan(1000)
+  it('約 1,100 字以內：每個工作階段載入都要花 token（原則勝過硬規則，不寫死張數與模型）。上限從 1,000 放寬到 1,100：場景卡「不能建立就直說、每一鏡的地點用字一字不改」擋的是很常見的走樣，比字數重要', () => {
+    expect(production.split(/\s+/).length).toBeLessThan(1100)
     expect(production).not.toMatch(/\b\d+ (reference )?(images|pictures)\b/i)
   })
 
@@ -78,6 +78,18 @@ describe('load_guide("production")', () => {
     const unproven = production.slice(production.indexOf('Not yet proven'))
     expect(unproven).toContain('only in one blog post')
     expect(unproven).toContain('not been tested here')
+  })
+
+  it('場景卡還不能由 AI 建立：直說，並且每一鏡的地點用字一字不改，不要每鏡重新描述', () => {
+    expect(production).toContain('You cannot create place cards yet: say so')
+    expect(production).toContain("keep each place's words identical across shots")
+  })
+
+  it('avoid：只列這個角色沒有、同鏡其他角色也沒有的特徵；同鏡的清單併用，有衝突就拿掉或拆鏡', () => {
+    expect(production).toContain('avoid list')
+    expect(production).toContain('every other character in the same shot lacks too')
+    expect(production).toContain('combined as written')
+    expect(production).toContain('drop it or split the shots')
   })
 
   it('送參考圖給影片模型：已實測過（Kling 經 OpenRouter 變差、App 標不建議），寫在「沒驗證」之外，不能再說沒測過', () => {
