@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { MemoryVault } from '../keys/key-vault'
 import { createStudioHarness } from '../shots/test-harness'
-import { createSlimaImportService, IMPORT_ACT_TITLE } from './import-service'
+import { createSlimaImportService, importActTitle } from './import-service'
 import { createSlimaService, type SlimaService } from './slima-service'
 
 // 每個測試都會真的啟動一個假 slima-mcp 子行程
@@ -181,7 +181,7 @@ describe('SlimaImportService：劇本', () => {
     ])
     const outline = h.outline.get()
     expect(outline.acts.map((a) => [a.title, a.scenes.map((s) => s.title)])).toEqual([
-      [IMPORT_ACT_TITLE, ['雨中相遇']],
+      [importActTitle(), ['雨中相遇']],
     ])
     expect(outline.acts[0]?.scenes[0]?.summary).toBe('小花在廢料場遇見阿鐵。')
     expect(outline.locations.map((l) => l.name)).toEqual(['廢料場'])

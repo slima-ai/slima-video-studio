@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '../../components/button'
 import { call, errorText } from '../../lib/svs'
+import { t } from '@svs/schema'
 
 export interface BatchConfirmProps {
   shotIds: string[]
@@ -13,19 +14,26 @@ export interface BatchConfirmProps {
 
 function describe(check: ShotBatchCheck): string {
   const skipped: string[] = []
-  if (check.skippedGenerated > 0) skipped.push(`${String(check.skippedGenerated)} 個已經生成過`)
-  if (check.skippedBusy > 0) skipped.push(`${String(check.skippedBusy)} 個正在生成`)
+  if (check.skippedGenerated > 0)
+    skipped.push(t('storyboard.alreadyGenerated', { value: String(check.skippedGenerated) }))
+  if (check.skippedBusy > 0)
+    skipped.push(t('storyboard.beingGenerated', { value: String(check.skippedBusy) }))
   const cost = check.demoMode
-    ? '示範模式，不會花錢'
-    : `預估約 US$${check.estimatedUsd.toFixed(2)}${check.estimateIsLowerBound ? '以上' : ''}`
-  const models = [check.models.image, check.models.video].filter(Boolean).join('、')
-  return (
-    `會生成 ${String(check.willGenerate)} 個鏡頭` +
-    (skipped.length > 0 ? `（略過 ${skipped.join('、')}）` : '') +
-    `，${cost}` +
-    (models ? `（${models}）` : '') +
-    '。'
-  )
+    ? t('storyboard.demoModeNothingIsCharged')
+    : check.estimateIsLowerBound
+      ? t('storyboard.aboutUsOrMore', { value: check.estimatedUsd.toFixed(2) })
+      : t('storyboard.aboutUs', { value: check.estimatedUsd.toFixed(2) })
+  const models = [check.models.image, check.models.video].filter(Boolean).join(t('list.comma'))
+  const count = String(check.willGenerate)
+  const skippedText = skipped.join(t('list.comma'))
+  if (skipped.length > 0) {
+    return models
+      ? t('storyboard.willGenerateShotsSkipping', { count, skippedText, cost, models })
+      : t('storyboard.willGenerateShotsSkipping2', { count, skippedText, cost })
+  }
+  return models
+    ? t('storyboard.willGenerateShots', { count, cost, models })
+    : t('storyboard.willGenerateShots2', { count, cost })
 }
 
 /** 批次生成前的確認：先告訴你會做幾個、略過幾個、大概花多少錢，確認後才開始。 */
@@ -63,7 +71,11 @@ export function BatchConfirm({ shotIds, onCancel, onStarted, onError }: BatchCon
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="storyboard-batch">
       <span className="text-sm" data-testid="storyboard-batch-info" role="status">
-        {check ? (check.ok ? describe(check) : (check.issue ?? '現在不能生成。')) : '檢查中…'}
+        {check
+          ? check.ok
+            ? describe(check)
+            : (check.issue ?? t('storyboard.canTGenerateRightNow'))
+          : t('storyboard.checking')}
       </span>
       <label className="flex items-center gap-1 text-sm">
         <input
@@ -74,11 +86,11 @@ export function BatchConfirm({ shotIds, onCancel, onStarted, onError }: BatchCon
             setSkipGenerated(event.target.checked)
           }}
         />
-        略過已經生成過的
+        {t('storyboard.skipTheOnesAlreadyGenerated')}
       </label>
       <label
         className="flex items-center gap-1 text-sm"
-        title="整批用經濟組的模型：便宜、快，滿意的鏡頭再用高品質重做"
+        title={t('storyboard.useTheEconomyModelsFor')}
       >
         <input
           type="checkbox"
@@ -88,8 +100,8 @@ export function BatchConfirm({ shotIds, onCancel, onStarted, onError }: BatchCon
             setDraft(event.target.checked)
           }}
         />
-        先出草稿
-        <span className="text-xs text-fg-muted">（用經濟級的模型：便宜、快）</span>
+        {t('storyboard.makeDraftsFirst')}
+        <span className="text-xs text-fg-muted">{t('storyboard.usesEconomyModelsCheapAnd')}</span>
       </label>
       {check?.ok ? (
         <Button
@@ -99,11 +111,11 @@ export function BatchConfirm({ shotIds, onCancel, onStarted, onError }: BatchCon
           disabled={busy}
           onClick={() => void start()}
         >
-          {busy ? '開始中…' : '開始生成'}
+          {busy ? t('storyboard.starting') : t('storyboard.startGenerating')}
         </Button>
       ) : null}
       <Button size="sm" variant="ghost" data-testid="storyboard-batch-cancel" onClick={onCancel}>
-        先不要
+        {t('storyboard.notNow')}
       </Button>
     </div>
   )

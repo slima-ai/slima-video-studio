@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { messageVariants, t } from '../i18n'
+
 /** 大綱與分鏡表的復原／重做狀態。 */
 export const HistoryStateSchema = z.object({
   canUndo: z.boolean(),
@@ -26,8 +28,12 @@ export const HistoryResultSchema = z.object({
    */
   skipped: z.enum(['all', 'some']).optional(),
 })
-/** Claude 一輪的改動合成一步後，那一步在復原紀錄裡的名字。畫面用它認得「下一步會退回 Claude 那一輪」。 */
-export const AI_TURN_UNDO_LABEL = 'Claude 這一輪的改動'
+/** Claude 一輪的改動合成一步後，那一步在復原紀錄裡的名字（照開始那一刻的介面語言）。 */
+export const aiTurnUndoLabel = (): string => t('history.aiTurn')
+
+/** 這個名字是不是 Claude 那一輪的改動（任何語言都算：畫面用它認得「下一步會退回 Claude 那一輪」）。 */
+export const isAiTurnLabel = (label: string | undefined): boolean =>
+  label !== undefined && messageVariants('history.aiTurn').includes(label)
 
 export type HistoryResult = z.infer<typeof HistoryResultSchema>
 

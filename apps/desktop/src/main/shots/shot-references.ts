@@ -6,6 +6,7 @@ import {
   type Shot,
   type ShotReferenceItem,
   type ShotReferencesState,
+  t,
 } from '@svs/schema'
 import {
   pickReferences,
@@ -54,10 +55,10 @@ export function referenceCandidates(handle: ProjectHandle, shot: Shot): ShotRefe
         add({ assetHash: hash, ownerKind: 'character', ownerName: person.name, purpose, label: '' })
       }
     }
-    own(pack?.heroAssetHash, '主圖')
-    own(pack?.turnaround?.front, '正面')
-    own(pack?.turnaround?.side, '側面')
-    own(pack?.turnaround?.back, '背面')
+    own(pack?.heroAssetHash, t('services.mainPicture'))
+    own(pack?.turnaround?.front, t('services.front'))
+    own(pack?.turnaround?.side, t('services.side'))
+    own(pack?.turnaround?.back, t('services.back'))
     for (const reference of characters.listReferences(person.id)) {
       add({
         assetHash: reference.assetHash,
@@ -130,6 +131,8 @@ export function pinnedForFlow(
   if (plan.auto) return []
   return plan.picked.flatMap((item) => {
     const ref = assetRefOf(handle, item.assetHash)
-    return ref ? [{ ref, name: `${item.ownerName}的${item.purpose}` }] : []
+    return ref
+      ? [{ ref, name: t('services.text', { ownerName: item.ownerName, purpose: item.purpose }) }]
+      : []
   })
 }

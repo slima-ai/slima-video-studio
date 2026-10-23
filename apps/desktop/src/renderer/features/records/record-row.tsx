@@ -4,6 +4,9 @@ import {
   type JobKind,
   type JobStatus,
   formatDate,
+  t,
+  msg,
+  type MessageRef,
 } from '@svs/schema'
 import { useState } from 'react'
 
@@ -14,23 +17,23 @@ import { call, errorText } from '../../lib/svs'
 import { usageLine } from '../../lib/usage'
 import { useEscape } from '../../lib/use-escape'
 
-export const KIND_LABEL: Readonly<Record<JobKind, string>> = {
-  llm: '文字',
-  image: '圖片',
-  video: '影片',
-  tts: '配音',
-  music: '配樂',
-  other: '其他',
+export const KIND_LABEL: Readonly<Record<JobKind, MessageRef>> = {
+  llm: msg('records.text'),
+  image: msg('records.image'),
+  video: msg('records.video'),
+  tts: msg('records.narration'),
+  music: msg('records.music'),
+  other: msg('records.other'),
 }
 
-const STATUS_LABEL: Readonly<Record<JobStatus, string>> = {
-  queued: '排隊中',
-  running: '送出中',
-  submitted: '生成中',
-  polling: '生成中',
-  succeeded: '成功',
-  failed: '失敗',
-  cancelled: '已取消',
+const STATUS_LABEL: Readonly<Record<JobStatus, MessageRef>> = {
+  queued: msg('records.queued'),
+  running: msg('records.sending'),
+  submitted: msg('records.generating'),
+  polling: msg('records.generating'),
+  succeeded: msg('records.succeeded'),
+  failed: msg('records.failed'),
+  cancelled: msg('records.cancelled'),
 }
 
 const STATUS_TONE: Readonly<Record<JobStatus, string>> = {
@@ -52,7 +55,7 @@ function Thumb({ record }: { record: GenerationRecord }) {
       {result?.kind === 'image' ? (
         <img
           src={assetUrl(result.hash)}
-          alt={`${KIND_LABEL[record.kind]}的結果`}
+          alt={t('records.result', { value: t(KIND_LABEL[record.kind]) })}
           className="size-full object-cover"
         />
       ) : result?.kind === 'video' ? (
@@ -61,10 +64,10 @@ function Thumb({ record }: { record: GenerationRecord }) {
           muted
           preload="metadata"
           className="size-full object-cover"
-          aria-label="影片的結果"
+          aria-label={t('records.videoResult')}
         />
       ) : (
-        <span>{record.kind === 'llm' ? '文字' : '沒有檔案'}</span>
+        <span>{record.kind === 'llm' ? t('records.text') : t('records.noFile')}</span>
       )}
     </div>
   )
@@ -98,7 +101,7 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
         jobId: record.id,
         ...(edited ? { prompt: draft } : {}),
       })
-      onRedo(record.target?.label ?? '鏡頭')
+      onRedo(record.target?.label ?? t('records.shot'))
     } catch (e) {
       onError(errorText(e))
     } finally {
@@ -130,15 +133,19 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
               {record.target.label}
             </span>
           ) : null}
-          <span className="text-fg-muted">{KIND_LABEL[record.kind]}</span>
+          <span className="text-fg-muted">{t(KIND_LABEL[record.kind])}</span>
           <span data-testid="record-status" className={cn('text-xs', STATUS_TONE[record.status])}>
-            {STATUS_LABEL[record.status]}
+            {t(STATUS_LABEL[record.status])}
           </span>
           <span className="text-xs text-fg-muted">{timeText(record.createdAt)}</span>
         </div>
         <p className="text-xs text-fg-muted">
-          模型：{record.modelName}
-          {record.params.length > 0 ? `・${record.params.join('・')}` : ''}
+          {record.params.length > 0
+            ? t('records.model', {
+                modelName: record.modelName,
+                value: record.params.join(t('list.dot')),
+              })
+            : t('records.model2', { modelName: record.modelName })}
         </p>
         {record.prompt ? (
           <p
@@ -156,8 +163,7 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
         ) : null}
         {usage ? (
           <p data-testid="record-usage" className="text-xs text-fg-muted">
-            {usage}
-            {record.costEstimated ? '（估算）' : ''}
+            {record.costEstimated ? t('records.estimated', { usage }) : usage}
           </p>
         ) : null}
 
@@ -172,7 +178,7 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
                 setOpen(!open)
               }}
             >
-              {open ? '收起' : '看完整 prompt'}
+              {open ? t('records.hide') : t('records.showTheFullPrompt')}
             </Button>
           </div>
         ) : null}
@@ -180,7 +186,7 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
         {open && record.prompt ? (
           <div data-testid="record-detail" className="flex flex-col gap-2 pt-1">
             <label className="text-xs text-fg-muted" htmlFor={`prompt-${record.id}`}>
-              這一筆的 prompt（可以改了再生成）
+              {t('records.thePromptForThisRecord')}
             </label>
             <textarea
               id={`prompt-${record.id}`}
@@ -196,17 +202,20 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
             />
             <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="ghost" data-testid="record-copy" onClick={copy}>
-                {copied ? '已複製' : '複製 prompt'}
+                {copied ? t('records.copied') : t('records.copyPrompt')}
               </Button>
               {record.canRedo ? (
                 confirming ? (
                   <>
                     <span data-testid="record-confirm-note" className="text-xs text-fg-muted">
-                      會把{record.target?.label ?? '鏡頭'}的 prompt 換成上面這段並再生成一次
                       {record.costUsd !== undefined
-                        ? `，大約再花 US$${record.costUsd.toFixed(2)}`
-                        : ''}
-                      ；舊的版本都會保留。
+                        ? t('records.thisReplacesThePromptFor', {
+                            value: record.target?.label ?? t('records.shot'),
+                            value2: record.costUsd.toFixed(2),
+                          })
+                        : t('records.thisReplacesThePromptFor2', {
+                            value: record.target?.label ?? t('records.shot'),
+                          })}
                     </span>
                     <Button
                       size="sm"
@@ -214,7 +223,7 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
                       disabled={busy}
                       onClick={() => void redo()}
                     >
-                      確定重新生成
+                      {t('records.generateAgain')}
                     </Button>
                     <Button
                       size="sm"
@@ -223,7 +232,7 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
                         setConfirming(false)
                       }}
                     >
-                      先不要
+                      {t('records.notNow')}
                     </Button>
                   </>
                 ) : (
@@ -235,7 +244,9 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
                       setConfirming(true)
                     }}
                   >
-                    {edited ? '用改過的 prompt 重新生成' : '用這段 prompt 再生成一次'}
+                    {edited
+                      ? t('records.generateAgainWithTheEdited')
+                      : t('records.generateAgainWithThisPrompt')}
                   </Button>
                 )
               ) : null}

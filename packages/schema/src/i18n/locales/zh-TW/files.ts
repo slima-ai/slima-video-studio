@@ -1,0 +1,22 @@
+export const files = {
+  'files.s': '{value} 秒',
+  'files.image': '圖片 {value}',
+  'files.video': '影片 {value}',
+  'files.image2': '圖片',
+  'files.video2': '影片',
+  'files.notUsedAnywhere': '目前沒有被使用',
+  'files.showInFolder': '在資料夾中顯示',
+  'files.copied': '已複製',
+  'files.copyPath': '複製路徑',
+  'files.all': '全部',
+  'files.unused': '沒被使用',
+  'files.files': '檔案',
+  'files.thePicturesAndVideosMade': '專案裡生成的圖片與影片、各自用在哪裡，以及匯出的成品',
+  'files.filter': '篩選',
+  'files.files2': '共 {length} 個檔案・{value}',
+  'files.projectFolder': '專案資料夾：{projectDir}',
+  'files.exportedFilms': '匯出的成品',
+  'files.noFilesYetWriteA':
+    '還沒有任何檔案。到畫布寫一句話做一支影片，生成的圖片和影片都會列在這裡。',
+  'files.noFilesMatch': '沒有符合的檔案。',
+} as const

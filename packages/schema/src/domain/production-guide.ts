@@ -36,6 +36,12 @@ Write each shot in three places
 Size and position: image models do not follow numbers. Say what is in front and behind, who is near the frame edge, how far apart things are, not only "a quarter of the frame" (one test: a quarter came out near 18%).
 Style: the app adds the project's art style (configure_project) to every prompt. Keep descriptions in its vocabulary, naming it when needed (for example hand-drawn picture book); words from another look (photo, lens) pull one shot away from the rest.
 
+End frame (optional)
+- endDescription (update_shot) is the same picture a few seconds later: same camera position, scene, light and style. Write only what changed: who moved where, that the old spot is now empty, whether an object was carried off or left behind.
+- Give sizes against something else in the picture ("about one third of the orc's height"), never percentages.
+- A character that moved appears once, in its new place only.
+- Quote the price first (estimate_cost, action generate_end_frame), then call generate_end_frame.
+
 Look before you spend more
 Reference pictures, then first frames (view_first_frames), then video (view_video_stills). Check each stage against the references before the next and fix a fault at the earliest stage: a wrong face is cheaper to redo in the first frame than in the video.
 

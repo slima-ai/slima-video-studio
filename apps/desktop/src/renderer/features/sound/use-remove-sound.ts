@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { LONG_TOAST_MS, useToast } from '../../components/toast'
 import { useHistory } from '../../lib/history'
 import { call, errorText } from '../../lib/svs'
+import { t } from '@svs/schema'
 
 export interface RemoveTarget {
   kind: 'narration' | 'music'
@@ -36,7 +37,7 @@ export function useRemoveSound(options: {
         toast.show({
           key: 'sound-delete',
           message,
-          action: { label: '復原', onAction: history.undo },
+          action: { label: t('sound.undo'), onAction: history.undo },
           ms: LONG_TOAST_MS,
         })
       })

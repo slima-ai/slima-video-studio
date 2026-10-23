@@ -1,4 +1,4 @@
-import { AI_TURN_UNDO_LABEL, type HistoryState, t } from '@svs/schema'
+import { isAiTurnLabel, type HistoryState, t } from '@svs/schema'
 import {
   createContext,
   useCallback,
@@ -31,6 +31,18 @@ const IDLE: HistoryApi = {
 const HistoryContext = createContext<HistoryApi>(IDLE)
 
 /** 大綱與分鏡表的復原／重做。沒有 HistoryProvider 時（單獨測試的頁面）什麼都不會發生。 */
+/** 復原或重做完的提示：「已復原：名稱」，有些內容後來又被改過就多一句。四種各一整句。 */
+function historyDoneMessage(direction: 'undo' | 'redo', label: string, partial: boolean): string {
+  if (direction === 'undo') {
+    return partial
+      ? t('history.undoneSomePartsWereChanged', { label })
+      : t('history.undone', { label })
+  }
+  return partial
+    ? t('history.redoneSomePartsWereChanged', { label })
+    : t('history.redone', { label })
+}
+
 export function useHistory(): HistoryApi {
   return useContext(HistoryContext)
 }
@@ -100,7 +112,7 @@ export function HistoryProvider({ enabled, children }: HistoryProviderProps) {
               const next = result.state.undoLabel
               message = !result.state.canUndo
                 ? skippedText
-                : next === AI_TURN_UNDO_LABEL
+                : isAiTurnLabel(next)
                   ? t('shell.claudeChangedThatStepAgain')
                   : t('shell.pressAgainToUndoAn', { skippedText })
             } else {
@@ -108,7 +120,7 @@ export function HistoryProvider({ enabled, children }: HistoryProviderProps) {
               const next = result.state.redoLabel
               message = !result.state.canRedo
                 ? skippedText
-                : next === AI_TURN_UNDO_LABEL
+                : isAiTurnLabel(next)
                   ? t('shell.pressAgainToRedoClaude', { skippedText })
                   : t('shell.pressAgainToRedoA', { skippedText })
             }
@@ -117,9 +129,7 @@ export function HistoryProvider({ enabled, children }: HistoryProviderProps) {
           }
           toast.show({
             key: 'history',
-            message: `${direction === 'undo' ? '已復原' : '已重做'}：${result.label ?? ''}${
-              result.skipped === 'some' ? '（有些內容後來又被改過，沒動）' : ''
-            }`,
+            message: historyDoneMessage(direction, result.label ?? '', result.skipped === 'some'),
             action: {
               label: direction === 'undo' ? t('shell.redo2') : t('shell.undo2'),
               onAction: () => {

@@ -41,4 +41,5 @@ export const shell = {
   'shell.minAgo': '{value} 分鐘前',
   'shell.hAgo': '{value} 小時前',
   'shell.dAgo': '{value} 天前',
+  'shell.withShortcut': '{label}（{keys}）',
 } as const

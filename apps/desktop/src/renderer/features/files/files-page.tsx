@@ -7,14 +7,15 @@ import { formatBytes } from '../../lib/bytes'
 import { call, errorText } from '../../lib/svs'
 import { FileRow, timeText } from './file-row'
 import { useFiles } from './use-files'
+import { t, msg, type MessageRef } from '@svs/schema'
 
 type Choice = 'all' | 'image' | 'video' | 'unused'
 
-const CHOICES: readonly { id: Choice; label: string }[] = [
-  { id: 'all', label: '全部' },
-  { id: 'image', label: '圖片' },
-  { id: 'video', label: '影片' },
-  { id: 'unused', label: '沒被使用' },
+const CHOICES: readonly { id: Choice; label: MessageRef }[] = [
+  { id: 'all', label: msg('files.all') },
+  { id: 'image', label: msg('files.image2') },
+  { id: 'video', label: msg('files.video2') },
+  { id: 'unused', label: msg('files.unused') },
 ]
 
 const filterOf = (choice: Choice): FilesFilter => {
@@ -45,15 +46,15 @@ export function FilesPage() {
 
   return (
     <Page
-      title="檔案"
-      hint="專案裡生成的圖片與影片、各自用在哪裡，以及匯出的成品"
+      title={t('files.files')}
+      hint={t('files.thePicturesAndVideosMade')}
       testId="files-page"
       actions={
         <FilterChips
-          label="篩選"
+          label={t('files.filter')}
           testId="files-filter"
           value={choice}
-          options={CHOICES.map((c) => ({ value: c.id, label: c.label }))}
+          options={CHOICES.map((c) => ({ value: c.id, label: t(c.label) }))}
           onChange={setChoice}
         />
       }
@@ -62,7 +63,10 @@ export function FilesPage() {
         {snapshot ? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-muted">
             <span data-testid="files-summary">
-              共 {snapshot.files.length} 個檔案・{formatBytes(snapshot.totalBytes)}
+              {t('files.files2', {
+                length: snapshot.files.length,
+                value: formatBytes(snapshot.totalBytes),
+              })}
             </span>
             {snapshot.projectDir ? (
               <span
@@ -70,7 +74,7 @@ export function FilesPage() {
                 title={snapshot.projectDir}
                 data-testid="files-project-dir"
               >
-                專案資料夾：{snapshot.projectDir}
+                {t('files.projectFolder', { projectDir: snapshot.projectDir })}
               </span>
             ) : null}
           </div>
@@ -89,7 +93,7 @@ export function FilesPage() {
 
         {snapshot?.exports.length ? (
           <div data-testid="files-exports" className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium">匯出的成品</h2>
+            <h2 className="text-sm font-medium">{t('files.exportedFilms')}</h2>
             <ul className="flex flex-col gap-1.5">
               {snapshot.exports.map((e) => (
                 <li
@@ -99,7 +103,7 @@ export function FilesPage() {
                 >
                   <span className="font-medium">{e.name}</span>
                   <span className="text-xs text-fg-muted">
-                    {formatBytes(e.bytes)}・{timeText(e.modifiedAt)}
+                    {`${formatBytes(e.bytes)}${t('list.dot')}${timeText(e.modifiedAt)}`}
                   </span>
                   <Button
                     size="sm"
@@ -109,7 +113,7 @@ export function FilesPage() {
                       revealExport(e.name)
                     }}
                   >
-                    在資料夾中顯示
+                    {t('files.showInFolder')}
                   </Button>
                 </li>
               ))}
@@ -119,9 +123,7 @@ export function FilesPage() {
 
         {snapshot?.files.length === 0 ? (
           <p data-testid="files-empty" className="text-sm text-fg-muted">
-            {choice === 'all'
-              ? '還沒有任何檔案。到畫布寫一句話做一支影片，生成的圖片和影片都會列在這裡。'
-              : '沒有符合的檔案。'}
+            {choice === 'all' ? t('files.noFilesYetWriteA') : t('files.noFilesMatch')}
           </p>
         ) : null}
 

@@ -1,4 +1,10 @@
-import { SHOT_ANGLE_LABELS, SHOT_SIZE_LABELS, type ShotAngle, type ShotSize } from '@svs/schema'
+import {
+  SHOT_ANGLE_LABELS,
+  SHOT_SIZE_LABELS,
+  type ShotAngle,
+  type ShotSize,
+  msg,
+} from '@svs/schema'
 
 /** 景別的白話名稱（順序就是下拉選單的順序）。 */
 export const SIZE_LABELS: Readonly<Record<ShotSize, string>> = SHOT_SIZE_LABELS
@@ -7,11 +13,11 @@ export const SIZE_LABELS: Readonly<Record<ShotSize, string>> = SHOT_SIZE_LABELS
 export const ANGLE_LABELS: Readonly<Record<ShotAngle, string>> = SHOT_ANGLE_LABELS
 
 export const STATUS_LABELS = {
-  draft: '還沒生成',
-  queued: '排隊中',
-  generating: '生成中',
-  done: '已完成',
-  failed: '失敗',
+  draft: msg('storyboard.notGenerated'),
+  queued: msg('storyboard.queued'),
+  generating: msg('storyboard.generating'),
+  done: msg('storyboard.done'),
+  failed: msg('storyboard.failed'),
 } as const
 
 /** 「阿鐵、小花」「阿鐵,小花」→ ['阿鐵', '小花']。 */

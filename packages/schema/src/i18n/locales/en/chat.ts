@@ -167,7 +167,7 @@ export const chat = {
   'chat.deleteCharacter': 'Delete character',
   'chat.characters': 'Characters',
   'chat.writeDownACharacterS':
-    'Write down a character’s look, personality and outfit, so the character stays the same in every video.',
+    'Write down a character’s look, personality and outfit so it looks the same in every shot.',
   'chat.noCharactersYetCreateOne':
     'No characters yet. Create one, and every shot can keep the same look.',
   'chat.createYourFirstCharacter': 'Create your first character',

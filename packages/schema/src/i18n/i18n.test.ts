@@ -123,6 +123,11 @@ describe('字串檔的完整度（守門）', () => {
   it('每一條都不是空的；英文沒有中文字；兩邊的 {參數} 一模一樣', () => {
     for (const [key, text] of Object.entries(zh)) {
       const english_ = english[key]
+      // 句與句之間的分隔（中文不加空格、英文加一個空格）本來就可以是空白
+      if (key === 'list.sentence') {
+        expect(english_, `en ${key}`).toBeDefined()
+        continue
+      }
       expect(text.trim(), `zh ${key}`).not.toBe('')
       expect(english_?.trim(), `en ${key}`).toBeTruthy()
       expect(HAN.test(english_ ?? ''), `en ${key} 含中文字`).toBe(false)

@@ -376,7 +376,7 @@ export const canvas = {
   'canvas.someShotsHaveNoVideo': 'Some shots have no video yet',
   'canvas.filmV': 'Film v{value}',
   'canvas.soundChangedNeedsANew': 'Sound changed; needs a new mix',
-  'canvas.shotsChangedNeedsJoiningAgain': 'Shots changed; needs joining again',
+  'canvas.shotsChangedNeedsJoiningAgain': 'Needs joining again',
   'canvas.filmNotJoinedYet': 'Film not joined yet',
   'canvas.afterJoiningAddsBoth':
     'Then adds narration (shots with lines) and music — already in the estimate',

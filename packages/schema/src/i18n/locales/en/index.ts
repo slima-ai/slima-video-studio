@@ -11,6 +11,17 @@ import { chat } from './chat'
 import { claude } from './claude'
 import { list } from './list'
 import { canvas } from './canvas'
+import { files } from './files'
+import { queue } from './queue'
+import { records } from './records'
+import { outline } from './outline'
+import { storyboard } from './storyboard'
+import { sound } from './sound'
+import { slima } from './slima'
+import { graph } from './graph'
+import { history } from './history'
+import { footer } from './footer'
+import { services } from './services'
 // <i18n:imports>
 
 export const en = {
@@ -26,5 +37,16 @@ export const en = {
   ...claude,
   ...list,
   ...canvas,
+  ...files,
+  ...queue,
+  ...records,
+  ...outline,
+  ...storyboard,
+  ...sound,
+  ...slima,
+  ...graph,
+  ...history,
+  ...footer,
+  ...services,
   // <i18n:spread>
 } as const

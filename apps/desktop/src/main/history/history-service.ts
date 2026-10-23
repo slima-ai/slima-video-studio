@@ -5,6 +5,9 @@ import {
   type HistoryState,
   type OutlineOp,
   type ShotEdit,
+  msg,
+  t,
+  type MessageRef,
 } from '@svs/schema'
 
 import type { ProjectManager } from '../project-manager'
@@ -54,56 +57,58 @@ export interface HistoryService {
 const NO_HISTORY: HistoryState = { canUndo: false, canRedo: false }
 
 /** 大綱編輯的名稱：「已復原：刪除這個場」這種提示用。 */
-const OUTLINE_LABELS: Record<OutlineOp['op'], string> = {
-  addAct: '新增一幕',
-  updateAct: '修改這一幕',
-  deleteAct: '刪除這一幕',
-  moveAct: '調整幕的順序',
-  addScene: '新增一個場',
-  updateScene: '修改這個場',
-  deleteScene: '刪除這個場',
-  moveScene: '調整場的順序',
-  addLocation: '新增地點',
-  updateLocation: '修改地點',
-  deleteLocation: '刪除地點',
+const OUTLINE_LABELS: Record<OutlineOp['op'], MessageRef> = {
+  addAct: msg('services.addAnAct'),
+  updateAct: msg('services.editThisAct'),
+  deleteAct: msg('services.deleteThisAct'),
+  moveAct: msg('services.reorderActs'),
+  addScene: msg('services.addAScene'),
+  updateScene: msg('services.editThisScene'),
+  deleteScene: msg('services.deleteThisScene'),
+  moveScene: msg('services.reorderScenes'),
+  addLocation: msg('services.addALocation'),
+  updateLocation: msg('services.editALocation'),
+  deleteLocation: msg('services.deleteALocation'),
 }
-export const outlineLabel = (op: OutlineOp): string => OUTLINE_LABELS[op.op]
+export const outlineLabel = (op: OutlineOp): string => t(OUTLINE_LABELS[op.op])
 
 /** 從畫布新增節點的名稱。 */
-const ADD_LABELS: Record<CanvasAddKind, string> = {
-  scene: '新增一個場',
-  shot: '新增鏡頭',
-  character: '新增角色',
-  location: '新增地點',
-  oneliner: '新增一句話',
-  note: '新增便條',
-  group: '新增群組',
+const ADD_LABELS: Record<CanvasAddKind, MessageRef> = {
+  scene: msg('services.addAScene'),
+  shot: msg('services.addAShot'),
+  character: msg('services.addACharacter'),
+  location: msg('services.addALocation'),
+  oneliner: msg('services.addAOneLiner'),
+  note: msg('services.addANote'),
+  group: msg('services.addAGroup'),
 }
-export const addLabel = (kind: CanvasAddKind): string => ADD_LABELS[kind]
+export const addLabel = (kind: CanvasAddKind): string => t(ADD_LABELS[kind])
 
 /** 修改鏡頭欄位的名稱：只改一個欄位時指出是哪一個。 */
-const SHOT_FIELD_LABELS: Record<string, string> = {
-  description: '畫面描述',
-  action: '動作',
-  prompt: 'Prompt',
-  size: '景別',
-  angle: '角度',
-  cameraMove: '運鏡',
-  durationSec: '秒數',
-  dialogue: '台詞',
-  characters: '出場角色',
-  sceneId: '所屬的場',
-  locationId: '地點',
-  lighting: '光線',
-  timeOfDay: '時段',
-  mood: '氣氛',
-  inCut: '放進成品',
+const SHOT_FIELD_LABELS: Record<string, MessageRef> = {
+  description: msg('services.pictureDescription'),
+  action: msg('services.action'),
+  prompt: msg('history.prompt'),
+  size: msg('services.shotSize'),
+  angle: msg('services.angle'),
+  cameraMove: msg('services.cameraMove'),
+  durationSec: msg('services.length'),
+  dialogue: msg('services.lines'),
+  characters: msg('services.characters'),
+  sceneId: msg('services.scene'),
+  locationId: msg('services.location'),
+  lighting: msg('services.lighting'),
+  timeOfDay: msg('services.timeOfDay'),
+  mood: msg('services.mood'),
+  inCut: msg('services.includeInFilm'),
 }
 export function shotEditLabel(edit: ShotEdit): string {
   const keys = Object.keys(edit)
   const only = keys.length === 1 ? keys[0] : undefined
   const field = only === undefined ? undefined : SHOT_FIELD_LABELS[only]
-  return field ? `修改鏡頭的${field}` : '修改鏡頭'
+  return field
+    ? t('history.editShotField', { field: t(field).toLowerCase() })
+    : t('history.editShot')
 }
 
 /**

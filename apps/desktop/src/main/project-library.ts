@@ -63,7 +63,10 @@ export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
       throw invalid(t('projects.canTFindThatFolder'))
     }
     const at = deps.now?.() ?? new Date()
-    return join(parentDir ?? projectsDir, `${safeFileName(title, '我的短片')}-${stamp(at)}.svsproj`)
+    return join(
+      parentDir ?? projectsDir,
+      `${safeFileName(title, t('services.myShortFilm'))}-${stamp(at)}.svsproj`,
+    )
   }
 
   const summaryOf = (dir: string, currentDir: string | undefined): ProjectSummary | undefined => {

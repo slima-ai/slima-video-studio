@@ -1,4 +1,4 @@
-import type { SoundState } from '@svs/schema'
+import { setLocale, type SoundState } from '@svs/schema'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,6 +10,7 @@ import { SoundPanel } from './sound-panel'
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
+  setLocale('zh-TW')
 })
 
 const SETTINGS = {
@@ -328,5 +329,24 @@ describe('SoundPanel：刪除旁白與配樂', () => {
     fireEvent.click(await screen.findByTestId('sound-music-delete'))
     expect((await screen.findByTestId('sound-error')).textContent).toContain('沒辦法刪除聲音')
     expect(screen.queryByText('已刪除配樂。')).toBeNull()
+  })
+})
+
+describe('SoundPanel（英文介面）', () => {
+  it('有台詞、沒有旁白：複數是英文的（2 shots have lines）；摘要、音量按鈕都是英文', async () => {
+    setLocale('en')
+    installFakeSvs({
+      'sound.get': () =>
+        state({ music: clip('music'), final: { version: 2, hasSound: true, soundStale: false } }),
+    })
+    render(<SoundPanel />)
+    const note = await screen.findByTestId('sound-narration-missing')
+    expect(note.textContent).toBe(
+      '2 shots have lines but no narration yet. Open a shot and press “Read this line aloud” (you’ll see an estimate first) to make it.',
+    )
+    expect(screen.getByTestId('sound-summary').textContent).toBe(
+      'There’s no narration, but there’s music. Changing the volume is free and re-mixes automatically.',
+    )
+    expect(screen.getByTestId('sound-music-high').textContent).toBe('High')
   })
 })

@@ -17,6 +17,7 @@ import {
   type LocationReferencePurpose,
   type LocationReferencesState,
   t,
+  cardNameOf,
 } from '@svs/schema'
 import {
   QUICK_STYLE_IDS,
@@ -179,7 +180,7 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
       }
     }
     const estimatedUsd = models.estimate(model, { images: 1 }) * count
-    const modelName = models.get(model)?.displayName
+    const modelName = cardNameOf(models.get(model))
     const exceeded = checkBudget({
       budget,
       runProjectedUsd: estimatedUsd,

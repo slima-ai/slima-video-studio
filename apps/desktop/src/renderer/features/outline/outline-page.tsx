@@ -18,6 +18,7 @@ import { call, errorText } from '../../lib/svs'
 import { useEscape } from '../../lib/use-escape'
 import { CommitText, SELECT_CLASS } from './fields'
 import { Page } from '../../components/page'
+import { t } from '@svs/schema'
 
 type Edit = (op: OutlineOp) => void
 
@@ -43,7 +44,7 @@ function SceneCard({ scene, index, count, act, acts, locations, edit }: ScenePro
       <div className="flex items-end gap-2">
         <div className="min-w-0 flex-1">
           <CommitText
-            label="場的名字"
+            label={t('outline.sceneName')}
             testId="scene-title"
             value={scene.title}
             maxLength={200}
@@ -55,7 +56,7 @@ function SceneCard({ scene, index, count, act, acts, locations, edit }: ScenePro
         <Button
           size="icon"
           variant="ghost"
-          aria-label="往前移"
+          aria-label={t('outline.moveEarlier')}
           data-testid="scene-move-up"
           disabled={index === 0}
           onClick={() => {
@@ -67,7 +68,7 @@ function SceneCard({ scene, index, count, act, acts, locations, edit }: ScenePro
         <Button
           size="icon"
           variant="ghost"
-          aria-label="往後移"
+          aria-label={t('outline.moveLater')}
           data-testid="scene-move-down"
           disabled={index === count - 1}
           onClick={() => {
@@ -79,7 +80,7 @@ function SceneCard({ scene, index, count, act, acts, locations, edit }: ScenePro
         <Button
           size="icon"
           variant="ghost"
-          aria-label="刪除這個場"
+          aria-label={t('outline.deleteThisScene')}
           data-testid="scene-delete"
           onClick={() => {
             edit({ op: 'deleteScene', sceneId: scene.id })
@@ -89,7 +90,7 @@ function SceneCard({ scene, index, count, act, acts, locations, edit }: ScenePro
         </Button>
       </div>
       <CommitText
-        label="這個場發生了什麼"
+        label={t('outline.whatHappensInThisScene')}
         testId="scene-summary"
         value={scene.summary}
         rows={2}
@@ -99,7 +100,7 @@ function SceneCard({ scene, index, count, act, acts, locations, edit }: ScenePro
       />
       <div className="grid gap-2 sm:grid-cols-3">
         <label className="block text-sm font-medium">
-          地點
+          {t('outline.location')}
           <select
             data-testid="scene-location"
             className={SELECT_CLASS}
@@ -108,7 +109,7 @@ function SceneCard({ scene, index, count, act, acts, locations, edit }: ScenePro
               patch({ locationId: event.target.value === '' ? null : event.target.value })
             }}
           >
-            <option value="">（沒指定）</option>
+            <option value="">{t('outline.notSet')}</option>
             {locations.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
@@ -117,7 +118,7 @@ function SceneCard({ scene, index, count, act, acts, locations, edit }: ScenePro
           </select>
         </label>
         <CommitText
-          label="時間（例如：深夜）"
+          label={t('outline.timeForExampleLateAt')}
           testId="scene-time"
           value={scene.timeOfDay ?? ''}
           maxLength={100}
@@ -126,7 +127,7 @@ function SceneCard({ scene, index, count, act, acts, locations, edit }: ScenePro
           }}
         />
         <CommitText
-          label="氣氛（例如：緊張）"
+          label={t('outline.moodForExampleTense')}
           testId="scene-mood"
           value={scene.mood ?? ''}
           maxLength={100}
@@ -137,7 +138,7 @@ function SceneCard({ scene, index, count, act, acts, locations, edit }: ScenePro
       </div>
       {acts.length > 1 ? (
         <label className="block text-sm font-medium">
-          屬於哪一幕
+          {t('outline.belongsToAct')}
           <select
             data-testid="scene-act"
             className={SELECT_CLASS}
@@ -173,14 +174,14 @@ function ActCard({ act, index, acts, locations, edit }: ActProps) {
   })
   return (
     <section
-      aria-label={`幕：${act.title}`}
+      aria-label={t('outline.act', { title: act.title })}
       data-testid="act-card"
       className="space-y-3 rounded-lg border border-border bg-surface-raised shadow-card p-4"
     >
       <div className="flex items-end gap-2">
         <div className="min-w-0 flex-1">
           <CommitText
-            label={`第 ${String(index + 1)} 幕`}
+            label={t('outline.act2', { value: String(index + 1) })}
             testId="act-title"
             value={act.title}
             maxLength={200}
@@ -192,7 +193,7 @@ function ActCard({ act, index, acts, locations, edit }: ActProps) {
         <Button
           size="icon"
           variant="ghost"
-          aria-label="整幕往前移"
+          aria-label={t('outline.moveTheWholeActEarlier')}
           data-testid="act-move-up"
           disabled={index === 0}
           onClick={() => {
@@ -204,7 +205,7 @@ function ActCard({ act, index, acts, locations, edit }: ActProps) {
         <Button
           size="icon"
           variant="ghost"
-          aria-label="整幕往後移"
+          aria-label={t('outline.moveTheWholeActLater')}
           data-testid="act-move-down"
           disabled={index === acts.length - 1}
           onClick={() => {
@@ -215,7 +216,7 @@ function ActCard({ act, index, acts, locations, edit }: ActProps) {
         </Button>
       </div>
       <CommitText
-        label="這一幕在講什麼"
+        label={t('outline.whatThisActIsAbout')}
         testId="act-summary"
         value={act.summary}
         rows={2}
@@ -224,7 +225,7 @@ function ActCard({ act, index, acts, locations, edit }: ActProps) {
         }}
       />
 
-      <ul className="space-y-2" aria-label="場">
+      <ul className="space-y-2" aria-label={t('outline.scenes')}>
         {act.scenes.map((scene, i) => (
           <SceneCard
             key={scene.id}
@@ -248,12 +249,14 @@ function ActCard({ act, index, acts, locations, edit }: ActProps) {
           }}
         >
           <Plus className="size-4" />
-          新增一個場
+          {t('outline.addAScene')}
         </Button>
         <div className="flex-1" />
         {confirming ? (
           <>
-            <span className="text-sm">確定刪除這一幕和它的 {act.scenes.length} 個場？</span>
+            <span className="text-sm">
+              {t('outline.deleteThisActAndIts', { length: act.scenes.length })}
+            </span>
             <Button
               size="sm"
               data-testid="act-delete-confirm"
@@ -261,7 +264,7 @@ function ActCard({ act, index, acts, locations, edit }: ActProps) {
                 edit({ op: 'deleteAct', actId: act.id })
               }}
             >
-              確定刪除
+              {t('outline.delete')}
             </Button>
             <Button
               size="sm"
@@ -270,7 +273,7 @@ function ActCard({ act, index, acts, locations, edit }: ActProps) {
                 setConfirming(false)
               }}
             >
-              不刪
+              {t('outline.keep')}
             </Button>
           </>
         ) : (
@@ -283,7 +286,7 @@ function ActCard({ act, index, acts, locations, edit }: ActProps) {
             }}
           >
             <Trash2 className="size-4" />
-            刪除這一幕
+            {t('outline.deleteThisAct')}
           </Button>
         )}
       </div>
@@ -294,12 +297,12 @@ function ActCard({ act, index, acts, locations, edit }: ActProps) {
 function Locations({ locations, edit }: { locations: OutlineLocationView[]; edit: Edit }) {
   return (
     <section
-      aria-label="地點"
+      aria-label={t('outline.location')}
       data-testid="locations"
       className="space-y-3 rounded-lg border border-border bg-surface-raised shadow-card p-4"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">地點</h2>
+        <h2 className="text-base font-semibold">{t('outline.location')}</h2>
         <Button
           size="sm"
           data-testid="location-add"
@@ -308,11 +311,11 @@ function Locations({ locations, edit }: { locations: OutlineLocationView[]; edit
           }}
         >
           <Plus className="size-4" />
-          新增地點
+          {t('outline.addALocation')}
         </Button>
       </div>
       {locations.length === 0 ? (
-        <p className="text-sm text-fg-muted">還沒有地點。新增之後，每個場都可以選它發生在哪裡。</p>
+        <p className="text-sm text-fg-muted">{t('outline.noLocationsYetOnceYou')}</p>
       ) : null}
       <ul className="space-y-2">
         {locations.map((l) => (
@@ -323,7 +326,7 @@ function Locations({ locations, edit }: { locations: OutlineLocationView[]; edit
           >
             <div className="w-48 shrink-0">
               <CommitText
-                label="名字"
+                label={t('outline.name')}
                 testId="location-name"
                 value={l.name}
                 maxLength={100}
@@ -336,7 +339,7 @@ function Locations({ locations, edit }: { locations: OutlineLocationView[]; edit
             </div>
             <div className="min-w-0 flex-1">
               <CommitText
-                label="長什麼樣子"
+                label={t('outline.whatItLooksLike')}
                 testId="location-description"
                 value={l.description}
                 onCommit={(description) => {
@@ -347,7 +350,7 @@ function Locations({ locations, edit }: { locations: OutlineLocationView[]; edit
             <Button
               size="icon"
               variant="ghost"
-              aria-label={`刪除地點：${l.name}`}
+              aria-label={t('outline.deleteLocation', { name: l.name })}
               data-testid="location-delete"
               onClick={() => {
                 edit({ op: 'deleteLocation', locationId: l.id })
@@ -425,23 +428,26 @@ function SplitBox({ onSplit }: SplitProps) {
   const cost = check
     ? check.ok
       ? check.demoMode
-        ? '示範模式，不會花錢'
-        : `預估約 US$${check.estimatedUsd.toFixed(2)}${check.modelName ? `（${check.modelName}）` : ''}`
-      : (check.issue ?? '現在不能拆成分場。')
+        ? t('outline.demoModeNothingIsCharged')
+        : check.modelName
+          ? t('outline.aboutUs', {
+              value: check.estimatedUsd.toFixed(2),
+              modelName: check.modelName,
+            })
+          : t('outline.aboutUs2', { value: check.estimatedUsd.toFixed(2) })
+      : (check.issue ?? t('outline.canTSplitIntoScenes'))
     : ''
 
   return (
     <section
-      aria-label="讓 AI 幫我拆"
+      aria-label={t('outline.letAiSplitIt')}
       className="space-y-2 rounded-lg border border-border bg-surface-raised shadow-card p-4"
     >
-      <h2 className="text-base font-semibold">讓 AI 幫我拆成分場</h2>
-      <p className="text-sm text-fg-muted">
-        把故事、大綱或劇本貼在下面，AI 會整理成「幕 → 場」，並把出場的角色和地點一起列出來。
-      </p>
+      <h2 className="text-base font-semibold">{t('outline.letAiSplitItInto')}</h2>
+      <p className="text-sm text-fg-muted">{t('outline.pasteAStoryOutlineOr')}</p>
       <textarea
         data-testid="outline-split-text"
-        aria-label="要拆成分場的文字"
+        aria-label={t('outline.textToSplitIntoScenes')}
         rows={5}
         value={text}
         onChange={(event) => {
@@ -456,14 +462,14 @@ function SplitBox({ onSplit }: SplitProps) {
       ) : null}
       {confirming ? (
         <div className="flex flex-wrap items-center gap-2" data-testid="outline-split-confirm">
-          <span className="text-sm">目前的幕和場會整份換掉（角色和地點會保留）。要繼續嗎？</span>
+          <span className="text-sm">{t('outline.theCurrentActsAndScenes')}</span>
           <Button
             size="sm"
             variant="primary"
             data-testid="outline-split-confirm-yes"
             onClick={() => void run()}
           >
-            換掉並重新拆
+            {t('outline.replaceAndSplitAgain')}
           </Button>
           <Button
             size="sm"
@@ -472,7 +478,7 @@ function SplitBox({ onSplit }: SplitProps) {
               setConfirming(false)
             }}
           >
-            不換
+            {t('outline.keepThem')}
           </Button>
         </div>
       ) : (
@@ -483,7 +489,7 @@ function SplitBox({ onSplit }: SplitProps) {
             disabled={busy || empty || check?.ok === false}
             onClick={() => void start()}
           >
-            {busy ? 'AI 整理中…' : '請 AI 拆成分場'}
+            {busy ? t('outline.aiIsWorking') : t('outline.splitIntoScenes')}
           </Button>
           <span className="text-sm text-fg-muted" data-testid="outline-split-cost">
             {empty ? '' : cost}
@@ -532,8 +538,8 @@ export function OutlinePage() {
 
   return (
     <Page
-      title="大綱"
-      hint="故事先分成幾「幕」，每一幕再分成幾個「場」（同一個地點、同一段時間發生的事）。"
+      title={t('outline.outline')}
+      hint={t('outline.aStoryIsSplitInto')}
       actions={<UndoRedoButtons />}
       testId="outline-page"
     >
@@ -551,13 +557,23 @@ export function OutlinePage() {
             data-testid="outline-split-result"
             role="status"
           >
-            拆好了。
-            {result.newCharacters.length > 0
-              ? `新增了角色：${result.newCharacters.join('、')}（草稿，請到「角色」確認後再鎖定）。`
-              : ''}
-            {result.newLocations.length > 0
-              ? `新增了地點：${result.newLocations.join('、')}。`
-              : ''}
+            {[
+              t('outline.doneSplitting'),
+              ...(result.newCharacters.length > 0
+                ? [
+                    t('outline.addedCharactersDraftsCheckThem', {
+                      value: result.newCharacters.join(t('list.comma')),
+                    }),
+                  ]
+                : []),
+              ...(result.newLocations.length > 0
+                ? [
+                    t('outline.addedLocations', {
+                      value: result.newLocations.join(t('list.comma')),
+                    }),
+                  ]
+                : []),
+            ].join(t('list.sentence'))}
           </p>
         ) : null}
 
@@ -573,7 +589,7 @@ export function OutlinePage() {
 
         {outline && acts.length === 0 ? (
           <p className="text-sm text-fg-muted" data-testid="outline-empty">
-            還沒有大綱。貼上故事讓 AI 拆，或自己新增第一幕。
+            {t('outline.noOutlineYetPasteA')}
           </p>
         ) : null}
 
@@ -598,7 +614,7 @@ export function OutlinePage() {
             }}
           >
             <Plus className="size-4" />
-            新增一幕
+            {t('outline.addAnAct')}
           </Button>
         </div>
 

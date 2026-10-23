@@ -74,7 +74,7 @@ import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
 import { createStudioServices } from '../studio-services'
-import { NEW_SHOT_DESCRIPTION } from './defaults'
+import { newShotDescription } from './defaults'
 import { pinnedForFlow, referencePlan } from './shot-references'
 
 export interface ShotServiceDeps {
@@ -251,7 +251,7 @@ export function generatedNodeKeys(shotId: string, mode: RegenerateMode): string[
 }
 
 /** 生成佇列裡這一鏡的任務標「第 N 鏡」。 */
-const stepLabelOf = (shot: Shot): string => `第 ${String(shot.number)} 鏡`
+const stepLabelOf = (shot: Shot): string => t('services.shot', { value: String(shot.number) })
 
 const invalid = (userMessage: string): AppError =>
   new AppError({ code: 'invalid_request', userMessage })
@@ -359,8 +359,9 @@ interface Session {
  */
 /** 專案裡一個場都沒有時，替新增的鏡頭先建一個場（沒有幕就連幕一起建），回傳場的 id。 */
 function newScene(outline: ProjectHandle['repos']['outline']): string {
-  const act = outline.listActs().at(-1) ?? outline.addAct({ title: `第 ${String(1)} 幕` })
-  return outline.addScene(act.id, { title: '新的場' }).id
+  const act =
+    outline.listActs().at(-1) ?? outline.addAct({ title: t('services.act', { value: String(1) }) })
+  return outline.addScene(act.id, { title: t('outline.newScene') }).id
 }
 
 export function createShotService(deps: ShotServiceDeps): ShotService {
@@ -396,7 +397,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
 
   const need = (): Session => {
     const current = session
-    if (!current || current.handle.closed) throw invalid('請先開啟或建立一個專案。')
+    if (!current || current.handle.closed) throw invalid(t('services.openOrCreateAProject'))
     return current
   }
 
@@ -619,7 +620,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const shot = s.handle.repos.shots.get(shotId)
     if (!shot) return
     s.errors.set(shotId, {
-      message: run.error?.userMessage ?? '這個步驟沒有成功。',
+      message: run.error?.userMessage ?? t('services.thisStepDidnTSucceed'),
       step: failedStepOf(s, shotId),
     })
     s.handle.repos.shots.update(shotId, { status: shot.activeTakeId ? 'done' : 'failed' })
@@ -722,7 +723,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       s.errors.clear()
     }
     const named = breakdown.title?.trim()
-    const title = named === undefined || named === '' ? '新的故事' : named
+    const title = named === undefined || named === '' ? t('services.newStory') : named
     const act = outline.listActs().at(-1) ?? outline.addAct({ title })
     const scene = outline.addScene(act.id, { title })
     s.quickShotIds = breakdown.shots.map(
@@ -864,7 +865,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ? { limit: edit.referenceLimit }
       : {
           limit: 0,
-          reason: '目前的圖片模型不能帶參考圖（到設定換一個標著「多圖參考」的圖片模型）。',
+          reason: t('services.theCurrentImageModelCan'),
         }
   }
 
@@ -989,7 +990,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     if (description === '') return fail(t('endFrame.gen.noDescription'))
     const edit = pickEditModel(settingsService, models)
     if (!edit) return fail(t('endFrame.gen.noModel'))
-    const modelName = models.get(edit.id)?.displayName ?? edit.id
+    const modelName = displayNameOf(models.get(edit.id), edit.id)
     // 出場角色的主圖（依出場順序，鎖定了而且有主圖的才有）；首幀佔一個名額
     const anchors = lockedAnchors(handle)
     const everyone = handle.repos.characters.list()
@@ -1146,17 +1147,17 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       estimatedUsd,
       estimateIsLowerBound,
     })
-    if (s.quick) return fail('整支影片正在生成，等它完成再執行。')
+    if (s.quick) return fail(t('services.theFilmIsBeingGenerated'))
     if (blocked.length > 0) {
-      return fail('還不能跑：先要有第一張畫面。先做第一張畫面，或選「整條」。')
+      return fail(t('services.canTRunYetIt'))
     }
     if (entries.length === 0) {
       return skippedBusy > 0
-        ? fail('這些鏡頭都正在生成中。')
+        ? fail(t('services.theseShotsAreAllBeing'))
         : { ...base, ok: true, estimatedUsd: 0, estimateIsLowerBound: false }
     }
     if (!image || !video) {
-      return fail('還沒有可用的圖片或影片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。')
+      return fail(t('services.noImageOrVideoModel'))
     }
     let estimatedUsd = 0
     let lowerBound = false
@@ -1233,26 +1234,26 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       toRun,
     })
 
-    if (picked.length === 0) return fail('找不到選取的鏡頭。')
-    if (s.quick) return fail('整支影片正在生成，等它完成再生成鏡頭。')
+    if (picked.length === 0) return fail(t('services.canTFindTheSelected'))
+    if (s.quick) return fail(t('services.theFilmIsBeingGenerated2'))
     // 只生首幀圖不需要影片模型
     if (!image || (stage !== 'frame' && !video)) {
       return fail(
         stage === 'frame'
-          ? '還沒有可用的圖片模型：請到設定填入服務金鑰（或打開示範模式）。'
-          : '還沒有可用的圖片或影片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。',
+          ? t('services.noImageModelIsAvailable2')
+          : t('services.noImageOrVideoModel'),
       )
     }
     if (toRun.length === 0) {
       if (skippedNoFrame > 0 && skippedGenerated === 0 && skippedBusy === 0) {
-        return fail('選取的鏡頭都還沒有首幀圖：請先生成首幀圖。')
+        return fail(t('services.noneOfTheSelectedShots'))
       }
       return fail(
         skippedBusy > 0 && skippedGenerated === 0
-          ? '選取的鏡頭都正在生成中。'
+          ? t('services.theSelectedShotsAreAll')
           : stage === 'frame'
-            ? '選取的鏡頭都已經有首幀圖了。要重做的話，請取消「略過已生成的」。'
-            : '選取的鏡頭都已經生成過了。要重做的話，請取消「略過已生成的」。',
+            ? t('services.allTheSelectedShotsAlready')
+            : t('services.allTheSelectedShotsAre'),
       )
     }
 
@@ -1299,8 +1300,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     // 誰叫的：AI 工具（MCP）進來的呼叫才標「AI 剛改」；使用者自己按 ▶ 的不標。
     // 這裡還在呼叫的同一串非同步裡，所以現在看得到；等背景做完才問就來不及了
     const fromAi = isAiCall()
-    if (s.quick) throw invalid('整支影片正在生成，等它完成再重新生成單一鏡頭。')
-    if (s.regens.has(shotId)) throw invalid('這個鏡頭正在重新生成。')
+    if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated3'))
+    if (s.regens.has(shotId)) throw invalid(t('services.thisShotIsAlreadyBeing'))
 
     // 只做影片要有採用中的首幀（不會替你重生）：沒有就說明，不偷偷生一張
     if (
@@ -1313,16 +1314,14 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     // 只生首幀圖不需要影片模型
     const video = mode === 'frame' ? image : settingsService.resolveModel('i2v', quality)
     if (!image || !video) {
-      throw invalid(
-        '還沒有可用的圖片或影片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。',
-      )
+      throw invalid(t('services.noImageOrVideoModel'))
     }
     const queue = runtime.queue()
     const tool = tools()
     if (!queue || !tool) {
       throw new AppError({
         code: 'internal_error',
-        userMessage: '生成服務還沒準備好，請重新啟動 App。',
+        userMessage: t('services.theGenerationServiceIsnT'),
       })
     }
 
@@ -1361,7 +1360,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       .catch((error: unknown) => {
         if (!handle.closed && !controller.signal.aborted) {
           s.errors.set(shotId, {
-            message: isAppError(error) ? error.userMessage : '重新生成失敗，請再試一次。',
+            message: isAppError(error)
+              ? error.userMessage
+              : t('services.generatingAgainFailedPleaseTry'),
             step: failedStepOf(s, shotId),
           })
           if (!isAppError(error)) log.error(`重新生成發生未預期錯誤：${String(error)}`)
@@ -1415,7 +1416,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     references(shotId) {
       const { handle } = need()
       const shot = handle.repos.shots.get(shotId)
-      if (!shot) throw invalid('找不到這個鏡頭。')
+      if (!shot) throw invalid(t('services.canTFindThisShot'))
       return planOf(handle, shot)
     },
 
@@ -1423,16 +1424,16 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       const s = need()
       const { shots } = s.handle.repos
       const shot = shots.get(shotId)
-      if (!shot) throw invalid('找不到這個鏡頭。')
+      if (!shot) throw invalid(t('services.canTFindThisShot'))
       if (assetHashes.length > 0) {
         const plan = planOf(s.handle, shot)
-        if (plan.limit === 0) throw invalid(plan.reason ?? '目前的圖片模型不能帶參考圖。')
+        if (plan.limit === 0) throw invalid(plan.reason ?? t('services.theCurrentImageModelCan2'))
         const allowed = new Set(plan.candidates.map((candidate) => candidate.assetHash))
         if (assetHashes.some((hash) => !allowed.has(hash))) {
-          throw invalid('這張圖不在這一鏡可以挑的參考圖裡（只能挑出場角色與地點的圖）。')
+          throw invalid(t('services.thisPictureIsnTOne'))
         }
         if (new Set(assetHashes).size > plan.limit) {
-          throw invalid(`目前的圖片模型最多收 ${String(plan.limit)} 張參考圖。`)
+          throw invalid(t('services.theCurrentImageModelAccepts', { value: String(plan.limit) }))
         }
       }
       shots.setPins(shotId, assetHashes)
@@ -1480,12 +1481,12 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       const s = need()
       const { shots, outline } = s.handle.repos
       const shot = shots.get(shotId)
-      if (!shot) throw invalid('找不到這個鏡頭。')
+      if (!shot) throw invalid(t('services.canTFindThisShot'))
       if (edit.sceneId && !outline.listScenes().some((x) => x.id === edit.sceneId)) {
-        throw invalid('找不到這個場。')
+        throw invalid(t('services.canTFindThisScene'))
       }
       if (edit.locationId && !outline.listLocations().some((x) => x.id === edit.locationId)) {
-        throw invalid('找不到這個地點。')
+        throw invalid(t('services.canTFindThisLocation'))
       }
       const prompt = edit.prompt?.trim()
       const text = (value: string | null | undefined): string | undefined =>
@@ -1526,24 +1527,29 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
 
     create({ sceneId, afterShotId }) {
       if (deps.projectsDir !== undefined) {
-        ensureProject(projects, deps.projectsDir, '我的短片', deps.now?.() ?? new Date())
+        ensureProject(
+          projects,
+          deps.projectsDir,
+          t('services.myShortFilm'),
+          deps.now?.() ?? new Date(),
+        )
       }
       const s = need()
       const { shots, outline } = s.handle.repos
-      if (s.quick) throw invalid('整支影片正在生成，等它完成再新增鏡頭。')
+      if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated4'))
       if (sceneId && !outline.listScenes().some((x) => x.id === sceneId)) {
-        throw invalid('找不到這個場。')
+        throw invalid(t('services.canTFindThisScene'))
       }
       const before = shots.list()
       if (afterShotId && !before.some((x) => x.id === afterShotId)) {
-        throw invalid('找不到這個鏡頭。')
+        throw invalid(t('services.canTFindThisShot'))
       }
       // 每個鏡頭都要有場（沒有場的鏡頭畫布上沒有框、不會接進成品）：沒指定就放在前一個鏡頭的場，
       // 再沒有就放最後一個場，專案裡一個場都沒有就先建一個。畫布、分鏡表、MCP 的新增鏡頭都走這裡
       const afterScene = before.find((x) => x.id === afterShotId)?.sceneId
       const inScene = sceneId ?? afterScene ?? outline.listScenes().at(-1)?.id ?? newScene(outline)
       const created = shots.create({
-        description: NEW_SHOT_DESCRIPTION,
+        description: newShotDescription(),
         sceneId: inScene,
       })
       if (afterShotId) {
@@ -1558,9 +1564,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     duplicate(shotId, options) {
       const s = need()
       const { shots } = s.handle.repos
-      if (s.quick) throw invalid('整支影片正在生成，等它完成再複製鏡頭。')
+      if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated5'))
       const source = shots.get(shotId)
-      if (!source) throw invalid('找不到這個鏡頭，可能已經被刪掉了。')
+      if (!source) throw invalid(t('services.canTFindThisShot2'))
       const before = shots.list()
       // 只帶內容欄位：鏡號、順序、狀態、採用中的影片都是新的
       const fields = {
@@ -1594,8 +1600,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     clearAdopted(shotId, kind) {
       const s = need()
       const { shots } = s.handle.repos
-      if (!shots.get(shotId)) throw invalid('找不到這個鏡頭，可能已經被刪掉了。')
-      if (s.regens.has(shotId)) throw invalid('這一鏡正在生成，等它完成再刪。')
+      if (!shots.get(shotId)) throw invalid(t('services.canTFindThisShot2'))
+      if (s.regens.has(shotId)) throw invalid(t('services.thisShotIsBeingGenerated'))
       shots.unadopt(shotId, kind === 'image' ? 'first_frame' : 'video')
       changed(s)
     },
@@ -1603,7 +1609,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     remove(shotIds) {
       const s = need()
       const { shots } = s.handle.repos
-      if (s.quick) throw invalid('整支影片正在生成，等它完成再刪除鏡頭。')
+      if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated6'))
       const doomed = new Set(shotIds)
       for (const id of doomed) {
         s.regens.get(id)?.abort()
@@ -1619,7 +1625,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
 
     reorder(orderedIds) {
       const s = need()
-      if (s.quick) throw invalid('整支影片正在生成，等它完成再調整順序。')
+      if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated7'))
       s.handle.repos.shots.reorder(orderedIds)
       changed(s)
       return snapshot()
@@ -1628,12 +1634,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     assignScene(shotIds, sceneId) {
       const s = need()
       const { shots, outline } = s.handle.repos
-      if (s.quick) throw invalid('整支影片正在生成，等它完成再調整。')
+      if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated8'))
       // 沒指定場：放最後一個場，一個場都沒有就先建一個（畫布上「沒歸場的鏡頭」一鍵歸進場用）
       const target = sceneId ?? outline.listScenes().at(-1)?.id ?? newScene(outline)
-      if (!outline.listScenes().some((x) => x.id === target)) throw invalid('找不到這個場。')
+      if (!outline.listScenes().some((x) => x.id === target))
+        throw invalid(t('services.canTFindThisScene'))
       for (const id of shotIds) {
-        if (!shots.get(id)) throw invalid('找不到這個鏡頭。')
+        if (!shots.get(id)) throw invalid(t('services.canTFindThisShot'))
       }
       for (const id of shotIds) shots.update(id, { sceneId: target })
       changed(s)
@@ -1643,12 +1650,12 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     moveToScene(shotId, sceneId) {
       const s = need()
       const { shots, outline } = s.handle.repos
-      if (s.quick) throw invalid('整支影片正在生成，等它完成再移動鏡頭。')
+      if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated9'))
       const shot = shots.get(shotId)
-      if (!shot) throw invalid('找不到這個鏡頭。')
+      if (!shot) throw invalid(t('services.canTFindThisShot'))
       const scenes = outline.listScenes()
       const mine = scenes.findIndex((x) => x.id === sceneId)
-      if (mine < 0) throw invalid('找不到這個場。')
+      if (mine < 0) throw invalid(t('services.canTFindThisScene'))
       if (shot.sceneId === sceneId) return snapshot()
       const sceneIndex = new Map(scenes.map((x, i) => [x.id, i]))
       shots.update(shotId, { sceneId })
@@ -1672,7 +1679,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     flowOf(shotId) {
       const { handle } = need()
       const shot = handle.repos.shots.get(shotId)
-      if (!shot) throw invalid('找不到這個鏡頭。')
+      if (!shot) throw invalid(t('services.canTFindThisShot'))
       const image = settingsService.resolveModel('t2i') ?? ''
       const video = settingsService.resolveModel('i2v') ?? ''
       return flowFor(handle, shot, 'all', { image, video }).flow
@@ -1690,11 +1697,11 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     replaceSceneShots(sceneId, items) {
       const s = need()
       const { shots, outline } = s.handle.repos
-      if (s.quick) throw invalid('整支影片正在生成，等它完成再讓 AI 分畫面。')
+      if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated10'))
       const sceneOrder = new Map(outline.listScenes().map((x, i) => [x.id, i]))
       const mine = sceneOrder.get(sceneId)
       const scene = outline.listScenes().find((x) => x.id === sceneId)
-      if (mine === undefined || !scene) throw invalid('找不到這個場。')
+      if (mine === undefined || !scene) throw invalid(t('services.canTFindThisScene'))
 
       const current = shots.list()
       const old = current.filter((x) => x.sceneId === sceneId)
@@ -1846,7 +1853,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     async regenerate(shotId, mode) {
       const s = need()
       const shot = s.handle.repos.shots.get(shotId)
-      if (!shot) throw invalid('找不到這個鏡頭。')
+      if (!shot) throw invalid(t('services.canTFindThisShot'))
       return launch(s, shot, mode)
     },
 
@@ -1855,7 +1862,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     async generateBatch(request) {
       const s = need()
       const { check, toRun } = checkBatch(s, request)
-      if (!check.ok) throw invalid(check.issue ?? '現在不能批次生成。')
+      if (!check.ok) throw invalid(check.issue ?? t('services.canTGenerateInA'))
       const failed: ShotBatchResult['failed'] = []
       let started = 0
       // 一個一個開始（各自在背景跑，供應商的並行數由佇列控制）；開始不了的記下來，繼續下一個
@@ -1872,7 +1879,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           failed.push({
             shotId: shot.id,
             number: shot.number,
-            error: isAppError(error) ? error.userMessage : '這個鏡頭沒辦法開始生成。',
+            error: isAppError(error) ? error.userMessage : t('services.thisShotCanTStart'),
           })
           if (!isAppError(error)) log.error(`批次生成發生未預期錯誤：${String(error)}`)
         }
@@ -1902,7 +1909,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     async run(items, quality) {
       const s = need()
       const plan = checkRun(s, items, quality)
-      if (!plan.ok) throw invalid(plan.issue ?? '現在不能執行。')
+      if (!plan.ok) throw invalid(plan.issue ?? t('services.canTRunThisRight'))
       const failed: { shotId: string; number: number; error: string }[] = []
       let started = 0
       for (const entry of plan.entries) {
@@ -1913,7 +1920,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           failed.push({
             shotId: entry.shot.id,
             number: entry.shot.number,
-            error: isAppError(error) ? error.userMessage : '這個鏡頭沒辦法開始生成。',
+            error: isAppError(error) ? error.userMessage : t('services.thisShotCanTStart'),
           })
           if (!isAppError(error)) log.error(`畫布執行發生未預期錯誤：${String(error)}`)
         }
@@ -1937,7 +1944,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     setUploadedFrame(shotId, assetHash) {
       const s = need()
       const { shots } = s.handle.repos
-      if (!shots.get(shotId)) throw invalid('找不到這個鏡頭，可能已經被刪掉了。')
+      if (!shots.get(shotId)) throw invalid(t('services.canTFindThisShot2'))
       // 先拿掉之前接上來的（同一鏡只會有一張接上來的圖）
       for (const take of shots.listTakes(shotId, 'first_frame')) {
         if (take.modelId === UPLOAD_MODEL) shots.deleteTake(take.id)
@@ -1960,23 +1967,23 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       const { shots } = s.handle.repos
       const take = shots.adoptTake(takeId)
       const shot = shots.get(take.shotId)
-      if (!shot) throw invalid('找不到這個版本所屬的鏡頭。')
+      if (!shot) throw invalid(t('services.canTFindTheShot'))
       changed(s)
       return view(s, shot)
     },
 
     async rejoin() {
       const s = need()
-      if (s.quick) throw invalid('整支影片正在生成，等它完成再接成成品。')
+      if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated11'))
       const { handle } = s
-      if (handle.repos.shots.list().length === 0) throw invalid('還沒有鏡頭可以接。')
+      if (handle.repos.shots.list().length === 0) throw invalid(t('services.thereAreNoShotsTo2'))
       // 只接「放進成品」的鏡頭
       const list = cutTakes(handle)
-      if (list.length === 0) throw invalid('沒有放進成品的鏡頭，先打開幾個鏡頭的「放進成品」。')
+      if (list.length === 0) throw invalid(t('services.noShotsAreIncludedIn'))
       const refs = list.map(({ shot, take }): AssetRef => {
         const meta = take ? handle.assets.getMeta(take.assetHash) : undefined
         if (!meta) {
-          throw invalid(`第 ${String(shot.number)} 鏡還沒有可用的影片，先生成或重新生成它。`)
+          throw invalid(t('services.shotHasNoUsableVideo', { value: String(shot.number) }))
         }
         return {
           hash: meta.hash,
@@ -1993,7 +2000,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       if (!queue || !tool) {
         throw new AppError({
           code: 'internal_error',
-          userMessage: '找不到影片處理工具（FFmpeg），沒辦法接成成品。',
+          userMessage: t('services.canTFindTheVideo2'),
         })
       }
       const joined = await createStudioServices({

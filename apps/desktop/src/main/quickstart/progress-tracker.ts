@@ -4,6 +4,7 @@ import {
   type NodeRun,
   type QuickStartProgress,
   type ShotProgress,
+  t,
 } from '@svs/schema'
 import { z } from 'zod'
 
@@ -141,7 +142,7 @@ export class ProgressTracker {
 
   private onNodeFinished(nodeId: string, run: NodeRun): QuickStartProgress | undefined {
     const fail = (): { userMessage: string; retryable: boolean } => ({
-      userMessage: run.error?.userMessage ?? '這個步驟沒有成功。',
+      userMessage: run.error?.userMessage ?? t('services.thisStepDidnTSucceed'),
       retryable: run.error?.retryable ?? false,
     })
 

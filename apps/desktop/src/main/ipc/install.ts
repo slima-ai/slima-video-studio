@@ -4,6 +4,7 @@ import {
   type IpcEventName,
   type IpcEventPayload,
   type IpcResult,
+  t,
 } from '@svs/schema'
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 
@@ -25,7 +26,11 @@ export function installIpc(
         log.warn(`已拒絕來自外部頁面的 IPC：${senderUrl}`)
         return {
           ok: false,
-          error: { code: 'untrusted_sender', retryable: false, userMessage: '請求來源不受信任。' },
+          error: {
+            code: 'untrusted_sender',
+            retryable: false,
+            userMessage: t('services.thisRequestIsnTFrom'),
+          },
         }
       }
       const ctx: HandlerContext = {

@@ -2,6 +2,7 @@ import { CAMERA_MOVE_IDS, ShotAngleSchema, ShotSizeSchema } from '@svs/schema'
 import { describe, expect, it } from 'vitest'
 
 import { SERVER_INSTRUCTIONS } from './instructions'
+import { ESTIMATE_COST_ACTIONS } from './tools/story'
 import { GUIDE_TOPICS, guideText } from './tools/guides'
 
 const cinematography = guideText('cinematography', '')
@@ -72,6 +73,25 @@ describe('load_guide("production")', () => {
   it('約 1,100 字以內：每個工作階段載入都要花 token（原則勝過硬規則，不寫死張數與模型）。上限從 1,000 放寬到 1,100：場景卡「不能建立就直說、每一鏡的地點用字一字不改」擋的是很常見的走樣，比字數重要', () => {
     expect(production.split(/\s+/).length).toBeLessThan(1100)
     expect(production).not.toMatch(/\b\d+ (reference )?(images|pictures)\b/i)
+  })
+
+  it('尾幀描述：只寫同一個鏡位幾秒後哪裡變了（誰移到哪、原位變空、物件帶走或留下）；大小用相對的東西寫、不寫百分比；移動過的角色只出現在新位置；先用 estimate_cost 報價', () => {
+    const section = production.slice(
+      production.indexOf('End frame (optional)'),
+      production.indexOf('Look before you spend more'),
+    )
+    expect(section).toContain('the same picture a few seconds later')
+    expect(section).toContain('same camera position, scene, light and style')
+    expect(section).toContain('that the old spot is now empty')
+    expect(section).toContain('carried off or left behind')
+    expect(section).toContain("about one third of the orc's height")
+    expect(section).toContain('never percentages')
+    expect(section).toContain('appears once, in its new place only')
+    expect(section).toContain('Quote the price first')
+    // 提到的工具名與欄位要是真的（改名了這份指南就要跟著改）
+    expect(ESTIMATE_COST_ACTIONS as readonly string[]).toContain('generate_end_frame')
+    expect(section).toContain('estimate_cost, action generate_end_frame')
+    expect(section).toContain('endDescription (update_shot)')
   })
 
   it('沒驗證的說法要明講「沒驗證」，不能當成已證實的規則', () => {

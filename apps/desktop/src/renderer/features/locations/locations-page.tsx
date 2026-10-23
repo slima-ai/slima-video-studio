@@ -289,7 +289,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                     <figcaption className="mt-1 flex items-center justify-between gap-1 text-xs text-fg-muted">
                       <span className="min-w-0 truncate">
                         {name}
-                        {reference.label ? `・${reference.label}` : ''}
+                        {reference.label ? `${t('list.dot')}${reference.label}` : ''}
                       </span>
                       <Button
                         size="sm"

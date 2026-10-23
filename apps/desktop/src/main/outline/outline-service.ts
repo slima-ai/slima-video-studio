@@ -11,6 +11,9 @@ import {
   type OutlineSplitCheck,
   type OutlineSplitResult,
   type OutlineView,
+  messageVariants,
+  t,
+  cardNameOf,
 } from '@svs/schema'
 import { generateStructured } from '@svs/workflows'
 import { z } from 'zod'
@@ -93,7 +96,11 @@ const SYSTEM =
 
 /** App 自己加的預設名字（新增幕、場、地點時給的）；判斷故事語言時不算使用者寫的內容 */
 export function isPlaceholderName(text: string): boolean {
-  return /^(第 \d+ 幕|新的場|新的地點 \d+)$/.test(text.trim())
+  const trimmed = text.trim()
+  return (
+    /^(第 \d+ 幕|Act \d+|New location \d+|新的地點 \d+)$/u.test(trimmed) ||
+    messageVariants('outline.newScene').includes(trimmed)
+  )
 }
 
 /**
@@ -153,7 +160,7 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
 
   const needProject = (): ProjectHandle => {
     const handle = projects.current()
-    if (!handle) throw invalid('還沒有開啟專案，請先新增內容或開始生成。')
+    if (!handle) throw invalid(t('services.noProjectIsOpenAdd'))
     return handle
   }
 
@@ -161,8 +168,10 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
     const { outline } = handle.repos
     switch (op.op) {
       case 'addAct': {
-        const act = outline.addAct({ title: `第 ${String(outline.listActs().length + 1)} 幕` })
-        outline.addScene(act.id, { title: '新的場' })
+        const act = outline.addAct({
+          title: t('outline.actNumber', { value: String(outline.listActs().length + 1) }),
+        })
+        outline.addScene(act.id, { title: t('outline.newScene') })
         return
       }
       case 'updateAct':
@@ -175,7 +184,7 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
         outline.moveAct(op.actId, op.direction)
         return
       case 'addScene':
-        outline.addScene(op.actId, { title: '新的場' })
+        outline.addScene(op.actId, { title: t('outline.newScene') })
         return
       case 'updateScene':
         outline.updateScene(op.sceneId, op.patch)
@@ -187,7 +196,11 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
         outline.moveScene(op.sceneId, op.direction)
         return
       case 'addLocation':
-        outline.addLocation({ name: `新的地點 ${String(outline.listLocations().length + 1)}` })
+        outline.addLocation({
+          name: t('outline.newLocationNumber', {
+            value: String(outline.listLocations().length + 1),
+          }),
+        })
         return
       case 'updateLocation':
         outline.updateLocation(op.locationId, op.patch)
@@ -210,7 +223,7 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
       return {
         ...base,
         ok: false,
-        issue: '還沒有可用的文字模型：請到設定填入 OpenRouter 的服務金鑰（或打開示範模式）。',
+        issue: t('services.noTextModelIsAvailable'),
         estimatedUsd: 0,
       }
     }
@@ -218,7 +231,7 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
       inputTokens: Math.ceil(text.length * 1.5) + 800,
       outputTokens: 3000,
     })
-    const modelName = models.get(model)?.displayName
+    const modelName = cardNameOf(models.get(model))
     const exceeded = checkBudget({
       budget,
       runProjectedUsd: estimatedUsd,
@@ -243,7 +256,7 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
     edit(rawOp) {
       const op = OutlineOpSchema.parse(rawOp)
       if (op.op === 'addAct' || op.op === 'addLocation') {
-        ensureProject(projects, deps.projectsDir, '我的短片', now())
+        ensureProject(projects, deps.projectsDir, t('services.myShortFilm'), now())
       }
       const handle = needProject()
       applyOp(handle, op)
@@ -256,7 +269,7 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
       const text = OutlineTextSchema.parse(rawText)
       const checked = splitCheck(text)
       const model = settingsService.resolveModel('llm')
-      if (!checked.ok || !model) throw invalid(checked.issue ?? '現在不能拆成分場。')
+      if (!checked.ok || !model) throw invalid(checked.issue ?? t('services.canTSplitIntoScenes'))
       ensureProject(projects, deps.projectsDir, text, now())
       const handle = needProject()
       const queue = runtime.queue()
@@ -264,7 +277,7 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
       if (!queue || !tool) {
         throw new AppError({
           code: 'internal_error',
-          userMessage: '生成服務還沒準備好，請重新啟動 App。',
+          userMessage: t('services.theGenerationServiceIsnT'),
         })
       }
 
@@ -292,7 +305,7 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
           jobId: result.jobId,
         })
       }
-      if (handle.closed) throw invalid('專案已經關閉，沒有套用拆好的大綱。')
+      if (handle.closed) throw invalid(t('services.theProjectWasClosedSo'))
 
       // 地點：名字一樣的沿用，沒有的才新增
       const locationIds = new Map(outline.listLocations().map((l) => [l.name, l.id]))

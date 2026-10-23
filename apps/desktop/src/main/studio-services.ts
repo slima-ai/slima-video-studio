@@ -11,6 +11,7 @@ import {
   type JobKind,
   type ModelCard,
   type VideoRequest,
+  t,
 } from '@svs/schema'
 import {
   resolveCameraMove,
@@ -40,12 +41,12 @@ export function providerOf(modelId: string): string {
 
 function jobError(job: Job): AppError {
   if (job.status === 'cancelled')
-    return new AppError({ code: 'cancelled', userMessage: '已取消。' })
+    return new AppError({ code: 'cancelled', userMessage: t('services.cancelled') })
   const shape = job.error
   return new AppError({
     code: shape?.code ?? 'internal_error',
     retryable: shape?.retryable ?? false,
-    userMessage: shape?.userMessage ?? '生成失敗，請再試一次。',
+    userMessage: shape?.userMessage ?? t('services.generationFailedPleaseTryAgain'),
   })
 }
 
@@ -127,7 +128,7 @@ export function createStudioServices({ queue, handle, tools, models }: StudioDep
         if (!parsed.success) {
           throw new AppError({
             code: 'invalid_response',
-            userMessage: '供應商回傳的內容格式不對。',
+            userMessage: t('services.theProviderReturnedContentIn'),
           })
         }
         return {
@@ -147,7 +148,7 @@ export function createStudioServices({ queue, handle, tools, models }: StudioDep
         if (!found) {
           throw new AppError({
             code: 'invalid_request',
-            userMessage: '找不到其中一段影片，可能已被刪除。',
+            userMessage: t('services.canTFindOneOf'),
           })
         }
         return found.path

@@ -2,11 +2,14 @@ import type { ProjectHandle } from '@svs/db'
 import { Engine, type EngineDeps } from '@svs/engine'
 
 import { SHOT_NODE } from './quickstart/progress-tracker'
+import { t } from '@svs/schema'
 
 /** 快速開始節點編號 each[2]/image 裡的鏡頭序號 → 「第 3 鏡」。 */
 export function shotLabelOfNode(nodeId: string): string | undefined {
   const match = SHOT_NODE.exec(nodeId)
-  return match?.[1] === undefined ? undefined : `第 ${String(Number(match[1]) + 1)} 鏡`
+  return match?.[1] === undefined
+    ? undefined
+    : t('services.shot', { value: String(Number(match[1]) + 1) })
 }
 
 /**
