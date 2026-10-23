@@ -45,6 +45,17 @@ describe('priceShort', () => {
 
 const BUILTIN_CARDS = loadBuiltinModelCards()
 
+describe('toModelOption：負面提示的內建清單', () => {
+  it('有 negativePrompt 的模型帶 negativePromptDefault，其他模型沒有這個欄位', () => {
+    const cards = loadBuiltinModelCards()
+    const kling = cards.find((c) => c.id === 'openrouter/kling-3.0-standard')
+    const veo = cards.find((c) => c.id === 'openrouter/veo-3.1-lite')
+    if (!kling || !veo) throw new Error('找不到模型卡')
+    expect(toModelOption(kling).negativePromptDefault).toBe(kling.negativePrompt?.default)
+    expect(toModelOption(veo)).not.toHaveProperty('negativePromptDefault')
+  })
+})
+
 describe('providerName / toModelOption', () => {
   it('供應商顯示名稱', () => {
     expect(providerName('fal')).toBe('fal.ai')

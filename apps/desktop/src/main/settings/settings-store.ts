@@ -70,6 +70,9 @@ export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSe
     ...(patch.advancedMode === undefined ? {} : { advancedMode: patch.advancedMode }),
     ...(patch.theme === undefined ? {} : { theme: patch.theme }),
     ...(patch.budget === undefined ? {} : { budget: patch.budget }),
+    ...(patch.videoNegativePrompt === undefined
+      ? {}
+      : { videoNegativePrompt: patch.videoNegativePrompt.trim() }),
     ...(patch.storyboardGuide === undefined
       ? {}
       : { storyboardGuide: patch.storyboardGuide.trim() }),

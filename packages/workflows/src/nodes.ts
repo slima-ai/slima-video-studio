@@ -887,6 +887,8 @@ export const videoNode = defineNode({
     aspectRatio: AspectRatioSchema.default('16:9'),
     audio: z.boolean().default(false),
     variation: z.number().int().nonnegative().default(0),
+    /** 使用者改過的負面提示；空字串 = 用模型內建的清單（模型不接受負面提示就不送）。 */
+    negativePrompt: z.string().default(''),
   }),
   estimateCost: ({ params, modelId, estimate }) =>
     estimate(needModel(modelId, '影片'), { seconds: params.durationSec, audio: params.audio }),
@@ -908,6 +910,7 @@ export const videoNode = defineNode({
         ...(typeof inputs.cameraMove === 'string' && inputs.cameraMove !== ''
           ? { cameraMove: inputs.cameraMove }
           : {}),
+        ...(params.negativePrompt === '' ? {} : { negativePrompt: params.negativePrompt }),
       },
       { signal, nodeRunId },
     )

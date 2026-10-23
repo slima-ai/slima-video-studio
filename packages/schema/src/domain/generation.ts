@@ -62,6 +62,10 @@ export const VideoRequestSchema = z.object({
   cameraMove: z.string().min(1).optional(),
   /** 模型原生的運鏡參數（由 ModelCard.cameraParams 對應而來），adapter 直接併進供應商請求。 */
   cameraParams: z.record(z.string(), z.unknown()).optional(),
+  /** 負面提示（不想要出現的東西）。模型不接受就不會有；adapter 依供應商放進對應的欄位。 */
+  negativePrompt: z.string().min(1).optional(),
+  /** 走 OpenRouter 時，實際接手這個模型的供應商 slug（負面提示要放在那個供應商的選項下）。 */
+  negativePromptRoute: z.string().min(1).optional(),
 })
 export type VideoRequest = z.infer<typeof VideoRequestSchema>
 

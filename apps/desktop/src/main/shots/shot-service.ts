@@ -864,6 +864,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       aspectRatio: project.aspectRatio,
       // 影片要不要帶原聲：專案的聲音設定（預設開）
       audio: handle.repos.sound.getSettings().nativeAudio,
+      // 設定頁改過的影片負面提示（沒改就空字串，用模型內建的清單）
+      negativePrompt: settings.get().videoNegativePrompt,
       models: picked,
       anchors,
       scenes,

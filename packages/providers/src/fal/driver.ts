@@ -73,6 +73,12 @@ async function buildInput(
   services: ProviderServices,
 ): Promise<Record<string, unknown>> {
   const seed = req.seed === undefined ? {} : { seed: req.seed }
+  // 負面提示（模型卡有填的影片模型才會帶）：fal 的欄位叫 negative_prompt
+  const negative =
+    (req.capability === 't2v' || req.capability === 'i2v' || req.capability === 'r2v') &&
+    req.negativePrompt !== undefined
+      ? { negative_prompt: req.negativePrompt }
+      : {}
   switch (req.capability) {
     case 't2i':
       return {
@@ -98,6 +104,7 @@ async function buildInput(
         aspect_ratio: req.aspectRatio,
         generate_audio: req.audio,
         ...req.cameraParams,
+        ...negative,
         ...seed,
       }
     case 'i2v': {
@@ -118,6 +125,7 @@ async function buildInput(
         aspect_ratio: req.aspectRatio,
         generate_audio: req.audio,
         ...req.cameraParams,
+        ...negative,
         ...seed,
       }
     }
@@ -129,6 +137,7 @@ async function buildInput(
         aspect_ratio: req.aspectRatio,
         generate_audio: req.audio,
         ...req.cameraParams,
+        ...negative,
         ...seed,
       }
   }

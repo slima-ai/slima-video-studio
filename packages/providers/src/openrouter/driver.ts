@@ -161,6 +161,16 @@ export function createOpenRouterDriver(
       aspect_ratio: req.aspectRatio,
       generate_audio: req.audio,
       ...(req.seed === undefined ? {} : { seed: req.seed }),
+      // OpenRouter 只把選項轉給「實際接手的供應商」：負面提示放在那個供應商 slug 底下
+      ...(req.negativePrompt !== undefined && req.negativePromptRoute !== undefined
+        ? {
+            provider: {
+              options: {
+                [req.negativePromptRoute]: { parameters: { negative_prompt: req.negativePrompt } },
+              },
+            },
+          }
+        : {}),
     }
     switch (req.capability) {
       case 't2v':
