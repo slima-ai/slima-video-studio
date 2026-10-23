@@ -87,6 +87,7 @@ export function createMcpController(deps: McpControllerDeps): McpController {
   const status = (): McpStatus => {
     const { enabled, port } = settings.get().mcp
     const { allowanceUsd, committedUsd } = allowance.status()
+    const spentUsd = deps.projects.status()?.spentUsd
     return {
       enabled,
       running: runningPort !== undefined,
@@ -98,6 +99,7 @@ export function createMcpController(deps: McpControllerDeps): McpController {
       ...(lastSeen === undefined ? {} : { lastSeen }),
       allowanceUsd,
       committedUsd,
+      ...(spentUsd === undefined ? {} : { spentUsd }),
     }
   }
 

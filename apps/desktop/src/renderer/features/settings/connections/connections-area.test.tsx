@@ -25,6 +25,7 @@ const ON: McpStatus = {
   token: TOKEN,
   allowanceUsd: 2,
   committedUsd: 0.5,
+  spentUsd: 0.12,
 }
 const INFO: McpConnectInfo = {
   claudeDesktop: {
@@ -330,6 +331,18 @@ describe('Claude Desktop 卡', () => {
   })
 })
 
+describe('AI 工具的總額度（沒開專案）', () => {
+  it('沒有專案就沒有實收這一行，說明仍然在', async () => {
+    installFakeSvs({ 'mcp.status': () => ({ ...ON, spentUsd: undefined }) })
+    area()
+    await waitFor(() => {
+      expect(screen.getByTestId('mcp-committed')).toBeTruthy()
+    })
+    expect(screen.queryByTestId('mcp-spent')).toBeNull()
+    expect(screen.getByTestId('mcp-refund-note')).toBeTruthy()
+  })
+})
+
 describe('AI 工具的總額度', () => {
   it('儲存的是人輸入的數字；顯示已預留與還能花；可以「已用的歸零」；不合法的不能儲存', async () => {
     const svs = installFakeSvs({
@@ -341,6 +354,9 @@ describe('AI 工具的總額度', () => {
       expect(screen.getByTestId('mcp-committed').textContent).toContain('已預留 US$0.50')
     })
     expect(screen.getByTestId('mcp-committed').textContent).toContain('還能花 US$1.50')
+    // 預留是估計：旁邊另外顯示專案帳本的實收，並說明做完會把多預留的退回
+    expect(screen.getByTestId('mcp-spent').textContent).toBe('目前專案的帳本實收 US$0.12。')
+    expect(screen.getByTestId('mcp-refund-note').textContent).toContain('多預留的退回')
     expect(screen.getByTestId('mcp-allowance-status').textContent).toBe('還能花 US$1.50')
     fireEvent.change(screen.getByTestId('mcp-allowance'), { target: { value: '3.5' } })
     fireEvent.submit(screen.getByTestId('mcp-allowance'))

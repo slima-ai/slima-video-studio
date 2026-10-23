@@ -53,8 +53,11 @@ export const settings = {
     'The most AI tools like Claude can spend in total when they generate through this app (it comes out of your API key accounts). Default is US$0; once it’s used up, they can’t generate any more.',
   'settings.enter0OrALarger': 'Enter 0 or a larger number.',
   'settings.reservedLeftToSpend': '{value} reserved, {value2} left to spend.',
+  'settings.projectSpentSoFar': 'Actual charges in this project so far: {value}.',
+  'settings.reservationRefundNote':
+    'A reservation is a cautious estimate (estimate × 1.25; text × 2). After a generation finishes, it is settled to the actual charge the next time an AI tool is used, and the unused part is returned.',
   'settings.onlyYouCanChangeThis':
-    'Only you can change this number; AI tools can’t. Steps that cost money (text, images, video) reserve their estimated cost first, and the reserved amount isn’t returned if the real cost is lower. Anything over the limit is refused.',
+    'Only you can change this number; AI tools can’t. Steps that cost money (text, images, video) reserve their estimated cost first. Anything over the remaining allowance is refused.',
   'settings.everyGenerationByAnAi':
     'Every generation by an AI tool is also held to the “Per-run spending limit” under General. Demo mode costs nothing.',
   'settings.resetUsedAmount': 'Reset used amount',

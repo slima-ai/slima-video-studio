@@ -552,6 +552,8 @@ describe('影片線的花錢步驟（真實模式、假的 OpenRouter）', () =>
     expect(spentUsd).toBeGreaterThan(0)
     expect(spentUsd).toBeLessThan(parsed.spending.reservedUsd)
     expect(r.controller.allowance.status().committedUsd - committedBefore).toBeCloseTo(spentUsd)
+    // 設定頁的卡片拿到的狀態也帶專案帳本實收（跟預留分開）
+    expect(r.controller.status().spentUsd).toBeCloseTo(spentUsd)
     for (const result of [out, status, await r.call('list_shots')]) {
       expect(textOf(result)).not.toContain(FAKE_OPENROUTER_KEY)
       expect(textOf(result)).not.toContain(r.token)
