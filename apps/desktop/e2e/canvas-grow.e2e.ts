@@ -316,7 +316,7 @@ test.describe('畫布上的一句話（示範模式）', () => {
 
     // 全部生成：4 鏡 = 9 步（8 步 + 接成成品），一行都不能被切掉
     await page.getByTestId('run-all').click()
-    await expect(confirm).toContainText('這次會做 9 步')
+    await expect(confirm).toContainText('會生成 8 個空著的步驟')
     await expectAllInView(page)
     await expect(confirm.getByTestId('run-confirm-steps')).toContainText('接成成品')
     await expect(confirm.getByTestId('run-confirm-pinned')).toContainText('用：')
@@ -388,7 +388,7 @@ test.describe('畫布上的一句話（示範模式）', () => {
 
     await page.getByTestId('run-all').click()
     const confirm = page.getByTestId('run-confirm')
-    await expect(confirm).toContainText('這次會做 55 步')
+    await expect(confirm).toContainText('會生成 54 個空著的步驟')
     // 整個框、價錢、「用什麼」、確認鈕都在視窗內；清單捲動，而且有提示
     await expect(confirm).toBeInViewport({ ratio: 1 })
     await expect(confirm.getByTestId('run-confirm-pinned')).toBeInViewport({ ratio: 1 })
@@ -422,10 +422,10 @@ test.describe('畫布上的一句話（示範模式）', () => {
     const confirm = page.getByTestId('run-confirm')
     await expect(confirm).toContainText('這一步只寫分鏡')
     await expect(confirm).toContainText('下一步才生圖片和影片')
-    await expect(confirm).toContainText('全部生成')
+    await expect(confirm).toContainText('生成空的')
     await expect(confirm).toContainText('準確的預估')
     await expect(confirm).toContainText('旁白與配樂也不在這一步')
-    await expect(page.getByTestId('oneliner-sound-note')).toContainText('按右上角的「全部生成」')
+    await expect(page.getByTestId('oneliner-sound-note')).toContainText('按右上角的「生成空的」')
     await expect(confirm).toContainText('示範模式')
     // 兩個價錢都寫出來：這一步、下一步
     await expect(confirm).toContainText(/約 US\$\d+\.\d\d/)
@@ -440,14 +440,14 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await expect(done).toBeVisible()
     // 分鏡寫好之後，畫面上提到「全部生成」的價錢只有一個來源：右上角那顆；提示不寫數字
     await expect(done).not.toContainText('US$')
-    await expect(page.getByTestId('run-all')).toContainText(/全部生成（約 US\$\d+\.\d\d/)
+    await expect(page.getByTestId('run-all')).toContainText(/生成空的（\d+ 步，約 US\$\d+\.\d\d/)
     const prices = await page.evaluate(() => {
       const found = new Set<string>()
       for (const el of document.querySelectorAll(
         '[data-testid="toast"], [data-testid="run-all"]',
       )) {
         const text = el.textContent
-        if (!text.includes('全部生成')) continue
+        if (!text.includes('生成空的')) continue
         for (const m of text.matchAll(/US\$\d+\.\d\d/g)) found.add(m[0])
       }
       return [...found]

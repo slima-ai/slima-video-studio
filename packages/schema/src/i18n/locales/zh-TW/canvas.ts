@@ -178,7 +178,7 @@ export const canvas = {
   'canvas.splitting': '拆分鏡中…',
   'canvas.splitIntoStoryboard': '拆成分鏡',
   'canvas.writeOneLineLookAt':
-    '寫一句話，先看分鏡、改到滿意，再決定要不要全部生成（也可以一次做完整支）。',
+    '寫一句話，先看分鏡、改到滿意，再決定要不要生成（也可以一次做完整支）。',
   'canvas.thisCostsMoneyPicturesAnd': '會花錢（圖片和影片），按下去之前會先給你看預估。',
   'canvas.forExampleACatFinds': '例如：一隻貓在下雨的夜晚找到溫暖的家',
   'canvas.addAOneLiner': '新增一句話',
@@ -202,8 +202,6 @@ export const canvas = {
   'canvas.stop': '停止',
   'canvas.everythingIsGenerated': '全部都生成好了',
   'canvas.joinIntoFilm': '接成成品',
-  'canvas.generateAll': '全部生成',
-  'canvas.generateAllAboutUs': '全部生成（約 US${value}）',
   'canvas.helpAndTools': '說明與工具',
   'canvas.howToStartKeyboardShortcuts': '怎麼開始、鍵盤快捷鍵、效能自測',
   'canvas.changeTheme': '切換主題',
@@ -235,7 +233,7 @@ export const canvas = {
   'canvas.thereSAlreadyALocation': '這裡已經有地點了',
   'canvas.thereSAlreadyALine': '這裡已經接了一條線',
   'canvas.theseTwoDonTNeed': '這兩個不用手動接，它們會自己連在一起',
-  'canvas.generateAllThenJoinInto': '全部生成再接成成品',
+  'canvas.generateAllThenJoinInto': '生成空的再接成成品',
   'canvas.generateWhatThisShotIs': '生成這一鏡還缺的',
   'canvas.generateWhatThisSceneIs': '生成這一場還缺的',
   'canvas.redoMakeANewVersion': '重做（產生新的一版）',
@@ -354,9 +352,9 @@ export const canvas = {
   'canvas.theNextStepMakesPictures2':
     '下一步才生圖片和影片：{value} 張第一張畫面、{value2} 支影片，約 US${value3}（跟拆完後右上角的數字會差一點點）',
   'canvas.onceTheStoryboardIsWritten':
-    '分鏡寫好後你可以先看、先改，要生成時再按右上角的「全部生成」，那裡會給準確的預估',
+    '分鏡寫好後你可以先看、先改，要生成時再按右上角的「生成空的」，那裡會給準確的預估',
   'canvas.narrationAndMusicArenT':
-    '旁白與配樂也不在這一步：卡片上勾的聲音會記住，按「全部生成」時自動加',
+    '旁白與配樂也不在這一步：卡片上勾的聲音會記住，按「生成空的」時自動加',
   'canvas.writeTheStoryboardSplitInto': '寫分鏡：拆成 {value} 個鏡頭',
   'canvas.firstFrames': '{value} 張第一張畫面',
   'canvas.videosSecEach': '{value} 支影片（每支 {value2} 秒）',
@@ -478,9 +476,9 @@ export const canvas = {
   'canvas.aspectRatio': '畫面比例',
   'canvas.sound': '聲音',
   'canvas.narrationAndMusicMadeWhen':
-    '旁白與配樂：一次做完整支，或之後按「全部生成」，影片接好時自動加',
+    '旁白與配樂：一次做完整支，或之後按「生成空的」，影片接好時自動加',
   'canvas.narrationAndMusicAreAdded':
-    '旁白與配樂會在影片接好時自動加：「一次做完整支」做完就加；「先產生分鏡」的話，等你按右上角的「全部生成」。旁白只念有台詞的鏡頭。',
+    '旁白與配樂會在影片接好時自動加：「一次做完整支」做完就加；「先產生分鏡」的話，等你按右上角的「生成空的」。旁白只念有台詞的鏡頭。',
   'canvas.generating3': '生成中…',
   'canvas.generatesTheStoryboardPicturesAnd':
     '分鏡、圖片、影片一次都生成（圖片和影片會花錢），上面勾的聲音也一起加',
@@ -506,8 +504,8 @@ export const canvas = {
   'canvas.narrationNoShotHasLines': '旁白：目前沒有鏡頭有台詞，所以不會念（有台詞的鏡頭才加旁白）',
   'canvas.narrationEveryShotWithLines': '旁白：有台詞的鏡頭都已經有旁白了',
   'canvas.narrationShotsHaveLinesAnd': '旁白：{value} 個鏡頭有台詞，會念出來',
-  'canvas.theOtherClipsHaveNo':
-    '其他 {value} 段還沒有影片，這次不會接成成品。影片都有了，再按「接成成品」',
+  'canvas.theOtherClipsHaveNo_other':
+    '其他 {count} 段還沒有影片，這次不會接成成品。影片都有了，再按「接成成品」',
   'canvas.shotsAreBeingGeneratedSkipping': '{value} 個鏡頭正在生成，先略過',
   'canvas.joinIntoFilmClipsFree': '接成成品 · {value} 段 · 免費（在本機處理）',
   'canvas.thereSMoreBelowScroll': '↓ 往下還有，捲動看全部',
@@ -550,16 +548,16 @@ export const canvas = {
   'canvas.splittingSceneOfIntoShots': '正在替第 {value}／{value2} 場拆鏡頭…',
   'canvas.thisSceneCanTBe': '這一場現在不能拆成鏡頭，先停在這裡。',
   'canvas.splitIntoScenesAndShots':
-    '已拆成 {value} 場、共 {value2} 個鏡頭（只用文字模型，約 US${value3}）。圖片和影片還沒生成：看過、改好再按右上角的「全部生成」',
+    '已拆成 {value} 場、共 {value2} 個鏡頭（只用文字模型，約 US${value3}）。圖片和影片還沒生成：看過、改好再按右上角的「生成空的」',
   'canvas.splitTheStoryIntoA': '把故事拆成分鏡',
   'canvas.splitTheStoryIntoActs': '把故事拆成幕和場，抽出角色與地點（文字模型）',
   'canvas.thenSplitEachSceneInto': '再替每一場拆成幾個鏡頭，寫好畫面描述（文字模型，每場一次）',
   'canvas.noPicturesOrVideoAre':
-    '不會生成圖片和影片：拆好之後你可以先看、先改，要生成再按「全部生成」',
+    '不會生成圖片和影片：拆好之後你可以先看、先改，要生成再按「生成空的」',
   'canvas.uses2': '用：{modelName}',
   'canvas.demoModeNothingIsCharged2': '示範模式：不會真的花錢，拆出來的內容是假的',
   'canvas.theStoryboardIsWrittenBut':
-    '分鏡寫好了，圖片和影片還沒生成。看過、改好，再按右上角的「全部生成」，那裡會給你準確的預估',
+    '分鏡寫好了，圖片和影片還沒生成。看過、改好，再按右上角的「生成空的」，那裡會給你準確的預估',
   'canvas.theFilmIsGeneratedBut': '短片生成好了，但聲音沒加成，可以在成品面板再試',
   'canvas.theFilmIsGenerated': '短片生成好了（{soundDone}）',
   'canvas.theFilmIsGenerated2': '短片生成好了',
@@ -611,4 +609,20 @@ export const canvas = {
   'canvas.nameQuotedHint': '{label}「{hint}」',
   'canvas.quotedName': '「{name}」',
   'canvas.labelAndHint': '{label}：{hint}',
+  'canvas.fillEmpty': '生成空的',
+  'canvas.fillEmptyAbout_other': '生成空的（{count} 步，約 US${usd}）',
+  'canvas.moreWaysToGenerate': '更多生成方式',
+  'canvas.redoMarkedShots_other': '重跑標了需要重跑的（{count} 鏡，{cost}）',
+  'canvas.redoMarkedShotsDetail': '會產生新版本並採用，舊版本保留。',
+  'canvas.regenerateAllShots_other': '全部重新生成（{count} 鏡，{cost}）',
+  'canvas.regenerateAllShotsDetail': '每一鏡都產生新版本並採用（空的補上），舊版本保留。',
+  'canvas.workingOutThePrice': '計算中…',
+  'canvas.nothingToDoHere': '現在沒有可以動的鏡頭。',
+  'canvas.willGenerateEmptySteps_other': '會生成 {count} 個空著的步驟',
+  'canvas.willRedoMarkedShots_other': '會重跑 {count} 個標了需要重跑的鏡頭：產生新版本，舊的保留',
+  'canvas.willRegenerateAllShots_other': '會重新生成 {count} 個鏡頭：產生新版本並採用，舊的保留',
+  'canvas.staleShotsNotTouched_other':
+    '{count} 個鏡頭標了需要重跑，這次不會動（要重跑請在那一鏡按 ▶）',
+  'canvas.staleFramesUsedAsIs_other':
+    '其中 {count} 鏡的首幀是舊描述畫的，這次只補影片、首幀照用，不會更新',
 } as const

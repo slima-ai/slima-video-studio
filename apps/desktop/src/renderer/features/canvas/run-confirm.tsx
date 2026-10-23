@@ -301,7 +301,7 @@ export function RunConfirm({
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={onCancel}>
+        <Button variant="secondary" className="shrink-0 whitespace-nowrap" onClick={onCancel}>
           {t('canvas.cancel')}
         </Button>
         <Button

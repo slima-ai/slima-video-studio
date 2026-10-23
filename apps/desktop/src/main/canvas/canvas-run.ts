@@ -1,6 +1,8 @@
 import {
   isAppError,
   type CanvasNotice,
+  type CanvasRunChoices,
+  type CanvasRunChoicesRequest,
   type CanvasRunPlan,
   type CanvasRunRequest,
   type CanvasRunResult,
@@ -14,7 +16,10 @@ import { soundDoneNotice, soundStartNotice, type RunSound } from './canvas-run-s
 import { sceneKey, shotKey } from './projection'
 
 export interface CanvasRunnerDeps {
-  shots: Pick<ShotService, 'list' | 'planRun' | 'run' | 'whenIdle' | 'rejoin' | 'finalCut'>
+  shots: Pick<
+    ShotService,
+    'list' | 'planRun' | 'run' | 'whenIdle' | 'rejoin' | 'finalCut' | 'staleness'
+  >
   /** 背景做完事（例如自動接片）時通知畫面。 */
   notify: (notice: CanvasNotice) => void
   log: Pick<Logger, 'info' | 'warn'>
@@ -24,6 +29,8 @@ export interface CanvasRunnerDeps {
 
 export interface CanvasRunner {
   plan: (request: CanvasRunRequest) => CanvasRunPlan
+  /** 「全部生成」旁邊三種做法各自動幾鏡、幾步、多少錢。 */
+  choices: (request: CanvasRunChoicesRequest) => CanvasRunChoices
   run: (request: CanvasRunRequest) => Promise<CanvasRunResult>
 }
 
@@ -52,6 +59,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
       shotId: string,
       redo?: 'video' | 'all',
       exact?: 'frame' | 'video' | 'all',
+      fill?: 'empty' | 'stale',
     ): void => {
       // 同一個鏡頭被好幾個節點選到：只要有一個是「重做」就重做
       const merged = redo ?? items.get(shotId)?.redo
@@ -59,19 +67,26 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         shotId,
         ...(merged ? { redo: merged } : {}),
         ...(exact ? { exact } : {}),
+        ...(fill ? { fill } : {}),
       })
+    }
+    // 整批（全部生成、剪輯、場）預設只補空的；要重跑需要重跑的、要全部重新生成得明講（batch）
+    const batch = request.batch ?? 'empty'
+    const addBatch = (shotId: string): void => {
+      if (batch === 'regenerate') add(shotId, undefined, 'all')
+      else add(shotId, undefined, undefined, batch)
     }
     let rejoin = false
     const single = !request.all && request.keys.length === 1
     const scope = single ? request.scope : undefined
-    if (request.all) for (const view of views) add(view.id)
+    if (request.all) for (const view of views) addBatch(view.id)
     for (const key of request.keys) {
       const [kind, id, part] = key.split(':')
       if (key === 'cut') {
         rejoin = true
-        for (const view of views) add(view.id)
+        for (const view of views) addBatch(view.id)
       } else if (kind === 'scene' && id !== undefined) {
-        for (const view of views) if (view.sceneId === id) add(view.id)
+        for (const view of views) if (view.sceneId === id) addBatch(view.id)
       } else if (kind === 'shot' && id !== undefined) {
         const view = views.find((v) => v.id === id)
         if (!view) continue
@@ -126,7 +141,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
   }
 
   return {
-    plan(request) {
+    plan(request): CanvasRunPlan {
       const target = resolve(request)
       const { items } = target
       const views = shots.list().shots
@@ -203,9 +218,25 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
           if (view.sceneId) highlight.add(sceneKey(view.sceneId))
         }
       }
+      // 只補空的：標了需要重跑、這次不動的鏡頭數（確認視窗要說，免得以為它們也會更新）
+      const staleNow = shots.staleness()
+      const staleKept = items.filter(
+        (item) => item.fill === 'empty' && staleNow.has(item.shotId),
+      ).length
+      // 其中「首幀是舊描述畫的、這次只補影片」的：影片會照用這張首幀，要明說，免得以為首幀也更新了
+      const staleFrameUsed = check.entries.filter(
+        (entry) =>
+          entry.mode === 'video' &&
+          !entry.image &&
+          !entry.redo &&
+          items.some((item) => item.shotId === entry.shot.id && item.fill === 'empty') &&
+          staleNow.get(entry.shot.id)?.image === true,
+      ).length
       const { entries, ...rest } = check
       return {
         ...rest,
+        staleKept,
+        staleFrameUsed,
         estimatedUsd: rest.estimatedUsd + (soundPlan?.usd ?? 0),
         ...(soundPlan ? { sound: soundPlan } : {}),
         steps: check.ok ? steps : [],
@@ -214,6 +245,30 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         rejoin,
         segments,
         ...(missing > 0 ? { joinSkipped: missing } : {}),
+      }
+    },
+
+    choices(request) {
+      const choiceOf = (batch: 'empty' | 'stale' | 'regenerate') => {
+        const plan = this.plan({
+          keys: [],
+          all: true,
+          batch,
+          ...(request.quality ? { quality: request.quality } : {}),
+        })
+        return {
+          ok: plan.ok,
+          ...(plan.issue === undefined ? {} : { issue: plan.issue }),
+          shots: plan.shotCount,
+          steps: plan.steps.filter((step) => step.kind !== 'cut').length,
+          estimatedUsd: plan.estimatedUsd,
+          estimateIsLowerBound: plan.estimateIsLowerBound,
+        }
+      }
+      return {
+        empty: choiceOf('empty'),
+        stale: choiceOf('stale'),
+        regenerate: choiceOf('regenerate'),
       }
     },
 
@@ -272,6 +327,7 @@ const emptyPlan = (): CanvasRunPlan => ({
   highlightKeys: [],
   shotCount: 0,
   skippedBusy: 0,
+  staleKept: 0,
   estimatedUsd: 0,
   estimateIsLowerBound: false,
   demoMode: false,

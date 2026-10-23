@@ -112,7 +112,7 @@ test.describe('畫布執行（示範模式）', () => {
     await expect(page.getByRole('button', { name: '執行', exact: true })).toHaveCount(0)
   })
 
-  test('上方列「全部生成」：顯示預估、只補沒生成的；補完後變成「全部都生成好了」', async ({
+  test('上方列「生成空的」：顯示預估、只補沒生成的；補完後變成「全部都生成好了」', async ({
     page,
   }) => {
     await generateAndOpenCanvas(page)
@@ -120,10 +120,10 @@ test.describe('畫布執行（示範模式）', () => {
     await expect(page.getByTestId('run-all')).toBeDisabled()
 
     await addEmptyShot(page)
-    await expect(page.getByTestId('run-all')).toContainText('全部生成（約 US$')
+    await expect(page.getByTestId('run-all')).toContainText('生成空的（2 步，約 US$')
     await page.getByTestId('run-all').click()
     // 補兩步，再把四段接成成品（成品對不上了，所以包括接片）
-    await expect(page.getByTestId('run-confirm')).toContainText('這次會做 3 步')
+    await expect(page.getByTestId('run-confirm')).toContainText('會生成 2 個空著的步驟')
     await expect(page.getByTestId('run-confirm')).toContainText(
       '接成成品（4 段，在本機處理、免費）',
     )
@@ -139,7 +139,7 @@ test.describe('畫布執行（示範模式）', () => {
     ])
   })
 
-  test('改了鏡頭描述：這一鏡的圖和影片標「需要重跑」，其他不受影響；全部生成補跑它們', async ({
+  test('改了鏡頭描述：這一鏡的圖和影片標「需要重跑」，其他不受影響；「生成空的」不動它，▾ 選「重跑標了需要重跑的」才補跑它們', async ({
     page,
   }) => {
     await generateAndOpenCanvas(page)
@@ -162,8 +162,18 @@ test.describe('畫布執行（示範模式）', () => {
 
     await centerOn(page, image)
     await expect(page.getByTestId(`node-${image}`)).toContainText('需要重跑')
-    await page.getByTestId('run-all').click()
+    // 主按鈕只補空的：沒有空的，標了需要重跑的不會被順便重生（不會白花錢）
+    await expect(page.getByTestId('run-all')).toHaveText('全部都生成好了')
+    await expect(page.getByTestId('run-all')).toBeDisabled()
+    // ▾ 列出另外兩種做法，各寫幾鏡與預估花費
+    await page.getByTestId('run-all-more').click()
+    await expect(page.getByTestId('run-all-stale')).toContainText(
+      '重跑標了需要重跑的（1 鏡，約 US$',
+    )
+    await expect(page.getByTestId('run-all-regenerate')).toContainText('全部重新生成（3 鏡，約 US$')
+    await page.getByTestId('run-all-stale').click()
     const confirm = page.getByTestId('run-confirm')
+    await expect(confirm).toContainText('會重跑 1 個標了需要重跑的鏡頭')
     await expect(confirm).toContainText('第 1 鏡：第一張畫面')
     await expect(confirm).toContainText('第 1 鏡：影片')
     await page.getByTestId('run-confirm-ok').click()

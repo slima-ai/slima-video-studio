@@ -44,6 +44,8 @@ import {
   CanvasPasteResultSchema,
   CanvasAiChangedSchema,
   CanvasNoticeSchema,
+  CanvasRunChoicesRequestSchema,
+  CanvasRunChoicesSchema,
   CanvasRunPlanSchema,
   CanvasRunRequestSchema,
   CanvasRunResultSchema,
@@ -522,6 +524,11 @@ export const ipcContract = {
   'canvas.runPlan': {
     request: CanvasRunRequestSchema,
     response: CanvasRunPlanSchema,
+  },
+  /** 「全部生成」旁邊三種做法（只補空的／重跑需要重跑的／全部重新生成）各自動幾鏡、多少錢。 */
+  'canvas.runChoices': {
+    request: CanvasRunChoicesRequestSchema,
+    response: CanvasRunChoicesSchema,
   },
   /** 執行：補跑還沒有結果的節點（已經有結果的不重跑），在背景進行。 */
   'canvas.run': {

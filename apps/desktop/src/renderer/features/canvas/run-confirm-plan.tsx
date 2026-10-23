@@ -137,10 +137,16 @@ export function runStepLines(plan: CanvasRunPlan): string[] {
           : t('canvas.redoLabel', { label: step.label })
         : step.label,
     ),
-    ...(plan.joinSkipped
-      ? [t('canvas.theOtherClipsHaveNo', { value: String(plan.joinSkipped) })]
-      : []),
+    ...(plan.joinSkipped ? [t('canvas.theOtherClipsHaveNo', { count: plan.joinSkipped })] : []),
   ]
+}
+
+/** 整批執行的確認視窗標題：說清楚是「補空的」「重跑需要重跑的」還是「全部重新生成」。 */
+function batchTitle(batch: 'empty' | 'stale' | 'regenerate', plan: CanvasRunPlan): string {
+  const steps = plan.steps.filter((step) => step.kind !== 'cut').length
+  if (batch === 'stale') return t('canvas.willRedoMarkedShots', { count: plan.shotCount })
+  if (batch === 'regenerate') return t('canvas.willRegenerateAllShots', { count: plan.shotCount })
+  return t('canvas.willGenerateEmptySteps', { count: steps })
 }
 
 /** 不跟著清單捲動、永遠看得到的幾行：用哪個模型、略過的鏡頭、示範模式的說明。 */
@@ -151,6 +157,10 @@ export function runPinnedLines(plan: CanvasRunPlan): string[] {
   return [
     ...(models.length > 0 && plan.shotCount > 0
       ? [t('canvas.uses', { value: models.join(t('list.comma')) })]
+      : []),
+    ...(plan.staleKept ? [t('canvas.staleShotsNotTouched', { count: plan.staleKept })] : []),
+    ...(plan.staleFrameUsed
+      ? [t('canvas.staleFramesUsedAsIs', { count: plan.staleFrameUsed })]
       : []),
     ...(plan.skippedBusy > 0
       ? [t('canvas.shotsAreBeingGeneratedSkipping', { value: String(plan.skippedBusy) })]
@@ -167,6 +177,7 @@ export function runLines(plan: CanvasRunPlan): string[] {
 /** 執行的花費確認：列出這次會跑的每一步（已經有結果的不在裡面），預估花費。 */
 export function RunPlanConfirm({
   plan,
+  batch,
   anchor,
   quality,
   onQuality,
@@ -174,6 +185,8 @@ export function RunPlanConfirm({
   onCancel,
 }: {
   plan: CanvasRunPlan
+  /** 整批執行（全部生成）選的做法：只補空的、重跑需要重跑的、全部重新生成；單一鏡頭的 ▶ 沒有。 */
+  batch?: 'empty' | 'stale' | 'regenerate' | undefined
   anchor: ConfirmAnchor
   /** 生成鈕旁的品質（高品質／平衡／經濟）；沒給 onQuality 就不顯示切換。 */
   quality?: ModelTier | undefined
@@ -219,6 +232,7 @@ export function RunPlanConfirm({
     <RunConfirm
       anchor={anchor}
       count={plan.steps.length}
+      {...(batch ? { title: batchTitle(batch, plan) } : {})}
       lines={runStepLines(plan)}
       pinnedLines={runPinnedLines(plan)}
       costUsd={plan.estimatedUsd}

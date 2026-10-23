@@ -225,8 +225,6 @@ export const canvas = {
   'canvas.stop': 'Stop',
   'canvas.everythingIsGenerated': 'Everything is generated',
   'canvas.joinIntoFilm': 'Join into film',
-  'canvas.generateAll': 'Generate all',
-  'canvas.generateAllAboutUs': 'Generate all (about US${value})',
   'canvas.helpAndTools': 'Help and tools',
   'canvas.howToStartKeyboardShortcuts': 'How to start, keyboard shortcuts, performance check',
   'canvas.changeTheme': 'Change theme',
@@ -260,7 +258,7 @@ export const canvas = {
   'canvas.thereSAlreadyALocation': 'There’s already a location here',
   'canvas.thereSAlreadyALine': 'There’s already a line here',
   'canvas.theseTwoDonTNeed': 'These two don’t need connecting by hand; they link up on their own',
-  'canvas.generateAllThenJoinInto': 'Generate all, then join into film',
+  'canvas.generateAllThenJoinInto': 'Generate what’s empty, then join into film',
   'canvas.generateWhatThisShotIs': 'Generate what’s missing',
   'canvas.generateWhatThisSceneIs': 'Generate what’s missing',
   'canvas.redoMakeANewVersion': 'Redo (make a new version)',
@@ -393,9 +391,9 @@ export const canvas = {
   'canvas.theNextStepMakesPictures2':
     'The next step makes pictures and video: {value} first frames and {value2} videos for about US${value3} (a little different from the number at the top right after the split)',
   'canvas.onceTheStoryboardIsWritten':
-    'Once the storyboard is written you can look at it and change it first. Press “Generate all” at the top right when you want to generate; it shows an exact estimate.',
+    'Once the storyboard is written you can look at it and change it first. Press “Generate what’s empty” at the top right when you want to generate; it shows an exact estimate.',
   'canvas.narrationAndMusicArenT':
-    'Narration and music aren’t in this step either: the sounds ticked on the card are remembered and added automatically when you press “Generate all”',
+    'Narration and music aren’t in this step either: the sounds ticked on the card are remembered and added automatically when you press “Generate what’s empty”',
   'canvas.writeTheStoryboardSplitInto': 'Write the storyboard: split into {value} shots',
   'canvas.firstFrames': '{value} first frames',
   'canvas.videosSecEach': '{value} videos ({value2} sec each)',
@@ -531,7 +529,7 @@ export const canvas = {
   'canvas.aspectRatio': 'Aspect ratio',
   'canvas.sound': 'Sound',
   'canvas.narrationAndMusicMadeWhen':
-    'Narration and music: made when you do the whole film in one go, or later when you press “Generate all”; they’re added when the video is joined',
+    'Narration and music: made when you do the whole film in one go, or later when you press “Generate what’s empty”; they’re added when the video is joined',
   'canvas.narrationAndMusicAreAdded':
     'Narration and music are added when the film is joined. Narration only reads shots with lines.',
   'canvas.generating3': 'Generating…',
@@ -564,8 +562,10 @@ export const canvas = {
     'Narration: no shot has lines right now, so nothing will be read (only shots with lines get narration)',
   'canvas.narrationEveryShotWithLines': 'Narration: every shot with lines already has narration',
   'canvas.narrationShotsHaveLinesAnd': 'Narration: {value} shots have lines and will be read aloud',
-  'canvas.theOtherClipsHaveNo':
-    'The other {value} clips have no video yet, so this run won’t join the film. Press “Join into film” once they all have videos.',
+  'canvas.theOtherClipsHaveNo_one':
+    'The other {count} clip has no video yet, so this run won’t join the film. Press “Join into film” once it has a video.',
+  'canvas.theOtherClipsHaveNo_other':
+    'The other {count} clips have no video yet, so this run won’t join the film. Press “Join into film” once they all have videos.',
   'canvas.shotsAreBeingGeneratedSkipping':
     '{value} shots are being generated; skipping them for now',
   'canvas.joinIntoFilmClipsFree': 'Join into film · {value} clips · free (done on this computer)',
@@ -610,19 +610,19 @@ export const canvas = {
   'canvas.splittingSceneOfIntoShots': 'Splitting scene {value} of {value2} into shots…',
   'canvas.thisSceneCanTBe': 'This scene can’t be split into shots right now, so it stops here.',
   'canvas.splitIntoScenesAndShots':
-    'Split into {value} scenes and {value2} shots in all (text model only, about US${value3}). Pictures and video aren’t generated yet: look at it, fix it, then press “Generate all” at the top right.',
+    'Split into {value} scenes and {value2} shots in all (text model only, about US${value3}). Pictures and video aren’t generated yet: look at it, fix it, then press “Generate what’s empty” at the top right.',
   'canvas.splitTheStoryIntoA': 'Split the story into a storyboard',
   'canvas.splitTheStoryIntoActs':
     'Split the story into acts and scenes and pull out characters and locations (text model)',
   'canvas.thenSplitEachSceneInto':
     'Then split each scene into a few shots and write each picture (text model, once per scene)',
   'canvas.noPicturesOrVideoAre':
-    'No pictures or video are generated: look at the result and change it first, then press “Generate all” when you want to generate',
+    'No pictures or video are generated: look at the result and change it first, then press “Generate what’s empty” when you want to generate',
   'canvas.uses2': 'Uses: {modelName}',
   'canvas.demoModeNothingIsCharged2':
     'Demo mode: nothing is charged, and what’s split out is a sample',
   'canvas.theStoryboardIsWrittenBut':
-    'The storyboard is written, but pictures and video aren’t generated yet. Look at it, fix it, then press “Generate all” at the top right for an exact estimate.',
+    'The storyboard is written, but pictures and video aren’t generated yet. Look at it, fix it, then press “Generate what’s empty” at the top right for an exact estimate.',
   'canvas.theFilmIsGeneratedBut':
     'The film is generated, but the sound wasn’t added. You can try again in the film panel.',
   'canvas.theFilmIsGenerated': 'Film ready — {soundDone}',
@@ -679,4 +679,35 @@ export const canvas = {
   'canvas.nameQuotedHint': '{label} “{hint}”',
   'canvas.quotedName': '“{name}”',
   'canvas.labelAndHint': '{label}: {hint}',
+  'canvas.fillEmpty': 'Generate what’s empty',
+  'canvas.fillEmptyAbout_one': 'Generate what’s empty ({count} step, about US${usd})',
+  'canvas.fillEmptyAbout_other': 'Generate what’s empty ({count} steps, about US${usd})',
+  'canvas.moreWaysToGenerate': 'More ways to generate',
+  'canvas.redoMarkedShots_one': 'Redo the shot marked “needs re-run” ({count} shot, {cost})',
+  'canvas.redoMarkedShots_other': 'Redo the shots marked “needs re-run” ({count} shots, {cost})',
+  'canvas.redoMarkedShotsDetail': 'Makes a new version and uses it. Old versions are kept.',
+  'canvas.regenerateAllShots_one': 'Regenerate everything ({count} shot, {cost})',
+  'canvas.regenerateAllShots_other': 'Regenerate everything ({count} shots, {cost})',
+  'canvas.regenerateAllShotsDetail':
+    'Every shot gets a new version that is used right away (empty ones are filled in). Old versions are kept.',
+  'canvas.workingOutThePrice': 'Working out the price…',
+  'canvas.nothingToDoHere': 'No shots to do this for right now.',
+  'canvas.willGenerateEmptySteps_one': 'This will generate {count} empty step',
+  'canvas.willGenerateEmptySteps_other': 'This will generate {count} empty steps',
+  'canvas.willRedoMarkedShots_one':
+    'This will redo {count} shot marked “needs re-run”: a new version is made, the old one is kept',
+  'canvas.willRedoMarkedShots_other':
+    'This will redo {count} shots marked “needs re-run”: new versions are made, the old ones are kept',
+  'canvas.willRegenerateAllShots_one':
+    'This will regenerate {count} shot: a new version is made and used, the old one is kept',
+  'canvas.willRegenerateAllShots_other':
+    'This will regenerate {count} shots: new versions are made and used, the old ones are kept',
+  'canvas.staleShotsNotTouched_one':
+    '{count} shot is marked “needs re-run” and won’t be touched this time (to redo it, press ▶ on that shot)',
+  'canvas.staleShotsNotTouched_other':
+    '{count} shots are marked “needs re-run” and won’t be touched this time (to redo them, press ▶ on that shot)',
+  'canvas.staleFramesUsedAsIs_one':
+    '{count} of these shots has a first frame drawn from an older description: only its video is made this time, and the first frame is used as it is',
+  'canvas.staleFramesUsedAsIs_other':
+    '{count} of these shots have a first frame drawn from an older description: only their videos are made this time, and the first frames are used as they are',
 } as const

@@ -15,7 +15,7 @@ export const help = {
     '・One sentence: the AI makes a whole short film from it. Press “Storyboard first” to review before generating, or “Make it all” to do everything at once.',
   'help.step3.title': 'Generate and export',
   'help.step3.generate':
-    'Press ▶ on a card, or “Generate all” at the top, to make pictures and videos. You see an estimate before anything costs money; demo mode is free.',
+    'Press ▶ on a card, or “Generate what’s empty” at the top, to make pictures and videos. You see an estimate before anything costs money; demo mode is free.',
   'help.step3.export':
     'When it is done, the “Cut” card shows your film. Press “Export MP4” on it (the panel on the right has it too). Files go to the project’s “Exports” folder (▾ menu next to the project name › Show in folder).',
   'help.title': 'Getting started',

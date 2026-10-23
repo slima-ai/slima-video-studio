@@ -16,6 +16,8 @@ import {
   type CanvasPasteResult,
   type CanvasRemove,
   type CanvasRemoveResult,
+  type CanvasRunChoices,
+  type CanvasRunChoicesRequest,
   type CanvasRunPlan,
   type CanvasRunRequest,
   type CanvasRunResult,
@@ -89,6 +91,8 @@ export interface CanvasService {
   updateFree: (request: CanvasUpdateFree) => void
   /** 執行前的檢查：這次會跑哪些節點、預估花費、要標亮哪一串。 */
   runPlan: (request: CanvasRunRequest) => CanvasRunPlan
+  /** 「全部生成」旁邊三種做法（只補空的／重跑需要重跑的／全部重新生成）各自動幾鏡、多少錢。 */
+  runChoices: (request: CanvasRunChoicesRequest) => CanvasRunChoices
   /** 執行：補跑還沒有結果的節點，在背景進行（不進復原歷史）。 */
   run: (request: CanvasRunRequest) => Promise<CanvasRunResult>
   /** 記住視角；不算編輯。 */
@@ -548,6 +552,7 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
     },
 
     runPlan: (request) => runner.plan(request),
+    runChoices: (request) => runner.choices(request),
     run: (request) => runner.run(request),
 
     viewport(view) {

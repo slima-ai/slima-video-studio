@@ -482,6 +482,14 @@ export const CanvasRunRequestSchema = z.object({
    * 沒給就是原本的 ▶：補跑缺的、不重跑已經有的。
    */
   scope: z.enum(['this', 'from-here', 'chain']).optional(),
+  /**
+   * 整批執行（「全部生成」、剪輯節點的 ▶、場的 ▶）做哪一種：
+   * empty（預設）只補還空著的步驟，已經有結果的不動，就算標了「需要重跑」也一樣；
+   * stale 只重跑標了「需要重跑」的鏡頭（新版本、舊的保留）；
+   * regenerate 全部重新生成（每一鏡都產生新版本並採用、舊的保留）。
+   * 按在單一鏡頭或它的圖、影片上的 ▶ 不看這個欄位（那是明確指定要做哪一個）。
+   */
+  batch: z.enum(['empty', 'stale', 'regenerate']).optional(),
 })
 export type CanvasRunRequest = z.infer<typeof CanvasRunRequestSchema>
 
@@ -527,6 +535,10 @@ export const CanvasRunPlanSchema = z.object({
   shotCount: z.number().int().nonnegative(),
   /** 因為正在生成而略過的鏡頭數。 */
   skippedBusy: z.number().int().nonnegative(),
+  /** 只補空的（batch=empty）時：標了「需要重跑」、這次不會動的鏡頭數（要重跑請在那一鏡按 ▶，或選「重跑標了需要重跑的」）。 */
+  staleKept: z.number().int().nonnegative().optional(),
+  /** 只補空的時：有首幀、首幀是舊描述畫的、還沒有影片的鏡頭數——這次只做影片，首幀照用、不會更新。 */
+  staleFrameUsed: z.number().int().nonnegative().optional(),
   estimatedUsd: z.number().nonnegative(),
   estimateIsLowerBound: z.boolean(),
   demoMode: z.boolean(),
@@ -541,6 +553,29 @@ export const CanvasRunPlanSchema = z.object({
   sound: CanvasRunSoundPlanSchema.optional(),
 })
 export type CanvasRunPlan = z.infer<typeof CanvasRunPlanSchema>
+
+/** 「全部生成」旁邊三種做法各自會動幾鏡、幾步、多少錢（打開選單時才算）。 */
+export const CanvasRunChoiceSchema = z.object({
+  /** 這種做法現在能不能做（沒有模型、超過額度時是 false，附原因）。 */
+  ok: z.boolean(),
+  issue: z.string().optional(),
+  /** 會動幾個鏡頭、幾個步驟（首幀與影片各算一步，接成品不算）。 */
+  shots: z.number().int().nonnegative(),
+  steps: z.number().int().nonnegative(),
+  estimatedUsd: z.number().nonnegative(),
+  estimateIsLowerBound: z.boolean(),
+})
+export type CanvasRunChoice = z.infer<typeof CanvasRunChoiceSchema>
+
+export const CanvasRunChoicesRequestSchema = z.object({ quality: ModelTierSchema.optional() })
+export type CanvasRunChoicesRequest = z.infer<typeof CanvasRunChoicesRequestSchema>
+
+export const CanvasRunChoicesSchema = z.object({
+  empty: CanvasRunChoiceSchema,
+  stale: CanvasRunChoiceSchema,
+  regenerate: CanvasRunChoiceSchema,
+})
+export type CanvasRunChoices = z.infer<typeof CanvasRunChoicesSchema>
 
 export const CanvasRunResultSchema = z.object({
   started: z.number().int().nonnegative(),

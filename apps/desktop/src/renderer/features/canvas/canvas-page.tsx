@@ -86,6 +86,7 @@ import { AddMenu, CONTEXT_W, ContextMenu, type MenuEntry } from './menus'
 import { PerfOverlay } from './perf-overlay'
 import { NODE_TYPES } from './nodes'
 import { RenameBox, isRenamable, type RenameTarget } from './rename-box'
+import { RunAllMenu } from './run-all-menu'
 import { RunModeMenu } from './run-mode-menu'
 import { SceneLabels } from './scene-labels'
 import { GettingStartedDialog } from '../help/getting-started-dialog'
@@ -431,6 +432,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     [runQuality],
   )
   const [runMenu, setRunMenu] = useState<{ nodeId: string; anchor: ConfirmAnchor }>()
+  // 上方列「全部生成」旁 ▾ 的選單（重跑需要重跑的、全部重新生成）
+  const [runAllMenu, setRunAllMenu] = useState<ConfirmAnchor>()
   // 展開或收合步驟：下面的列往下讓開或收回來（300ms），只在這段時間給格子加位移動畫
   const [shifting, setShifting] = useState(false)
   const shiftTimer = useRef<number | undefined>(undefined)
@@ -2009,9 +2012,13 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                       onRunAll: (anchor: ConfirmAnchor) => {
                         askRun({ keys: [], all: true }, anchor)
                       },
+                      onRunMore: (anchor: ConfirmAnchor) => {
+                        setRunAllMenu(anchor)
+                      },
                     }
                   : {})}
                 pendingCostUsd={pendingCost.usd}
+                fillSteps={pendingCost.steps}
                 allDone={pendingCost.done}
                 joinOnly={pendingCost.joinOnly}
                 running={
@@ -2080,11 +2087,30 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
               {runner.pending ? (
                 <RunPlanConfirm
                   plan={runner.pending.plan}
+                  batch={
+                    runner.pending.request.all === true
+                      ? (runner.pending.request.batch ?? 'empty')
+                      : undefined
+                  }
                   anchor={runner.pending.anchor}
                   quality={runner.quality}
                   onQuality={runner.setQuality}
                   onOk={runner.confirm}
                   onCancel={runner.cancel}
+                />
+              ) : null}
+              {runAllMenu ? (
+                <RunAllMenu
+                  anchor={runAllMenu}
+                  quality={runner.quality}
+                  onPick={(batch) => {
+                    const anchor = runAllMenu
+                    setRunAllMenu(undefined)
+                    askRun({ keys: [], all: true, batch }, anchor)
+                  }}
+                  onClose={() => {
+                    setRunAllMenu(undefined)
+                  }}
                 />
               ) : null}
               {runMenu ? (

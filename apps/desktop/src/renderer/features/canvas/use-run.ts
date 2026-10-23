@@ -217,6 +217,8 @@ export interface PendingCost {
   done: boolean
   /** 素材都生成好了，只剩接成品。 */
   joinOnly: boolean
+  /** 「生成空的」會做幾個步驟（首幀與影片各算一步，接成品不算）。 */
+  steps: number
 }
 
 /**
@@ -228,10 +230,15 @@ export function usePendingCost(
   hasShots: boolean,
   quality?: ModelTier,
 ): PendingCost {
-  const [cost, setCost] = useState<PendingCost>({ usd: undefined, done: false, joinOnly: false })
+  const [cost, setCost] = useState<PendingCost>({
+    usd: undefined,
+    done: false,
+    joinOnly: false,
+    steps: 0,
+  })
   useEffect(() => {
     if (!hasShots) {
-      setCost({ usd: undefined, done: false, joinOnly: false })
+      setCost({ usd: undefined, done: false, joinOnly: false, steps: 0 })
       return
     }
     let alive = true
@@ -246,12 +253,13 @@ export function usePendingCost(
                   done: plan.steps.length === 0,
                   joinOnly:
                     plan.steps.length > 0 && plan.steps.every((step) => step.kind === 'cut'),
+                  steps: plan.steps.filter((step) => step.kind !== 'cut').length,
                 }
-              : { usd: undefined, done: false, joinOnly: false },
+              : { usd: undefined, done: false, joinOnly: false, steps: 0 },
           )
         })
         .catch(() => {
-          if (alive) setCost({ usd: undefined, done: false, joinOnly: false })
+          if (alive) setCost({ usd: undefined, done: false, joinOnly: false, steps: 0 })
         })
     }, 300)
     return () => {

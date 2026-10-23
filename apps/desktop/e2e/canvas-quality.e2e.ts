@@ -45,7 +45,7 @@ test.describe('生成鈕旁的品質：高品質／平衡／經濟', () => {
     await expect(dialog).toContainText('Kling 3.0 Standard')
     await expect.poll(() => costOf(page)).toBe(balanced)
 
-    // 選了高品質再關掉：上方列「全部生成」的估價也照高品質算
+    // 選了高品質再關掉：上方列「生成空的」的估價也照高品質算
     await page.getByTestId('quality-premium').click()
     await expect(dialog).toContainText('Kling 3.0 Pro')
     await page.keyboard.press('Escape')
