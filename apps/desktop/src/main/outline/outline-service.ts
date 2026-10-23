@@ -91,6 +91,11 @@ const SYSTEM =
   '另外列出故事裡出現的角色（只寫文字裡有提到的特徵，沒寫到的不要編造）和地點。' +
   '場的 location 必須是 locations 裡的名字，不確定就填 null。只輸出 JSON。'
 
+/** App 自己加的預設名字（新增幕、場、地點時給的）；判斷故事語言時不算使用者寫的內容 */
+export function isPlaceholderName(text: string): boolean {
+  return /^(第 \d+ 幕|新的場|新的地點 \d+)$/.test(text.trim())
+}
+
 /**
  * 拆大綱給文字模型的 system prompt：SYSTEM ＋ 已經建好的角色；故事不是中文時多一句「用故事的語言寫、名字照原文」
  * （沒有這一句，英文故事會得到中文的大綱，連角色名都被翻掉）。中文故事的內容一字不變。

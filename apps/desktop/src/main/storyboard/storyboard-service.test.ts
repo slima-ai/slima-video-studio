@@ -97,10 +97,7 @@ describe('StoryboardService：AI 依場拆鏡頭', () => {
     })
     const { scenes } = outlineOf(h)
     await h.storyboard.splitScene(scenes[0].id) // 街角：阿鐵撿到小貓（中文）
-    // 這一幕的標題也是使用者寫的（App 預設的標題是「第 N 幕」，那種不算；這裡換成英文）
-    const act = h.outline.get().acts.find((a) => a.scenes.some((s) => s.id === scenes[1].id))
-    if (!act) throw new Error('找不到場所在的幕')
-    h.outline.edit({ op: 'updateAct', actId: act.id, patch: { title: 'Act two' } })
+    // 幕的標題還是 App 預設的「第 N 幕」：那是 App 加的，不算使用者寫的內容
     h.outline.edit({
       op: 'updateScene',
       sceneId: scenes[1].id,

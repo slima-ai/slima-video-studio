@@ -21,6 +21,7 @@ import {
 import { z } from 'zod'
 
 import type { Logger } from '../logger'
+import { isPlaceholderName } from '../outline/outline-service'
 import type { ProjectManager } from '../project-manager'
 import { findTools, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
@@ -183,7 +184,7 @@ export function createStoryboardService(deps: StoryboardServiceDeps): Storyboard
         ...around,
       ].filter((line) => line !== '')
 
-      // 故事的語言只看使用者寫的內容（標題、摘要、地點），不看 App 加的中文標籤；角色名不算（專案裡可能有別種語言的名字）
+      // 故事的語言只看使用者寫的內容（標題、摘要、地點），不看 App 加的預設名字（「第 2 幕」「新的場」）；角色名不算（專案裡可能有別種語言的名字）
       const content = [
         act?.title,
         act?.summary,
@@ -191,7 +192,9 @@ export function createStoryboardService(deps: StoryboardServiceDeps): Storyboard
         scene.summary,
         place?.name,
         place?.description,
-      ].filter((text): text is string => text !== undefined && text !== '')
+      ].filter(
+        (text): text is string => text !== undefined && text !== '' && !isPlaceholderName(text),
+      )
       const system = sceneSystemPrompt(
         style,
         resolveStoryboardGuide(settings.get().storyboardGuide),
