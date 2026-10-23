@@ -355,7 +355,7 @@ function IoLine({ id, data, bottom }: { id: string; data: CanvasNodeData; bottom
     })
   }
   if (eat.length === 0 && out.length === 0) return null
-  const group = (key: '吃' | '出', name: string, list: readonly PortDef[]) =>
+  const group = (key: 'in' | 'out', name: string, list: readonly PortDef[]) =>
     list.length === 0 ? null : (
       <span className="flex min-w-0 shrink-0 items-center gap-1" data-testid={`io-${key}`}>
         <b className="font-semibold">{name}</b>
@@ -392,8 +392,8 @@ function IoLine({ id, data, bottom }: { id: string; data: CanvasNodeData; bottom
         bottom && 'mt-auto',
       )}
     >
-      {group('吃', t('canvas.in'), eat)}
-      {group('出', t('canvas.out'), out)}
+      {group('in', t('canvas.in'), eat)}
+      {group('out', t('canvas.out'), out)}
     </p>
   )
 }
