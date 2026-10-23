@@ -18,12 +18,13 @@ export function parseRetryAfter(
 }
 
 /**
- * 金鑰或帳戶的額度用完，供應商卻回 403：OpenRouter 的金鑰上限是 403「Key limit exceeded (total limit)」
- * （body 的 error.metadata.scope 是 key_limit），fal.ai 沒餘額的字樣（Exhausted balance）沒有真實樣本，是照印象寫的。
+ * 金鑰的額度用完，OpenRouter 卻回 403：內文是「Key limit exceeded (total limit)」，
+ * metadata.scope 是 key_limit（2026-10-23 的真實回應，見 openrouter.test.ts）。
  * 這時金鑰本身沒問題，叫人重貼金鑰沒有用，要告訴他去加值或調高上限。
+ * 只收有真實樣本的字樣：其他供應商（fal.ai 帳戶沒餘額被鎖）的 401/403 內文我們沒有樣本，
+ * 先不猜，真的遇到再加。
  */
-const QUOTA_EXHAUSTED =
-  /key limit exceeded|key_limit|exhausted balance|insufficient (?:credits|balance)/i
+const QUOTA_EXHAUSTED = /key limit exceeded|key_limit/i
 
 /**
  * 把供應商的 HTTP 錯誤整理成有型別的 AppError。

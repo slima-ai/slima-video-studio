@@ -107,7 +107,7 @@ export const errors = {
     'The service key for {name} is invalid or doesn’t have permission. Enter it again in Settings.',
   'errors.hasRunOutOfBalance': '{name} has run out of balance. Add credit and try again.',
   'errors.keyLimitReached':
-    '{name} says this key’s spending limit (or the account’s credit) has run out. The key itself is fine, so entering it again won’t help: add credit or raise the key’s limit on the {name} site, then try again.',
+    '{name} says this key’s spending limit has been used up. The key itself is fine, so entering it again won’t help: raise the key’s limit (or add credit) on the {name} site, then try again.',
   'errors.tookTooLongToRespond': '{name} took too long to respond. It will retry automatically.',
   'errors.isGettingTooManyRequests':
     '{name} is getting too many requests right now. It will retry automatically.',

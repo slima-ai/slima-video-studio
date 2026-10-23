@@ -87,7 +87,7 @@ export const errors = {
   'errors.theServiceKeyForIs': '{name} 的服務金鑰無效或沒有權限，請到設定頁重新輸入。',
   'errors.hasRunOutOfBalance': '{name} 的餘額不足，請儲值後再試。',
   'errors.keyLimitReached':
-    '{name} 回報這把金鑰的額度（或帳戶餘額）已經用完。金鑰本身沒問題，重新輸入沒有用：請到 {name} 網站加值，或調高這把金鑰的上限，再試一次。',
+    '{name} 回報這把金鑰的額度上限已經用完。金鑰本身沒問題，重新輸入沒有用：請到 {name} 網站調高這把金鑰的上限（或加值），再試一次。',
   'errors.tookTooLongToRespond': '{name} 回應太久，稍後會自動重試。',
   'errors.isGettingTooManyRequests': '{name} 目前請求太頻繁，稍後會自動重試。',
   'errors.isTemporarilyUnavailableItWill': '{name} 暫時無法服務，稍後會自動重試。',

@@ -22,6 +22,8 @@ const shot = (tags: string[]): CanvasNodeData => ({
   kind: 'shot',
   title: '第 7 鏡',
   summary: 'Medium shot at the end of a broken bridge',
+  action: 'The small yellow dome snaps up',
+  dialogue: '小饅頭縱身一躍',
   meta: 'Medium · Low · 5 sec',
   tags,
   lockedTags: Object.fromEntries(tags.map((tag) => [tag, 2])),
@@ -97,5 +99,31 @@ describe('鏡頭卡的「展開步驟」', () => {
     expect(toggle.textContent).toBe('收合步驟')
     fireEvent.click(toggle)
     expect(toggleSteps).toHaveBeenCalledWith('shot:7')
+  })
+
+  // 卡片高度固定，內文放不下時以前是描述、動作、台詞三行被擠扁，字只露出上半截（中英文都有）。
+  // 現在：每一行都不被擠扁（shrink-0），放不下的整行被容器裁掉；角色標籤最多兩排，第三排起整排不顯示。
+  it('內文每一行都不被擠扁、角色標籤最多兩排：不會切到半行', () => {
+    renderShot([
+      '小饅頭（Little Bun）',
+      '獸人史萊姆（Orc Slime）',
+      '黑藤長老（Elder）',
+      '紅光（Red Light）',
+    ])
+    for (const testid of ['shot-desc', 'shot-action', 'shot-dialogue']) {
+      expect(screen.getByTestId(testid).className, testid).toMatch(/\bshrink-0\b/)
+    }
+    const chips = screen.getAllByTestId('shot-character-tag')
+    const row = chips[0]?.parentElement
+    expect(row?.className).toMatch(/\bshrink-0\b/)
+    expect(row?.className, '最多兩排：一排 18px、排距 4px').toMatch(/max-h-\[40px\]/)
+    expect(row?.className).toMatch(/\boverflow-hidden\b/)
+    for (const chip of chips) expect(chip.className).toMatch(/h-\[18px\]/)
+    expect(row?.getAttribute('title')).toBe(
+      '小饅頭（Little Bun）、獸人史萊姆（Orc Slime）、黑藤長老（Elder）、紅光（Red Light）',
+    )
+    expect(chips[0]?.closest('div.min-h-0')?.className, '內文容器裁掉放不下的整行').toMatch(
+      /\boverflow-hidden\b/,
+    )
   })
 })
