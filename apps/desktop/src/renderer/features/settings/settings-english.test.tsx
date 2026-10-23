@@ -111,6 +111,8 @@ describe('設定頁在英文介面：各區的字都是英文', () => {
     const onChanged = vi.fn()
     render(<GeneralSection settings={SETTINGS} onChanged={onChanged} />)
     expect(screen.getByTestId<HTMLInputElement>('language-system').checked).toBe(true)
+    // 選項上用短的「System」（卡片只有約 270px 寬，「Follow system」會讓三個選項擠成兩排）；右上的狀態字仍寫完整的
+    expect(screen.getByTestId('language-system').parentElement?.textContent).toBe('System')
     expect(screen.getByTestId('language-zh-TW').parentElement?.textContent).toBe('繁體中文')
     expect(screen.getByTestId('language-en').parentElement?.textContent).toBe('English')
     fireEvent.click(screen.getByTestId('language-en'))

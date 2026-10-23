@@ -92,6 +92,28 @@ describe('對話紀錄檔（專案資料夾的 chat/）', () => {
     expect(readFileSync(future, 'utf8')).toBe(futureText)
   })
 
+  it('沒做完的步驟存「interrupted」旗標（不存翻好的字），讀回來還在', () => {
+    const clean = sanitizeMessage(
+      assistant('a1', '好了', {
+        steps: [
+          { id: 's1', tool: 'create_shot', label: '建立鏡頭', status: 'error', interrupted: true },
+        ],
+      }),
+    )
+    expect(clean.steps[0]).toEqual({
+      id: 's1',
+      tool: 'create_shot',
+      label: '建立鏡頭',
+      status: 'error',
+      interrupted: true,
+    })
+    expect(
+      sanitizeMessage(
+        assistant('a2', '好了', { steps: [{ id: 's', tool: 'x', label: 'y', status: 'done' }] }),
+      ).steps[0],
+    ).not.toHaveProperty('interrupted')
+  })
+
   it('只存已知欄位：步驟摘要截到 200 字；Claude 的原始事件裡別的東西（思考、帳號、用量、token）一個字都進不了檔案', () => {
     const dirty = {
       ...assistant('a1', '好了', {

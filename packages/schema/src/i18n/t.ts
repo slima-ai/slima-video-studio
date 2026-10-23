@@ -100,18 +100,99 @@ function interpolate(template: string, params: Readonly<Record<string, string | 
   })
 }
 
-/** 翻成目前語言。有 `{名稱}` 的訊息要傳參數（型別會檢查名稱）；單複數的訊息用 `count` 挑字尾。 */
-export function t(ref: MessageRef): string
-export function t<K extends MessageKey>(key: K, ...args: Args<K>): string
-export function t(keyOrRef: MessageKey | MessageRef, ...args: unknown[]): string {
-  const key = typeof keyOrRef === 'string' ? keyOrRef : keyOrRef.msgKey
+/** `t()` 的核心：不檢查 key 與參數的型別（`retranslate` 從字串找回 key 時用）。 */
+function translate(key: string, params: Readonly<Record<string, string | number>>): string {
   const locale = getLocale()
-  const params = (args[0] ?? {}) as Readonly<Record<string, string | number>>
   const count = typeof params.count === 'number' ? params.count : undefined
   const lookupLocale = locale === 'en-XA' ? 'en' : locale
   const raw = lookupMessage(dictionaryFor(lookupLocale), intlTag(lookupLocale), key, count, zhTW)
   // 假語系先換字再插值：{參數} 與傳進來的值（專案名、數字）都原樣保留
   return interpolate(locale === 'en-XA' ? pseudoLocalize(raw) : raw, params)
+}
+
+/** 翻成目前語言。有 `{名稱}` 的訊息要傳參數（型別會檢查名稱）；單複數的訊息用 `count` 挑字尾。 */
+export function t(ref: MessageRef): string
+export function t<K extends MessageKey>(key: K, ...args: Args<K>): string
+export function t(keyOrRef: MessageKey | MessageRef, ...args: unknown[]): string {
+  const key = typeof keyOrRef === 'string' ? keyOrRef : keyOrRef.msgKey
+  return translate(key, (args[0] ?? {}) as Readonly<Record<string, string | number>>)
+}
+
+interface StoredTemplate {
+  key: string
+  /** 範本裡不是參數的字數（越多越明確）。 */
+  literal: number
+  pattern: RegExp
+  params: string[]
+}
+
+const MIN_LITERAL_WITH_PARAMS = 8
+
+let storedIndex: { exact: Map<string, Set<string>>; templates: StoredTemplate[] } | undefined
+
+function buildStoredIndex(): NonNullable<typeof storedIndex> {
+  const exact = new Map<string, Set<string>>()
+  const templates: StoredTemplate[] = []
+  for (const dict of [zhTW, en] as readonly Readonly<Record<string, string>>[]) {
+    for (const [fullKey, text] of Object.entries(dict)) {
+      const key = fullKey.replace(/_(one|other)$/, '')
+      const params = [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1] ?? '')
+      if (params.length === 0) {
+        const keys = exact.get(text) ?? new Set<string>()
+        keys.add(key)
+        exact.set(text, keys)
+        continue
+      }
+      const pieces = text.split(/\{\w+\}/)
+      const literal = pieces.join('').length
+      if (literal < MIN_LITERAL_WITH_PARAMS) continue
+      const source = pieces
+        .map((piece) => piece.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('(.+?)')
+      templates.push({ key, literal, pattern: new RegExp(`^${source}$`, 's'), params })
+    }
+  }
+  return { exact, templates }
+}
+
+/** 幾條訊息的字一模一樣（意思一樣、英文措辭可能不同）時挑哪一條：先挑錯誤訊息（`errors.*`），再照字串檔的順序。 */
+const preferred = (keys: readonly string[]): string | undefined =>
+  keys.find((key) => key.startsWith('errors.')) ?? keys[0]
+
+/**
+ * 把「錄下來當下就翻好的訊息」換成現在的語言：任務的失敗原因、記錄這類存進檔案的 `userMessage` 是錄的當下翻好的字，
+ * 之後換介面語言（或換一個語言的人打開同一個專案）就會看到舊語言。這裡用字串反查它是哪一條訊息（含參數），再用現在的語言翻一次。
+ * 找不到（例如外部服務回的原文、使用者自己寫的字）就原樣回傳，絕不亂翻；
+ * 不同的 key 寫了一模一樣的中文時（意思相同、英文措辭可能不一樣）挑 `errors.*`，再照字串檔順序挑第一條。
+ */
+export function retranslate(stored: string): string {
+  if (stored.trim() === '') return stored
+  storedIndex ??= buildStoredIndex()
+  const exactKeys = storedIndex.exact.get(stored)
+  if (exactKeys !== undefined) {
+    const key = preferred([...exactKeys])
+    return key === undefined ? stored : translate(key, {})
+  }
+  let best:
+    { literal: number; keys: string[]; params: Record<string, string | number>[] } | undefined
+  for (const template of storedIndex.templates) {
+    const match = template.pattern.exec(stored)
+    if (match === null) continue
+    if (best !== undefined && template.literal < best.literal) continue
+    const params: Record<string, string | number> = {}
+    template.params.forEach((name, index) => {
+      const value = match[index + 1] ?? ''
+      params[name] = name === 'count' && /^\d+$/.test(value) ? Number(value) : value
+    })
+    if (best === undefined || template.literal > best.literal)
+      best = { literal: template.literal, keys: [], params: [] }
+    best.keys.push(template.key)
+    best.params.push(params)
+  }
+  if (best === undefined) return stored
+  const key = preferred(best.keys)
+  const params = key === undefined ? undefined : best.params[best.keys.indexOf(key)]
+  return key === undefined || params === undefined ? stored : translate(key, params)
 }
 
 /**

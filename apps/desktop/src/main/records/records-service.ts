@@ -14,6 +14,7 @@ import {
   type RecordsSnapshot,
   t,
   displayNameOf,
+  retranslate,
 } from '@svs/schema'
 import { REFERENCE_PROMPT_SUFFIX, withoutFrameFillSuffix } from '@svs/workflows'
 
@@ -189,7 +190,7 @@ export function createRecordsService(deps: RecordsServiceDeps): RecordsService {
           ? { durationMs: Math.max(0, ended - started) }
           : {}),
         ...(spent ? { costUsd: spent.usd, costEstimated: spent.estimated } : {}),
-        ...(job.error ? { error: job.error.userMessage } : {}),
+        ...(job.error ? { error: retranslate(job.error.userMessage) } : {}),
         ...(result ? { result } : {}),
         ...(target ? { target } : {}),
         canRedo:

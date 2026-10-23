@@ -1,5 +1,5 @@
-import type { Job } from '@svs/schema'
-import { describe, expect, it } from 'vitest'
+import { DEFAULT_LOCALE, setLocale, t, type Job } from '@svs/schema'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { toJobSummary } from './job-summary'
 
@@ -14,6 +14,10 @@ const base: Job = {
   createdAt: '2026-10-12T08:00:00.000Z',
   updatedAt: '2026-10-12T08:00:00.000Z',
 }
+
+afterEach(() => {
+  setLocale(DEFAULT_LOCALE)
+})
 
 describe('toJobSummary', () => {
   it('有對到鏡頭就帶「第 N 鏡」，沒有就不帶', () => {
@@ -93,5 +97,24 @@ describe('toJobSummary', () => {
       createdAt: base.createdAt,
       updatedAt: base.updatedAt,
     })
+  })
+
+  it('失敗原因是錄的當下翻好的字：用繁中錄的，英文介面顯示英文；外部服務回的原文原樣', () => {
+    const stored = t('errors.theServiceKeyForIs', { name: 'OpenRouter' })
+    const failed: Job = {
+      ...base,
+      status: 'failed',
+      error: { code: 'internal_error', retryable: false, userMessage: stored },
+    }
+    expect(toJobSummary(failed).error?.userMessage).toBe(stored)
+    setLocale('en')
+    const english = toJobSummary(failed).error?.userMessage ?? ''
+    expect(english).toBe(t('errors.theServiceKeyForIs', { name: 'OpenRouter' }))
+    expect(english).not.toMatch(/[㐀-鿿]/)
+    const raw: Job = {
+      ...failed,
+      error: { code: 'internal_error', retryable: true, userMessage: 'HTTP 502 Bad Gateway' },
+    }
+    expect(toJobSummary(raw).error?.userMessage).toBe('HTTP 502 Bad Gateway')
   })
 })

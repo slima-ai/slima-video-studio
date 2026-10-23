@@ -7,7 +7,7 @@ import { useChatDock } from './chat-context'
 import { continueText } from './continue-text'
 import { MessageView } from './message-view'
 import { PrereqCard } from './prereq-card'
-import { t, msg } from '@svs/schema'
+import { t, msg, retranslate } from '@svs/schema'
 
 /**
  * 檢查通常很快就有結果（App 預熱過）。過了這麼久還沒有結果，才顯示「正在檢查」；
@@ -177,7 +177,7 @@ export function ChatPanel() {
           >
             {conversations.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.title}
+                {retranslate(c.title)}
                 {c.running ? t('chat.inProgress') : ''}
               </option>
             ))}

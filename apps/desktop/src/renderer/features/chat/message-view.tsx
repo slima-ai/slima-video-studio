@@ -1,4 +1,4 @@
-import type { ChatPanelMessage, ChatStep } from '@svs/schema'
+import { chatStepLabel, retranslate, type ChatPanelMessage, type ChatStep } from '@svs/schema'
 import { Check, Loader2, X } from 'lucide-react'
 
 import { Mascot, type MascotMood } from '../../brand/mascot'
@@ -13,7 +13,7 @@ function StepRow({ step }: { step: ChatStep }) {
     <li
       data-testid="chat-step"
       data-status={step.status}
-      title={step.summary}
+      title={step.interrupted === true ? t('chat.didnTFinish') : step.summary}
       className={cn(
         'flex items-center gap-1.5 text-xs',
         step.status === 'error' ? 'text-danger' : 'text-fg-muted',
@@ -26,7 +26,7 @@ function StepRow({ step }: { step: ChatStep }) {
       ) : (
         <X className="size-3 shrink-0" aria-hidden />
       )}
-      <span>{step.label}</span>
+      <span>{chatStepLabel(step)}</span>
     </li>
   )
 }
@@ -95,7 +95,9 @@ export function MessageView({
         ) : null}
         {message.state === 'error' ? (
           <p role="alert" className="text-sm text-danger" data-testid="chat-error">
-            {message.error ?? t('chat.claudeDidnTFinishThis')}
+            {message.error === undefined
+              ? t('chat.claudeDidnTFinishThis')
+              : retranslate(message.error)}
           </p>
         ) : null}
         {message.state === 'error' && message.resumable === true && onContinue ? (

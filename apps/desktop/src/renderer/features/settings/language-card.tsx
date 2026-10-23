@@ -13,6 +13,13 @@ export interface LanguageCardProps {
 const nameOf = (option: LanguagePreference): string =>
   option === 'system' ? t('settings.followSystem') : LANGUAGE_NAMES[option]
 
+/**
+ * 三個選項要排在同一排：設定頁的卡片只有約 270px 寬，英文的「Follow system」放不下三個選項（English 會掉到第二排），
+ * 所以選項上用短的「System」；繁中仍是「跟隨系統」（同一個字，畫面不變）。右上的狀態字照舊寫完整的。
+ */
+const optionName = (option: LanguagePreference): string =>
+  option === 'system' ? t('settings.followSystemShort') : LANGUAGE_NAMES[option]
+
 /** 介面語言（設定 → 一般）。換了之後主行程會通知畫面整個重畫（見 docs/i18n.md）。 */
 export function LanguageCard({ value, onChanged }: LanguageCardProps) {
   // 先照使用者的操作換，畫面立刻有反應；存失敗再換回來
@@ -56,7 +63,7 @@ export function LanguageCard({ value, onChanged }: LanguageCardProps) {
                   }}
                   className="sr-only"
                 />
-                {nameOf(option)}
+                {optionName(option)}
               </label>
             ))}
           </div>

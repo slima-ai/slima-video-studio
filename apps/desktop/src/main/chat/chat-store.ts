@@ -58,6 +58,7 @@ export function sanitizeMessage(message: ChatPanelMessage): ChatPanelMessage {
       label: step.label,
       status: step.status,
       ...(step.summary === undefined ? {} : { summary: step.summary.slice(0, SUMMARY_MAX) }),
+      ...(step.interrupted === true ? { interrupted: true } : {}),
     })),
     at: message.at,
     ...(message.state === undefined ? {} : { state: message.state }),
