@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { pseudoLocalize } from '@svs/schema'
 
 import { canvasNodes, centerOn, kindCount } from './canvas-helpers'
@@ -11,7 +11,7 @@ const NOT_YET: string[] = []
 
 const BAD = /[㐀-鿿，。：；（）、！？「」・]/u
 
-async function visibleBadText(page: Page): Promise<string | undefined> {
+async function scanBadText(page: Page): Promise<{ bad: string | undefined; length: number }> {
   return page.evaluate(
     ({ source, notYet }) => {
       const bad = new RegExp(source, 'u')
@@ -46,26 +46,61 @@ async function visibleBadText(page: Page): Promise<string | undefined> {
       const left = [...new Set(hits)].filter(
         (hit) => hit !== '第' && !hit.endsWith('第') && !notYet.some((word) => hit.includes(word)),
       )
-      return left.length === 0 ? undefined : left.join('\n')
+      return { bad: left.length === 0 ? undefined : left.join('\n'), length: text.trim().length }
     },
     { source: BAD.source, notYet: NOT_YET },
   )
 }
 
+/** 掃到的字至少要有幾個：實測最短的（一句話卡片）有 1,000 多個字；空的畫面（還沒載好）掃到的是空的，不能當成「沒有中文」。 */
+const MIN_SCANNED_TEXT = 500
+
+/**
+ * 先等這個畫面一定有的標記元素出現（最多 15 秒，CI 慢也不誤紅），再斷言掃到的字夠多，才掃中文。
+ * 不用「等一下再掃」：頁面沒載好時掃到空的會空過。
+ */
+async function expectCanvasClean(
+  page: Page,
+  label: string,
+  marker: Locator,
+  minLength = MIN_SCANNED_TEXT,
+): Promise<void> {
+  await expect(marker, `${label}：畫面沒有出現`).toBeVisible({ timeout: 15_000 })
+  const { bad, length } = await scanBadText(page)
+  expect(length, `${label}：掃到的字只有 ${String(length)} 個，畫面沒載好？`).toBeGreaterThan(
+    minLength,
+  )
+  expect(bad, label).toBeUndefined()
+}
+
 test.describe('英文介面的畫布', () => {
   test.use({ appEnv: { SVS_LOCALE: 'en' } })
+
+  test('掃描守門：畫布是空的就紅（不會把「沒掃到」當成「沒有中文」）', async ({ page }) => {
+    await page.getByRole('button', { name: 'Canvas', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    await page.evaluate(() => {
+      document.querySelector('[data-testid="canvas-root"]')?.replaceChildren()
+    })
+    await expect(expectCanvasClean(page, '空的', page.getByTestId('canvas-root'))).rejects.toThrow(
+      '掃到的字只有',
+    )
+    await expect(
+      expectCanvasClean(page, '沒有的標記', page.getByTestId('no-such-marker'), 0),
+    ).rejects.toThrow('畫面沒有出現')
+  })
 
   test('空畫布、一句話長出分鏡與影片、快捷鍵視窗：畫面上沒有中文', async ({ page }) => {
     await page.getByRole('button', { name: 'Canvas', exact: true }).click()
     await expect(page.getByTestId('canvas-root')).toBeVisible()
-    expect(await visibleBadText(page), '空畫布').toBeUndefined()
+    await expectCanvasClean(page, '空畫布', page.getByTestId('empty-add-oneliner'))
 
     await page.getByTestId('empty-add-oneliner').click()
     await page.getByTestId('oneliner-story').fill('A cat finds a warm home on a rainy night')
     await page.getByTestId('oneliner-story').blur()
     await pick(page, 'oneliner-shots', '3')
     await pick(page, 'oneliner-duration', '3')
-    expect(await visibleBadText(page), '一句話卡片').toBeUndefined()
+    await expectCanvasClean(page, '一句話卡片', page.getByTestId('oneliner-story'))
     // 一句話卡片的尺寸固定：英文字再長，故事輸入框也要完整露出來（不被下面那排壓扁、蓋住），整張卡的內容不超出卡片
     const layout = await page.evaluate(() => {
       const rect = (testId: string) =>
@@ -99,7 +134,7 @@ test.describe('英文介面的畫布', () => {
     }
     expect(layout.lastBottom, '一句話卡片的內容超出卡片').toBeLessThanOrEqual(layout.cardBottom + 1)
     await page.getByTestId('oneliner-generate').click()
-    expect(await visibleBadText(page), '執行確認').toBeUndefined()
+    await expectCanvasClean(page, '執行確認', page.getByTestId('run-confirm'))
     await page.getByTestId('run-confirm-ok').click()
     await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'true')
     await expect(page.getByTestId('canvas-root')).toHaveAttribute('data-growing', 'false', {
@@ -109,7 +144,7 @@ test.describe('英文介面的畫布', () => {
       page.getByTestId('toast').filter({ hasText: 'Film ready — narration and music added' }),
     ).toBeVisible()
     expect(await kindCount(page, 'shot')).toBe(3)
-    expect(await visibleBadText(page), '長完之後').toBeUndefined()
+    await expectCanvasClean(page, '長完之後', page.getByTestId('toast'))
     // 鏡頭卡上的景別與角度、一句話卡的畫風都是英文名稱（不是只有「沒有中文」）
     await expect(page.getByText(/Eye level/).first()).toBeVisible()
     await expect(page.getByTestId('oneliner-style')).toContainText('Realistic')
@@ -150,27 +185,31 @@ test.describe('英文介面的畫布', () => {
     await centerOn(page, first.id)
     await page.getByTestId(`steps-toggle-${first.id}`).click()
     await centerOn(page, `${first.id}:step:refs`)
-    expect(await visibleBadText(page), '展開步驟').toBeUndefined()
+    await expectCanvasClean(
+      page,
+      '展開步驟',
+      page.locator(`.react-flow__node[data-id="${first.id}:step:refs"]`),
+    )
     await centerOn(page, first.id)
     await page.locator(`.react-flow__node[data-id="${first.id}"]`).click({
       button: 'right',
       position: { x: 60, y: 16 },
     })
     await expect(page.getByTestId('context-menu')).toBeVisible()
-    expect(await visibleBadText(page), '右鍵選單').toBeUndefined()
+    await expectCanvasClean(page, '右鍵選單', page.getByTestId('context-menu'))
     await page.getByRole('menuitem', { name: 'Open panel' }).click()
     await expect(page.getByTestId('canvas-panel')).toBeVisible()
-    expect(await visibleBadText(page), '鏡頭的面板').toBeUndefined()
+    await expectCanvasClean(page, '鏡頭的面板', page.getByTestId('canvas-panel'))
     await page.keyboard.press('Escape')
     await centerOn(page, 'cut')
-    expect(await visibleBadText(page), '剪輯卡').toBeUndefined()
+    await expectCanvasClean(page, '剪輯卡', page.getByTestId('node-cut'))
 
     await page.getByTestId('help-menu').click()
     await page.getByRole('menuitem', { name: 'Keyboard shortcuts' }).click()
     await expect(page.getByTestId('shortcuts-dialog')).toContainText(
       'On a Mac, use Cmd instead of Ctrl.',
     )
-    expect(await visibleBadText(page), '快捷鍵').toBeUndefined()
+    await expectCanvasClean(page, '快捷鍵', page.getByTestId('shortcuts-dialog'))
   })
 })
 
