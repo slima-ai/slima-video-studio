@@ -110,3 +110,38 @@ export async function probe(
     hasVideo: video !== undefined,
   }
 }
+
+/**
+ * 影片有幾格（不重新編碼，只數封包，很快）。沒有 ffprobe 時 `ffmpeg -i` 的長度只到百分之一秒
+ * （5.0417 秒印成 5.04），用「格數 ÷ 幀率」才是準的長度。數不出來就是 undefined。
+ */
+export async function countVideoFrames(
+  tools: MediaTools,
+  file: string,
+  options: RunOptions = {},
+): Promise<number | undefined> {
+  const { stdout } = await runToolRaw(
+    tools.ffmpegPath,
+    [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-i',
+      file,
+      '-map',
+      '0:v:0',
+      '-c',
+      'copy',
+      '-f',
+      'null',
+      '-',
+      '-progress',
+      'pipe:1',
+      '-nostats',
+    ],
+    options,
+  )
+  const counts = [...stdout.matchAll(/^frame=(\d+)$/gm)].map((m) => Number(m[1]))
+  const last = counts.at(-1)
+  return last !== undefined && last > 0 ? last : undefined
+}

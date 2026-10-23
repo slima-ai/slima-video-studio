@@ -66,6 +66,16 @@ describe('影片素材的長度要是檔案實際的長度', { timeout: 30_000 }
     expect(await measureVideoAssets(handle, tools)).toBe(0)
   })
 
+  it('App 內建的 FFmpeg 沒有 ffprobe（長度只到百分之一秒）：沒有音軌的影片用格數 ÷ 幀率，量出 5.041667 而不是 5.04', async () => {
+    const { handle } = project()
+    const bundled = resolveTools({}, { SVS_FFPROBE: 'none' })
+    expect(bundled.ffprobePath).toBeNull()
+    const stored = await handle.assets.put(await realClip(5), 'video/mp4', { durationSec: 5 })
+    const measured = await measureVideoAsset(handle, bundled, stored.hash)
+    expect(measured?.durationSec).toBe(5.041667)
+    expect(handle.assets.getMeta(stored.hash)?.durationSec).toBe(5.041667)
+  })
+
   it('壞掉的影片（量不到）維持原樣，不擋住其他的', async () => {
     const { handle } = project()
     const broken = await handle.assets.put(new TextEncoder().encode('not a video'), 'video/mp4', {
