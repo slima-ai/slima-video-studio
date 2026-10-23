@@ -35,7 +35,7 @@
 - **「臉一張、不帶臉的身體另一張」** 這個常見說法只找到一篇部落格（HackerNoon），沒有廠商文件或實驗支持，我們也沒有測過（兩隻示範用的角色是沒有手腳的圓球，測不出來）。指南裡把它列在「Not yet proven」，沒有當成規則。
 - **多張參考圖送給影片模型**：**已實測過一次**（2026-10-23，Kling 3.0 Std 經 OpenRouter，每個條件 1 支影片，n=1，用眼睛看影格；HQ `staff/handoffs/2026-10-23-studio2-vs-verify-results.md`）：帶 2 張那支角色中途長出手腳、帶 4 張那支變成沒有五官的圓球，不是主體參考。模型卡（#161）已標「已實測：不建議」，指南「Reference pictures for the video model」寫的就是這個結果與「靠首幀」。**只測了這一個模型與這一條管道**：fal 上 Kling 的 `elements`、Seedance、Veo 的參考圖沒測，不能推論到它們。
 - **「角色多的鏡頭，每個角色分到的參考圖變少」**：這是從 App 的挑圖規則（`pickReferences`：場景占一張、其餘依序分給每個角色）讀出來的，不是實測。
-- 角色的「附上原版設定圖」（`list_project_images`、`add_character_reference`）是 #159 之後有的，指南已提到；場景卡目前只能由使用者在畫布上建，AI 還沒有工具建立（指南原本有一句「You cannot create place cards with tools yet」，為了守住 1,000 字拿掉了；AI 沒有工具時自己會發現）。
+- 角色的「附上原版設定圖」（`list_project_images`、`add_character_reference`）是 #159 之後有的，指南已提到；場景卡目前只能由使用者在畫布上建，AI 還沒有工具建立，指南照實寫（「You cannot create place cards yet: say so, and keep each place's words identical across shots instead of re-describing it」）。之後有了工具要回頭改這一句。字數上限從 1,000 放寬到 1,100（CEO 同意）：這句擋的是很常見的走樣（每一鏡把地點描述得不一樣），比字數重要。
 - 三視圖同理：AI 只看得到 `hasTurnaround`，不能建立。
 - **「Write each shot in three places」整段是實拍心得，不是量過的規則**：「沒有動作時影片模型會自己發明（無臉角色長出表情和嘴）」只看過一次（一支影片）；「寫四分之一只畫出約 18%」也是一次；「描述裡用專案畫風的用字能讓整片畫法一致」沒有驗證（App 本來就把畫風描述接在每個 Prompt 後面，這句只是避免描述裡出現互相矛盾的字）。指南裡已用「in one real test」「tends to」這類語氣寫，不是硬規則。
 - 鏡頭參考圖的手動指定（`get_shot_references`、`set_shot_references`）是 #164 之後有的；負面提示與角色的 `avoid` 欄位（#168／#169）還沒合，合了再寫進指南（指南測試會擋不存在的工具或欄位名）。

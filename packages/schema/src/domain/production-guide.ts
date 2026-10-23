@@ -22,7 +22,7 @@ Define first, shoot later
 
 What a reference picture is for
 - A character needs one clear front picture (the hero); an attached original design sheet is the best start. If shots show the side or back, the three-view sheet matters too: the app uses those views for those angles and the hero for close-ups; without one, the model invents the unseen side and the look drifts. Only the user can build the sheet (list_characters shows hasTurnaround): say when a shot needs it.
-- A place is a picture of the empty setting, no people, with a main view; add a pulled-back and a reverse view if the scene cuts around.
+- A place is a picture of the empty setting, no people, with a main view; add a pulled-back and a reverse view if the scene cuts around. You cannot create place cards yet: say so, and keep each place's words identical across shots instead of re-describing it.
 
 Spend the reference slots where the shot needs them
 Each image model accepts only a few reference pictures per request (get_capabilities, list_models). For locked characters and places the app picks per shot from size and angle: the hero first (side or back view for those angles), then the character's attached pictures that fit (face, expression for close-ups; body, costume for wide and side shots), then the front view; the place takes one slot. Crowded shots drift first: each character gets fewer pictures.
