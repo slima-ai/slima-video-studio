@@ -18,10 +18,10 @@ Define first, shoot later
 1. List who and what appears: characters, places, any object the story depends on. Decide what must never change: face, hair, clothes, colours, a place's layout and light.
 2. Give each character one fixed look in plain words: what can be seen, short and concrete, no feelings. A locked look is sent word for word with every shot that includes the character, so write it once and never paraphrase it.
 3. Make the reference pictures before any shot picture. Pictures cost little next to video: look at them yourself (view_character_images), fix the words or regenerate, then pick one and lock it.
-4. If the character already has an original design picture, use it: ask the user to drop it onto the canvas, find it with list_project_images and attach it with add_character_reference, saying what it shows (face, body, turnaround, expression, costume, prop or general). The concept pictures are then drawn from it, not from words alone.
+4. If the character already has an original design picture, use it: ask the user to drop it onto the canvas, find it with list_project_images and attach it with add_character_reference, saying what it shows (face, body, turnaround, expression, costume, prop or general).
 
 What a reference picture is for
-- A character needs one clear front picture (the hero); an attached original design sheet is the best start. If shots show the side or back, the three-view sheet matters too: the app uses those views for those angles and the hero for close-ups; without one, the model invents the unseen side and the look drifts. list_characters shows hasTurnaround; the user builds the sheet on the character card (you cannot yet), so say when a planned shot needs it.
+- A character needs one clear front picture (the hero); an attached original design sheet is the best start. If shots show the side or back, the three-view sheet matters too: the app uses those views for those angles and the hero for close-ups; without one, the model invents the unseen side and the look drifts. list_characters shows hasTurnaround; only the user can build the sheet, so say when a planned shot needs it.
 - A place is a picture of the empty setting, no people, with a main view; add a pulled-back and a reverse view if the scene cuts around.
 - Place cards the user made on the canvas are used automatically by shots naming that place. You cannot create them with tools yet; say so instead of describing the place differently in every shot.
 
@@ -47,11 +47,13 @@ When something drifts
 Long or busy action
 Do not ask one clip for a fight or a long chase. Split it into short shots, one action each, so each has its own first frame, can be redone alone, and has a price you can quote.
 
-Not yet proven (say so instead of promising)
-- Some guides advise one close-up of the face and a separate picture of the body without the face. We found this only in one blog post and have not tested it here.
-- Whether extra reference pictures sent to a video model keep a character steadier than the first frame alone has not been tested here.
+Reference pictures for the video model
+In one real test (Kling via OpenRouter, one clip per setting) sending reference pictures made the character worse: with two it grew arms and legs, with four it became a faceless ball. The app marks this not recommended; rely on the first frame.
 
-Tell the user what you locked and why, and quote the price before anything that spends money.
+Not yet proven (say so instead of promising)
+- Some guides advise one close-up of the face and a separate picture of the body without the face. We found this only in one blog post and it has not been tested here.
+
+Tell the user what you locked and why; quote prices before spending.
 `
 
 /** 自訂指南的字數上限（只有 Claude 載入指南時才會讀到；太長會佔掉對話的空間）。 */

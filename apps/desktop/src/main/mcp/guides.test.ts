@@ -80,6 +80,14 @@ describe('load_guide("production")', () => {
     expect(unproven).toContain('not been tested here')
   })
 
+  it('送參考圖給影片模型：已實測過（Kling 經 OpenRouter 變差、App 標不建議），寫在「沒驗證」之外，不能再說沒測過', () => {
+    const tested = production.slice(0, production.indexOf('Not yet proven'))
+    expect(tested).toContain('In one real test (Kling via OpenRouter')
+    expect(tested).toContain('not recommended')
+    expect(tested).toContain('rely on the first frame')
+    expect(production.slice(production.indexOf('Not yet proven'))).not.toMatch(/video model/i)
+  })
+
   it('使用者自訂的內容優先；空白就回到預設', () => {
     expect(guideText('production', '', '臉先鎖定。')).toContain('臉先鎖定。')
     expect(guideText('production', '', '臉先鎖定。')).not.toContain('Production and consistency')
