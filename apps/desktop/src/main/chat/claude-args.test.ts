@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import { bridgeCommand } from '../mcp/connect'
 import { ESTIMATE_COST_ACTIONS } from '../mcp/tools/story'
-import { buildClaudeArgs, CHAT_SYSTEM_PROMPT, claudeEnv } from './claude-args'
+import { describeHistoryNote } from './history-note'
+import { buildClaudeArgs, chatSystemPrompt, claudeEnv } from './claude-args'
 
 const bridge = bridgeCommand('/Applications/App/Electron', '/app/mcp-stdio-bridge.js', '/user/data')
 const base = {
   sessionId: '11111111-1111-4111-8111-111111111111',
   bridge,
-  systemPrompt: CHAT_SYSTEM_PROMPT,
+  systemPrompt: chatSystemPrompt('zh-TW'),
   maxBudgetUsd: 0.5,
 }
 
@@ -46,7 +47,7 @@ describe('buildClaudeArgs', () => {
   it('用量上限與系統提示照傳；整串參數裡沒有任何金鑰或 token 的樣子', () => {
     const args = buildClaudeArgs({ ...base, resume: false })
     expect(args[args.indexOf('--max-budget-usd') + 1]).toBe('0.5')
-    expect(args[args.indexOf('--append-system-prompt') + 1]).toBe(CHAT_SYSTEM_PROMPT)
+    expect(args[args.indexOf('--append-system-prompt') + 1]).toBe(chatSystemPrompt('zh-TW'))
     expect(args.join(' ')).not.toMatch(/token|api[-_]?key|sk-/i)
   })
 })
@@ -125,90 +126,121 @@ describe('claudeEnv：使用者自己的 Claude 設定與網路環境要放行',
   })
 })
 
-describe('CHAT_SYSTEM_PROMPT', () => {
+describe('chatSystemPrompt（英文；第 2 行叫 Claude 用使用者的語言回答）', () => {
+  const PROMPT = chatSystemPrompt('en')
+  const lines = PROMPT.split('\n')
+
   it('7 行；叫 Claude 先讀指南、花錢先說再做、先看再花錢；估價用 estimate_cost（拆分、首幀、影片）與 plan_sound（聲音）', () => {
-    expect(CHAT_SYSTEM_PROMPT.split('\n')).toHaveLength(7)
-    expect(CHAT_SYSTEM_PROMPT).toContain('load_guide("cinematography")')
-    expect(CHAT_SYSTEM_PROMPT).toContain('view_first_frames')
-    expect(CHAT_SYSTEM_PROMPT).toContain('estimate_cost')
-    expect(CHAT_SYSTEM_PROMPT).toContain('plan_sound')
+    expect(lines).toHaveLength(7)
+    expect(PROMPT).toContain('load_guide("cinematography")')
+    expect(PROMPT).toContain('view_first_frames')
+    expect(PROMPT).toContain('estimate_cost')
+    expect(PROMPT).toContain('plan_sound')
     // 預設好用、不多加擋：小事（US$1 以下、講明了）直接做；細節在下一項測試
-    expect(CHAT_SYSTEM_PROMPT).toContain('直接做，做完一句話報實際花費')
-    expect(CHAT_SYSTEM_PROMPT).toContain('使用者沒明講要的話')
-    expect(CHAT_SYSTEM_PROMPT).not.toMatch(/token|api[-_]?key|sk-/i)
+    expect(PROMPT).toContain('just do it, and report the actual cost in one sentence when done')
+    expect(PROMPT).toContain('Unless the user said so explicitly')
+    expect(PROMPT).not.toMatch(/token|api[-_]?key|sk-/i)
+  })
+
+  it('整段都是英文（沒有中文字；系統提示固定用英文寫）', () => {
+    expect(PROMPT).not.toMatch(/[\u3000-\u9fff\uff00-\uffef]/u)
+  })
+
+  it('用使用者的語言回答：中文講就用繁體中文回、英文講就用英文回，即使工具回傳英文；看不出來才照 App 的語言', () => {
+    const line = lines[1] ?? ''
+    expect(line).toContain('Reply in the language the user writes in')
+    // 實測曾經：使用者用中文講，工具回傳英文，Claude 整段回英文
+    expect(line).toContain(
+      'if they write in Traditional Chinese, reply in Traditional Chinese, and if they write in English, reply in English, even when the tools return English',
+    )
+    expect(line).toContain("reply in the app's language (English)")
+    expect(chatSystemPrompt('zh-TW').split('\n')[1]).toContain(
+      "reply in the app's language (Traditional Chinese)",
+    )
+    // 其他行不隨語言變：只有「App 的語言」那個詞不同
+    expect(
+      chatSystemPrompt('zh-TW')
+        .split('\n')
+        .filter((_, i) => i !== 1),
+    ).toEqual(lines.filter((_, i) => i !== 1))
   })
 
   it('叫它不要把工作筆記和系統附的用量提示（USD budget）說出來', () => {
-    const line = CHAT_SYSTEM_PROMPT.split('\n')[1] ?? ''
-    expect(line).toContain('不要把工作筆記說出來')
-    // 使用者用中文講，就用繁體中文回，即使工具回傳的是英文（實測曾整段回英文）
-    expect(line).toContain('使用者用中文講，就用繁體中文回，即使工具回傳的是英文也一樣')
+    const line = lines[1] ?? ''
+    expect(line).toContain('do not say your working notes out loud')
     expect(line).toContain('USD budget')
   })
 
   it('只做使用者講的事：改描述或刪鏡頭之後，要不要重生成、重新接片或匯出，先問一句（除非明講要重做）；跟 US$1 門檻不打架', () => {
-    const lines = CHAT_SYSTEM_PROMPT.split('\n')
     const scope = lines[3] ?? ''
-    expect(scope).toContain('只做使用者講的事')
-    expect(scope).toContain('改了描述或刪了鏡頭之後')
+    expect(scope).toContain('Do only what the user asked')
+    expect(scope).toContain('after changing a description or deleting a shot')
     expect(scope).toContain(
-      '要不要重新生成圖片或影片、要不要重新接片或匯出，先問一句，除非他明講要重做',
+      'ask one short question about whether to regenerate the pictures or videos, or re-join or export the film, unless they said explicitly to redo it',
     )
     // 示範模式不花錢也一樣：被改動的東西不能在使用者沒說的情況下被重做、重新匯出
-    expect(scope).toContain('示範模式也一樣')
+    expect(scope).toContain('Demo mode is the same.')
     // 門檻那句只管「使用者講明要做的生成」，並指回上一行
     const price = lines[4] ?? ''
-    expect(price).toContain('以下只管使用者講明要做的生成（改完描述後順便重做，照上一行先問）')
-    expect(price.indexOf('以下只管使用者講明要做的生成')).toBeLessThan(price.indexOf('US$1 以下'))
+    expect(price).toContain(
+      'The rest of this line covers only generation the user explicitly asked for (redoing something after a description change follows the previous line: ask first)',
+    )
+    expect(price.indexOf('The rest of this line covers only')).toBeLessThan(
+      price.indexOf('US$1 or less'),
+    )
   })
 
   it('使用者說要先知道價錢（或先不要做）：只估價、說出金額、等回答，優先於 US$1 門檻；「好」「做吧」沒講範圍而前面提過多個選項：問是哪一個', () => {
-    const line = CHAT_SYSTEM_PROMPT.split('\n')[4] ?? ''
-    const first = '使用者說要先知道價錢，或說先不要做：就只估價、說出金額，等他回答，不要生成'
+    const line = lines[4] ?? ''
+    const first =
+      'If the user says they want to know the price first, or says not to do it yet: only estimate, say the amount, and wait for their answer; do not generate.'
     expect(line).toContain(first)
-    expect(line).toContain('這一句優先於下面的 US$1 門檻，示範模式也一樣')
-    // 優先句要在門檻句之前，Claude 才會先讀到
-    expect(line.indexOf(first)).toBeLessThan(line.indexOf('US$1 以下'))
     expect(line).toContain(
-      '只回「好」「做吧」，沒講範圍，而你前面提過不只一個選項）：問一個短問題，問他是哪一個，不要猜',
+      'This sentence takes priority over the US$1 threshold below, and demo mode is the same.',
     )
-    // 仍是 7 行（不能為了加句子多開一行）
-    expect(CHAT_SYSTEM_PROMPT.split('\n')).toHaveLength(7)
+    // 優先句要在門檻句之前，Claude 才會先讀到
+    expect(line.indexOf(first)).toBeLessThan(line.indexOf('US$1 or less'))
+    expect(line).toContain(
+      'If their answer is vague (for example just "OK" or "go ahead", with no scope, and you mentioned more than one option earlier): ask one short question about which one they mean; do not guess.',
+    )
   })
 
-  it('使用者按復原撤回你的改動是他的決定，不要自己改回去；看到「App 附註」照最後狀態做事（寫在第 4 行，仍是 7 行）', () => {
-    const lines = CHAT_SYSTEM_PROMPT.split('\n')
-    expect(lines).toHaveLength(7)
+  it('使用者按復原撤回你的改動是他的決定，不要自己改回去；看到「App note」照最後狀態做事（寫在第 4 行，仍是 7 行）', () => {
     const line = lines[3] ?? ''
-    expect(line).toContain('使用者按復原撤回你的改動，是他的決定，不要自己改回去；不確定就先問')
-    expect(line).toContain('（App 附註：…）')
-    expect(line).toContain('照它寫的最後狀態做事')
+    expect(line).toContain(
+      'that is their decision: do not put it back yourself, and ask first if you are not sure',
+    )
+    expect(line).toContain('"(App note: …)"')
+    expect(line).toContain('work from the final state it describes')
+    // 這句話提到的格式，要跟 history-note.ts 真的附的一樣
+    expect(describeHistoryNote([{ direction: 'undo', label: 'X', details: [] }])).toMatch(
+      /^\(App note: /,
+    )
   })
 
   it('寫到 estimate_cost 的那句：提到的動作名稱都是工具真的接受的值（工具改名了，提示不會再對不上）', () => {
-    const line = CHAT_SYSTEM_PROMPT.split('\n').find((l) => l.includes('estimate_cost'))
+    const line = lines.find((l) => l.includes('estimate_cost'))
     expect(line).toBeDefined()
-    // estimate_cost（…）括號裡的 snake_case 名字
-    const inside = /estimate_cost（([^）]*)）/.exec(line ?? '')?.[1] ?? ''
+    // estimate_cost (…) 括號裡的 snake_case 名字
+    const inside = /estimate_cost \(([^)]*)\)/.exec(line ?? '')?.[1] ?? ''
     const names = inside.match(/[a-z]+(?:_[a-z]+)+/g) ?? []
     expect(names.length).toBeGreaterThan(0)
     for (const name of names) {
       expect(ESTIMATE_COST_ACTIONS as readonly string[], name).toContain(name)
     }
-    // 首幀與影片現在也問得到價錢；不再說「沒有事前估價的工具」
+    // 首幀與影片現在也問得到價錢
     expect(names).toContain('generate_first_frames')
     expect(names).toContain('generate_videos')
-    expect(CHAT_SYSTEM_PROMPT).not.toContain('沒有事前估價')
     // 門檻 US$1：小事不囉嗦（講明了、US$1 以下直接做並報實際花費），大筆的才先問；含糊就問、不猜
     expect(line).toContain(
-      '估價在 US$1 以下、而且使用者講明了要做哪一個：直接做，做完一句話報實際花費',
+      'If the estimate is US$1 or less and the user said exactly which one to make: just do it, and report the actual cost in one sentence when done.',
     )
     expect(line).toContain(
-      '估價超過 US$1，或一次做很多鏡（例如「全部生成」）：先用一句話報價、等他說好再做',
+      'If the estimate is over US$1, or it is many shots at once (for example "generate all"): give the price in one sentence and wait for them to say yes.',
     )
-    expect(line).toContain('問一個短問題，問他是哪一個，不要猜')
-    expect(line).toContain('示範模式不花錢，使用者講明要做的可以直接做')
-    // 舊的「說了直接做就不用再問」不留：現在超過門檻一定先報價
-    expect(line).not.toContain('他已經說了直接做，就不用再問')
+    expect(line).toContain('do not guess')
+    expect(line).toContain(
+      'Demo mode costs nothing: what the user explicitly asked for can be done directly.',
+    )
   })
 })

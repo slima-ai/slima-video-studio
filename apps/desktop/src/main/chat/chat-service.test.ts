@@ -3,7 +3,12 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { CHAT_BUDGET_DEFAULT_USD, type ChatEvent, type ChatPanelMessage } from '@svs/schema'
+import {
+  CHAT_BUDGET_DEFAULT_USD,
+  setLocale,
+  type ChatEvent,
+  type ChatPanelMessage,
+} from '@svs/schema'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { UserHistoryOp } from '../history/history-service'
@@ -642,6 +647,27 @@ describe('ChatService：出錯要說白話', () => {
     expect(message?.notes).toBeUndefined()
   })
 
+  it('系統提示是英文，並寫上開新對話時 App 的語言：中文介面 → Traditional Chinese、英文介面 → English；繁中使用者說中文，提示叫 Claude 用中文回', async () => {
+    const promptOf = async (locale: 'zh-TW' | 'en'): Promise<string> => {
+      setLocale(locale)
+      const { service, calls } = setup()
+      await service.send(service.create().id, locale === 'en' ? 'Add a shot' : '加一個鏡頭')
+      const args = calls[0]?.args ?? []
+      return args[args.indexOf('--append-system-prompt') + 1] ?? ''
+    }
+    try {
+      const zh = await promptOf('zh-TW')
+      const en = await promptOf('en')
+      expect(zh).toContain("reply in the app's language (Traditional Chinese)")
+      expect(en).toContain("reply in the app's language (English)")
+      expect(zh).toContain('if they write in Traditional Chinese, reply in Traditional Chinese')
+      expect(en).toContain('if they write in Traditional Chinese, reply in Traditional Chinese')
+      expect(zh).not.toMatch(/[\u3000-\u9fff]/u)
+    } finally {
+      setLocale('zh-TW')
+    }
+  })
+
   it('使用者在兩句之間按過復原：下一句後面附 App 附註（送給 Claude 的有、畫面上的使用者訊息沒有），存進紀錄；取走後再下一句不再附', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'svs-chat-proj-'))
     dirs.push(dir)
@@ -653,15 +679,15 @@ describe('ChatService：出錯要說白話', () => {
     await service.send(conv.id, '把第 3 鏡刪掉')
     const sent = children[0]?.written[0] as { message: { content: string } }
     expect(sent.message.content).toContain('把第 3 鏡刪掉')
-    expect(sent.message.content).toContain('（App 附註：')
-    expect(sent.message.content).toContain('撤回了：Claude 這一輪的改動（修改鏡頭的景別）')
+    expect(sent.message.content).toContain('(App note: ')
+    expect(sent.message.content).toContain('Undone: Claude 這一輪的改動 (修改鏡頭的景別)')
     // 畫面上的使用者訊息只有使用者說的話；附註放在另一個欄位（不顯示）
     const user = last(conv.id, 'user')
     expect(user?.text).toBe('把第 3 鏡刪掉')
-    expect(user?.appNote).toContain('撤回了')
+    expect(user?.appNote).toContain('Undone')
     // 存進 chat/ 的紀錄
     const stored = readConversations(dir).flatMap((c) => c.messages)
-    expect(stored.find((m) => m.role === 'user')?.appNote).toContain('撤回了')
+    expect(stored.find((m) => m.role === 'user')?.appNote).toContain('Undone')
     // 做完，再說一句：沒再按過，不附
     children[0]?.line(init())
     children[0]?.line({ type: 'result', subtype: 'success', is_error: false, result: 'x' })
@@ -692,8 +718,8 @@ describe('ChatService：出錯要說白話', () => {
     const conv = service.create()
     await service.send(conv.id, '好')
     const sent = children[0]?.written[0] as { message: { content: string } }
-    expect(sent.message.content).toContain('按了復原又重做，最後的狀態跟之前一樣')
-    expect(sent.message.content).not.toContain('撤回了')
+    expect(sent.message.content).toContain('pressed Undo and then Redo')
+    expect(sent.message.content).not.toContain('Undone')
   })
 
   it('全英文的回覆（使用者用英文聊）：一段都不收，連提到預算的也照常顯示', async () => {
@@ -1021,7 +1047,7 @@ describe('ChatService：對話紀錄存在專案資料夾的 chat/', () => {
     const sent = JSON.stringify(b.children[1]?.written[0])
     expect(sent).toContain('暗號是香蕉')
     expect(sent).toContain('回：暗號是香蕉')
-    expect(sent).toContain('現在使用者說：暗號是什麼？')
+    expect(sent).toContain('The user now says: 暗號是什麼？')
     // 畫面上沒有錯誤；新的行程回覆後一切照常
     const fresh = b.children[1]
     fresh?.line(init(true, 'new-session'))

@@ -5,6 +5,7 @@ import {
   AI_TURN_UNDO_LABEL,
   AppError,
   CHAT_BUDGET_DEFAULT_USD,
+  getLocale,
   type AppSettings,
   type ChatConversation,
   type ChatEvent,
@@ -18,7 +19,7 @@ import {
 
 import type { Logger } from '../logger'
 import type { BridgeCommand } from '../mcp/connect'
-import { buildClaudeArgs, CHAT_SYSTEM_PROMPT, claudeEnv } from './claude-args'
+import { buildClaudeArgs, chatSystemPrompt, claudeEnv } from './claude-args'
 import {
   appendRecords,
   deleteConversationFile,
@@ -508,7 +509,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       resume: conv.started,
       fork: conv.fork === true,
       bridge: deps.bridge,
-      systemPrompt: CHAT_SYSTEM_PROMPT,
+      systemPrompt: chatSystemPrompt(getLocale()),
       maxBudgetUsd: budgetUsd,
     })
     const proc: ClaudeProcess = startClaudeProcess({
@@ -532,18 +533,18 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
   const withNote = (text: string, note: string | undefined): string =>
     note === undefined ? text : `${text}\n\n${note}`
 
-  /** 找不到 Claude 那邊的舊紀錄、要改開新對話時，把我們存的對話內容帶過去當背景（只取最後一段）。 */
+  /** 找不到 Claude 那邊的舊紀錄、要改開新對話時，把我們存的對話內容帶過去當背景（只取最後一段）。寫給 Claude 看的，用英文。 */
   const seedText = (conv: Conversation, text: string): string => {
     const earlier = conv.messages.slice(0, -2).filter((m) => m.text.trim() !== '')
-    const lines = earlier.map((m) => `${m.role === 'user' ? '使用者' : 'Claude'}：${m.text.trim()}`)
+    const lines = earlier.map((m) => `${m.role === 'user' ? 'User' : 'Claude'}: ${m.text.trim()}`)
     let body = lines.join('\n')
     if (body.length > SEED_MAX_CHARS) body = `…${body.slice(-SEED_MAX_CHARS)}`
     return [
-      '（我們之前在這個專案裡聊過；下面是之前的對話內容，只當背景參考，不要重做已經做過的事。）',
+      '(We chatted earlier in this project. Below is the earlier conversation; use it as background only, and do not redo what was already done.)',
       body,
-      '（以上是之前的內容。）',
+      '(End of the earlier conversation.)',
       '',
-      `現在使用者說：${text}`,
+      `The user now says: ${text}`,
     ].join('\n')
   }
 

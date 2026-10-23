@@ -1,13 +1,15 @@
 import type { UserHistoryOp } from '../history/history-service'
 
-/** 一步的說明：Claude 一輪寫成「Claude 這一輪的改動（修改鏡頭的景別、…）」，使用者自己的一步就是名稱。 */
+/** 一步的說明：Claude 一輪寫成「<名稱> (<各個編輯>)」，使用者自己的一步就是名稱。 */
 function describeStep(op: UserHistoryOp): string {
-  return op.details.length === 0 ? op.label : `${op.label}（${op.details.join('、')}）`
+  return op.details.length === 0 ? op.label : `${op.label} (${op.details.join(', ')})`
 }
 
 /**
  * 使用者在兩句話之間按過復原或重做：整理成一段短說明，附在下一句話後面送給 Claude（畫面上不顯示）。
  * 內容來自復原歷史的名稱，不是畫面上的字。沒有按過就回傳 undefined（什麼都不附）。
+ * 這段話是寫給 Claude 看的、畫面上不顯示，所以固定用英文（Claude 的系統提示也是英文，它叫 Claude 用使用者的語言回答）。
+ * 名稱本身（復原歷史的標籤）目前還是中文，等歷史標籤轉成 t() 之後會跟著介面語言。
  *
  * 要寫清楚的是「最後的狀態」，不是按了幾下：復原後又重做＝最後跟沒按一樣；復原兩步又重做一步＝還有一步是退掉的。
  * 重做永遠是把「最近被復原的那一步」套回來，所以用堆疊算：復原就放進去、重做就拿掉最上面一個
@@ -26,14 +28,14 @@ export function describeHistoryNote(ops: readonly UserHistoryOp[]): string | und
   const parts: string[] = []
   if (undone.length > 0) {
     parts.push(
-      `撤回了：${undone.join('；')}。這些現在不在了——這是使用者的決定，不要把它改回去；不確定就先問他`,
+      `Undone: ${undone.join('; ')}. These are gone now — that was the user's decision, so don't put them back; ask first if you're not sure`,
     )
   }
   if (restored.length > 0) {
-    parts.push(`重新套用了：${restored.join('；')}。這些現在又在了`)
+    parts.push(`Re-applied: ${restored.join('; ')}. These are back now`)
   }
   if (parts.length === 0) {
-    return '（App 附註：上一則之後，使用者在 App 按了復原又重做，最後的狀態跟之前一樣，沒有變。）'
+    return '(App note: since the last message, the user pressed Undo and then Redo in the app. The final state is the same as before — nothing changed.)'
   }
-  return `（App 附註：上一則之後，使用者在 App 按了復原／重做，最後的狀態是——${parts.join('；另外')}。）`
+  return `(App note: since the last message, the user pressed Undo/Redo in the app. The final state is — ${parts.join('; also ')}.)`
 }
