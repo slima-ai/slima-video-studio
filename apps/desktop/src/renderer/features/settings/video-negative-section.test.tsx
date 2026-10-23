@@ -37,12 +37,12 @@ const show = (ui: ReactElement): void => {
 const box = (): HTMLTextAreaElement => screen.getByTestId<HTMLTextAreaElement>('video-negative')
 
 describe('VideoNegativeSection：影片的負面提示', () => {
-  it('沒改過：顯示目前影片模型內建的清單，儲存與恢復都是停用的', () => {
+  it('沒改過：顯示目前影片模型預設的清單，儲存與恢復都是停用的', () => {
     installFakeSvs()
     show(<VideoNegativeSection settings={SETTINGS} videoModel={kling} onChanged={vi.fn()} />)
     expect(box().value).toBe(BUILT_IN)
     expect(screen.getByRole<HTMLButtonElement>('button', { name: '儲存' }).disabled).toBe(true)
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: '恢復內建' }).disabled).toBe(true)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: '恢復預設' }).disabled).toBe(true)
   })
 
   it('改了內容才能儲存，送出修改後的文字', async () => {
@@ -57,7 +57,7 @@ describe('VideoNegativeSection：影片的負面提示', () => {
     expect(svs.payloadsOf('settings.update')).toEqual([{ videoNegativePrompt: 'mouth only' }])
   })
 
-  it('改回跟內建一樣再儲存，存成空字串（之後內建更新才會跟著更新）', async () => {
+  it('改回跟預設一樣再儲存，存成空字串（之後內建更新才會跟著更新）', async () => {
     const svs = installFakeSvs()
     show(
       <VideoNegativeSection
@@ -74,7 +74,7 @@ describe('VideoNegativeSection：影片的負面提示', () => {
     })
   })
 
-  it('恢復內建：輸入框換回內建並送出空字串', async () => {
+  it('恢復預設：輸入框換回內建並送出空字串', async () => {
     const svs = installFakeSvs()
     show(
       <VideoNegativeSection
@@ -83,11 +83,21 @@ describe('VideoNegativeSection：影片的負面提示', () => {
         onChanged={vi.fn()}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: '恢復內建' }))
+    fireEvent.click(screen.getByRole('button', { name: '恢復預設' }))
     await waitFor(() => {
       expect(svs.payloadsOf('settings.update')).toEqual([{ videoNegativePrompt: '' }])
     })
     expect(box().value).toBe(BUILT_IN)
+  })
+
+  it('說明讀得通：負面提示是通用的畫質字，角色自己的特徵到角色頁設定；狀態標籤與按鈕都叫「預設」', () => {
+    installFakeSvs()
+    show(<VideoNegativeSection settings={SETTINGS} videoModel={kling} onChanged={vi.fn()} />)
+    const text = screen.getByTestId('video-negative-section').textContent
+    expect(text).toContain('角色自己不該有的特徵（例如沒有嘴巴），到角色頁設定')
+    expect(text).toContain('用預設')
+    expect(text).not.toContain('內建')
+    expect(text).not.toContain('手腳')
   })
 
   it('目前的影片模型不接受負面提示：說明這份清單不會送出，輸入框停用（沒改過時）', () => {

@@ -551,6 +551,7 @@ function toRow(character: Character): CharacterRow {
     age: character.age ?? null,
     personality: character.personality,
     appearance: character.appearance,
+    avoid: character.avoid,
     costumes: character.costumes,
     styleId: character.styleId ?? null,
     voices: character.voices,

@@ -128,6 +128,8 @@ export const characters = sqliteTable(
     age: text('age'),
     personality: text('personality').notNull().default(''),
     appearance: text('appearance').notNull().default(''),
+    // 影片裡不要出現的特徵（例如小饅頭沒有嘴巴、手腳）；生影片時併進負面提示。空字串 = 沒有
+    avoid: text('avoid').notNull().default(''),
     costumes: text('costumes', { mode: 'json' }).$type<Costume[]>().notNull(),
     styleId: text('style_id'),
     voices: text('voices', { mode: 'json' }).$type<Record<string, string>>().notNull(),

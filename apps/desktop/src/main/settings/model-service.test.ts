@@ -129,7 +129,7 @@ describe('SettingsService：多管道與下架', () => {
     const seedance = models.filter((m) => m.displayName === 'Seedance 2.0')
     expect(seedance.map((m) => m.id)).toEqual(['openrouter/seedance-2.0'])
     expect(seedance[0]?.otherChannels).toEqual(['fal.ai'])
-    expect(models.find((m) => m.id === 'fal/kling-3.0-pro')?.badges).toEqual(['有聲', '角色一致'])
+    expect(models.find((m) => m.id === 'fal/kling-3.0-pro')?.badges).toEqual(['有聲'])
   })
 
   it('只有一家的 Key：選另一家的同一個模型也能用（走有 Key 的那家）', () => {

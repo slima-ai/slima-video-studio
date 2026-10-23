@@ -32,7 +32,7 @@ import { join } from 'node:path'
 import type { Logger } from '../logger'
 import type { ProjectManager } from '../project-manager'
 import { markSoundAutoAdded, soundDoneNotice, soundStartNotice } from '../canvas/canvas-run-sound'
-import { lockedAnchors, referenceEditModel } from '../characters/anchors'
+import { avoidsOf, lockedAnchors, referenceEditModel } from '../characters/anchors'
 import { ensureProject, safeFileName, stamp } from '../ensure-project'
 import { createProjectEngine } from '../project-engine'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
@@ -288,6 +288,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
         models: { llm: chosen.llm, image: chosen.image, video: chosen.video },
         audio: handle.repos.sound.getSettings().nativeAudio,
         negativePrompt: settings.get().videoNegativePrompt,
+        characterAvoids: avoidsOf(handle),
         anchors,
         ...(editModel ? { editModel } : {}),
         knownCharacters: handle.repos.characters.list().map((c) => c.name),

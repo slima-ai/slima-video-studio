@@ -12,6 +12,7 @@ const view = (extra: Partial<CharacterView> = {}): CharacterView => ({
   name: '阿鐵',
   appearance: '',
   personality: '',
+  avoid: '',
   outfit: '',
   anchorText: '',
   anchorStatus: 'none',
@@ -29,6 +30,7 @@ describe('diffCharacter', () => {
       age: '28',
       appearance: '',
       personality: '',
+      avoid: '',
       outfit: '',
     }
     expect(diffCharacter(c, same)).toEqual({})
@@ -36,6 +38,8 @@ describe('diffCharacter', () => {
       age: null,
       outfit: '工作服',
     })
+    // 不要出現的特徵：有改才列出
+    expect(diffCharacter(c, { ...same, avoid: 'mouth, arms' })).toEqual({ avoid: 'mouth, arms' })
   })
 })
 
@@ -110,6 +114,24 @@ describe('CharactersPage', () => {
       expect(screen.queryByText('還沒儲存')).toBeNull()
     })
     expect(screen.getByTestId<HTMLTextAreaElement>('character-appearance').value).toBe('短黑髮')
+  })
+
+  it('「影片裡不要出現的特徵」：看得到目前的清單，改了只送出這一欄', async () => {
+    const svs = installFakeSvs({
+      'characters.list': () => ({ characters: [view({ avoid: 'mouth, arms' })] }),
+      'characters.update': () => view({ avoid: 'mouth, arms, legs' }),
+    })
+    render(<CharactersPage />)
+    await openFirst()
+    const box = await screen.findByTestId<HTMLTextAreaElement>('character-avoid')
+    expect(box.value).toBe('mouth, arms')
+    fireEvent.change(box, { target: { value: 'mouth, arms, legs' } })
+    fireEvent.click(screen.getByTestId('character-save'))
+    await waitFor(() => {
+      expect(svs.payloadsOf('characters.update')).toEqual([
+        { characterId: 'c1', patch: { avoid: 'mouth, arms, legs' } },
+      ])
+    })
   })
 
   it('名字清空就不能儲存', async () => {

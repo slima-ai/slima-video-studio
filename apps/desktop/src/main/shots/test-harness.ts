@@ -27,6 +27,8 @@ export interface HarnessOptions {
   renderCreditsCard?: StudioAppOptions['renderCreditsCard']
   /** 畫字卡最多等幾毫秒（測試縮短用）。 */
   creditsTimeoutMs?: number
+  /** 讓示範影片模型也接受負面提示（內建清單是這個字串），用來驗證負面提示真的跟著請求送出。 */
+  mockVideoNegativePrompt?: string
 }
 
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -38,7 +40,14 @@ const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 export function createStudioHarness(options: HarnessOptions = {}) {
   const root = mkdtempSync(join(tmpdir(), 'svs-studio-'))
   const projects = new ProjectManager('test')
-  const models = new ModelRegistry(loadBuiltinModelCards())
+  const negative = options.mockVideoNegativePrompt
+  const models = new ModelRegistry(
+    loadBuiltinModelCards().map((card) =>
+      negative !== undefined && card.id === 'mock/video'
+        ? { ...card, negativePrompt: { default: negative } }
+        : card,
+    ),
+  )
   const keys = new MemoryVault()
   const settings = createMemorySettingsStore({
     demoMode: options.demoMode ?? true,

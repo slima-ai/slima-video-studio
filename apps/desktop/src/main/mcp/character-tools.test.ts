@@ -49,6 +49,38 @@ const imageBlocks = (result: unknown): { data: string; mimeType: string }[] =>
     .filter((c) => c.type === 'image')
     .map((c) => ({ data: c.data ?? '', mimeType: c.mimeType ?? '' }))
 
+describe('角色的「不要出現的特徵」（avoid）', () => {
+  it('說明講清楚用途；建立與修改都能寫、list_characters 看得到、可以清掉', async () => {
+    const r = await start()
+    const { tools } = await r.client.listTools()
+    for (const name of ['create_character', 'update_character']) {
+      const description = tools.find((t) => t.name === name)?.description ?? ''
+      expect(description, name).toContain('avoid (English, comma separated')
+      expect(description, name).toContain('negative prompt')
+      // 提醒 Claude：同一鏡所有角色的清單會一起用，別列別的角色有的特徵
+      expect(description, name).toContain('combined as written')
+    }
+    expect(tools.find((t) => t.name === 'list_characters')?.description).toContain('avoid')
+
+    await r.call('create_project', { name: 'x' })
+    const made = dataOf(
+      Character,
+      await r.call('create_character', { name: '小饅頭', avoid: 'mouth, eyebrows' }),
+    )
+    const readAvoid = async (): Promise<unknown> => {
+      const { characters } = JSON.parse(textOf(await r.call('list_characters'))) as {
+        characters: { id: string; avoid: unknown }[]
+      }
+      return characters.find((c) => c.id === made.id)?.avoid
+    }
+    expect(await readAvoid()).toBe('mouth, eyebrows')
+    await r.call('update_character', { characterId: made.id, avoid: 'mouth, eyebrows, arms, legs' })
+    expect(await readAvoid()).toBe('mouth, eyebrows, arms, legs')
+    await r.call('update_character', { characterId: made.id, avoid: '' })
+    expect(await readAvoid()).toBe('')
+  })
+})
+
 describe('角色：建立、寫外觀、生成概念圖、看圖、挑主圖、鎖定（示範模式）', () => {
   it('拆故事帶出角色草稿；建立與修改；固定外觀；生成 → 等 → 看圖（真的 JPEG）→ 挑 → 鎖定', async () => {
     const { call } = await start()

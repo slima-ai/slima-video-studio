@@ -160,6 +160,7 @@ export function createCanvasCopier(deps: CanvasCopierDeps) {
           handle.repos.characters.update(created.id, {
             appearance: source.appearance,
             personality: source.personality,
+            avoid: source.avoid,
             outfit: source.costumes[0]?.description ?? '',
             ...(source.age === undefined ? {} : { age: source.age }),
           })

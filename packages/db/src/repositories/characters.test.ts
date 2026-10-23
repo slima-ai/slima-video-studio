@@ -127,6 +127,21 @@ describe('CharactersRepository：固定外觀描述與版本', () => {
     expect(repos.characters.lock(hero.id)).toMatchObject({ version: 2, status: 'locked' })
   })
 
+  it('「不要出現的特徵」：沒寫是空字串、寫了能往返、可以清掉；已鎖定的角色改它不會退回草稿', () => {
+    const { repos } = newProject()
+    const hero = repos.characters.create('小饅頭')
+    expect(repos.characters.get(hero.id)?.avoid).toBe('')
+    repos.characters.setAnchor(hero.id, '奶油黃圓頂')
+    repos.characters.lock(hero.id)
+
+    repos.characters.update(hero.id, { avoid: 'mouth, arms, legs' })
+    expect(repos.characters.get(hero.id)?.avoid).toBe('mouth, arms, legs')
+    // 這份清單只在生影片時用，不屬於固定外觀：鎖定的那一版不動
+    expect(repos.characters.pack(hero.id)).toMatchObject({ version: 1, status: 'locked' })
+    repos.characters.update(hero.id, { avoid: '' })
+    expect(repos.characters.get(hero.id)?.avoid).toBe('')
+  })
+
   it('已鎖定後改長相或服裝 → 退回下一版草稿（描述沿用）；改名字或個性不影響', () => {
     const { repos } = newProject()
     const hero = repos.characters.create('阿鐵')

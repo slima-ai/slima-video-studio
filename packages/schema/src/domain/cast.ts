@@ -33,6 +33,8 @@ export const CharacterSchema = z.object({
   personality: z.string().default(''),
   /** 外觀文字描述（使用者輸入）。 */
   appearance: z.string().default(''),
+  /** 影片裡不要出現的特徵（英文逗號分隔，例如 "mouth, arms, legs"）；生影片時併進負面提示。不影響固定外觀的鎖定。 */
+  avoid: z.string().default(''),
   costumes: z.array(CostumeSchema).default([]),
   styleId: IdSchema.optional(),
   /** 各 TTS 供應商的 voice ID。 */

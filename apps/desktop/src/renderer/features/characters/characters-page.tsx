@@ -1,4 +1,4 @@
-import type { CharacterEdit, CharacterView } from '@svs/schema'
+import { CHARACTER_AVOID_MAX_CHARS, type CharacterEdit, type CharacterView } from '@svs/schema'
 import { Plus, Trash2, Users } from 'lucide-react'
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
 
@@ -19,6 +19,7 @@ interface Draft {
   age: string
   appearance: string
   personality: string
+  avoid: string
   outfit: string
 }
 
@@ -27,6 +28,7 @@ const draftOf = (c: CharacterView): Draft => ({
   age: c.age ?? '',
   appearance: c.appearance,
   personality: c.personality,
+  avoid: c.avoid,
   outfit: c.outfit,
 })
 
@@ -37,6 +39,7 @@ export function diffCharacter(c: CharacterView, draft: Draft): CharacterEdit {
   if (draft.age.trim() !== (c.age ?? '')) edit.age = draft.age.trim() === '' ? null : draft.age
   if (draft.appearance !== c.appearance) edit.appearance = draft.appearance
   if (draft.personality !== c.personality) edit.personality = draft.personality
+  if (draft.avoid !== c.avoid) edit.avoid = draft.avoid
   if (draft.outfit !== c.outfit) edit.outfit = draft.outfit
   return edit
 }
@@ -264,6 +267,23 @@ function CharacterCard({ character, onSaved, onDeleted }: CardProps) {
           }}
           className={FIELD}
         />
+      </label>
+      <label className="block text-sm font-medium">
+        影片裡不要出現的特徵（英文，逗號分隔）
+        <textarea
+          data-testid="character-avoid"
+          rows={2}
+          value={draft.avoid}
+          maxLength={CHARACTER_AVOID_MAX_CHARS}
+          placeholder="例如小饅頭：mouth, eyebrows, eyelids, arms, legs, hands, feet"
+          onChange={(event) => {
+            set({ avoid: event.target.value })
+          }}
+          className={FIELD}
+        />
+        <span className="mt-1 block text-xs font-normal text-fg-muted">
+          生影片時，這個角色出場的鏡頭會把這份清單接在負面提示後面，免得模型替他長出不存在的五官或手腳。
+        </span>
       </label>
       <label className="block text-sm font-medium">
         服裝

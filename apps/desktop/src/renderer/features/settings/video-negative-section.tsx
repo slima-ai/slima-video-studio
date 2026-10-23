@@ -13,7 +13,7 @@ export interface VideoNegativeSectionProps {
   onChanged: () => void
 }
 
-/** 影片的負面提示：告訴影片模型「不要出現什麼」（例如史萊姆長出嘴巴、手腳）。看得到、改得動，也可以一鍵恢復內建。 */
+/** 影片的負面提示：告訴影片模型不要出現什麼（通用的畫質字）。看得到、改得動，也可以一鍵恢復預設；角色自己的特徵在角色頁設定。 */
 export function VideoNegativeSection({
   settings,
   videoModel,
@@ -52,11 +52,11 @@ export function VideoNegativeSection({
         icon={Ban}
         title="影片的負面提示"
         className="md:col-span-2"
-        status={customized ? { tone: 'ok', label: '已改過' } : { tone: 'off', label: '用內建' }}
+        status={customized ? { tone: 'ok', label: '已改過' } : { tone: 'off', label: '用預設' }}
         summary={
           builtIn === undefined
             ? '目前的影片模型不接受負面提示，這份清單不會送出；換成支援的模型（例如 Kling 3.0 Standard）才有用。'
-            : '告訴影片模型「不要出現什麼」，例如角色畫面外多出來的嘴巴、手腳。英文逗號分隔；留成內建也沒問題。'
+            : '告訴影片模型不要出現什麼，例如變形、多出來的臉或手。角色自己不該有的特徵（例如沒有嘴巴），到角色頁設定。英文逗號分隔。'
         }
         details={
           <div>
@@ -84,7 +84,7 @@ export function VideoNegativeSection({
                 variant="secondary"
                 disabled={!dirty || tooLong}
                 onClick={() => {
-                  // 改回跟內建一模一樣就存成「用內建」，之後內建更新時才會跟著更新
+                  // 改回跟預設一模一樣就存成「用預設」，之後預設更新時才會跟著更新
                   const value = text.trim() === (builtIn ?? '').trim() ? '' : text.trim()
                   save(value, '已儲存，下次生成影片就會用這份清單。')
                 }}
@@ -96,10 +96,10 @@ export function VideoNegativeSection({
                 disabled={!customized && !dirty}
                 onClick={() => {
                   setText(builtIn ?? '')
-                  save('', '已恢復內建的清單。')
+                  save('', '已恢復預設。')
                 }}
               >
-                恢復內建
+                恢復預設
               </Button>
               {status ? (
                 <span role="status" className="text-sm text-success">

@@ -49,6 +49,19 @@ function jobError(job: Job): AppError {
   })
 }
 
+/** 把兩份英文逗號分隔的清單接起來，相同的詞（不分大小寫）只留第一個。 */
+export function mergeTerms(base: string, extra: string | undefined): string {
+  const seen = new Set<string>()
+  const terms: string[] = []
+  for (const raw of `${base},${extra ?? ''}`.split(',')) {
+    const term = raw.trim()
+    if (term === '' || seen.has(term.toLowerCase())) continue
+    seen.add(term.toLowerCase())
+    terms.push(term)
+  }
+  return terms.join(', ')
+}
+
 /**
  * 影片的負面提示：模型卡有 `negativePrompt` 才送（沒有的模型一律不送）。
  * 使用者在設定頁改過的清單（節點參數帶進來）優先，沒有就用卡上內建的；走 OpenRouter 時一併帶上實際供應商的 slug。
@@ -58,18 +71,18 @@ export function withNegativePrompt<R extends VideoRequest>(
   card: Pick<ModelCard, 'negativePrompt'> | undefined,
 ): R {
   const spec = card?.negativePrompt
-  if (!spec) {
-    // 模型不接受負面提示：就算有人在請求裡帶了也拿掉，不送給供應商
-    const rest: Partial<VideoRequest> = { ...request }
-    delete rest.negativePrompt
-    delete rest.negativePromptRoute
-    return rest as R
-  }
+  const rest: Partial<VideoRequest> = { ...request }
+  delete rest.negativePrompt
+  delete rest.negativePromptRoute
+  delete rest.negativeExtra
+  // 模型不接受負面提示：就算有人在請求裡帶了也拿掉，不送給供應商
+  if (!spec) return rest as R
   return {
-    ...request,
-    negativePrompt: request.negativePrompt ?? spec.default,
+    ...rest,
+    // 通用清單（使用者改過的，或模型卡內建的）後面接上出場角色不要出現的特徵
+    negativePrompt: mergeTerms(request.negativePrompt ?? spec.default, request.negativeExtra),
     ...(spec.routeProvider === undefined ? {} : { negativePromptRoute: spec.routeProvider }),
-  }
+  } as R
 }
 
 export interface StudioDeps {

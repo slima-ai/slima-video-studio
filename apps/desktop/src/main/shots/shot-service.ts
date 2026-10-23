@@ -50,7 +50,13 @@ import { z } from 'zod'
 
 import { ensureProject } from '../ensure-project'
 import type { Logger } from '../logger'
-import { assetRefOf, lockedAnchors, pickEditModel, referenceEditModel } from '../characters/anchors'
+import {
+  assetRefOf,
+  avoidsOf,
+  lockedAnchors,
+  pickEditModel,
+  referenceEditModel,
+} from '../characters/anchors'
 import { lockedScenes } from '../locations/scene-anchors'
 import { createProjectEngine } from '../project-engine'
 import type { ProjectManager } from '../project-manager'
@@ -866,6 +872,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       audio: handle.repos.sound.getSettings().nativeAudio,
       // 設定頁改過的影片負面提示（沒改就空字串，用模型內建的清單）
       negativePrompt: settings.get().videoNegativePrompt,
+      // 角色的「不要出現的特徵」：出場角色的清單會併進影片的負面提示
+      characterAvoids: avoidsOf(handle),
       models: picked,
       anchors,
       scenes,

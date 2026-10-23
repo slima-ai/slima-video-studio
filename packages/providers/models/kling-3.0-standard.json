@@ -10,7 +10,7 @@
     "nativeAudio": true,
     "characterMechanism": "elements"
   },
-  "badges": ["有聲", "角色一致"],
+  "badges": ["有聲"],
   "prompt": {
     "language": "en"
   },
@@ -73,7 +73,7 @@
       },
       "minBillableSec": 5,
       "resolutions": ["720p"],
-      "notes": "只填 OpenRouter 金鑰時的預設影片模型。最低計費 5 秒：2026-10-19 實測 3 秒的請求收 US$0.63（有聲）、前一天 3 秒無聲收 US$0.42，都是 5 秒的價錢。模型清單寫 720p，但 2026-10-19 實測 3 秒有聲的輸出是 1920×1080（只有一個資料點）。沒有確認支援 Kling Elements。參考生影片（input_references）2026-10-23 實測不建議，App 不走這條路（見 verification.tested）；角色一致性靠首幀圖。 負面提示（negativePrompt）：2026-10-23 對照 OpenRouter 影片模型清單（GET /api/v1/videos/models，allowed_passthrough_parameters = negative_prompt、cfg_scale）與文件（provider.options.<供應商 slug>.parameters）；目前由 atlas-cloud 供應。注意：OpenRouter 只把選項轉給實際接手的供應商，若它改派別的供應商，這個選項會被丟掉、請求照樣成功（不會報錯）；只有文件核對，沒有實測負面提示是否改變輸出。",
+      "notes": "只填 OpenRouter 金鑰時的預設影片模型。最低計費 5 秒：2026-10-19 實測 3 秒的請求收 US$0.63（有聲）、前一天 3 秒無聲收 US$0.42，都是 5 秒的價錢。模型清單寫 720p，但 2026-10-19 實測 3 秒有聲的輸出是 1920×1080（只有一個資料點）。沒有確認支援 Kling Elements。參考生影片（input_references）2026-10-23 實測不建議，App 不走這條路（見 verification.tested）；角色一致性靠首幀圖。 負面提示（negativePrompt）：2026-10-23 對照 OpenRouter 影片模型清單（GET /api/v1/videos/models，allowed_passthrough_parameters = negative_prompt、cfg_scale）與文件（provider.options.<供應商 slug>.parameters）；目前由 atlas-cloud 供應。注意：OpenRouter 只把選項轉給實際接手的供應商，若它改派別的供應商，這個選項會被丟掉、請求照樣成功（不會報錯）；只有文件核對，沒有實測負面提示是否改變輸出。 選單上的「角色一致」標籤 2026-10-23 拿掉：它是人工寫在模型檔的廠商宣稱（Kling Elements），App 沒有用到 Elements；OpenRouter 管道沒有 Elements、參考生影片實測反而走樣；App 的角色一致性靠首幀圖，任何圖生影片模型都一樣，不是這個模型獨有。",
       "characterMechanism": "none",
       "prompt": {
         "language": "en"

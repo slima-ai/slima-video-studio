@@ -33,6 +33,7 @@ const characterView = (c: CharacterView, references?: ReferenceView[]) => ({
   appearance: c.appearance,
   outfit: c.outfit,
   personality: c.personality,
+  avoid: c.avoid,
   anchor: { status: c.anchorStatus, text: c.anchorText },
   version: c.version,
   hasHeroImage: c.heroAssetHash !== undefined,
@@ -46,7 +47,7 @@ export function registerCharacterTools(ctx: ToolContext): void {
     name: 'list_characters',
     title: 'List characters',
     description:
-      'The characters of the current project (split_story_into_scenes creates draft characters for you). Each has an id, the fixed look text ("anchor": none/draft/locked — a LOCKED anchor is sent unchanged with every shot prompt that includes the character), whether it has a hero picture, and references: its reference pictures, each with a purpose (face, body, turnaround, expression, costume, prop, general; see add_character_reference).',
+      'The characters of the current project (split_story_into_scenes creates draft characters for you). Each has an id, avoid (features it must NOT get in video; see update_character), the fixed look text ("anchor": none/draft/locked — a LOCKED anchor is sent unchanged with every shot prompt that includes the character), whether it has a hero picture, and references: its reference pictures, each with a purpose (face, body, turnaround, expression, costume, prop, general; see add_character_reference).',
     input: {},
     hints: { readOnly: true },
     run: async () => {
@@ -64,7 +65,7 @@ export function registerCharacterTools(ctx: ToolContext): void {
     name: 'create_character',
     title: 'Create a character',
     description:
-      'Add a character card. Name is required; the other fields describe the look and are optional (you can fill them later with update_character). Free.',
+      'Add a character card. Name is required; the other fields describe the look and are optional (you can fill them later with update_character). Besides the look, set avoid (English, comma separated, e.g. "mouth, eyebrows, arms, legs": features this character does NOT have and must never grow in a video, such as a slime with no mouth or limbs; when a shot that includes this character is turned into video the list is appended to the negative prompt of the video model, after the general list; do not list traits that another character in the same shots does have, since the lists of all characters in a shot are combined as written; "" clears it; it does not unlock a locked look). Free.',
     input: {
       name: z.string().trim().min(1).max(40),
       ...CharacterEditSchema.omit({ name: true }).shape,
@@ -84,7 +85,7 @@ export function registerCharacterTools(ctx: ToolContext): void {
     name: 'update_character',
     title: 'Edit a character',
     description:
-      'Change a character card (only the fields you pass): name, age (null clears), appearance, outfit, personality. Free. To change the fixed look sent to the image/video models use set_character_anchor.',
+      'Change a character card (only the fields you pass): name, age (null clears), appearance, outfit, personality, avoid (English, comma separated, e.g. "mouth, eyebrows, arms, legs": features this character does NOT have and must never grow in a video, such as a slime with no mouth or limbs; when a shot that includes this character is turned into video the list is appended to the negative prompt of the video model, after the general list; do not list traits that another character in the same shots does have, since the lists of all characters in a shot are combined as written; "" clears it; it does not unlock a locked look). Free. To change the fixed look sent to the image/video models use set_character_anchor.',
     input: { characterId: z.string().min(1), ...CharacterEditSchema.shape },
     hints: { readOnly: false, idempotent: true },
     run: async ({ characterId, ...patch }) =>
