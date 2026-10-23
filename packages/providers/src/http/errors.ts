@@ -18,8 +18,17 @@ export function parseRetryAfter(
 }
 
 /**
+ * 金鑰的額度用完，OpenRouter 卻回 403：內文是「Key limit exceeded (total limit)」，
+ * metadata.scope 是 key_limit（2026-10-23 的真實回應，見 openrouter.test.ts）。
+ * 這時金鑰本身沒問題，叫人重貼金鑰沒有用，要告訴他去加值或調高上限。
+ * 只收有真實樣本的字樣：其他供應商（fal.ai 帳戶沒餘額被鎖）的 401/403 內文我們沒有樣本，
+ * 先不猜，真的遇到再加。
+ */
+const QUOTA_EXHAUSTED = /key limit exceeded|key_limit/i
+
+/**
  * 把供應商的 HTTP 錯誤整理成有型別的 AppError。
- * 可重試：逾時、429、5xx；不可重試：401/403（Key 問題）、402（餘額不足）、其他 4xx（請求被拒）。
+ * 可重試：逾時、429、5xx；不可重試：401/403（Key 問題；額度用完的 403 另算餘額不足）、402（餘額不足）、其他 4xx（請求被拒）。
  * 供應商的原始訊息只放進 cause（寫 log 用），userMessage 是整理過的白話。
  */
 export function httpError(
@@ -31,6 +40,13 @@ export function httpError(
     `${provider.name} HTTP ${String(status)}${options.detail ? `：${options.detail}` : ''}`,
   )
   const name = provider.name
+  if ((status === 401 || status === 403) && QUOTA_EXHAUSTED.test(options.detail ?? '')) {
+    return new AppError({
+      code: 'provider_insufficient_funds',
+      userMessage: t('errors.keyLimitReached', { name }),
+      cause,
+    })
+  }
   if (status === 401 || status === 403) {
     return new AppError({
       code: 'provider_auth_failed',

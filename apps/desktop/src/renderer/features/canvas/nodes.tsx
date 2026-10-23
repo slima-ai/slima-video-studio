@@ -661,21 +661,27 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
             <span className="truncate">{data.title}</span>
           </span>
         ) : null}
-        <div className="flex min-h-0 flex-1 flex-col gap-1.5 px-3 py-2">
+        <div
+          className={cn(
+            'flex min-h-0 flex-1 flex-col gap-1.5 px-3 py-2',
+            // 鏡頭卡的每一行都不被擠扁（見下面各行的 shrink-0）；放不下的整行被裁掉，不會只露半行
+            data.kind === 'shot' && 'overflow-hidden',
+          )}
+        >
           {data.kind === 'shot' ? (
             <>
               <ShotDescription id={id} text={data.summary ?? ''} />
               {data.action ? (
                 <p
                   data-testid="shot-action"
-                  className="lod-full truncate text-[11px] leading-snug text-fg-muted"
+                  className="lod-full shrink-0 truncate text-[11px] leading-snug text-fg-muted"
                   title={data.action}
                 >
                   {t('canvas.action', { action: data.action })}
                 </p>
               ) : null}
               {data.dialogue ? <ShotDialogue id={id} text={data.dialogue} /> : null}
-              <p className="lod-full flex items-center gap-1.5 text-xs text-fg-muted">
+              <p className="lod-full flex shrink-0 items-center gap-1.5 text-xs text-fg-muted">
                 <span className="min-w-0 truncate">{data.meta}</span>
                 {data.sceneId === undefined ? (
                   <span
@@ -688,7 +694,11 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                 ) : null}
               </p>
               <IoLine id={id} data={data} bottom={false} />
-              <div className="lod-full flex flex-wrap gap-1">
+              {/* 最多兩排（一排 18px、排距 4px）：第三排起整排不顯示，不會只露半排；全部角色看詳情面板 */}
+              <div
+                className="lod-full flex max-h-[40px] shrink-0 flex-wrap gap-1 overflow-hidden"
+                title={(data.tags ?? []).join('、')}
+              >
                 {(data.tags ?? []).map((tag) => {
                   const locked = data.lockedTags?.[tag]
                   return (
@@ -700,7 +710,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                           ? undefined
                           : t('canvas.isLockedAtVersionGenerating', { tag, value: String(locked) })
                       }
-                      className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 text-[11px] text-fg-muted"
+                      className="inline-flex h-[18px] items-center gap-0.5 rounded border border-border px-1.5 text-[11px] text-fg-muted"
                     >
                       {locked === undefined ? (
                         tag
@@ -764,6 +774,7 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
             </span>
           </p>
         ) : null}
+        {data.kind === 'shot' ? <StepsFooter id={id} expanded={data.expanded === true} /> : null}
       </div>
       {generating ? (
         // 圖與影片的標題要放得下「第 12 鏡・第一張畫面」：↗ 和刪除鈕不佔標題列，
@@ -791,22 +802,24 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
 }
 export const CardNode = memo(CardImpl)
 
-/** 鏡頭卡片右下角的「展開步驟 ▸」；展開時從卡片底部接到「整理 Prompt」。 */
-function StepsToggle({ id, expanded }: { id: string; expanded: boolean }) {
+/**
+ * 鏡頭卡片最下面自己的一行：右邊是「展開步驟 ▸」。它有自己的一行、不浮在內文上面：
+ * 內文（描述、台詞、角色標籤）的長度不固定，以前浮在右下角，角色標籤排到最後一排（角色多、名字長，
+ * 中英文都會）就跟它疊在一起。內文放不下時被裁掉的是內文，不是這顆按鈕。
+ */
+function StepsFooter({ id, expanded }: { id: string; expanded: boolean }) {
   const { toggleSteps } = useCanvasActions()
-  // 展開時卡片底部多一個連接點：卡片尺寸是固定給的，React Flow 不會自己重新量，要叫它量一次，線才接得上
-  const updateNodeInternals = useUpdateNodeInternals()
-  useEffect(() => {
-    updateNodeInternals(id)
-  }, [expanded, id, updateNodeInternals])
   return (
-    <>
+    <div
+      data-testid={`steps-footer-${id}`}
+      className="lod-full flex h-6 shrink-0 items-center justify-end px-2"
+    >
       {toggleSteps ? (
         <button
           type="button"
           data-testid={`steps-toggle-${id}`}
           aria-expanded={expanded}
-          className="lod-full nodrag absolute bottom-1.5 right-2 flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] text-fg-muted hover:bg-fg/10 hover:text-fg"
+          className="nodrag flex items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] text-fg-muted hover:bg-fg/10 hover:text-fg"
           onClick={() => {
             toggleSteps(id)
           }}
@@ -819,17 +832,26 @@ function StepsToggle({ id, expanded }: { id: string; expanded: boolean }) {
           )}
         </button>
       ) : null}
-      {expanded ? (
-        <Handle
-          id="shot-steps"
-          type="source"
-          position={Position.Bottom}
-          isConnectable={false}
-          className="svs-handle svs-step-handle"
-        />
-      ) : null}
-    </>
+    </div>
   )
+}
+
+/** 展開時，鏡頭卡片底部接到「整理 Prompt」的連接點。 */
+function StepsToggle({ id, expanded }: { id: string; expanded: boolean }) {
+  // 展開時卡片底部多一個連接點：卡片尺寸是固定給的，React Flow 不會自己重新量，要叫它量一次，線才接得上
+  const updateNodeInternals = useUpdateNodeInternals()
+  useEffect(() => {
+    updateNodeInternals(id)
+  }, [expanded, id, updateNodeInternals])
+  return expanded ? (
+    <Handle
+      id="shot-steps"
+      type="source"
+      position={Position.Bottom}
+      isConnectable={false}
+      className="svs-handle svs-step-handle"
+    />
+  ) : null
 }
 
 /** 「整理 Prompt」：送給模型的 Prompt，可以直接改（離開輸入框就存）；改過的可以回到自動整理的。 */
@@ -1461,7 +1483,7 @@ function ShotDescription({ id, text }: { id: string; text: string }) {
     <p
       data-testid="shot-desc"
       title={saveShotDescription ? t('canvas.doubleClickToEditThe') : undefined}
-      className="lod-full line-clamp-2 text-xs leading-snug"
+      className="lod-full line-clamp-2 shrink-0 text-xs leading-snug"
       onDoubleClick={() => {
         if (!saveShotDescription) return
         done.current = false
@@ -1526,7 +1548,7 @@ function ShotDialogue({ id, text }: { id: string; text: string }) {
     <p
       data-testid="shot-dialogue"
       title={saveShotDialogue ? t('canvas.doubleClickToEditThe2') : undefined}
-      className="lod-full truncate text-[11px] leading-snug text-fg-muted"
+      className="lod-full shrink-0 truncate text-[11px] leading-snug text-fg-muted"
       onDoubleClick={() => {
         if (!saveShotDialogue) return
         done.current = false

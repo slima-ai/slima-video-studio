@@ -56,8 +56,8 @@ describe('鏡頭的「展開步驟」', { timeout: 30_000 }, () => {
     const ys = steps.map((n) => n.y)
     expect(ys).toEqual([...ys].sort((a, b) => a - b))
     expect(ys[0]).toBeGreaterThan(shot?.y ?? 0)
-    // 第一格在鏡頭卡片（畫面上高 188）的下緣之下，連線的連接點放得下；不蓋到鏡頭卡片的內容
-    expect(ys[0] ?? 0).toBeGreaterThanOrEqual((shot?.y ?? 0) + 188 + 20)
+    // 第一格在鏡頭卡片（畫面上高 246）的下緣之下，連線的連接點放得下；不蓋到鏡頭卡片的內容
+    expect(ys[0] ?? 0).toBeGreaterThanOrEqual((shot?.y ?? 0) + 246 + 20)
 
     const edge = (from: string, to: string) =>
       graph.edges.find((e) => e.source === from && e.target === to)
