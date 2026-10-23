@@ -396,3 +396,43 @@ test.describe('第一次使用的引導與設定頁', () => {
     }
   })
 })
+
+test.describe('介面語言（實驗功能）', () => {
+  // 空字串＝不固定語言（launchApp 預設固定繁體中文），讓設定檔裡選的語言生效
+  test.use({ appEnv: { SVS_LOCALE: '' } })
+
+  test('選 English → 整個畫面換成英文，重開 App 還是英文；選回繁體中文就換回來', async ({
+    page,
+    app,
+    userDataDir,
+  }) => {
+    const html = page.locator('html')
+    await expect(html).toHaveAttribute('lang', 'zh-Hant')
+    await page.getByRole('button', { name: '設定' }).click()
+    // 英文介面還沒做完，所以「跟隨系統」仍然是繁體中文；語言選單在實驗功能裡
+    await expect(page.getByTestId('language-system')).toBeChecked()
+    await page.locator('#experiments').getByText('English', { exact: true }).click()
+    await expect(html).toHaveAttribute('lang', 'en')
+    await expect(
+      page.getByTestId('layout-nav').getByRole('button', { name: 'Settings' }),
+    ).toBeVisible()
+    await expect(page.getByTestId('general-section')).toContainText('Demo mode')
+    await expect(page.getByTestId('language-en')).toBeChecked()
+
+    await app.close()
+    const again = await launchApp({ userDataDir, env: { SVS_LOCALE: '' } })
+    try {
+      const next = await again.app.firstWindow()
+      await next.waitForLoadState('domcontentloaded')
+      await expect(next.locator('html')).toHaveAttribute('lang', 'en')
+      await next.getByRole('button', { name: 'Settings' }).click()
+      await next.locator('#experiments').getByText('繁體中文', { exact: true }).click()
+      await expect(next.locator('html')).toHaveAttribute('lang', 'zh-Hant')
+      await expect(
+        next.getByTestId('layout-nav').getByRole('button', { name: '設定' }),
+      ).toBeVisible()
+    } finally {
+      await again.app.close()
+    }
+  })
+})

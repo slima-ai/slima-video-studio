@@ -25,21 +25,27 @@ import { useSlimaStatus } from './features/slima/use-slima-status'
 import { HistoryProvider } from './lib/history'
 import { call } from './lib/svs'
 import { applyTheme } from './lib/theme'
+import { viewMemory } from './lib/view-memory'
 import { t } from '@svs/schema'
 
 export function App() {
   const { state, reload } = useAppData()
   // 開 App 先到哪一頁：沒有專案可以接就是首頁，否則畫布。問到之前是 undefined（不畫，免得閃一下畫布）
-  const [view, setView] = useState<AppView>()
+  // 換介面語言時整棵樹會重新掛上（見 lib/i18n.tsx）：目前在哪一頁記在樹外面，重新掛上後回到同一頁
+  const [view, setViewState] = useState<AppView | undefined>(viewMemory.view)
+  const setView = useCallback((next: AppView) => {
+    viewMemory.view = next
+    setViewState(next)
+  }, [])
   useEffect(() => {
     let alive = true
     call('app.startView', {})
       .then(({ view: first }) => {
-        if (alive) setView((now) => now ?? first)
+        if (alive) setViewState((now) => now ?? first)
       })
       // 問不到就照老樣子進畫布
       .catch(() => {
-        if (alive) setView((now) => now ?? 'canvas')
+        if (alive) setViewState((now) => now ?? 'canvas')
       })
     return () => {
       alive = false
