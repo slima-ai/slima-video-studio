@@ -63,7 +63,9 @@ export function ProjectModelsSection({
                   <span className="min-w-0 truncate">
                     {t('settings.useDefault2')}
                     <span className="text-fg-muted">
-                      （{appName ?? t('settings.noModelAvailable')}）
+                      {t('settings.inParentheses', {
+                        value: appName ?? t('settings.noModelAvailable'),
+                      })}
                     </span>
                   </span>
                 ),

@@ -226,7 +226,7 @@ export function ModelsSection({
               {...(candidates.length === 0
                 ? { status: { tone: 'warn' as const, label: t('settings.addAKeyFirst') } }
                 : {})}
-              summary={`${t(LABELS[capability].hint)}。`}
+              summary={t(LABELS[capability].hint)}
               body={
                 candidates.length === 0 ? (
                   <div className="flex flex-wrap items-center gap-3 text-sm text-fg-muted">

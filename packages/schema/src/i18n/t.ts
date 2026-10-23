@@ -12,10 +12,8 @@ type PluralSuffix = '_one' | '_other'
 type PluralBase<K extends string> = K extends `${infer B}${PluralSuffix}` ? B : never
 
 /** 所有可以傳給 `t()` 的 key：一般的 key，加上單複數訊息的底（`foo`）。 */
-/* eslint-disable @typescript-eslint/no-redundant-type-constituents -- 目前還沒有單複數的訊息，PluralBase 算出來是 never；有了就是那些訊息的底（foo） */
 export type MessageKey =
   Exclude<keyof ZhDict, `${string}${PluralSuffix}`> | PluralBase<Extract<keyof ZhDict, string>>
-/* eslint-enable @typescript-eslint/no-redundant-type-constituents */
 
 type TextOf<K extends string> = K extends keyof ZhDict
   ? ZhDict[K]

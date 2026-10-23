@@ -21,7 +21,9 @@ afterEach(() => {
   setLocale(DEFAULT_LOCALE)
 })
 
-const HAN = /[㐀-鿿]/
+const HAN = /[㐀-鿿，。：；（）、！？「」・]/
+const around = (text: string): string | undefined =>
+  new RegExp(`.{0,20}${HAN.source}.{0,20}`).exec(text)?.[0]
 
 /** 畫面上看得到的字（不含輸入框與文字區裡使用者的內容）。 */
 const visibleText = (): string => {
@@ -64,7 +66,7 @@ describe('設定頁在英文介面：各區的字都是英文', () => {
     expect(visibleText()).toContain('Claude chat on the canvas')
     // 語言選單的選項用各自語言的名字（這是故意留中文的唯一一處）
     const text = visibleText().replace('繁體中文', '')
-    expect(HAN.test(text), /.{0,20}[㐀-鿿].{0,20}/.exec(text)?.[0]).toBe(false)
+    expect(HAN.test(text), around(text)).toBe(false)
   })
 
   it('AI 工具連線：連線圖、Claude 兩張卡、Slima 帳號（含書單的單複數）都是英文', async () => {
@@ -101,7 +103,7 @@ describe('設定頁在英文介面：各區的字都是英文', () => {
     expect(visibleText()).toContain('Found 1 book:')
     expect(visibleText()).toContain('Novel · 12,345 words')
     const text = visibleText()
-    expect(HAN.test(text), /.{0,20}[㐀-鿿].{0,20}/.exec(text)?.[0]).toBe(false)
+    expect(HAN.test(text), around(text)).toBe(false)
   })
 
   it('語言選單：三個選項（跟隨系統、繁體中文、English）；選 English 只送 language', async () => {
