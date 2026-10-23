@@ -37,11 +37,11 @@ describe('StartCards：空白畫布的三個起點', () => {
     expect(onOneliner).toHaveBeenCalledWith('一隻貓')
   })
 
-  it('「一句話」起手卡的說明跟放下去之後的主鈕一致：先看分鏡、再決定要不要全部生成，不說「一次做完」是主要做法', () => {
+  it('「一句話」起手卡的說明跟放下去之後的主鈕一致：先看分鏡、再決定要不要生成，不說「一次做完」是主要做法', () => {
     render(<StartCards busy={false} onManual={vi.fn()} onSplit={vi.fn()} onOneliner={vi.fn()} />)
     const empty = screen.getByTestId('canvas-empty')
     expect(empty.textContent).toContain('先看分鏡')
-    expect(empty.textContent).toContain('再決定要不要全部生成')
+    expect(empty.textContent).toContain('再決定要不要生成')
     expect(empty.textContent).not.toContain('AI 一次做完整支短片')
   })
 

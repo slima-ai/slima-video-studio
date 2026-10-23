@@ -28,10 +28,10 @@ describe('GettingStartedDialog：怎麼開始', () => {
     }
   })
 
-  it('講到新專案、自動儲存、全部生成、匯出 MP4 的位置', () => {
+  it('講到新專案、自動儲存、生成空的、匯出 MP4 的位置', () => {
     render(<GettingStartedDialog onClose={vi.fn()} />)
     const text = screen.getByTestId('getting-started-dialog').textContent
-    for (const phrase of ['新專案', '已自動儲存', '全部生成', '剪輯', '匯出 MP4', '匯出」資料夾']) {
+    for (const phrase of ['新專案', '已自動儲存', '生成空的', '剪輯', '匯出 MP4', '匯出」資料夾']) {
       expect(text).toContain(phrase)
     }
   })

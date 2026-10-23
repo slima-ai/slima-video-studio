@@ -78,6 +78,7 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'canvas.paste': [{ keys: ['shot:nope'] }],
   'canvas.updateOneliner': [{ key: 'node:nope', patch: { story: 'x' } }],
   'canvas.runPlan': [{ keys: [] }],
+  'canvas.runChoices': [{}],
   'canvas.run': [{ keys: [] }],
   'canvas.viewport': [{ x: 0, y: 0, zoom: 1 }],
   'canvas.tidy': [{}],

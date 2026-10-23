@@ -33,7 +33,7 @@ describe('需要重跑（stale）', () => {
     expect(h.shots.staleness().size).toBe(0)
   })
 
-  it('改了描述：圖與影片都標「需要重跑」，其他鏡頭不受影響；全部生成會補它的兩步，再接成品', async () => {
+  it('改了描述：圖與影片都標「需要重跑」，其他鏡頭不受影響；「全部生成」預設不動它，選「重跑需要重跑的」才補它的兩步，再接成品', async () => {
     const h = await setup()
     h.shots.update(h.first.id, { description: '貓抬頭看著月亮' })
     expect(status(h, h.first.id, 'image')).toBe('stale')
@@ -41,11 +41,13 @@ describe('需要重跑（stale）', () => {
     const others = h.shots.list().shots.slice(1)
     for (const other of others) expect(status(h, other.id, 'image')).toBe('done')
 
-    const plan = h.canvas.runPlan({ keys: [], all: true })
-    // 會換掉放進成品的影片，所以最後接成品
+    // 「全部生成」預設只補空的：標了需要重跑的不動（要更新它得明講 batch: 'stale'，或在那一鏡按 ▶）
+    expect(h.canvas.runPlan({ keys: [], all: true }).steps).toEqual([])
+    const plan = h.canvas.runPlan({ keys: [], all: true, batch: 'stale' })
+    // 重做的是新版本（舊的保留）；會換掉放進成品的影片，所以最後接成品
     expect(plan.steps.map((s) => [s.key, s.redo])).toEqual([
-      [`shot:${h.first.id}:image`, false],
-      [`shot:${h.first.id}:video`, false],
+      [`shot:${h.first.id}:image`, true],
+      [`shot:${h.first.id}:video`, true],
       ['cut', false],
     ])
   })
@@ -55,10 +57,10 @@ describe('需要重跑（stale）', () => {
     h.shots.update(h.first.id, { durationSec: 6 })
     expect(status(h, h.first.id, 'image')).toBe('done')
     expect(status(h, h.first.id, 'video')).toBe('stale')
-    expect(h.canvas.runPlan({ keys: [], all: true }).steps.map((s) => s.kind)).toEqual([
-      'video',
-      'cut',
-    ])
+    expect(h.canvas.runPlan({ keys: [], all: true }).steps).toEqual([])
+    expect(
+      h.canvas.runPlan({ keys: [], all: true, batch: 'stale' }).steps.map((s) => s.kind),
+    ).toEqual(['video', 'cut'])
   })
 
   it('沒有動作的影片，記下的輸入指紋逐字等於加動作欄之前的算法（舊專案的影片不會被誤判成需要重跑）', async () => {

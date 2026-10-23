@@ -1,11 +1,16 @@
-import type { CanvasRunPlan } from '@svs/schema'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { DEFAULT_LOCALE, setLocale, type CanvasRunChoices, type CanvasRunPlan } from '@svs/schema'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { installFakeSvs } from '../../test/fake-svs'
 import { TopBar } from './chrome'
+import { RunAllMenu } from './run-all-menu'
 import { RunPlanConfirm } from './run-confirm-plan'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  setLocale(DEFAULT_LOCALE)
+})
 
 const plan = (patch: Partial<CanvasRunPlan> = {}): CanvasRunPlan => ({
   ok: true,
@@ -250,14 +255,17 @@ describe('TopBar 全部生成', () => {
     pendingCostUsd?: number | undefined
     allDone?: boolean
     joinOnly?: boolean
+    fillSteps?: number
     onRunAll?: () => void
+    onRunMore?: () => void
   }) => render(<TopBar onUndo={vi.fn()} onRedo={vi.fn()} {...props} />)
 
   it('有還沒生成的：顯示預估花費，按下去帶著按鈕位置', () => {
     const onRunAll = vi.fn()
-    bar({ pendingCostUsd: 1.5, onRunAll })
+    bar({ pendingCostUsd: 1.5, fillSteps: 4, onRunAll })
     const button = screen.getByTestId('run-all')
-    expect(button.textContent).toBe('全部生成（約 US$1.50）')
+    // 主按鈕只補空的：寫幾步、約多少錢（只算空的）
+    expect(button.textContent).toBe('生成空的（4 步，約 US$1.50）')
     fireEvent.click(button)
     expect(onRunAll).toHaveBeenCalledTimes(1)
     const [anchor] = onRunAll.mock.calls[0] as [{ right: number; top: number; bottom: number }]
@@ -276,7 +284,249 @@ describe('TopBar 全部生成', () => {
     expect(screen.getByTestId('run-all').hasAttribute('disabled')).toBe(true)
     cleanup()
     bar({ pendingCostUsd: undefined, onRunAll: vi.fn() })
-    expect(screen.getByTestId('run-all').textContent).toBe('全部生成')
+    expect(screen.getByTestId('run-all').textContent).toBe('生成空的')
     expect(screen.getByTestId('run-all').hasAttribute('disabled')).toBe(false)
+  })
+
+  it('旁邊的 ▾ 開另外兩種做法；主按鈕停用（沒有空的）時 ▾ 照常可以按', () => {
+    const onRunMore = vi.fn()
+    bar({ pendingCostUsd: 0, allDone: true, onRunAll: vi.fn(), onRunMore })
+    expect(screen.getByTestId('run-all').hasAttribute('disabled')).toBe(true)
+    const more = screen.getByTestId('run-all-more')
+    expect(more.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(more)
+    expect(onRunMore).toHaveBeenCalledTimes(1)
+  })
+
+  it('英文：生成空的（1 step／N steps，約多少錢）', () => {
+    setLocale('en')
+    try {
+      bar({ pendingCostUsd: 0.16, fillSteps: 1, onRunAll: vi.fn() })
+      expect(screen.getByTestId('run-all').textContent).toBe(
+        'Generate what’s empty (1 step, about US$0.16)',
+      )
+      cleanup()
+      bar({ pendingCostUsd: 1.5, fillSteps: 4, onRunAll: vi.fn() })
+      expect(screen.getByTestId('run-all').textContent).toBe(
+        'Generate what’s empty (4 steps, about US$1.50)',
+      )
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
+  })
+})
+
+describe('RunPlanConfirm：整批執行三種做法的確認視窗', () => {
+  it('只補空的：標題寫會生成幾個空著的步驟；另一行寫幾個鏡頭標了需要重跑、這次不會動', () => {
+    render(
+      <RunPlanConfirm
+        plan={plan({ staleKept: 2 })}
+        batch="empty"
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    const dialog = screen.getByTestId('run-confirm')
+    expect(dialog.textContent).toContain('會生成 2 個空著的步驟')
+    expect(screen.getByTestId('run-confirm-pinned').textContent).toContain(
+      '2 個鏡頭標了需要重跑，這次不會動（要重跑請在那一鏡按 ▶）',
+    )
+    expect(dialog.textContent).toContain('第 2 鏡：第一張畫面')
+    expect(dialog.textContent).toContain('預估約 US$0.42')
+  })
+
+  it('首幀是舊描述畫的、這次只補影片：用一行說清楚首幀照用、不會更新', () => {
+    render(
+      <RunPlanConfirm
+        plan={plan({ staleFrameUsed: 1 })}
+        batch="empty"
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('run-confirm-pinned').textContent).toContain(
+      '其中 1 鏡的首幀是舊描述畫的，這次只補影片、首幀照用，不會更新',
+    )
+    cleanup()
+    setLocale('en')
+    render(
+      <RunPlanConfirm
+        plan={plan({ staleFrameUsed: 2 })}
+        batch="empty"
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('run-confirm-pinned').textContent).toContain(
+      '2 of these shots have a first frame drawn from an older description: only their videos are made this time, and the first frames are used as they are',
+    )
+  })
+
+  it('重跑需要重跑的／全部重新生成：標題寫幾鏡、產生新版本舊的保留；列出每一步與版本', () => {
+    const redo = plan({
+      steps: [
+        {
+          key: 'shot:a:image',
+          kind: 'image',
+          label: '第 1 鏡：第一張畫面',
+          redo: true,
+          versions: { current: 1, next: 2 },
+        },
+        {
+          key: 'shot:a:video',
+          kind: 'video',
+          label: '第 1 鏡：影片',
+          redo: true,
+          versions: { current: 1, next: 2 },
+        },
+      ],
+    })
+    render(
+      <RunPlanConfirm
+        plan={redo}
+        batch="stale"
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('run-confirm').textContent).toContain(
+      '會重跑 1 個標了需要重跑的鏡頭：產生新版本，舊的保留',
+    )
+    expect(screen.getByTestId('run-confirm').textContent).toContain('第 1 鏡：第一張畫面')
+    cleanup()
+    render(
+      <RunPlanConfirm
+        plan={{ ...redo, shotCount: 4 }}
+        batch="regenerate"
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('run-confirm').textContent).toContain(
+      '會重新生成 4 個鏡頭：產生新版本並採用，舊的保留',
+    )
+  })
+
+  it('英文：標題與「這次不會動」那一行（單數、複數）', () => {
+    setLocale('en')
+    render(
+      <RunPlanConfirm
+        plan={plan({ staleKept: 1 })}
+        batch="empty"
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('run-confirm').textContent).toContain(
+      'This will generate 2 empty steps',
+    )
+    expect(screen.getByTestId('run-confirm-pinned').textContent).toContain(
+      '1 shot is marked “needs re-run” and won’t be touched this time (to redo it, press ▶ on that shot)',
+    )
+    cleanup()
+    render(
+      <RunPlanConfirm
+        plan={plan({ staleKept: 3 })}
+        batch="empty"
+        anchor={anchor}
+        onOk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('run-confirm-pinned').textContent).toContain(
+      '3 shots are marked “needs re-run” and won’t be touched this time (to redo them, press ▶ on that shot)',
+    )
+  })
+
+  it('單一鏡頭的 ▶（沒有 batch）：維持原本的標題，不多出「這次不會動」', () => {
+    render(<RunPlanConfirm plan={plan()} anchor={anchor} onOk={vi.fn()} onCancel={vi.fn()} />)
+    expect(screen.getByTestId('run-confirm').textContent).toContain('這次會做 2 步')
+    expect(screen.queryByText(/這次不會動/)).toBeNull()
+  })
+})
+
+describe('RunAllMenu：「全部生成」旁 ▾ 的另外兩種做法', () => {
+  const choice = (patch: Partial<CanvasRunChoices['empty']> = {}): CanvasRunChoices['empty'] => ({
+    ok: true,
+    shots: 1,
+    steps: 2,
+    estimatedUsd: 0.16,
+    estimateIsLowerBound: false,
+    ...patch,
+  })
+  const choices = (patch: Partial<CanvasRunChoices> = {}): CanvasRunChoices => ({
+    empty: choice(),
+    stale: choice({ shots: 2, steps: 4, estimatedUsd: 0.32 }),
+    regenerate: choice({ shots: 5, steps: 10, estimatedUsd: 0.8 }),
+    ...patch,
+  })
+
+  it('列出兩種，各寫幾鏡與預估花費；選了交出做法', async () => {
+    const fake = installFakeSvs({ 'canvas.runChoices': () => choices() })
+    const onPick = vi.fn()
+    render(<RunAllMenu anchor={anchor} quality={undefined} onPick={onPick} onClose={vi.fn()} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('run-all-stale').textContent).toContain(
+        '重跑標了需要重跑的（2 鏡，約 US$0.32）',
+      )
+    })
+    expect(screen.getByTestId('run-all-regenerate').textContent).toContain(
+      '全部重新生成（5 鏡，約 US$0.80）',
+    )
+    expect(screen.getByTestId('run-all-regenerate').textContent).toContain(
+      '每一鏡都產生新版本並採用（空的補上），舊版本保留。',
+    )
+    expect(fake.payloadsOf('canvas.runChoices')).toEqual([{}])
+    fireEvent.click(screen.getByTestId('run-all-regenerate'))
+    expect(onPick).toHaveBeenCalledWith('regenerate')
+  })
+
+  it('0 鏡的那一種灰掉、點了沒反應；做不了的寫原因；品質有帶給主行程', async () => {
+    const fake = installFakeSvs({
+      'canvas.runChoices': () =>
+        choices({
+          stale: choice({ shots: 0, steps: 0, estimatedUsd: 0 }),
+          regenerate: choice({ ok: false, issue: '超過單次花費上限。', shots: 5, steps: 10 }),
+        }),
+    })
+    const onPick = vi.fn()
+    render(<RunAllMenu anchor={anchor} quality="budget" onPick={onPick} onClose={vi.fn()} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('run-all-stale').getAttribute('aria-disabled')).toBe('true')
+    })
+    expect(screen.getByTestId('run-all-stale').textContent).toContain('現在沒有可以動的鏡頭。')
+    expect(screen.getByTestId('run-all-regenerate').getAttribute('aria-disabled')).toBe('true')
+    expect(screen.getByTestId('run-all-issue').textContent).toBe('超過單次花費上限。')
+    fireEvent.click(screen.getByTestId('run-all-stale'))
+    fireEvent.click(screen.getByTestId('run-all-regenerate'))
+    expect(onPick).not.toHaveBeenCalled()
+    expect(fake.payloadsOf('canvas.runChoices')).toEqual([{ quality: 'budget' }])
+  })
+
+  it('英文：標題單複數、沒有中文', async () => {
+    setLocale('en')
+    installFakeSvs({
+      'canvas.runChoices': () =>
+        choices({
+          stale: choice({ shots: 1, estimatedUsd: 0.16 }),
+          regenerate: choice({ shots: 5 }),
+        }),
+    })
+    render(<RunAllMenu anchor={anchor} quality={undefined} onPick={vi.fn()} onClose={vi.fn()} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('run-all-stale').textContent).toContain(
+        'Redo the shot marked “needs re-run” (1 shot, about US$0.16)',
+      )
+    })
+    expect(screen.getByTestId('run-all-regenerate').textContent).toContain(
+      'Regenerate everything (5 shots, about US$0.16)',
+    )
+    expect(screen.getByTestId('run-all-menu').textContent).not.toMatch(/[㐀-鿿]/)
   })
 })

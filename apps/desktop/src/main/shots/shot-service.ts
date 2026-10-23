@@ -139,6 +139,11 @@ export interface ShotRunItem {
    * all 圖和影片都做。明確指定的不看「需要重跑」、有結果的就是重做。
    */
   exact?: 'frame' | 'video' | 'all' | undefined
+  /**
+   * 整批執行（全部生成、剪輯、場）：empty 只補還空著的步驟，已經有結果的不動（就算標了「需要重跑」）；
+   * stale 只重跑標了「需要重跑」的步驟（產生新版本、舊的保留）。沒給＝按在單一鏡頭上的 ▶：缺的補、需要重跑的也重做。
+   */
+  fill?: 'empty' | 'stale' | undefined
 }
 
 /** 一個鏡頭這次要做什麼：只補沒有的（apply），或重做影片、整個鏡頭。 */
@@ -1121,6 +1126,27 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
             video: true,
             redo: hasFrame || hasVideo,
           })
+        }
+        continue
+      }
+      if (item.fill === 'empty') {
+        // 只補空的：有首幀沒影片→只做影片（用現在採用的首幀，不重畫）；沒首幀→首幀與影片都做；
+        // 只缺首幀（影片還在）→只做首幀，影片不動。已經有結果的、標了需要重跑的都不碰。
+        if (!hasFrame && hasVideo) {
+          entries.push({ shot, mode: 'frame', image: true, video: false, redo: false })
+        } else if (!hasFrame) {
+          entries.push({ shot, mode: 'apply', image: true, video: true, redo: false })
+        } else if (!hasVideo) {
+          entries.push({ shot, mode: 'video', image: false, video: true, redo: false })
+        }
+        continue
+      }
+      if (item.fill === 'stale') {
+        // 只重跑標了需要重跑的：圖過期連影片一起做，只有影片過期就只做影片；都是新版本、舊的保留
+        if (stale?.image) {
+          entries.push({ shot, mode: 'apply', image: true, video: true, redo: true })
+        } else if (stale?.video) {
+          entries.push({ shot, mode: 'apply', image: false, video: true, redo: true })
         }
         continue
       }

@@ -136,6 +136,10 @@ export interface TopBarProps {
   /** 「全部展開步驟／全部收合」；沒有鏡頭時不給。 */
   steps?: { allExpanded: boolean; onToggle: () => void }
   onRunAll?: (anchor: ConfirmAnchor) => void
+  /** 主按鈕旁的 ▾：另外兩種做法（重跑需要重跑的、全部重新生成）。 */
+  onRunMore?: (anchor: ConfirmAnchor) => void
+  /** 「生成空的」會做幾個步驟（寫在主按鈕上）。 */
+  fillSteps?: number
   /** 還沒生成的部分預估多少錢；沒給是現在算不出來。 */
   pendingCostUsd?: number | undefined
   /** 所有鏡頭都生成好了，沒有要補跑的。 */
@@ -243,23 +247,46 @@ export function TopBar(props: TopBarProps) {
           ) : null}
         </span>
       ) : props.onRunAll ? (
-        <button
-          type="button"
-          data-testid="run-all"
-          disabled={allDone}
-          className="rounded-lg bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-fg disabled:opacity-50"
-          onClick={(event) => {
-            props.onRunAll?.(anchorOf(event.currentTarget))
-          }}
-        >
-          {allDone
-            ? t('canvas.everythingIsGenerated')
-            : props.joinOnly === true
-              ? t('canvas.joinIntoFilm')
-              : pending === undefined
-                ? t('canvas.generateAll')
-                : t('canvas.generateAllAboutUs', { value: pending.toFixed(2) })}
-        </button>
+        <div className="flex items-stretch">
+          <button
+            type="button"
+            data-testid="run-all"
+            disabled={allDone}
+            className={cn(
+              'bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-fg disabled:opacity-50',
+              props.onRunMore ? 'rounded-l-lg' : 'rounded-lg',
+            )}
+            onClick={(event) => {
+              props.onRunAll?.(anchorOf(event.currentTarget))
+            }}
+          >
+            {allDone
+              ? t('canvas.everythingIsGenerated')
+              : props.joinOnly === true
+                ? t('canvas.joinIntoFilm')
+                : pending === undefined
+                  ? t('canvas.fillEmpty')
+                  : t('canvas.fillEmptyAbout', {
+                      count: props.fillSteps ?? 0,
+                      usd: pending.toFixed(2),
+                    })}
+          </button>
+          {props.onRunMore ? (
+            <button
+              type="button"
+              data-testid="run-all-more"
+              aria-haspopup="menu"
+              aria-label={t('canvas.moreWaysToGenerate')}
+              title={t('canvas.moreWaysToGenerate')}
+              className="rounded-r-lg border-l border-accent-fg/30 bg-accent px-2 py-1.5 text-[13px] font-semibold text-accent-fg"
+              onClick={(event) => {
+                props.onRunMore?.(anchorOf(event.currentTarget))
+              }}
+            >
+              ▾
+            </button>
+          ) : null}
+        </div>
       ) : null}
       {props.onHelp ? (
         <button

@@ -299,6 +299,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     return {}
   })
   registry.registerHandler('canvas.runPlan', (request) => canvas.runPlan(request))
+  registry.registerHandler('canvas.runChoices', (request) => canvas.runChoices(request))
   registry.registerHandler('canvas.run', (request) => canvas.run(request))
   registry.registerHandler('canvas.viewport', (view) => {
     canvas.viewport(view)

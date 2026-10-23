@@ -82,7 +82,7 @@ describe('右鍵選單', () => {
     ])
     expect(nodeEntries(node('node:1', { kind: 'oneliner' }), []).at(-1)?.disabled).toBeUndefined()
     const cut = nodeEntries(node('cut', { kind: 'cut' }), [])
-    expect(cut.map((e) => e.label)).toEqual(['打開成品', '全部生成再接成成品', '置中顯示', '刪除'])
+    expect(cut.map((e) => e.label)).toEqual(['打開成品', '生成空的再接成成品', '置中顯示', '刪除'])
     expect(cut.at(-1)).toMatchObject({ id: 'delete', disabled: true, danger: true })
     expect(cut.at(-1)?.why).toContain('由「場」自動長出來')
   })

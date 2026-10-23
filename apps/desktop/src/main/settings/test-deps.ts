@@ -123,6 +123,9 @@ export function testSettingsDeps(
       runPlan: () => {
         throw new Error('測試用的畫布服務不能執行')
       },
+      runChoices: () => {
+        throw new Error('測試用的畫布服務不能執行')
+      },
       run: () => Promise.reject(new Error('測試用的畫布服務不能執行')),
       viewport: () => undefined,
     },
