@@ -1,4 +1,4 @@
-import { AppError, ContentHashSchema, type Asset, type AssetKind } from '@svs/schema'
+import { AppError, ContentHashSchema, type Asset, type AssetKind, t } from '@svs/schema'
 import { createHash, randomUUID } from 'node:crypto'
 import {
   createWriteStream,
@@ -98,7 +98,7 @@ export class AssetStore {
       rmSync(tmpPath, { force: true })
       throw new AppError({
         code: 'internal_error',
-        userMessage: '寫入素材失敗，請確認磁碟空間足夠。',
+        userMessage: t('errors.couldnTSaveTheFile'),
         cause,
       })
     }

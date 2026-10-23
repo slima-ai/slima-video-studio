@@ -23,7 +23,7 @@ import { assetUrl } from '../../lib/asset'
 import { CardFooter } from '../shots/card-footer'
 import { cardUsage } from '../shots/card-usage'
 import { SelectCell, TextCell } from './cells'
-import { ANGLE_LABELS, SIZE_LABELS, STATUS_LABELS } from './labels'
+import { STATUS_LABELS, angleOptions, sizeOptions } from './labels'
 import { t } from '@svs/schema'
 
 export interface StoryboardBoardProps {
@@ -94,9 +94,6 @@ interface CardProps {
   onEdit: (edit: ShotEdit) => void
 }
 
-const SIZE_OPTIONS = Object.entries(SIZE_LABELS).map(([value, label]) => ({ value, label }))
-const ANGLE_OPTIONS = Object.entries(ANGLE_LABELS).map(([value, label]) => ({ value, label }))
-
 function SortableCard({ shot, sceneLabel, checked, onCheck, onEdit }: CardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: shot.id,
@@ -166,12 +163,12 @@ function SortableCard({ shot, sceneLabel, checked, onCheck, onEdit }: CardProps)
             onEdit({ description: value })
           }}
         />
-        <div className="grid grid-cols-3 gap-1">
+        <div className="storyboard-board-fields grid grid-cols-3 gap-1">
           <SelectCell
             column="board-size"
             label={t('storyboard.shotSize')}
             value={shot.size}
-            options={SIZE_OPTIONS}
+            options={sizeOptions()}
             onCommit={(value) => {
               onEdit({ size: value as ShotView['size'] })
             }}
@@ -180,7 +177,7 @@ function SortableCard({ shot, sceneLabel, checked, onCheck, onEdit }: CardProps)
             column="board-angle"
             label={t('storyboard.angle')}
             value={shot.angle}
-            options={ANGLE_OPTIONS}
+            options={angleOptions()}
             onCommit={(value) => {
               onEdit({ angle: value as ShotView['angle'] })
             }}

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { IdSchema } from './common'
+import { t } from '../i18n'
 
 /** 大綱裡的一個場。 */
 export const OutlineSceneViewSchema = z.object({
@@ -82,8 +83,10 @@ export const OUTLINE_TEXT_MAX = 60_000
 export const OutlineTextSchema = z
   .string()
   .trim()
-  .min(1, '請先貼上要拆成分場的文字')
-  .max(OUTLINE_TEXT_MAX, `文字太長了，請控制在 ${String(OUTLINE_TEXT_MAX)} 字以內`)
+  .min(1, { error: () => t('errors.pasteTheTextToSplit') })
+  .max(OUTLINE_TEXT_MAX, {
+    error: () => t('errors.theTextIsTooLong', { value: String(OUTLINE_TEXT_MAX) }),
+  })
 
 /** 讓 AI 拆成分場之前的檢查與預估花費。 */
 export const OutlineSplitCheckSchema = z.object({

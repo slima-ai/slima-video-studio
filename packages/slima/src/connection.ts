@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { AppError, type SlimaStatus } from '@svs/schema'
+import { AppError, type SlimaStatus, t } from '@svs/schema'
 
 import { isSlimaReadTool, SLIMA_READ_TOOLS } from './tools'
 
@@ -49,7 +49,7 @@ const unavailable = (userMessage: string): AppError =>
 const authFailed = (): AppError =>
   new AppError({
     code: 'slima_auth_failed',
-    userMessage: 'Slima 不接受這組 Token（可能填錯、過期或已被撤銷），請到 Slima 重新產生一組。',
+    userMessage: t('errors.slimaDidnTAcceptThis'),
   })
 
 function textOf(result: object): string {
@@ -111,7 +111,7 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
 
   async function connect(token: string): Promise<void> {
     const mine = generation
-    setStatus({ state: 'connecting', message: '正在連線到 Slima…', ...last4Of(token) })
+    setStatus({ state: 'connecting', message: t('errors.connectingToSlima'), ...last4Of(token) })
     const launch = deps.launch(token)
     const nextTransport = new StdioClientTransport({
       command: launch.command,
@@ -125,7 +125,7 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
       client = undefined
       transport = undefined
       note('warn', 'slima-mcp 子行程中斷，準備重新連線')
-      scheduleRetry('和 Slima 的連線中斷了，正在重新連線…', token)
+      scheduleRetry(t('errors.theConnectionToSlimaWas'), token)
     }
     nextClient.onerror = (error) => {
       note('warn', 'slima-mcp 連線錯誤', { message: error.message })
@@ -163,7 +163,7 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
         message: error instanceof Error ? error.message.replaceAll(token, '***') : 'unknown',
       })
       await closeClient()
-      scheduleRetry('連不上 Slima，請檢查網路；會自動再試。', token)
+      scheduleRetry(t('errors.couldnTReachSlimaCheck'), token)
     }
   }
 
@@ -188,7 +188,9 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
     timer = undefined
     await starting?.catch(() => undefined)
     await closeClient()
-    setStatus(deps.token() ? { state: 'error', message: '已中斷連線。' } : { state: 'no_token' })
+    setStatus(
+      deps.token() ? { state: 'error', message: t('errors.disconnected') } : { state: 'no_token' },
+    )
   }
 
   return {
@@ -210,15 +212,15 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
       if (!isSlimaReadTool(name)) {
         throw new AppError({
           code: 'invalid_request',
-          userMessage: `Slima 的「${name}」不在允許的唯讀工具裡。`,
+          userMessage: t('errors.theSlimaToolIsnT', { name }),
         })
       }
       if (status.state === 'no_token') {
-        throw unavailable('還沒有設定 Slima 的 Token，請先到設定頁連線。')
+        throw unavailable(t('errors.theSlimaTokenIsnT'))
       }
       const current = client
       if (!current || status.state !== 'ready') {
-        throw unavailable(status.message ?? '還沒連上 Slima，請稍後再試。')
+        throw unavailable(status.message ?? t('errors.notConnectedToSlimaYet'))
       }
       let result
       try {
@@ -230,7 +232,7 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
           tool: name,
           message: error instanceof Error ? error.message : 'unknown',
         })
-        throw unavailable('Slima 沒有回應，請稍後再試。')
+        throw unavailable(t('errors.slimaDidnTRespondPlease'))
       }
       const text = textOf(result)
       if (result.isError === true) {
@@ -241,8 +243,8 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
         note('warn', 'Slima 工具回傳錯誤', { tool: name, text: text.slice(0, 300) })
         throw unavailable(
           RATE_LIMITED.test(text)
-            ? 'Slima 請求太頻繁，請等幾秒再試。'
-            : 'Slima 回報了錯誤，請稍後再試。',
+            ? t('errors.slimaIsGettingTooMany')
+            : t('errors.slimaReportedAnErrorPlease'),
         )
       }
       return text

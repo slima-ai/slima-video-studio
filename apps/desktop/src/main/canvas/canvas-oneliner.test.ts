@@ -19,14 +19,27 @@ const breakdown = (request: LlmRequest): object | undefined =>
     ? {
         title: '雨天的貓',
         shots: [
-          { description: '阿鐵走進雨裡', size: 'wide', cameraMove: null, characters: ['阿鐵'] },
+          {
+            description: '阿鐵走進雨裡',
+            size: 'wide',
+            angle: 'eye_level',
+            cameraMove: null,
+            characters: ['阿鐵'],
+          },
           {
             description: '阿鐵和小花撿起小貓',
             size: 'close_up',
+            angle: 'eye_level',
             cameraMove: null,
             characters: ['阿鐵', '小花'],
           },
-          { description: '雨停了', size: 'wide', cameraMove: null, characters: [] },
+          {
+            description: '雨停了',
+            size: 'wide',
+            angle: 'eye_level',
+            cameraMove: null,
+            characters: [],
+          },
         ],
       }
     : undefined
@@ -200,6 +213,8 @@ describe('生成中的節點狀態', () => {
     number: 1,
     description: '貓',
     status: 'generating',
+    size: 'medium',
+    angle: 'eye_level',
     characters: [],
     dialogue: '',
     action: '',

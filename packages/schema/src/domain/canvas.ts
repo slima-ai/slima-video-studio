@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { ContentHashSchema } from './common'
 import { ModelTierSchema } from './models'
 import { QUICK_START_LIMITS, QuickStartSoundSchema, QuickStyleIdSchema } from './quickstart'
+import { t } from '../i18n'
 
 /**
  * 畫布（首頁）上的節點種類。幕、場、鏡頭、角色、地點與版本仍存在原本的表，畫布把它們「投影」成節點；
@@ -266,19 +267,28 @@ export const CanvasUpdateFreeSchema = z.object({
   patch: z
     .object({
       text: z.string().max(2000).optional(),
-      title: z.string().trim().min(1, '名字不能是空的').max(100).optional(),
+      title: z
+        .string()
+        .trim()
+        .min(1, { error: () => t('errors.theNameCanTBe') })
+        .max(100)
+        .optional(),
       color: CanvasGroupColorSchema.optional(),
       width: z.number().positive().max(100_000).optional(),
       height: z.number().positive().max(100_000).optional(),
     })
-    .refine((p) => Object.keys(p).length > 0, '沒有要改的東西'),
+    .refine((p) => Object.keys(p).length > 0, { error: () => t('errors.thereSNothingToChange') }),
 })
 export type CanvasUpdateFree = z.infer<typeof CanvasUpdateFreeSchema>
 
 /** 在畫布上改名（F2）：場的標題、角色或地點的名字、群組的名字。 */
 export const CanvasRenameSchema = z.object({
   key: z.string().min(1),
-  title: z.string().trim().min(1, '名字不能是空的').max(100, '名字不要超過 100 個字'),
+  title: z
+    .string()
+    .trim()
+    .min(1, { error: () => t('errors.theNameCanTBe') })
+    .max(100, { error: () => t('errors.theNameCanTBe2') }),
 })
 export type CanvasRename = z.infer<typeof CanvasRenameSchema>
 
@@ -361,11 +371,10 @@ export const CanvasImportBytesSchema = z.object({
   mime: CanvasImportMimeSchema,
   bytes: z
     .instanceof(Uint8Array)
-    .refine((b) => b.byteLength > 0, '檔案是空的')
-    .refine(
-      (b) => b.byteLength <= CANVAS_IMPORT_MAX_BYTES,
-      '檔案太大（超過 200 MB），請改用「上傳」選檔',
-    ),
+    .refine((b) => b.byteLength > 0, { error: () => t('errors.theFileIsEmpty') })
+    .refine((b) => b.byteLength <= CANVAS_IMPORT_MAX_BYTES, {
+      error: () => t('errors.theFileIsTooLarge'),
+    }),
   x: z.number().optional(),
   y: z.number().optional(),
 })

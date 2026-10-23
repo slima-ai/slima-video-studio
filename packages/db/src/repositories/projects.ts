@@ -1,4 +1,4 @@
-import { AppError, ProjectSchema, type Project } from '@svs/schema'
+import { AppError, ProjectSchema, type Project, t } from '@svs/schema'
 import { eq } from 'drizzle-orm'
 
 import type { AppDb } from '../database'
@@ -27,7 +27,7 @@ export class ProjectsRepository {
     if (!row) {
       throw new AppError({
         code: 'project_invalid',
-        userMessage: '專案資料庫裡沒有專案資料。',
+        userMessage: t('errors.theProjectDatabaseHasNo'),
       })
     }
     // 資料庫也是外部邊界：讀出來要驗證

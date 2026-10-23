@@ -1,4 +1,4 @@
-import { AppError, isAppError, type Job, type JobKind, type JobStatus } from '@svs/schema'
+import { AppError, isAppError, type Job, type JobKind, type JobStatus, t } from '@svs/schema'
 
 import type { JobDriver } from './driver'
 import type { JobStore } from './job-store'
@@ -128,7 +128,7 @@ export class JobQueue {
     if (!(spec.provider in this.drivers)) {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: `找不到供應商「${spec.provider}」，請先到設定頁加入。`,
+        userMessage: t('errors.couldnTFindTheProvider', { provider: spec.provider }),
       })
     }
     const stamp = this.iso(this.now())
@@ -188,7 +188,7 @@ export class JobQueue {
     const saved = this.save({
       ...job,
       status: 'cancelled',
-      error: { code: 'cancelled', retryable: false, userMessage: '已取消。' },
+      error: { code: 'cancelled', retryable: false, userMessage: t('errors.cancelled') },
     })
     if (job.providerJobId !== undefined) {
       // 盡力通知供應商，失敗不影響本地取消
@@ -204,7 +204,7 @@ export class JobQueue {
     if (job.status !== 'failed' && job.status !== 'cancelled') {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: '只有失敗或已取消的任務可以重試。',
+        userMessage: t('errors.onlyFailedOrCancelledJobs'),
       })
     }
     const next: Job = { ...job, status: 'queued', attempt: 0 }
@@ -284,7 +284,11 @@ export class JobQueue {
   private async runSubmit(job: Job, controller: AbortController): Promise<void> {
     try {
       const driver = this.drivers[job.provider]
-      if (!driver) throw new AppError({ code: 'internal_error', userMessage: '找不到供應商。' })
+      if (!driver)
+        throw new AppError({
+          code: 'internal_error',
+          userMessage: t('errors.couldnTFindTheProvider2'),
+        })
       const result = await driver.submit(job, { signal: controller.signal })
       const current = this.liveJob(job.id, ['running'], controller)
       if (!current) return
@@ -319,7 +323,7 @@ export class JobQueue {
       if (!driver?.poll) {
         throw new AppError({
           code: 'internal_error',
-          userMessage: '這個供應商不支援查詢任務進度。',
+          userMessage: t('errors.thisProviderCanTReport'),
         })
       }
       const result = await driver.poll(job, { signal: controller.signal })
@@ -421,7 +425,7 @@ export class JobQueue {
     this.onUnexpectedError?.(job, error)
     return new AppError({
       code: 'internal_error',
-      userMessage: '任務執行時發生未預期的錯誤。',
+      userMessage: t('errors.anUnexpectedErrorHappenedWhile'),
       cause: error,
     })
   }
@@ -450,7 +454,10 @@ export class JobQueue {
   private mustGet(id: string): Job {
     const job = this.store.get(id)
     if (!job) {
-      throw new AppError({ code: 'invalid_request', userMessage: `找不到任務（${id}）。` })
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('errors.couldnTFindTheJob', { id }),
+      })
     }
     return job
   }

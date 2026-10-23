@@ -805,7 +805,10 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   }, [rf, loose])
   const assignLoose = useCallback((): void => {
     const shotIds = loose.map((n) => n.id.replace(/^shot:/, ''))
-    const where = lastScene === undefined ? t('canvas.newScene') : `「${lastScene.data.title}」`
+    const where =
+      lastScene === undefined
+        ? t('canvas.newScene')
+        : t('canvas.quotedName', { name: lastScene.data.title })
     call('shots.assignScene', { shotIds })
       .then(() => {
         onChanged()

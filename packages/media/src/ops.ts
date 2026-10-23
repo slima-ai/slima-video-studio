@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 
 import { probe } from './probe'
 import { runTool, type MediaTools, type RunOptions } from './run'
@@ -40,7 +40,7 @@ export async function cropImage(
     rect.width === 0 ||
     rect.height === 0
   ) {
-    throw new AppError({ code: 'invalid_request', userMessage: '裁切範圍不正確。' })
+    throw new AppError({ code: 'invalid_request', userMessage: t('errors.theTrimRangeIsnT') })
   }
   await runTool(
     tools.ffmpegPath,
@@ -77,7 +77,7 @@ export async function concatVideos(
 ): Promise<void> {
   const [first] = inputs
   if (first === undefined) {
-    throw new AppError({ code: 'invalid_request', userMessage: '沒有可以接的影片。' })
+    throw new AppError({ code: 'invalid_request', userMessage: t('errors.thereAreNoVideosTo') })
   }
   const firstInfo = await probe(tools, first, options)
   const width = even(options.width ?? firstInfo.width ?? 1280)
@@ -92,7 +92,7 @@ export async function concatVideos(
     if (!info.hasVideo) {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: '其中一個檔案沒有影像，沒辦法接成成品。',
+        userMessage: t('errors.oneOfTheFilesHas'),
       })
     }
     args.push('-i', file)
@@ -150,7 +150,7 @@ export async function imageToVideo(
   options: ImageToVideoOptions,
 ): Promise<void> {
   if (!(options.durationSec > 0)) {
-    throw new AppError({ code: 'invalid_request', userMessage: '影片長度必須大於 0 秒。' })
+    throw new AppError({ code: 'invalid_request', userMessage: t('errors.theVideoLengthMustBe') })
   }
   const fps = String(options.fps ?? 24)
   const args: string[] = [...BASE, '-loop', '1', '-framerate', fps, '-i', image]

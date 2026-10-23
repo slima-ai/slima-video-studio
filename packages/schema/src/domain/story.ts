@@ -8,6 +8,7 @@ import {
   UsdSchema,
 } from './common'
 import { PickableCapabilitySchema } from './settings'
+import { t } from '../i18n'
 
 export const BudgetSchema = z.object({
   /** 單次執行的花費上限（預設 US$5）。 */
@@ -118,7 +119,7 @@ export const CharacterAppearanceSchema = z
     costumeId: IdSchema.optional(),
   })
   .refine((c) => c.characterId !== undefined || c.name !== undefined, {
-    message: '出場角色要有 characterId 或名字',
+    error: () => t('errors.aCastMemberNeedsA'),
   })
 export type CharacterAppearance = z.infer<typeof CharacterAppearanceSchema>
 

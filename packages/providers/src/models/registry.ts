@@ -7,6 +7,7 @@ import {
   type ModelCard,
   type ModelTier,
   type UsageEstimate,
+  t,
 } from '@svs/schema'
 
 export interface AvailabilityQuery {
@@ -159,7 +160,10 @@ export class ModelRegistry {
   estimate(id: string, usage: UsageEstimate): number {
     const card = this.byId.get(id)
     if (!card) {
-      throw new AppError({ code: 'invalid_request', userMessage: `找不到模型（${id}）。` })
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('errors.couldnTFindTheModel', { id }),
+      })
     }
     return estimateCostUsd(card, usage)
   }

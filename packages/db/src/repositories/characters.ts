@@ -12,6 +12,7 @@ import {
   type Costume,
   CHARACTER_REFERENCE_PURPOSES,
   type ReferenceView,
+  t,
 } from '@svs/schema'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
@@ -32,7 +33,10 @@ const DEFAULT_COSTUME_NAME = '預設服裝'
 export const outfitOf = (character: Character): string => character.costumes[0]?.description ?? ''
 
 const notFound = (id: string): AppError =>
-  new AppError({ code: 'project_invalid', userMessage: `找不到這個角色（${id}）。` })
+  new AppError({
+    code: 'project_invalid',
+    userMessage: t('errors.couldnTFindThatCharacter', { id }),
+  })
 
 export class CharactersRepository {
   constructor(
@@ -135,7 +139,7 @@ export class CharactersRepository {
     if (!current || current.anchorText.trim() === '') {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: '還沒有固定外觀描述，請先寫一段（或請 AI 幫你整理）再鎖定。',
+        userMessage: t('errors.thisCharacterHasNoFixed'),
       })
     }
     if (current.status === 'locked') return current
@@ -154,7 +158,10 @@ export class CharactersRepository {
   restorePack(characterId: string, packId: string): CharacterPack {
     const source = this.packs(characterId).find((p) => p.id === packId)
     if (!source) {
-      throw new AppError({ code: 'invalid_request', userMessage: '找不到這個版本。' })
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('errors.couldnTFindThatVersion'),
+      })
     }
     // 已經是目前這一版就不用做事
     if (this.pack(characterId)?.id === source.id) return source
@@ -245,7 +252,10 @@ export class CharactersRepository {
       .where(eq(characterConcepts.id, conceptId))
       .get()
     if (concept?.characterId !== characterId) {
-      throw new AppError({ code: 'invalid_request', userMessage: '找不到這張概念圖。' })
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('errors.couldnTFindThatConcept'),
+      })
     }
     const current = this.pack(characterId)
     // 本來就是這張：什麼都不用改（鎖定的版本也不會被退回草稿）
@@ -401,7 +411,11 @@ export class CharactersRepository {
     slices: { frontHash: string; sideHash: string; backHash: string; cuts: TurnaroundCuts },
   ): TurnaroundView {
     const current = this.getTurnaround(characterId, turnaroundId)
-    if (!current) throw new AppError({ code: 'invalid_request', userMessage: '找不到這組三視圖。' })
+    if (!current)
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('errors.couldnTFindThatTurnaround'),
+      })
     this.db
       .update(characterTurnarounds)
       .set({
@@ -419,7 +433,11 @@ export class CharactersRepository {
   /** 採用一組三視圖。已鎖定的角色會變成下一版草稿；本來就是這組就不動。 */
   adoptTurnaround(characterId: string, turnaroundId: string): CharacterPack {
     const chosen = this.getTurnaround(characterId, turnaroundId)
-    if (!chosen) throw new AppError({ code: 'invalid_request', userMessage: '找不到這組三視圖。' })
+    if (!chosen)
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('errors.couldnTFindThatTurnaround'),
+      })
     const picked = { front: chosen.frontHash, side: chosen.sideHash, back: chosen.backHash }
     const current = this.pack(characterId)
     const same =

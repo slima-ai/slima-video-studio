@@ -34,6 +34,12 @@ function isDeferred(fn) {
   if (ts.isBinaryExpression(p) && p.operatorToken.kind === ts.SyntaxKind.EqualsToken) return true
   if (ts.isReturnStatement(p) || ts.isArrowFunction(p)) return true
   if (ts.isCallExpression(p) && p.arguments.includes(fn)) {
+    // zod 的 refine／superRefine／transform 是解析資料的時候才跑
+    if (
+      ts.isPropertyAccessExpression(p.expression) &&
+      ['refine', 'superRefine', 'transform'].includes(p.expression.name.text)
+    )
+      return true
     // 傳給 React 的 hook／事件的函式是之後才跑；傳給 map／Array.from 之類的會立刻跑
     const name = p.expression.getText()
     return /^(use[A-Z]|set[A-Z]|on[A-Z]|setTimeout|setInterval|addEventListener|requestAnimationFrame|handle|register|ipcMain\.handle|[\w.]*\.(on|once|then|catch|finally|handle|subscribe))/.test(

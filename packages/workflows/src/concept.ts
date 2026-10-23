@@ -12,6 +12,7 @@ import {
   locationConceptPromptNode,
   turnaroundPromptNode,
 } from './nodes'
+import { t } from '@svs/schema'
 
 export interface ConceptWorkflowOptions {
   model: string
@@ -42,7 +43,7 @@ export function buildConceptWorkflow(options: CharacterConceptWorkflowOptions): 
   const withReferences = options.withReferences === true
   return {
     id: withReferences ? 'character-concept-reference' : 'character-concept',
-    name: '角色概念圖',
+    name: t('nodes.characterConceptPicture'),
     version: 1,
     createdAt: stamp,
     updatedAt: stamp,
@@ -119,7 +120,7 @@ export function buildTurnaroundWorkflow(options: TurnaroundWorkflowOptions): Wor
   const at = { x: 0, y: 0 }
   return {
     id: 'character-turnaround',
-    name: '角色三視圖',
+    name: t('nodes.characterTurnaround'),
     version: 1,
     createdAt: stamp,
     updatedAt: stamp,
@@ -168,7 +169,7 @@ export function buildLocationConceptWorkflow(options: ConceptWorkflowOptions): W
   const at = { x: 0, y: 0 }
   return {
     id: 'location-concept',
-    name: '場景概念圖',
+    name: t('nodes.locationConceptPicture'),
     version: 1,
     createdAt: stamp,
     updatedAt: stamp,
@@ -209,7 +210,7 @@ export function buildLocationAngleWorkflow(options: TurnaroundWorkflowOptions): 
   const at = { x: 0, y: 0 }
   return {
     id: 'location-angle',
-    name: '場景角度',
+    name: t('nodes.locationAngle'),
     version: 1,
     createdAt: stamp,
     updatedAt: stamp,

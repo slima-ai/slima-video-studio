@@ -10,6 +10,7 @@ import {
   type PollResult,
   type ProviderServices,
   type SubmitResult,
+  t,
 } from '@svs/schema'
 
 import { OpenRouterClient, type OpenRouterOptions } from './client'
@@ -58,7 +59,7 @@ function parseRequest(job: Job): SupportedRequest {
   if (!parsed.success) {
     throw new AppError({
       code: 'provider_rejected',
-      userMessage: 'OpenRouter 收到的請求格式不對。',
+      userMessage: t('errors.openrouterReceivedARequestIn'),
       cause: parsed.error,
     })
   }
@@ -119,7 +120,7 @@ export function createOpenRouterDriver(
     if (voice === undefined) {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: '這個旁白模型需要指定一個聲音，請到設定頁選擇。',
+        userMessage: t('errors.thisNarrationModelNeedsA'),
       })
     }
     const result = await client.speech({ modelId: req.modelId, text: req.text, voice }, ctx.signal)
@@ -179,7 +180,7 @@ export function createOpenRouterDriver(
         if (!req.startFrameAsset) {
           throw new AppError({
             code: 'invalid_request',
-            userMessage: '圖生影片需要一張起始畫面。',
+            userMessage: t('errors.imageToVideoNeedsA'),
           })
         }
         return {
@@ -239,7 +240,7 @@ export function createOpenRouterDriver(
       if (!isVideo(req) || !job.providerJobId) {
         throw new AppError({
           code: 'internal_error',
-          userMessage: 'OpenRouter 只有影片任務需要輪詢。',
+          userMessage: t('errors.onlyVideoJobsNeedPolling'),
         })
       }
       const status = await client.videoStatus(job.providerJobId, ctx.signal)
@@ -249,7 +250,7 @@ export function createOpenRouterDriver(
           status: 'failed',
           error: new AppError({
             code: 'provider_rejected',
-            userMessage: 'OpenRouter 無法完成這個影片，請調整描述或換一個模型。',
+            userMessage: t('errors.openrouterCouldnTFinishThis'),
             cause: new Error(status.reason),
           }).toShape(),
         }

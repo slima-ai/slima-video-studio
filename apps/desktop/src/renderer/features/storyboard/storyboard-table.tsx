@@ -23,24 +23,24 @@ import {
   type RowSelectionState,
 } from '@tanstack/react-table'
 import {
-  CAMERA_MOVES,
   type OutlineView,
   type ShotAngle,
   type ShotEdit,
   type ShotSize,
   type ShotView,
   t,
+  getLocale,
 } from '@svs/schema'
 import { GripVertical } from 'lucide-react'
 import { createContext, useContext, useMemo, type HTMLAttributes } from 'react'
 
 import { SelectCell, TextCell } from './cells'
-import { ANGLE_LABELS, SIZE_LABELS, STATUS_LABELS, parseNames } from './labels'
+import { STATUS_LABELS, angleOptions, cameraMoveOptions, parseNames, sizeOptions } from './labels'
 
 const NONE = ''
 
 /** 每一欄的寬度（px）：固定下來，內容太長就用省略號並在滑過時顯示全文，不會把欄位擠成一個字寬。 */
-const COLUMN_WIDTHS: Record<string, number> = {
+const ZH_COLUMN_WIDTHS: Record<string, number> = {
   handle: 36,
   select: 40,
   number: 64,
@@ -58,7 +58,13 @@ const COLUMN_WIDTHS: Record<string, number> = {
   mood: 104,
   status: 96,
 }
-const TABLE_WIDTH = Object.values(COLUMN_WIDTHS).reduce((sum, w) => sum + w, 0)
+/** 英文的景別、角度、運鏡名稱比中文長（Extreme close-up、Over the shoulder）：這幾欄寬一點；繁中維持原樣。 */
+const columnWidths = (): Record<string, number> =>
+  getLocale() === 'zh-TW'
+    ? ZH_COLUMN_WIDTHS
+    : { ...ZH_COLUMN_WIDTHS, size: 175, angle: 175, camera: 130 }
+const tableWidth = (widths: Record<string, number>): number =>
+  Object.values(widths).reduce((sum, w) => sum + w, 0)
 
 interface Handle {
   attributes: HTMLAttributes<HTMLButtonElement>
@@ -145,18 +151,12 @@ export function StoryboardTable({
     ],
     [outline],
   )
-  const sizeOptions = useMemo(
-    () => Object.entries(SIZE_LABELS).map(([value, label]) => ({ value, label })),
-    [],
-  )
-  const angleOptions = useMemo(
-    () => Object.entries(ANGLE_LABELS).map(([value, label]) => ({ value, label })),
-    [],
-  )
+  const sizeChoices = useMemo(() => sizeOptions(), [])
+  const angleChoices = useMemo(() => angleOptions(), [])
   const cameraOptions = useMemo(
     () => [
       { value: NONE, label: t('storyboard.fixed') },
-      ...CAMERA_MOVES.map((c) => ({ value: c.id, label: c.label })),
+      ...cameraMoveOptions().map(({ value, label }) => ({ value, label })),
     ],
     [],
   )
@@ -225,7 +225,7 @@ export function StoryboardTable({
             column="size"
             label={t('storyboard.shotSize')}
             value={row.original.size}
-            options={sizeOptions}
+            options={sizeChoices}
             onCommit={(value) => {
               onEdit(row.original.id, { size: value as ShotSize })
             }}
@@ -240,7 +240,7 @@ export function StoryboardTable({
             column="angle"
             label={t('storyboard.cameraAngle')}
             value={row.original.angle}
-            options={angleOptions}
+            options={angleChoices}
             onCommit={(value) => {
               onEdit(row.original.id, { angle: value as ShotAngle })
             }}
@@ -384,9 +384,10 @@ export function StoryboardTable({
         ),
       },
     ],
-    [sceneOptions, locationOptions, sizeOptions, angleOptions, cameraOptions, onEdit],
+    [sceneOptions, locationOptions, sizeChoices, angleChoices, cameraOptions, onEdit],
   )
 
+  const widths = columnWidths()
   const table = useReactTable({
     data: shots,
     columns,
@@ -417,7 +418,7 @@ export function StoryboardTable({
     <div className="overflow-x-auto rounded-lg border border-border bg-surface-raised shadow-card">
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <table
-          style={{ width: TABLE_WIDTH }}
+          style={{ width: tableWidth(widths) }}
           className="table-fixed border-collapse text-left"
           data-testid="storyboard-table"
         >
@@ -427,7 +428,7 @@ export function StoryboardTable({
                 {group.headers.map((header) => (
                   <th
                     key={header.id}
-                    style={{ width: COLUMN_WIDTHS[header.column.id] }}
+                    style={{ width: widths[header.column.id] }}
                     className="whitespace-nowrap px-2 py-2 font-medium"
                   >
                     {flexRender(header.column.columnDef.header, header.getContext())}

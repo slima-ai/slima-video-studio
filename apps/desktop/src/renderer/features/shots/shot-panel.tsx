@@ -1,6 +1,8 @@
 import {
   CAMERA_MOVES,
   cameraMoveById,
+  cameraMoveHint,
+  cameraMoveLabel,
   type RegenerateMode,
   type ShotEdit,
   type ShotView,
@@ -89,7 +91,10 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
               value={draft.cameraMove}
               options={[
                 { value: '', label: t('shots.notSet') },
-                ...CAMERA_MOVES.map((move) => ({ value: move.id, label: move.label })),
+                ...CAMERA_MOVES.map((move) => ({
+                  value: move.id,
+                  label: cameraMoveLabel(move.id),
+                })),
                 ...(draft.cameraMove !== '' && !cameraMoveById(draft.cameraMove)
                   ? [
                       {
@@ -124,7 +129,7 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
         </div>
       </div>
       <p className="-mt-1 text-xs text-fg-muted" data-testid="shot-camera-hint">
-        {cameraMoveById(draft.cameraMove)?.description ?? t('shots.whenNotSetTheModel')}
+        {cameraMoveHint(draft.cameraMove) ?? t('shots.whenNotSetTheModel')}
       </p>
       <div>
         <label className="block text-sm font-medium" htmlFor="shot-prompt">

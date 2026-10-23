@@ -1,4 +1,4 @@
-import { AppError, type Capability, type ImageApi, type LlmRequest } from '@svs/schema'
+import { AppError, type Capability, type ImageApi, type LlmRequest, t } from '@svs/schema'
 import { z } from 'zod'
 
 import { httpError, type ProviderLabel } from '../http/errors'
@@ -124,12 +124,12 @@ const MAX_AUDIO_BYTES = 50 * 1024 * 1024
 const MAX_MUSIC_BYTES = 50 * 1024 * 1024
 
 const tooLarge = (): AppError =>
-  new AppError({ code: 'provider_rejected', userMessage: 'OpenRouter 回傳的檔案太大，已略過。' })
+  new AppError({ code: 'provider_rejected', userMessage: t('errors.theFileOpenrouterReturnedIs') })
 
 /** 失敗原因可能是字串、`{message}` 或其他物件：能取到訊息就取，不然把整個物件轉成字串（只寫進 log）。 */
 const describeError = (error: unknown): string => {
   if (typeof error === 'string') return error.slice(0, 500)
-  if (error === undefined || error === null) return '沒有說明原因'
+  if (error === undefined || error === null) return t('errors.noReasonGiven')
   const message = typeof error === 'object' ? field(error, 'message') : undefined
   if (typeof message === 'string') return message.slice(0, 500)
   return JSON.stringify(error).slice(0, 500)
@@ -170,7 +170,7 @@ export class OpenRouterClient {
     if (!key) {
       throw new AppError({
         code: 'provider_auth_failed',
-        userMessage: '還沒有設定 OpenRouter 的服務金鑰，請先到設定頁填入。',
+        userMessage: t('errors.theOpenrouterServiceKeyIsn'),
       })
     }
     return key
@@ -189,7 +189,7 @@ export class OpenRouterClient {
     if (!model) {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: `找不到模型「${req.modelId}」在 OpenRouter 上的對應。`,
+        userMessage: t('errors.couldnTFindTheOpenrouter', { modelId: req.modelId }),
       })
     }
     const messages = [
@@ -241,7 +241,7 @@ export class OpenRouterClient {
       throw new AppError({
         code: 'invalid_response',
         retryable: true,
-        userMessage: 'OpenRouter 回傳的內容格式不對，稍後會自動重試。',
+        userMessage: t('errors.openrouterReturnedContentInAn'),
         cause: parsed.error,
       })
     }
@@ -250,7 +250,7 @@ export class OpenRouterClient {
     if (choice?.finish_reason === 'content_filter' || text === '') {
       throw new AppError({
         code: 'provider_rejected',
-        userMessage: '模型沒有給出回應（內容可能被過濾），請修改內容後再試。',
+        userMessage: t('errors.theModelGaveNoResponse'),
       })
     }
     const usage = parsed.data.usage
@@ -274,7 +274,7 @@ export class OpenRouterClient {
       throw new AppError({
         code: 'invalid_response',
         retryable: true,
-        userMessage: 'OpenRouter 沒有回傳串流內容。',
+        userMessage: t('errors.openrouterReturnedNoStreamedContent'),
       })
     }
     const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
@@ -296,7 +296,8 @@ export class OpenRouterClient {
         }
       }
     } catch (error) {
-      if (signal.aborted) throw new AppError({ code: 'cancelled', userMessage: '已取消。' })
+      if (signal.aborted)
+        throw new AppError({ code: 'cancelled', userMessage: t('errors.cancelled') })
       throw error
     } finally {
       await reader.cancel().catch(() => undefined)
@@ -308,7 +309,7 @@ export class OpenRouterClient {
     if (!model) {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: `找不到模型「${modelId}」在 OpenRouter 上的對應。`,
+        userMessage: t('errors.couldnTFindTheOpenrouter', { modelId }),
       })
     }
     return model
@@ -356,7 +357,7 @@ export class OpenRouterClient {
     if (url === undefined) {
       throw new AppError({
         code: 'provider_rejected',
-        userMessage: 'OpenRouter 沒有回傳圖片，可能是內容被過濾了。請調整描述後再試。',
+        userMessage: t('errors.openrouterReturnedNoPictureThe'),
       })
     }
     const file = await this.fileFromUrl(url, signal, MAX_IMAGE_BYTES)
@@ -414,7 +415,7 @@ export class OpenRouterClient {
       throw new AppError({
         code: 'invalid_response',
         retryable: true,
-        userMessage: 'OpenRouter 回傳的內容格式不對，稍後會自動重試。',
+        userMessage: t('errors.openrouterReturnedContentInAn'),
         cause: parsed.error,
       })
     }
@@ -426,7 +427,7 @@ export class OpenRouterClient {
     if (source === undefined || source === '') {
       throw new AppError({
         code: 'provider_rejected',
-        userMessage: 'OpenRouter 沒有回傳圖片，可能是內容被過濾了。請調整描述後再試。',
+        userMessage: t('errors.openrouterReturnedNoPictureThe'),
       })
     }
     const file = await this.fileFromUrl(source, signal, MAX_IMAGE_BYTES)
@@ -463,8 +464,7 @@ export class OpenRouterClient {
       if (error instanceof AppError && error.code === 'provider_rejected') {
         throw new AppError({
           code: 'provider_rejected',
-          userMessage:
-            'OpenRouter 不接受這段旁白（聲音名稱或文字長度可能不被這個模型支援）。請換一個聲音，或把文字縮短後再試。',
+          userMessage: t('errors.openrouterDidnTAcceptThis'),
           cause: error,
         })
       }
@@ -566,7 +566,7 @@ export class OpenRouterClient {
     if (parts.length === 0) {
       throw new AppError({
         code: 'provider_rejected',
-        userMessage: 'OpenRouter 沒有回傳音樂，可能是內容被過濾了。請調整描述後再試。',
+        userMessage: t('errors.openrouterReturnedNoMusicThe'),
       })
     }
     const bytes = new Uint8Array(Buffer.from(parts.join(''), 'base64'))
@@ -611,8 +611,7 @@ export class OpenRouterClient {
       if (error instanceof AppError && error.code === 'provider_rejected') {
         throw new AppError({
           code: 'provider_rejected',
-          userMessage:
-            'OpenRouter 不接受這個影片請求（可能是這個模型不支援首尾幀或參考圖）。請換一個影片模型再試。',
+          userMessage: t('errors.openrouterDidnTAcceptThis2'),
           cause: error,
         })
       }
@@ -623,7 +622,7 @@ export class OpenRouterClient {
       throw new AppError({
         code: 'invalid_response',
         retryable: true,
-        userMessage: 'OpenRouter 回傳的內容格式不對，稍後會自動重試。',
+        userMessage: t('errors.openrouterReturnedContentInAn'),
         cause: parsed.error,
       })
     }
@@ -646,7 +645,7 @@ export class OpenRouterClient {
       throw new AppError({
         code: 'invalid_response',
         retryable: true,
-        userMessage: 'OpenRouter 回傳的狀態格式不對，稍後會自動重試。',
+        userMessage: t('errors.openrouterReturnedAStatusIn'),
         cause: parsed.error,
       })
     }
@@ -705,7 +704,7 @@ export class OpenRouterClient {
       throw new AppError({
         code: 'invalid_response',
         retryable: true,
-        userMessage: '讀不懂 OpenRouter 回傳的餘額資料。',
+        userMessage: t('errors.couldnTReadTheBalance'),
       })
     }
     const { total_credits: totalCredits, total_usage: totalUsage } = parsed.data.data

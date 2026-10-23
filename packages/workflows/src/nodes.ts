@@ -17,6 +17,9 @@ import {
   type GraphCategory,
   type NodeDefinition,
   type ReportedCost,
+  t,
+  msg,
+  type MessageRef,
 } from '@svs/schema'
 import { z } from 'zod'
 
@@ -40,23 +43,32 @@ export const NODE_TYPES = {
   endFramePrompt: 'shot.endFramePrompt',
 } as const
 
-/** 節點在節點圖上的白話名稱與色條分類。 */
-export const NODE_INFO: Readonly<Record<string, { title: string; category: GraphCategory }>> = {
-  $input: { title: '這個鏡頭', category: 'input' },
-  $output: { title: '輸出', category: 'output' },
-  forEach: { title: '對每個鏡頭執行', category: 'join' },
-  [NODE_TYPES.breakdown]: { title: '把故事分成一個個畫面', category: 'prompt' },
-  [NODE_TYPES.shotPrompt]: { title: '整理成 Prompt', category: 'prompt' },
-  [NODE_TYPES.image]: { title: '生成第一張畫面', category: 'image' },
-  [NODE_TYPES.fixedImage]: { title: '用上傳的圖當第一張畫面', category: 'image' },
-  [NODE_TYPES.imageEdit]: { title: '用參考圖修改圖片', category: 'image' },
-  [NODE_TYPES.video]: { title: '圖生影片', category: 'video' },
-  [NODE_TYPES.concat]: { title: '接成一支影片', category: 'join' },
-  [NODE_TYPES.conceptPrompt]: { title: '角色概念圖 Prompt', category: 'prompt' },
-  [NODE_TYPES.conceptRefPrompt]: { title: '角色概念圖 Prompt（照參考圖）', category: 'prompt' },
-  [NODE_TYPES.turnaroundPrompt]: { title: '角色三視圖 Prompt', category: 'prompt' },
-  [NODE_TYPES.locationConceptPrompt]: { title: '場景概念圖 Prompt', category: 'prompt' },
-  [NODE_TYPES.locationAnglePrompt]: { title: '場景角度 Prompt', category: 'prompt' },
+/** 節點在節點圖上的白話名稱（用的時候 `t(title)`，跟著介面語言）與色條分類。 */
+export const NODE_INFO: Readonly<Record<string, { title: MessageRef; category: GraphCategory }>> = {
+  $input: { title: msg('nodes.thisShot'), category: 'input' },
+  $output: { title: msg('nodes.output'), category: 'output' },
+  forEach: { title: msg('nodes.runForEachShot'), category: 'join' },
+  [NODE_TYPES.breakdown]: { title: msg('nodes.splitTheStoryIntoPictures'), category: 'prompt' },
+  [NODE_TYPES.shotPrompt]: { title: msg('nodes.turnIntoAPrompt'), category: 'prompt' },
+  [NODE_TYPES.image]: { title: msg('nodes.generateTheFirstPicture'), category: 'image' },
+  [NODE_TYPES.fixedImage]: { title: msg('nodes.useAnUploadedPictureAs'), category: 'image' },
+  [NODE_TYPES.imageEdit]: { title: msg('nodes.editAPictureUsingReferences'), category: 'image' },
+  [NODE_TYPES.video]: { title: msg('nodes.imageToVideo'), category: 'video' },
+  [NODE_TYPES.concat]: { title: msg('nodes.joinIntoOneVideo'), category: 'join' },
+  [NODE_TYPES.conceptPrompt]: { title: msg('nodes.characterConceptPrompt'), category: 'prompt' },
+  [NODE_TYPES.conceptRefPrompt]: {
+    title: msg('nodes.characterConceptPromptFromReference'),
+    category: 'prompt',
+  },
+  [NODE_TYPES.turnaroundPrompt]: {
+    title: msg('nodes.characterTurnaroundPrompt'),
+    category: 'prompt',
+  },
+  [NODE_TYPES.locationConceptPrompt]: {
+    title: msg('nodes.locationConceptPrompt'),
+    category: 'prompt',
+  },
+  [NODE_TYPES.locationAnglePrompt]: { title: msg('nodes.locationAnglePrompt'), category: 'prompt' },
 }
 
 const StyleIdSchema = z.enum(QUICK_STYLE_IDS)
@@ -188,13 +200,15 @@ export const narrationMaxChars = (durationSec: number): number =>
 
 function assetOf(output: GenerationOutput, kind: 'image' | 'video'): AssetRef {
   if (output.kind !== 'assets') {
-    throw new AppError({ code: 'invalid_response', userMessage: '模型沒有回傳檔案。' })
+    throw new AppError({ code: 'invalid_response', userMessage: t('nodes.theModelReturnedNoFile') })
   }
   const asset = output.assets.find((a) => a.kind === kind)
   if (!asset) {
     throw new AppError({
       code: 'invalid_response',
-      userMessage: `模型回傳的檔案不是${kind === 'image' ? '圖片' : '影片'}。`,
+      userMessage: t('nodes.theModelReturnedAFile', {
+        value: kind === 'image' ? t('nodes.image') : t('nodes.video'),
+      }),
     })
   }
   return asset
@@ -212,7 +226,10 @@ const costOf = (
 
 const needModel = (modelId: string | undefined, what: string): string => {
   if (!modelId) {
-    throw new AppError({ code: 'invalid_request', userMessage: `還沒有選${what}模型。` })
+    throw new AppError({
+      code: 'invalid_request',
+      userMessage: t('nodes.noModelIsSelectedYet', { what }),
+    })
   }
   return modelId
 }
@@ -254,7 +271,7 @@ export const breakdownNode = defineNode({
   inputs: {},
   outputs: { shots: 'json', title: 'text' },
   params: z.object({
-    story: z.string().min(1, '請先寫下你的故事'),
+    story: z.string().min(1, { error: () => t('nodes.writeYourStoryFirst') }),
     shotCount: z.number().int().min(1).max(12).default(4),
     durationSec: z.number().positive().default(3),
     style: StyleIdSchema.default('realistic'),
@@ -268,13 +285,13 @@ export const breakdownNode = defineNode({
     narration: z.boolean().default(false),
   }),
   estimateCost: ({ params, modelId, estimate }) =>
-    estimate(needModel(modelId, '文字'), {
+    estimate(needModel(modelId, t('nodes.text')), {
       inputTokens: Math.ceil((params.story.length + params.guide.length) * 1.5) + 500,
       outputTokens: params.shotCount * (params.narration ? 200 : 150) + 50,
     }),
   run: async ({ params, modelId, signal, nodeRunId, services, reportCost }) => {
     const studio = getStudio(services)
-    const model = needModel(modelId, '文字')
+    const model = needModel(modelId, t('nodes.text'))
     const result = await generateStructured(
       studio,
       {
@@ -874,13 +891,17 @@ export const imageEditNode = defineNode({
     aspectRatio: AspectRatioSchema.default('16:9'),
     variation: z.number().int().nonnegative().default(0),
   }),
-  estimateCost: ({ modelId, estimate }) => estimate(needModel(modelId, '圖片'), { images: 1 }),
+  estimateCost: ({ modelId, estimate }) =>
+    estimate(needModel(modelId, t('nodes.image')), { images: 1 }),
   run: async ({ inputs, params, modelId, signal, nodeRunId, services, reportCost }) => {
     const studio = getStudio(services)
-    const model = needModel(modelId, '圖片')
+    const model = needModel(modelId, t('nodes.image'))
     const references = z.array(AssetRefSchema).min(1).safeParse(inputs.references)
     if (!references.success) {
-      throw new AppError({ code: 'invalid_request', userMessage: '需要至少一張參考圖。' })
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('nodes.atLeastOneReferencePicture'),
+      })
     }
     const result = await studio.generate(
       {
@@ -934,13 +955,16 @@ export const imageNode = defineNode({
     /** 鏡頭有角色參考圖時改用這個「可帶參考圖編輯」的模型；沒設就一律純文字生圖。 */
     editModel: z.string().min(1).optional(),
   }),
-  estimateCost: ({ modelId, estimate }) => estimate(needModel(modelId, '圖片'), { images: 1 }),
+  estimateCost: ({ modelId, estimate }) =>
+    estimate(needModel(modelId, t('nodes.image')), { images: 1 }),
   run: async ({ inputs, params, modelId, signal, nodeRunId, services, reportCost }) => {
     const studio = getStudio(services)
     const references = z.array(AssetRefSchema).safeParse(inputs.references ?? [])
     const refs = references.success ? references.data : []
     const editing = params.editModel !== undefined && refs.length > 0
-    const model = editing ? needModel(params.editModel, '圖片') : needModel(modelId, '圖片')
+    const model = editing
+      ? needModel(params.editModel, t('nodes.image'))
+      : needModel(modelId, t('nodes.image'))
     const result = await studio.generate(
       {
         capability: editing ? 'edit' : 't2i',
@@ -999,10 +1023,13 @@ export const videoNode = defineNode({
     negativePrompt: z.string().default(''),
   }),
   estimateCost: ({ params, modelId, estimate }) =>
-    estimate(needModel(modelId, '影片'), { seconds: params.durationSec, audio: params.audio }),
+    estimate(needModel(modelId, t('nodes.video')), {
+      seconds: params.durationSec,
+      audio: params.audio,
+    }),
   run: async ({ inputs, params, modelId, signal, nodeRunId, services, reportCost }) => {
     const studio = getStudio(services)
-    const model = needModel(modelId, '影片')
+    const model = needModel(modelId, t('nodes.video'))
     const frame = AssetRefSchema.parse(inputs.image)
     const result = await studio.generate(
       {
@@ -1046,7 +1073,7 @@ export const concatNode = defineNode({
     const studio = getStudio(services)
     const videos = z.array(AssetRefSchema).min(1).safeParse(inputs.videos)
     if (!videos.success) {
-      throw new AppError({ code: 'invalid_request', userMessage: '沒有可以接起來的影片片段。' })
+      throw new AppError({ code: 'invalid_request', userMessage: t('nodes.thereAreNoVideoClips') })
     }
     return { video: await studio.concatVideos(videos.data, { signal }) }
   },

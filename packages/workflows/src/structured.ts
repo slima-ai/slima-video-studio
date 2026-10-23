@@ -1,4 +1,4 @@
-import { AppError, type ChatMessage, type LlmRequest } from '@svs/schema'
+import { AppError, type ChatMessage, type LlmRequest, t } from '@svs/schema'
 import { z } from 'zod'
 
 import type { GenerateContext, StudioServices } from './services'
@@ -40,7 +40,10 @@ export async function generateStructured<S extends z.ZodType>(
     )
     if (result.costUsd !== undefined) cost = (cost ?? 0) + result.costUsd
     if (result.output.kind !== 'text') {
-      throw new AppError({ code: 'invalid_response', userMessage: '模型沒有回傳文字。' })
+      throw new AppError({
+        code: 'invalid_response',
+        userMessage: t('nodes.theModelReturnedNoText'),
+      })
     }
     const text = result.output.text
     try {
@@ -66,7 +69,7 @@ export async function generateStructured<S extends z.ZodType>(
   throw new AppError({
     code: 'invalid_response',
     retryable: true,
-    userMessage: '模型回傳的內容格式不對，已自動重試一次仍然失敗，請再試一次。',
+    userMessage: t('nodes.theModelReturnedContentIn'),
     cause: new Error(lastProblem),
   })
 }

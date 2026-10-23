@@ -1,4 +1,4 @@
-import { WorkflowSchema, type Workflow } from '@svs/schema'
+import { WorkflowSchema, type Workflow, t } from '@svs/schema'
 import { z } from 'zod'
 
 import { AppError } from '@svs/schema'
@@ -56,7 +56,7 @@ const forEachNode = defineNode({
     if (!Array.isArray(items)) {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: '「對每個項目執行」需要一個陣列輸入。',
+        userMessage: t('errors.forEachItemNeedsA'),
       })
     }
     const results: unknown[] = new Array<unknown>(items.length)
@@ -71,11 +71,15 @@ const forEachNode = defineNode({
       }
     }
     await Promise.all(Array.from({ length: Math.min(params.concurrency, items.length) }, worker))
-    if (signal.aborted) throw new AppError({ code: 'cancelled', userMessage: '已取消。' })
+    if (signal.aborted)
+      throw new AppError({ code: 'cancelled', userMessage: t('errors.cancelled') })
     if (failed > 0) {
       throw new AppError({
         code: 'node_failed',
-        userMessage: `${String(failed)} 個項目執行失敗（共 ${String(items.length)} 個）。`,
+        userMessage: t('errors.ofItemsFailed', {
+          value: String(failed),
+          value2: String(items.length),
+        }),
       })
     }
     return { results }
@@ -91,8 +95,9 @@ export function createRegistry(): NodeRegistry {
 export function checkBody(body: Workflow): string | undefined {
   const inputs = body.nodes.filter((n) => n.type === INPUT_NODE).length
   const outputs = body.nodes.filter((n) => n.type === OUTPUT_NODE).length
-  if (inputs !== 1) return `子工作流必須剛好有一個 ${INPUT_NODE} 節點（目前 ${String(inputs)} 個）`
+  if (inputs !== 1)
+    return t('errors.aSubWorkflowMustHave', { inputNode: INPUT_NODE, value: String(inputs) })
   if (outputs !== 1)
-    return `子工作流必須剛好有一個 ${OUTPUT_NODE} 節點（目前 ${String(outputs)} 個）`
+    return t('errors.aSubWorkflowMustHave2', { outputNode: OUTPUT_NODE, value: String(outputs) })
   return undefined
 }

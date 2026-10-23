@@ -4,6 +4,7 @@ import {
   type CostEntry,
   type UsageEstimate,
   type Workflow,
+  t,
 } from '@svs/schema'
 
 import { FOR_EACH_NODE } from './builtin'
@@ -74,12 +75,20 @@ const usd = (n: number): string => `US$${n.toFixed(2)}`
 
 export function budgetExceededError(exceeded: BudgetExceeded): AppError {
   // 單次的上限在設定頁叫「單次花費上限」（設定 → 一般），訊息用同一個名字，使用者才找得到要調的那一張卡
-  const over = exceeded.scope === 'run' ? '「單次花費上限」' : '專案的上限'
+  const over =
+    exceeded.scope === 'run' ? t('errors.thePerRunSpendingLimit') : t('errors.theProjectLimit')
   const where =
-    exceeded.scope === 'run' ? '到「設定 → 一般」調高「單次花費上限」' : '到設定調高上限'
+    exceeded.scope === 'run'
+      ? t('errors.raiseThePerRunSpending')
+      : t('errors.raiseTheLimitInSettings')
   return new AppError({
     code: 'budget_exceeded',
-    userMessage: `預估花費 ${usd(exceeded.projectedUsd)}，超過${over} ${usd(exceeded.limitUsd)}。${where}後可以從中斷的地方繼續（已完成的步驟不會重跑、不會再收費）。`,
+    userMessage: t('errors.estimatedCostIsOverThen', {
+      value: usd(exceeded.projectedUsd),
+      over,
+      value2: usd(exceeded.limitUsd),
+      where,
+    }),
   })
 }
 
@@ -95,7 +104,10 @@ export interface CostEstimate {
 export type PriceLookup = (modelId: string, usage: UsageEstimate) => number
 
 export const NO_PRICE_LOOKUP: PriceLookup = (modelId) => {
-  throw new AppError({ code: 'invalid_request', userMessage: `沒有「${modelId}」的價格資料。` })
+  throw new AppError({
+    code: 'invalid_request',
+    userMessage: t('errors.thereSNoPriceData', { modelId }),
+  })
 }
 
 export interface EstimateOptions {

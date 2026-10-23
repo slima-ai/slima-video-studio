@@ -9,6 +9,7 @@ import {
   type Workflow,
   type WorkflowEdge,
   type WorkflowNode,
+  t,
 } from '@svs/schema'
 import { randomUUID } from 'node:crypto'
 
@@ -115,7 +116,7 @@ const toShape = (error: unknown): AppErrorShape => {
   if (isAppError(error)) return error.toShape()
   return new AppError({
     code: 'node_failed',
-    userMessage: '這一步執行失敗。',
+    userMessage: t('errors.thisStepFailed'),
     cause: error,
   }).toShape()
 }
@@ -542,7 +543,11 @@ export class Engine {
     if (missing.length > 0 || extra.length > 0) {
       throw new AppError({
         code: 'invalid_response',
-        userMessage: `「${type}」這一步的結果格式不對${missing.length > 0 ? `（缺少 ${missing.join('、')}）` : ''}${extra.length > 0 ? `（多出 ${extra.join('、')}）` : ''}。`,
+        userMessage: t('errors.theResultOfTheStep', {
+          type,
+          value: missing.length > 0 ? `（缺少 ${missing.join('、')}）` : '',
+          value2: extra.length > 0 ? `（多出 ${extra.join('、')}）` : '',
+        }),
       })
     }
     hashValue(output) // 輸出必須是 JSON 值，否則這裡會丟錯

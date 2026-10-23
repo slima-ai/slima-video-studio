@@ -122,6 +122,7 @@ import {
   SoundStateSchema,
 } from './domain/sound'
 import { AppErrorShapeSchema, type AppErrorShape } from './errors'
+import { t } from './i18n'
 
 /** renderer 看得到的專案摘要（不包含資料庫、路徑以外的內部細節）。 */
 /** AI 工具連線（MCP）的狀態（見 `mcp.status`）。 */
@@ -239,7 +240,7 @@ export type ProjectStatus = z.infer<typeof ProjectStatusSchema>
 /** 供應商 ID（小寫英數與 - _），也是 ModelCard.provider。 */
 export const KeyProviderIdSchema = z
   .string()
-  .regex(/^[a-z][a-z0-9_-]{1,31}$/, '供應商 ID 格式不正確')
+  .regex(/^[a-z][a-z0-9_-]{1,31}$/, { error: () => t('errors.theProviderIdIsnT') })
 
 /**
  * Key 的狀態。**這是 renderer 唯一看得到的 Key 資訊**：有沒有設定、末四碼，

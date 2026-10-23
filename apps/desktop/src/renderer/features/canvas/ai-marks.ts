@@ -60,10 +60,10 @@ function nameOf(node: Removed, renumbered: boolean): string {
     if (text === '') return label
     const chars = Array.from(text)
     const hint = chars.length > HINT_CHARS ? `${chars.slice(0, HINT_CHARS).join('')}…` : text
-    return `${label}「${hint}」`
+    return t('canvas.nameQuotedHint', { label, hint })
   }
   const label = t(KIND_NAME[node.kind] ?? msg('canvas.pictureOrVideo'))
-  return node.title === '' ? label : `${label}「${node.title}」`
+  return node.title === '' ? label : t('canvas.nameQuotedHint', { label, hint: node.title })
 }
 
 /** 最多列幾個名字，多的寫「等 N 個」。 */

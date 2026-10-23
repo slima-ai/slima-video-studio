@@ -9,6 +9,7 @@ import {
   type SoundClipKind,
   type SoundSettings,
   type SoundSettingsPatch,
+  t,
 } from '@svs/schema'
 
 import type { AppDb } from '../database'
@@ -87,8 +88,10 @@ export class SoundRepository {
   /** 新增一個版本，並設為採用中（同組其他版本取消採用）。 */
   addClip(input: NewSoundClip): SoundClip {
     const shotId = input.shotId ?? null
-    if (input.kind === 'music' && shotId !== null) throw invalid('配樂是整支的，不屬於某一鏡。')
-    if (input.kind !== 'music' && shotId === null) throw invalid('旁白與音效要屬於某一鏡。')
+    if (input.kind === 'music' && shotId !== null)
+      throw invalid(t('errors.musicCoversTheWholeFilm'))
+    if (input.kind !== 'music' && shotId === null)
+      throw invalid(t('errors.narrationAndSoundEffectsMust'))
     return this.db.transaction((tx) => {
       const where = and(
         eq(soundClips.projectId, this.projectId),
@@ -158,9 +161,9 @@ export class SoundRepository {
 
   updateClip(id: string, patch: SoundClipPatch): SoundClip {
     const current = this.getClip(id)
-    if (!current) throw invalid('找不到這個聲音片段。')
+    if (!current) throw invalid(t('errors.couldnTFindThatSound'))
     if (patch.offsetSec !== undefined && !(patch.offsetSec >= 0)) {
-      throw invalid('起點偏移不能是負的。')
+      throw invalid(t('errors.theStartOffsetCanT'))
     }
     this.db
       .update(soundClips)
@@ -173,14 +176,14 @@ export class SoundRepository {
       .where(eq(soundClips.id, id))
       .run()
     const next = this.getClip(id)
-    if (!next) throw invalid('找不到這個聲音片段。')
+    if (!next) throw invalid(t('errors.couldnTFindThatSound'))
     return next
   }
 
   /** 把某個版本設為採用中（同組其他版本取消採用）。 */
   adoptClip(id: string): SoundClip {
     const clip = this.getClip(id)
-    if (!clip) throw invalid('找不到這個聲音片段。')
+    if (!clip) throw invalid(t('errors.couldnTFindThatSound'))
     this.db.transaction((tx) => {
       const where = and(
         eq(soundClips.projectId, this.projectId),
@@ -239,7 +242,7 @@ export class SoundRepository {
     // 沒提到的欄位（undefined）不能蓋掉原值
     const given = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined))
     const next = SoundSettingsSchema.safeParse({ ...this.getSettings(), ...given })
-    if (!next.success) throw invalid('聲音設定的內容不對。')
+    if (!next.success) throw invalid(t('errors.theSoundSettingsArenT'))
     this.db
       .insert(soundSettings)
       .values({ projectId: this.projectId, settings: next.data })

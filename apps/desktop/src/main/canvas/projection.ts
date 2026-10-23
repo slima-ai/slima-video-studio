@@ -2,8 +2,6 @@ import {
   CanvasGroupColorSchema,
   ONELINER_DEFAULTS,
   OnelinerParamsSchema,
-  SHOT_ANGLE_LABELS,
-  SHOT_SIZE_LABELS,
   type Character,
   type CanvasEdge,
   type CanvasFinalCut,
@@ -17,6 +15,8 @@ import {
   type Scene,
   type Shot,
   type Take,
+  shotAngleLabel,
+  shotSizeLabel,
   t,
   msg,
 } from '@svs/schema'
@@ -281,8 +281,8 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
         ...(shot.action.trim() === '' ? {} : { action: shot.action }),
         ...(shot.dialogue.trim() === '' ? {} : { dialogue: shot.dialogue }),
         meta: t('canvas.sec', {
-          value: SHOT_SIZE_LABELS[shot.size],
-          value2: SHOT_ANGLE_LABELS[shot.angle],
+          value: shotSizeLabel(shot.size),
+          value2: shotAngleLabel(shot.angle),
           value3: String(shot.durationSec),
         }),
         tags,

@@ -9,6 +9,7 @@ import {
   type LocationCardView,
   type LocationReferencePurpose,
   type LocationReferenceView,
+  t,
 } from '@svs/schema'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
@@ -18,12 +19,12 @@ import { dropNulls } from '../rows'
 import { locationConcepts, locationReferences, locations } from '../tables/core'
 
 const notFound = (): AppError =>
-  new AppError({ code: 'project_invalid', userMessage: '找不到這個場景卡。' })
+  new AppError({ code: 'project_invalid', userMessage: t('errors.couldnTFindThatLocation') })
 
 const locked = (): AppError =>
   new AppError({
     code: 'invalid_request',
-    userMessage: '這張場景卡已經鎖定，要先解除鎖定才能修改。',
+    userMessage: t('errors.thisLocationCardIsLocked'),
   })
 
 /** 角度在 angleAssetHashes 裡的位置。 */
@@ -253,7 +254,10 @@ export class LocationCardsRepository {
       .where(eq(locationConcepts.id, conceptId))
       .get()
     if (concept?.locationId !== locationId) {
-      throw new AppError({ code: 'invalid_request', userMessage: '找不到這張概念圖。' })
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('errors.couldnTFindThatConcept'),
+      })
     }
     this.db
       .update(locations)
@@ -283,10 +287,16 @@ export class LocationCardsRepository {
   lock(locationId: string): LocationCardView {
     const card = this.need(locationId)
     if (card.anchorText.trim() === '') {
-      throw new AppError({ code: 'invalid_request', userMessage: '請先寫下這個場景固定的樣子。' })
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('errors.writeDownWhatThisLocation'),
+      })
     }
     if (!card.mainAssetHash) {
-      throw new AppError({ code: 'invalid_request', userMessage: '請先挑一張主場景圖。' })
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('errors.pickAMainLocationPicture'),
+      })
     }
     this.db.update(locations).set({ status: 'locked' }).where(eq(locations.id, locationId)).run()
     return this.need(locationId)

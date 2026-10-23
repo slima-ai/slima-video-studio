@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 import { closeSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
@@ -59,7 +59,7 @@ export function acquireProjectLock(dir: string): ProjectLock {
       if (!stale) {
         throw new AppError({
           code: 'project_locked',
-          userMessage: '這個專案已經在另一個視窗開啟了，請先關閉那個視窗再試一次。',
+          userMessage: t('errors.thisProjectIsAlreadyOpen'),
         })
       }
       rmSync(path, { force: true })
@@ -67,6 +67,6 @@ export function acquireProjectLock(dir: string): ProjectLock {
   }
   throw new AppError({
     code: 'project_locked',
-    userMessage: '無法取得專案的使用權，請稍後再試。',
+    userMessage: t('errors.couldnTGetAccessTo'),
   })
 }

@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 import { spawn } from 'node:child_process'
 
 export interface MediaTools {
@@ -49,7 +49,7 @@ export function runToolRaw(
 ): Promise<ToolResult> {
   return new Promise((resolve, reject) => {
     if (options.signal?.aborted) {
-      reject(new AppError({ code: 'cancelled', userMessage: '已取消。' }))
+      reject(new AppError({ code: 'cancelled', userMessage: t('errors.cancelled') }))
       return
     }
     const child = spawn(command, [...args], {
@@ -67,12 +67,12 @@ export function runToolRaw(
     })
     child.on('error', (error: NodeJS.ErrnoException) => {
       if (error.name === 'AbortError') {
-        reject(new AppError({ code: 'cancelled', userMessage: '已取消。' }))
+        reject(new AppError({ code: 'cancelled', userMessage: t('errors.cancelled') }))
       } else if (error.code === 'ENOENT') {
         reject(
           new AppError({
             code: 'internal_error',
-            userMessage: '找不到影片處理工具（FFmpeg），請重新安裝 App。',
+            userMessage: t('errors.couldnTFindTheVideo'),
             cause: error,
           }),
         )
@@ -80,7 +80,7 @@ export function runToolRaw(
         reject(
           new AppError({
             code: 'internal_error',
-            userMessage: '影片處理工具無法啟動。',
+            userMessage: t('errors.theVideoToolCouldnT'),
             cause: error,
           }),
         )
@@ -102,7 +102,7 @@ export async function runTool(
   if (code === 0) return stdout
   throw new AppError({
     code: 'internal_error',
-    userMessage: '影片處理失敗，檔案可能損毀或格式不支援。',
+    userMessage: t('errors.videoProcessingFailedTheFile'),
     cause: new Error(`${command} 結束碼 ${String(code)}：${stderr}`),
   })
 }

@@ -62,7 +62,7 @@ export function QualitySwitch({
       </div>
       {chosen ? (
         <p data-testid="quality-hint" className="text-xs leading-snug text-fg-muted">
-          {`${t(chosen.label)}：${t(chosen.hint)}`}
+          {t('canvas.labelAndHint', { label: t(chosen.label), hint: t(chosen.hint) })}
         </p>
       ) : null}
     </div>

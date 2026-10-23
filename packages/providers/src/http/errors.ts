@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 
 export interface ProviderLabel {
   /** 給使用者看的名稱，例如「OpenRouter」。 */
@@ -34,14 +34,14 @@ export function httpError(
   if (status === 401 || status === 403) {
     return new AppError({
       code: 'provider_auth_failed',
-      userMessage: `${name} 的服務金鑰無效或沒有權限，請到設定頁重新輸入。`,
+      userMessage: t('errors.theServiceKeyForIs', { name }),
       cause,
     })
   }
   if (status === 402) {
     return new AppError({
       code: 'provider_insufficient_funds',
-      userMessage: `${name} 的餘額不足，請儲值後再試。`,
+      userMessage: t('errors.hasRunOutOfBalance', { name }),
       cause,
     })
   }
@@ -49,7 +49,7 @@ export function httpError(
     return new AppError({
       code: 'provider_timeout',
       retryable: true,
-      userMessage: `${name} 回應太久，稍後會自動重試。`,
+      userMessage: t('errors.tookTooLongToRespond', { name }),
       cause,
     })
   }
@@ -58,7 +58,7 @@ export function httpError(
     return new AppError({
       code: 'provider_rate_limited',
       retryable: true,
-      userMessage: `${name} 目前請求太頻繁，稍後會自動重試。`,
+      userMessage: t('errors.isGettingTooManyRequests', { name }),
       cause,
       ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
     })
@@ -67,13 +67,13 @@ export function httpError(
     return new AppError({
       code: 'provider_unavailable',
       retryable: true,
-      userMessage: `${name} 暫時無法服務，稍後會自動重試。`,
+      userMessage: t('errors.isTemporarilyUnavailableItWill', { name }),
       cause,
     })
   }
   return new AppError({
     code: 'provider_rejected',
-    userMessage: `${name} 拒絕了這個請求，請檢查內容或換一個模型。`,
+    userMessage: t('errors.rejectedThisRequestCheckThe', { name }),
     cause,
   })
 }
@@ -84,8 +84,8 @@ export function networkError(provider: ProviderLabel, error: unknown, timedOut: 
     code: timedOut ? 'provider_timeout' : 'provider_unavailable',
     retryable: true,
     userMessage: timedOut
-      ? `${provider.name} 回應太久，稍後會自動重試。`
-      : `連不上 ${provider.name}，請檢查網路。稍後會自動重試。`,
+      ? t('errors.tookTooLongToRespond', { name: provider.name })
+      : t('errors.couldnTReachCheckYour', { name: provider.name }),
     cause: error,
   })
 }
