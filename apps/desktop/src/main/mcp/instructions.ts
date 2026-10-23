@@ -1,14 +1,23 @@
+import {
+  allowanceCard,
+  demoModeName,
+  settingsAiTools,
+  settingsApiKeys,
+  settingsGeneral,
+} from './ui-labels'
+
 /**
  * MCP `instructions`：每個工作階段都會付這段長度，所以只寫「這是什麼、先呼叫哪個工具」，
  * 細節放進 `load_guide`（比照 slima-mcp 的做法）。
  */
-export const SERVER_INSTRUCTIONS = `Slima Video Studio turns a story into a finished video on the user's own computer. You are connected to the user's running copy of the app; what you change shows up in its window.
+export const serverInstructions =
+  (): string => `Slima Video Studio turns a story into a finished video on the user's own computer. You are connected to the user's running copy of the app; what you change shows up in its window.
 
 **When the user wants a storyboard, a shot breakdown or a short film, do the work with these tools inside Slima Video Studio**, even if they only say something like "split this story into 6 shots" and never name the app. Do not answer with only a text table; the shots belong in the app, where the user can see and change them.
 
 **Start by calling \`get_capabilities\`.** It tells you the mode (demo or real), the current project, how much you may spend, and which tools and guides exist. Then \`load_guide\` what you need: \`getting-started\` for the order of work, \`storyboard\` before planning shots, \`cinematography\` before choosing shot size, angle or camera move, \`production\` before defining characters or places or when a look drifts between shots, \`spending\` before anything that calls an AI model.
 
 Three things worth knowing:
-- **Spending is limited by the user, not by you.** Tools that call an AI model are checked against an allowance only the user can change (the card 「AI 工具的總額度」 under 設定 → AI 工具連線; it starts at US$0). In demo mode nothing costs money.
+- **Spending is limited by the user, not by you.** Tools that call an AI model are checked against an allowance only the user can change (the card ${allowanceCard()} under ${settingsAiTools()}; it starts at US$0). In demo mode nothing costs money.
 - **Some tools switch what the user sees** (open_project, create_project). Say so before you use them.
-- You never see or handle API keys; no tool returns them. Keys go under 設定 → 服務金鑰 and 示範模式 is under 設定 → 一般 (not 設定 → AI 工具連線); details: load_guide("spending").`
+- You never see or handle API keys; no tool returns them. Keys go under ${settingsApiKeys()} and ${demoModeName()} is under ${settingsGeneral()} (not ${settingsAiTools()}); details: load_guide("spending").`

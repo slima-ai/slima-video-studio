@@ -1,4 +1,4 @@
-import { type McpStatus } from '@svs/schema'
+import { t, type McpStatus } from '@svs/schema'
 import { join } from 'node:path'
 
 import type { Logger } from '../logger'
@@ -140,9 +140,7 @@ export function createMcpController(deps: McpControllerDeps): McpController {
         error = undefined
       } catch (e) {
         const inUse = e instanceof Error && 'code' in e && e.code === 'EADDRINUSE'
-        error = inUse
-          ? `埠 ${String(port)} 已經被別的程式用了，請換一個埠。`
-          : '無法啟動 AI 工具連線，請看 App 的 log。'
+        error = inUse ? t('mcp.portInUse', { port: String(port) }) : t('mcp.cantStartConnection')
         log.error(`MCP 伺服器啟動失敗：${e instanceof Error ? e.message : String(e)}`)
       }
     },

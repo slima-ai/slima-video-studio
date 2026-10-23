@@ -6,6 +6,8 @@ import {
 } from '@svs/schema'
 import { z } from 'zod'
 
+import { settingsApiKeys } from '../ui-labels'
+
 import { defineTool, type ToolContext } from './define'
 
 /** 模型、畫風與比例、復原。都不花錢。 */
@@ -13,8 +15,7 @@ export function registerSetupTools(ctx: ToolContext): void {
   defineTool(ctx, {
     name: 'list_models',
     title: 'List the models you can use',
-    description:
-      'The text, image and video models available right now (only those whose service the user has a key for; in demo mode the demo models), with their price, plus which one is selected for each use and which are locked because a key is missing (the user adds keys under 設定 → 服務金鑰). Pass the ids to set_models. You never see or need API keys.',
+    description: `The text, image and video models available right now (only those whose service the user has a key for; in demo mode the demo models), with their price, plus which one is selected for each use and which are locked because a key is missing (the user adds keys under ${settingsApiKeys()}). Pass the ids to set_models. You never see or need API keys.`,
     input: {},
     hints: { readOnly: true },
     run: async () => {

@@ -48,18 +48,19 @@ async function planAndReserve(
   scale = 1,
 ) {
   const plan = await ctx.caller.call('sound.plan', request)
-  if (!plan.ok) throw new McpToolError(plan.issue ?? '現在不能生成聲音。', 'cannot_generate')
+  if (!plan.ok)
+    throw new McpToolError(plan.issue ?? 'Sound cannot be generated right now.', 'cannot_generate')
   const base = pick(plan.items)
   if (base === undefined) {
     throw new McpToolError(
-      '預估裡沒有這一項（旁白要先有台詞：用 update_shot 寫好這一鏡的 dialogue，再不帶 text 呼叫）。',
+      "The estimate has no entry for this (narration needs dialogue first: write the shot's dialogue with update_shot, then call again without text).",
       'no_estimate',
     )
   }
   const estimatedUsd = base * scale
   if (maxCostUsd !== undefined && estimatedUsd > maxCostUsd) {
     throw new McpToolError(
-      `「${what}」預估要花 US$${estimatedUsd.toFixed(2)}，超過你給的上限 US$${maxCostUsd.toFixed(2)}，所以沒有做。`,
+      `“${what}” is estimated to cost US$${estimatedUsd.toFixed(2)}, which is over the limit you gave (US$${maxCostUsd.toFixed(2)}), so it was not done.`,
       'over_max_cost',
     )
   }
@@ -158,13 +159,16 @@ export function registerSoundTools(ctx: ToolContext): void {
       const state = await ctx.caller.call('sound.get', {})
       const shot = state.shots.find((s) => s.shotId === shotId)
       if (!shot)
-        throw new McpToolError('找不到這個鏡頭。請先用 list_shots 看有哪些鏡頭。', 'shot_not_found')
+        throw new McpToolError(
+          'That shot was not found. Call list_shots to see which shots exist.',
+          'shot_not_found',
+        )
       // 預估是照台詞算的；給了更長的 text 就照比例放大，寧可多預留
       const scale =
         text === undefined ? 1 : Math.max(1, text.length / Math.max(shot.dialogue.length, 1))
       const spending = await planAndReserve(
         ctx,
-        '生成旁白',
+        'Generate narration',
         { narration: { shotIds: [shotId] } },
         (items) => items.find((i) => i.kind === 'narration' && i.shotId === shotId)?.estimatedUsd,
         maxCostUsd,
@@ -193,7 +197,7 @@ export function registerSoundTools(ctx: ToolContext): void {
     run: async ({ prompt, durationSec, maxCostUsd }) => {
       const spending = await planAndReserve(
         ctx,
-        '生成配樂',
+        'Generate music',
         { music: durationSec === undefined ? {} : { durationSec } },
         (items) => items.find((i) => i.kind === 'music')?.estimatedUsd,
         maxCostUsd,

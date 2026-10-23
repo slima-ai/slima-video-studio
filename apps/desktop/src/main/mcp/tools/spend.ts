@@ -1,4 +1,5 @@
 import { McpToolError } from '../bridge'
+import { allowanceCard, settingsAiTools } from '../ui-labels'
 import type { ToolContext } from './define'
 
 /**
@@ -26,8 +27,8 @@ export function reserveSpending(
   const result = ctx.allowance.reserve(reservedUsd)
   if (!result.ok) {
     throw new McpToolError(
-      `「${what}」預估要花 ${usd(estimatedUsd)}（預留 ${usd(reservedUsd)}），但 AI 工具的總額度只剩 ${usd(result.remainingUsd)}（總額度 ${usd(result.allowanceUsd)}）。` +
-        '要繼續，請使用者到 App 的「設定 → AI 工具連線」，把「AI 工具的總額度」調高；這個額度只有人能改，你不能改，也不要想辦法繞過。',
+      `“${what}” is estimated to cost ${usd(estimatedUsd)} (${usd(reservedUsd)} reserved), but only ${usd(result.remainingUsd)} is left of the AI tools allowance (total ${usd(result.allowanceUsd)}). ` +
+        `To continue, ask the user to raise ${allowanceCard()} under ${settingsAiTools()} in the app. Only a person can change that allowance: you cannot, and must not try to work around it.`,
       'allowance_exceeded',
     )
   }

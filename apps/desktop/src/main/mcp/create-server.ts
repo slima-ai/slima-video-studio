@@ -3,7 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { SettingsStore } from '../settings/settings-store'
 import type { Allowance } from './allowance'
 import type { McpCaller } from './bridge'
-import { SERVER_INSTRUCTIONS } from './instructions'
+import { serverInstructions } from './instructions'
 import type { Redactor } from './redact'
 import type { AssetViewer } from './viewer'
 import { registerAllTools } from './tools'
@@ -21,7 +21,7 @@ export interface McpServerDeps {
 export function createMcpServer(deps: McpServerDeps): McpServer {
   const server = new McpServer(
     { name: 'slima-video-studio', version: deps.info.version },
-    { instructions: SERVER_INSTRUCTIONS },
+    { instructions: serverInstructions() },
   )
   registerAllTools({ ...deps, server, toolNames: [] })
   return server

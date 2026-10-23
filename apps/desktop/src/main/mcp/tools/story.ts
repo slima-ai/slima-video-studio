@@ -59,9 +59,12 @@ export function registerStoryTools(ctx: ToolContext): void {
     run: async ({ story }) => {
       const check = await ctx.caller.call('outline.splitCheck', { text: story })
       if (!check.ok) {
-        throw new McpToolError(check.issue ?? '現在不能把故事拆成分場。', 'cannot_split')
+        throw new McpToolError(
+          check.issue ?? 'The story cannot be split into scenes right now.',
+          'cannot_split',
+        )
       }
-      const reserved = reserveSpending(ctx, '把故事拆成分場', check.estimatedUsd)
+      const reserved = reserveSpending(ctx, 'Split the story into scenes', check.estimatedUsd)
       const result = await ctx.caller.call('outline.split', { text: story })
       return {
         replacedExistingOutline: check.replacesExisting,
@@ -103,14 +106,17 @@ export function registerStoryTools(ctx: ToolContext): void {
     run: async ({ sceneId, replaceGenerated }) => {
       const check = await ctx.caller.call('storyboard.splitCheck', { sceneId })
       if (!check.ok)
-        throw new McpToolError(check.issue ?? '現在不能替這個場拆鏡頭。', 'cannot_split')
+        throw new McpToolError(
+          check.issue ?? 'This scene cannot be split into shots right now.',
+          'cannot_split',
+        )
       if (check.generatedShots > 0 && !replaceGenerated) {
         throw new McpToolError(
-          `這個場已經有 ${String(check.generatedShots)} 個鏡頭生成過畫面或影片，重拆會把它們換掉（花過的錢不會退）。確定要換的話，把 replaceGenerated 設成 true。`,
+          `This scene already has ${String(check.generatedShots)} shot(s) with generated pictures or videos; splitting again replaces them (money already spent is not refunded). If that is what the user wants, set replaceGenerated to true.`,
           'would_replace_generated',
         )
       }
-      const reserved = reserveSpending(ctx, '替這個場拆鏡頭', check.estimatedUsd)
+      const reserved = reserveSpending(ctx, 'Split this scene into shots', check.estimatedUsd)
       const snapshot = await ctx.caller.call('storyboard.splitScene', { sceneId })
       return {
         shots: snapshot.shots.filter((s) => s.sceneId === sceneId).map(shotView),

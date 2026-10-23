@@ -47,7 +47,8 @@ const IGNORED_FIELDS: ReadonlySet<string> = new Set([
  * 標題裡的編號（「第 3 鏡」「第 2 場」）不算內容：刪掉第 3 鏡之後，原本的第 4 鏡往前變成第 3 鏡，
  * 它的標題跟著變，但內容沒有被改（只是順序變了）。比對時把編號蓋掉；名稱本身（場名、角色名）有改才算改。
  */
-export const withoutNumbers = (title: string): string => title.replace(/第 \d+ (鏡|場)/g, '第 # $1')
+export const withoutNumbers = (title: string): string =>
+  title.replace(/第 \d+ (鏡|場)/g, '第 # $1').replace(/\b(Shot|Scene) \d+\b/g, '$1 #')
 
 /**
  * 這一格是空的嗎（還沒寫內容、沒生成東西）：刪掉空的格子，提示只說「幾個空的」，不用列名字。

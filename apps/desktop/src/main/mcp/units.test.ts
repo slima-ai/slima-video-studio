@@ -161,7 +161,7 @@ describe('遮蔽', () => {
   it('文字裡出現的金鑰與 token 一律換掉；太短的字串不算（避免把一般文字誤傷）', () => {
     const r = createRedactor(() => ['sk-live-AAAAAAAA', undefined, 'abc'])
     expect(r.redact('key=sk-live-AAAAAAAA and again sk-live-AAAAAAAA; abc')).toBe(
-      'key=[已遮蔽] and again [已遮蔽]; abc',
+      'key=[redacted] and again [redacted]; abc',
     )
   })
 })

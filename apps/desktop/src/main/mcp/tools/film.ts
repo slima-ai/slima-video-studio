@@ -26,8 +26,8 @@ async function pickShots(ctx: ToolContext, shotIds?: readonly string[]) {
   if (chosen.length === 0) {
     throw new McpToolError(
       shotIds === undefined
-        ? '專案裡還沒有鏡頭。請先拆分鏡（split_scene_into_shots）。'
-        : '找不到這些鏡頭。請先用 list_shots 看有哪些鏡頭。',
+        ? 'The project has no shots yet. Split a scene into shots first (split_scene_into_shots).'
+        : 'Those shots were not found. Call list_shots to see which shots exist.',
       'no_shots',
     )
   }
@@ -51,8 +51,11 @@ function batchRequest(
 
 /** 白話說明為什麼現在不能開始這一批。 */
 const cannotStart = (check: { issue?: string | undefined; skippedGenerated: number }): string => {
-  const hint = check.skippedGenerated > 0 ? '（要再做一個新版本：redo 設成 true，舊版會保留）' : ''
-  return `${check.issue ?? '現在不能開始生成。'}${hint}`
+  const hint =
+    check.skippedGenerated > 0
+      ? ' (To make a new version anyway, set redo to true; the old version is kept.)'
+      : ''
+  return `${check.issue ?? 'Generation cannot start right now.'}${hint}`
 }
 
 /**
@@ -152,7 +155,7 @@ export function registerFilmTools(ctx: ToolContext): void {
       const shots = await pickShots(ctx, shotIds)
       return startBatch(
         ctx,
-        '生成首幀圖',
+        'Generate first frames',
         'frame',
         shots.map((s) => s.id),
         redo,
@@ -183,7 +186,7 @@ export function registerFilmTools(ctx: ToolContext): void {
       const shots = await pickShots(ctx, shotIds)
       return startBatch(
         ctx,
-        '生成影片',
+        'Generate videos',
         'video',
         shots.map((s) => s.id),
         redo,
@@ -205,7 +208,11 @@ export function registerFilmTools(ctx: ToolContext): void {
     run: ({ shotId, what }) =>
       startBatch(
         ctx,
-        what === 'first_frame' ? '重做首幀圖' : what === 'video' ? '重做影片' : '重做首幀圖與影片',
+        what === 'first_frame'
+          ? 'Redo first frames'
+          : what === 'video'
+            ? 'Redo videos'
+            : 'Redo first frames and videos',
         what === 'first_frame' ? 'frame' : what === 'video' ? 'video' : 'full',
         [shotId],
         true,
@@ -356,17 +363,23 @@ export function registerFilmTools(ctx: ToolContext): void {
         hash = snapshot.finalVideoHash
         label = 'final film'
         if (!hash)
-          throw new McpToolError('還沒有接好的成品影片：請先用 assemble_film。', 'no_final_cut')
+          throw new McpToolError(
+            'There is no assembled film yet: call assemble_film first.',
+            'no_final_cut',
+          )
       } else {
         const shot = snapshot.shots.find((s) => s.id === shotId)
         if (!shot)
           throw new McpToolError(
-            '找不到這個鏡頭。請先用 list_shots 看有哪些鏡頭。',
+            'That shot was not found. Call list_shots to see which shots exist.',
             'shot_not_found',
           )
         const take = takeOf(shot.videos, version)
         if (!take)
-          throw new McpToolError('這個鏡頭還沒有影片：請先用 generate_videos。', 'no_video')
+          throw new McpToolError(
+            'That shot has no video yet: call generate_videos first.',
+            'no_video',
+          )
         hash = take.assetHash
         label = `shot ${String(shot.number)} (video version ${String(take.version)})`
       }
@@ -392,7 +405,7 @@ export function registerFilmTools(ctx: ToolContext): void {
         .filter((s) => s.inCut !== false && !takeOf(s.videos))
         .map((s) => s.number)
       if (ready.length === 0)
-        throw new McpToolError('還沒有任何鏡頭有影片：請先用 generate_videos。', 'no_videos')
+        throw new McpToolError('No shot has a video yet: call generate_videos first.', 'no_videos')
       await ctx.caller.call('shots.rejoin', {})
       return {
         assembled: true,

@@ -348,8 +348,8 @@ describe('聲音的花錢步驟（真實模式、假的 OpenRouter）', () => {
     ] as const) {
       const out = await r.call(tool, args)
       expect(out.isError, tool).toBe(true)
-      expect(textOf(out), tool).toContain('額度只剩 US$0.00')
-      expect(textOf(out), tool).toContain('額度只剩 US$0.00')
+      expect(textOf(out), tool).toContain('only US$0.00 is left')
+      expect(textOf(out), tool).toContain('only US$0.00 is left')
     }
     expect(noJobs(fake)).toHaveLength(before)
     expect(r.controller.allowance.status().committedUsd).toBe(committed)
@@ -365,7 +365,7 @@ describe('聲音的花錢步驟（真實模式、假的 OpenRouter）', () => {
     // 上限比預估低：直接拒絕，沒有預留、沒有請求
     const capped = await r.call('generate_music', { maxCostUsd: 0.01 })
     expect(capped.isError).toBe(true)
-    expect(textOf(capped)).toContain('超過你給的上限')
+    expect(textOf(capped)).toContain('over the limit you gave')
     expect(committed()).toBe(start0)
     expect(noJobs(fake)).toHaveLength(requestsBefore)
     // 正常做：預留 = 預估 × 1.25

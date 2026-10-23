@@ -26,6 +26,7 @@ import { labels } from './labels'
 import { errors } from './errors'
 import { mock } from './mock'
 import { nodes } from './nodes'
+import { mcp } from './mcp'
 // <i18n:imports>
 
 export const en = {
@@ -56,5 +57,6 @@ export const en = {
   ...errors,
   ...mock,
   ...nodes,
+  ...mcp,
   // <i18n:spread>
 } as const

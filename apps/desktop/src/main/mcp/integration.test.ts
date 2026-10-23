@@ -475,6 +475,44 @@ describe('工具', () => {
     expect(tools.find((t) => t.name === 'list_models')?.description).toContain('設定 → 服務金鑰')
   })
 
+  it('英文介面：設定頁的位置用英文名字（Settings → API keys…），說明裡沒有中文；切回繁中又是中文', async () => {
+    const { setLocale, DEFAULT_LOCALE } = await import('@svs/schema')
+    try {
+      // 說明在連線（initialize）的時候就定下來，所以先換語言再連
+      setLocale('en')
+      const client = await connect(env)
+      const instructions = client.getInstructions() ?? ''
+      expect(instructions).toContain('Settings → API keys')
+      expect(instructions).toContain(
+        'Demo mode is under Settings → General (not Settings → AI tools)',
+      )
+      expect(instructions).toContain('“Total allowance for AI tools” under Settings → AI tools')
+      const guide = dataOf(
+        GuideSchema,
+        await client.callTool({ name: 'load_guide', arguments: { topic: 'spending' } }),
+      ).text
+      expect(guide).toContain('Settings → API keys and press Save')
+      expect(guide).toContain('Reset used amount')
+      const caps = JSON.stringify(
+        dataOf(
+          CapabilitiesSchema,
+          await client.callTool({ name: 'get_capabilities', arguments: {} }),
+        ),
+      )
+      expect(caps).toContain('Settings → API keys')
+      const { tools } = await client.listTools()
+      const listModels = tools.find((t) => t.name === 'list_models')?.description ?? ''
+      expect(listModels).toContain('Settings → API keys')
+      for (const text of [instructions, guide, caps, listModels]) {
+        expect(text).not.toMatch(/[㐀-鿿]/)
+      }
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
+    const zh = await connect(env)
+    expect(zh.getInstructions() ?? '').toContain('設定 → 服務金鑰')
+  })
+
   it('delete_shots 的說明講實話：復原連圖、影片版本、聲音一起回來，不再說「可能回不來」', async () => {
     const client = await connect(env)
     const { tools } = await client.listTools()
@@ -598,7 +636,7 @@ describe('工具', () => {
     }
     const missing = await call('open_project', { ref: '不存在.svsproj' })
     expect(missing.isError).toBe(true)
-    expect(textOf(missing)).toContain('找不到代號')
+    expect(textOf(missing)).toContain('No project has the reference')
   })
 })
 
