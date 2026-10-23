@@ -16,9 +16,22 @@ const usd = (value: number): string => `US$${value.toFixed(2)}`
 export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
   const { status } = mcp
   const [typed, setTyped] = useState<string | undefined>()
-  const text = typed ?? String(status?.allowanceUsd ?? 0)
+  const [failed, setFailed] = useState(false)
+  const stored = status?.allowanceUsd ?? 0
+  const text = typed ?? String(stored)
   const number = Number(text)
   const valid = text.trim() !== '' && Number.isFinite(number) && number >= 0
+  // 打了但跟已存的不一樣：旁邊提醒「還沒儲存」（切走就會丟掉）
+  const unsaved = typed !== undefined && !(valid && number === stored)
+  /** 成功才清掉輸入；失敗時打的數字留著，錯誤顯示在輸入框旁邊。 */
+  const save = (): void => {
+    if (!valid) return
+    setFailed(false)
+    void mcp.update({ allowanceUsd: number }).then((ok) => {
+      if (ok) setTyped(undefined)
+      else setFailed(true)
+    })
+  }
   return (
     <SettingCard
       testId="mcp-allowance-card"
@@ -30,10 +43,7 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            if (valid)
-              void mcp.update({ allowanceUsd: number }).then(() => {
-                setTyped(undefined)
-              })
+            save()
           }}
         >
           <div className="flex gap-2">
@@ -44,13 +54,33 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
               value={text}
               onChange={(event) => {
                 setTyped(event.target.value)
+                setFailed(false)
+              }}
+              onKeyDown={(event) => {
+                // Enter 就是「儲存」（不跳確認框）
+                if (event.key !== 'Enter') return
+                event.preventDefault()
+                save()
               }}
               className="h-9 w-32 rounded-md border border-border bg-surface px-3 text-sm"
             />
             <Button type="submit" variant="secondary" disabled={!valid}>
               {t('settings.save')}
             </Button>
+            {unsaved && valid ? (
+              <span
+                data-testid="mcp-allowance-unsaved"
+                className="self-center text-sm text-warning"
+              >
+                {t('settings.notSavedYet')}
+              </span>
+            ) : null}
           </div>
+          {failed && mcp.error ? (
+            <p role="alert" data-testid="mcp-allowance-error" className="mt-1 text-sm text-danger">
+              {mcp.error}
+            </p>
+          ) : null}
           {valid ? null : (
             <p className="mt-1 text-sm text-danger">{t('settings.enter0OrALarger')}</p>
           )}
