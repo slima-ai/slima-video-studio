@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-import { canvasNodes, centerOn } from './canvas-helpers'
+import { canvasNodes, centerOn, kindCount } from './canvas-helpers'
 import { expect, test } from './fixtures'
 import { pick } from './pick'
 
@@ -33,7 +33,9 @@ async function selectTextTooWide(
       const out: string[] = []
       const canvas = document.createElement('canvas').getContext('2d')
       if (!canvas) return ['沒有 canvas']
-      for (const el of document.querySelectorAll<HTMLSelectElement>(`[data-testid="${testId}"]`)) {
+      const selects = document.querySelectorAll<HTMLSelectElement>(`[data-testid="${testId}"]`)
+      if (selects.length === 0) return [`${testId}: 畫面上沒有這個選單（還沒載入？）`]
+      for (const el of selects) {
         const style = getComputedStyle(el)
         canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
         // 左右 padding 與右邊的下拉箭頭（約 20px）
@@ -126,6 +128,7 @@ test.describe('英文介面的各頁', () => {
     // 分鏡表：景別、角度、運鏡的名稱每一個都要放得下欄寬（英文比中文長）
     await page.getByRole('button', { name: 'Storyboard', exact: true }).click()
     await page.waitForTimeout(400)
+    await expect(page.getByTestId('cell-size').first()).toBeVisible()
     for (const testId of ['cell-size', 'cell-angle', 'cell-camera']) {
       expect(await selectTextTooWide(page, testId, true), `分鏡表 ${testId}`).toEqual([])
     }
@@ -134,6 +137,7 @@ test.describe('英文介面的各頁', () => {
     await page.waitForTimeout(400)
     expect(await badText(page), '故事板').toBeUndefined()
     // 分鏡卡的景別、角度（現在選的那個）放得下，不是「Eye l…」
+    await expect(page.getByTestId('cell-board-size').first()).toBeVisible()
     for (const testId of ['cell-board-size', 'cell-board-angle']) {
       expect(await selectTextTooWide(page, testId, false), `分鏡卡 ${testId}`).toEqual([])
     }
@@ -143,6 +147,10 @@ test.describe('英文介面的各頁', () => {
     expect(await badText(page), '佇列面板').toBeUndefined()
     // 鏡頭面板（畫布上選一個鏡頭、按 Enter 開）
     await page.getByRole('button', { name: 'Canvas', exact: true }).click()
+    // 畫布節點是切回畫布之後才載入的：等到有鏡頭節點再找（CI 的機器慢，立刻找會是空的）
+    await expect
+      .poll(async () => await kindCount(page, 'shot'), { timeout: 15_000 })
+      .toBeGreaterThan(0)
     const shot = (await canvasNodes(page)).find((n) => n.data.kind === 'shot')
     if (!shot) throw new Error('沒有鏡頭')
     await centerOn(page, shot.id)
