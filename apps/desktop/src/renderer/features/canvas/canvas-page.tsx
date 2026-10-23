@@ -58,6 +58,7 @@ import './canvas.css'
 import { DRAG_MIME, NodePalette, TopBar, ZoomControls } from './chrome'
 import { choicesFor, type AddChoice } from './connection-rules'
 import { nodeEntries, paneEntries, type ContextEntry } from './context-menu'
+import { ownsKeyboard } from './owns-keyboard'
 import { DELETE_TOAST_MS, FIXED_EDGE_REASON, planDelete, type DeletePlan } from './delete-plan'
 import { DetailPanel, keyOfTarget, panelTargetOf, type PanelTarget } from './detail-panel'
 import { READABLE_ZOOM, growView, openViewport, useFitAll, useFitAllAsync } from './fit-all'
@@ -1777,13 +1778,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.defaultPrevented) return
-      const el = event.target
-      if (
-        el instanceof HTMLElement &&
-        (el.matches('input, textarea, select, button, video, [role="menuitem"]') ||
-          el.isContentEditable)
-      )
-        return
+      if (ownsKeyboard(event.target)) return
       // 刪除選取的節點
       if (
         (event.key === 'Delete' || event.key === 'Backspace') &&
