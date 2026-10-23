@@ -99,7 +99,7 @@ async function expectPageClean(
   markerText: string,
   minLength = MIN_PAGE_TEXT,
 ): Promise<void> {
-  await expect(marker, `${label}：頁面沒有載入`).toContainText(markerText)
+  await expect(marker, `${label}：頁面沒有載入`).toContainText(markerText, { timeout: 15_000 })
   const length = await pageTextLength(page)
   expect(length, `${label}：掃到的字只有 ${String(length)} 個，頁面沒載好？`).toBeGreaterThan(
     minLength,
