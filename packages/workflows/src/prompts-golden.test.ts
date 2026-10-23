@@ -5,6 +5,7 @@ import {
   CHARACTER_REFERENCE_PURPOSE_LABELS,
   DEFAULT_CHARACTER_PROMPTS,
   DEFAULT_STORYBOARD_GUIDE,
+  DEFAULT_STORYBOARD_GUIDE_EN,
   LOCATION_REFERENCE_PURPOSE_LABELS,
   QUICK_STYLE_LABELS,
   SHOT_ANGLE_LABELS,
@@ -77,6 +78,7 @@ const GOLDEN: Record<string, string> = {
   '場景參考圖用途（進 Prompt）': 'ecc24b002f35c030d6c92d0141282117fa72892a01badf47a6ac6e4ae46715b3',
   '角色圖範本（4 種）': '5f9b4ec3610dd41632adf093a5d64b139dd1a624a4e248a3d6f1bbf140d8105e',
   '預設分鏡準則（中文）': '4d36d37ce47c183cf6a19911682d1a4810482e9a1171047f504930d45fb2365e',
+  '預設分鏡準則（英文）': '62d44d5e348ab11fbc5a46c99f9b036d7e24e926660cbd0bf499e4d1b6ddd820',
 }
 
 const shot = (patch: Record<string, unknown> = {}) =>
@@ -151,6 +153,7 @@ const OUTPUTS: Record<string, () => unknown> = {
   '場景參考圖用途（進 Prompt）': () => LOCATION_REFERENCE_PURPOSE_LABELS,
   '角色圖範本（4 種）': () => DEFAULT_CHARACTER_PROMPTS,
   '預設分鏡準則（中文）': () => DEFAULT_STORYBOARD_GUIDE,
+  '預設分鏡準則（英文）': () => DEFAULT_STORYBOARD_GUIDE_EN,
 }
 
 describe('送給模型的 Prompt 與中文片段：輸出用雜湊釘住', () => {
