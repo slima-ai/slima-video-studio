@@ -501,6 +501,7 @@ describe('工具', () => {
       'cinematography',
       'spending',
       'sound',
+      'production',
     ])
   })
 
@@ -527,6 +528,36 @@ describe('工具', () => {
     expect(await read()).toContain('每個場一定要有一個遠景。')
     const bad = await client.callTool({ name: 'load_guide', arguments: { topic: 'nope' } })
     expect(bad.isError).toBe(true)
+  })
+
+  it('load_guide：production 用的是使用者設定的內容（改過就是改過的），提到的工具名稱每個都真的存在', async () => {
+    const client = await connect(env)
+    const read = async () =>
+      dataOf(
+        GuideSchema,
+        await client.callTool({ name: 'load_guide', arguments: { topic: 'production' } }),
+      ).text
+    const text = await read()
+    expect(text).toContain('Production and consistency')
+    const toolNames = new Set((await client.listTools()).tools.map((t) => t.name))
+    const mentioned = [...new Set(text.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? [])]
+    expect(mentioned.length).toBeGreaterThan(3)
+    expect(mentioned.filter((name) => !toolNames.has(name))).toEqual([])
+    // 指南教的新做法：兩個鏡頭參考圖工具，以及「描述／動作／運鏡」三個欄位，欄位名都要真的在 update_shot 裡
+    expect(mentioned).toEqual(
+      expect.arrayContaining(['get_shot_references', 'set_shot_references']),
+    )
+    const updateShot = (await client.listTools()).tools.find((tool) => tool.name === 'update_shot')
+    const fields = Object.keys(updateShot?.inputSchema.properties ?? {})
+    for (const field of ['description', 'action', 'cameraMove']) {
+      expect(text).toContain(field)
+      expect(fields).toContain(field)
+    }
+    env.settings.update({ productionGuide: '臉先鎖定，再拍鏡頭。' })
+    expect(await read()).toContain('臉先鎖定，再拍鏡頭。')
+    expect(await read()).not.toContain('Production and consistency')
+    env.settings.update({ productionGuide: '' })
+    expect(await read()).toContain('Production and consistency')
   })
 
   it('create_project → get_current_project → list_projects → open_project；AI 看不到電腦上的路徑', async () => {

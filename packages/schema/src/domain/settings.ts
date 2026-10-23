@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { UsdSchema } from './common'
 import { CHARACTER_PROMPT_KINDS, CHARACTER_PROMPT_MAX_CHARS } from './character-prompts'
 import { CapabilitySchema, ModelTierSchema, VoiceSchema } from './models'
+import { PRODUCTION_GUIDE_MAX_CHARS } from './production-guide'
 import { STORYBOARD_GUIDE_MAX_CHARS } from './storyboard-guide'
 
 /** 設定頁可以挑模型的用途（用白話分成：文字、圖片、影片、旁白、配樂）。 */
@@ -85,6 +86,8 @@ export const AppSettingsSchema = z.object({
   characterPrompts: z
     .partialRecord(z.enum(CHARACTER_PROMPT_KINDS), z.string().max(CHARACTER_PROMPT_MAX_CHARS))
     .default({}),
+  /** 自訂的製片與一致性指南（AI 助理用 load_guide 讀）；空字串表示用內建預設（DEFAULT_PRODUCTION_GUIDE）。 */
+  productionGuide: z.string().max(PRODUCTION_GUIDE_MAX_CHARS).default(''),
   mcp: McpSettingsSchema.default({ enabled: false, port: DEFAULT_MCP_PORT, allowanceUsd: 0 }),
   audio: AudioSettingsSchema.default({ voices: {} }),
   experiments: ExperimentsSettingsSchema.default({}),
@@ -106,6 +109,8 @@ export const AppSettingsPatchSchema = z.object({
   characterPrompts: z
     .partialRecord(z.enum(CHARACTER_PROMPT_KINDS), z.string().max(CHARACTER_PROMPT_MAX_CHARS))
     .optional(),
+  /** 自訂的製片與一致性指南；傳空字串表示恢復預設。 */
+  productionGuide: z.string().max(PRODUCTION_GUIDE_MAX_CHARS).optional(),
   /** 旁白的聲音：逐模型合併，值為 null 表示改回該模型的預設聲音。 */
   audio: z
     .object({ voices: z.record(z.string(), z.string().min(1).nullable()).optional() })
