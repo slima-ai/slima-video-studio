@@ -197,6 +197,47 @@ describe('已鎖定角色 → 自動挑參考圖', () => {
   })
 })
 
+describe('尾幀：用首幀改圖時帶出場角色的主圖', () => {
+  it('參考圖依序是首幀、出場且已鎖定角色的主圖（check 與實際送出的一樣）；沒出場的鏡頭只有首幀；角色只是草稿不帶', async () => {
+    const h = setup()
+    const { hero } = await lockedWithImages(h)
+    await h.runQuickStart()
+    const [withHero, without] = h.shots.list().shots
+    const [third] = h.shots.list().shots.slice(2)
+    if (!withHero || !without || !third) throw new Error('鏡頭不夠')
+    const edits = () =>
+      (h.projects.current()?.repos.jobs.list() ?? [])
+        .map(
+          (job) =>
+            job.input as { capability?: string; prompt?: string; referenceAssets?: string[] },
+        )
+        .filter(
+          (input) =>
+            input.capability === 'edit' && input.prompt?.includes('Image 1 is the current picture'),
+        )
+
+    h.shots.update(withHero.id, { endDescription: 'the hero walks off to the right' })
+    h.shots.update(third.id, { endDescription: 'the rain has stopped' })
+    expect(h.shots.endFrameCheck(withHero.id).references).toEqual(['first frame', DEMO_NAME])
+    expect(h.shots.endFrameCheck(third.id).references).toEqual(['first frame'])
+
+    await h.shots.generateEndFrame(withHero.id)
+    await h.idle(withHero.id)
+    await h.shots.generateEndFrame(third.id)
+    await h.idle(third.id)
+    const [one, two] = edits()
+    expect(one?.referenceAssets).toEqual([withHero.firstFrames[0]?.assetHash, hero])
+    expect(one?.prompt).toContain(`Image 2 is the design sheet of "${DEMO_NAME}"`)
+    expect(two?.referenceAssets).toEqual([third.firstFrames[0]?.assetHash])
+
+    // 改了長相 → 退回草稿 → 只帶首幀
+    const [character] = h.characters.list()
+    if (!character) throw new Error('沒有角色')
+    h.characters.update(character.id, { appearance: '平頭' })
+    expect(h.shots.endFrameCheck(withHero.id).references).toEqual(['first frame'])
+  })
+})
+
 describe('CharacterService：固定外觀描述', () => {
   it('畫面用的資料有描述、狀態與版本；改長相後退回草稿', () => {
     const h = setup()

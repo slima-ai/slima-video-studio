@@ -1,0 +1,1 @@
+ALTER TABLE `shots` ADD `end_description` text DEFAULT '' NOT NULL;

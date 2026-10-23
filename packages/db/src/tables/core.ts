@@ -72,6 +72,8 @@ export const shots = sqliteTable(
     description: text('description').notNull().default(''),
     // 這幾秒裡發生什麼動作（給影片模型）；空字串 = 沒有，影片 Prompt 照舊用畫面描述
     action: text('action').notNull().default(''),
+    // 尾幀長什麼樣子（給「用首幀改圖生尾幀」）；空字串 = 沒有寫
+    endDescription: text('end_description').notNull().default(''),
     prompt: text('prompt'),
     dialogue: text('dialogue').notNull().default(''),
     characters: text('characters', { mode: 'json' }).$type<CharacterAppearance[]>().notNull(),

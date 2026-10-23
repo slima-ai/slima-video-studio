@@ -129,6 +129,7 @@ describe('開啟專案時升級', () => {
     expect(upgraded.repos.shots.list().map((s) => s.description)).toEqual(['舊資料'])
     // 舊鏡頭沒有動作欄：升級後是空字串（影片 Prompt 照舊）
     expect(upgraded.repos.shots.list().map((s) => s.action)).toEqual([''])
+    expect(upgraded.repos.shots.list().map((s) => s.endDescription)).toEqual([''])
 
     // 備份檔還是舊版 schema，且保有舊資料
     const backup = new BetterSqlite3(upgraded.migration.backupPath ?? '', { readonly: true })

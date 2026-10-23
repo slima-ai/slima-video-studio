@@ -79,6 +79,10 @@ const TRANSLATED_LABELS: Record<string, { done: MessageRef; doing: MessageRef }>
     done: msg('endFrame.tool.set.done'),
     doing: msg('endFrame.tool.set.doing'),
   },
+  generate_end_frame: {
+    done: msg('endFrame.tool.generate.done'),
+    doing: msg('endFrame.tool.generate.doing'),
+  },
   clear_shot_end_frame: {
     done: msg('endFrame.tool.clear.done'),
     doing: msg('endFrame.tool.clear.doing'),

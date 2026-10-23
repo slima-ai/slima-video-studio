@@ -14,7 +14,9 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   breakdownNode,
   avoidOf,
+  composeEndFramePrompt,
   composeShotPrompts,
+  endFramePromptNode,
   negativeLimitsOf,
   frameFillSuffix,
   withoutFrameFillSuffix,
@@ -34,6 +36,7 @@ import {
   quickStartItemCounts,
   QUICK_START_IDS,
 } from './quickstart'
+import { buildEndFrameWorkflow } from './end-frame'
 import { STUDIO_SERVICE_KEY, type GenerateResult, type StudioServices } from './services'
 import { extractJson, generateStructured } from './structured'
 import { QUICK_STYLES, QUICK_STYLE_IDS } from './styles'
@@ -633,6 +636,73 @@ describe('節點：組 Prompt', () => {
 })
 
 describe('節點：首幀圖、圖生影片、接片', () => {
+  describe('尾幀：用首幀改圖', () => {
+    const second: AssetRef = { ...image, hash: HASH('c') }
+    const third: AssetRef = { ...image, hash: HASH('d') }
+
+    it('Prompt：同一個畫面、同一個鏡位，只改尾幀描述；角色只出現一次、原位是空的；每張角色圖說明用途', () => {
+      const prompt = composeEndFramePrompt({
+        description: 'the small yellow dome sits far away on the cliff.',
+        firstFrame: image,
+        characters: [
+          { name: 'Bun', ref: second },
+          { name: 'Orc', ref: third },
+        ],
+      })
+      expect(prompt).toContain('Image 1 is the current picture of this shot')
+      expect(prompt).toContain('exactly the same camera position and framing')
+      expect(prompt).toContain(
+        'Change only this: the small yellow dome sits far away on the cliff. ',
+      )
+      expect(prompt).toContain('appears exactly once')
+      expect(prompt).toContain('the place where a character used to be is now empty')
+      expect(prompt).toContain('Image 2 is the design sheet of "Bun"')
+      expect(prompt).toContain('Image 3 is the design sheet of "Orc"')
+      // 沒有角色圖就沒有「Image 2」那句
+      expect(
+        composeEndFramePrompt({ description: 'x', firstFrame: image, characters: [] }),
+      ).not.toContain('Image 2')
+      expect(() => composeEndFramePrompt({ description: '  ', firstFrame: image })).toThrow()
+    })
+
+    it('節點：參考圖依序是首幀、角色主圖；Prompt 與 composeEndFramePrompt 一樣', async () => {
+      const subject = {
+        description: 'now on the far side',
+        firstFrame: image,
+        characters: [{ name: 'Bun', ref: second }],
+      }
+      const { out } = await runNode(endFramePromptNode, { inputs: { subject } })
+      expect(out.references).toEqual([image, second])
+      expect(out.prompt).toBe(composeEndFramePrompt(subject))
+    })
+
+    it('工作流：輸入 → 組 Prompt → 圖片編輯（用指定的編輯模型與比例、變化編號）→ 輸出', () => {
+      const flow = buildEndFrameWorkflow({
+        model: 'openrouter/gpt-image-2-high',
+        aspectRatio: '16:9',
+        variation: 2,
+      })
+      expect(flow.nodes.map((n) => [n.id, n.type])).toEqual([
+        ['in', '$input'],
+        ['prompt', 'shot.endFramePrompt'],
+        ['image', 'image.edit'],
+        ['out', '$output'],
+      ])
+      expect(flow.nodes.find((n) => n.id === 'image')).toMatchObject({
+        modelId: 'openrouter/gpt-image-2-high',
+        params: { aspectRatio: '16:9', variation: 2 },
+      })
+      expect(
+        flow.edges.map((e) => `${e.from.nodeId}.${e.from.port}>${e.to.nodeId}.${e.to.port}`),
+      ).toEqual([
+        'in.item>prompt.subject',
+        'prompt.prompt>image.prompt',
+        'prompt.references>image.references',
+        'image.image>out.value',
+      ])
+    })
+  })
+
   it('首幀圖：送出文生圖請求，回傳圖片並入帳', async () => {
     const { studio, requests } = fakeStudio([assets(image, 0.08)])
     const { out, costs } = await runNode(imageNode, {

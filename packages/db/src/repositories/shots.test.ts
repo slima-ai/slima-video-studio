@@ -32,6 +32,14 @@ describe('ShotsRepository', () => {
     expect(repos.shots.get(shot.id)?.action).toBe('')
   })
 
+  it('尾幀描述：沒填是空字串，寫了能往返，update 可以清掉', () => {
+    const { repos } = newProject()
+    expect(repos.shots.create({ description: 'A' }).endDescription).toBe('')
+    const shot = repos.shots.create({ description: 'B', endDescription: 'now on the far side' })
+    expect(repos.shots.get(shot.id)?.endDescription).toBe('now on the far side')
+    expect(repos.shots.update(shot.id, { endDescription: '' }).endDescription).toBe('')
+  })
+
   it('版本的輸入指紋可以事後補記或更新', () => {
     const { repos } = newProject()
     const shot = repos.shots.create({ description: 'A' })

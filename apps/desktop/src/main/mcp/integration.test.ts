@@ -383,6 +383,7 @@ describe('工具', () => {
       'estimate_cost',
       'export_film',
       'generate_character_images',
+      'generate_end_frame',
       'generate_first_frames',
       'generate_music',
       'generate_narration',
