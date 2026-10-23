@@ -15,6 +15,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 
 import { Button } from './button'
 import { PANEL_WIDTHS, PanelHostContext, type PanelHost, type PanelWidth } from './side-panel'
+import { msg, t, type MessageRef } from '@svs/schema'
 
 export type AppView =
   | 'home'
@@ -30,7 +31,7 @@ export type AppView =
   | 'settings'
 
 interface NavItem {
-  label: string
+  label: MessageRef
   /** 圖示下面的小字（太長放不下時用短的；沒給就是 label）。 */
   short?: string
   icon: LucideIcon
@@ -40,15 +41,21 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: '畫布', icon: LayoutDashboard, view: 'canvas', always: true },
-  { label: '大綱', icon: ListTree, view: 'outline', always: true },
-  { label: '分鏡表', icon: LayoutList, view: 'storyboard', always: true },
-  { label: '角色', icon: Users, view: 'characters', always: true },
-  { label: '場景卡', icon: MapPin, view: 'locations', always: true },
-  { label: '生成紀錄', icon: History, view: 'records', always: true },
-  { label: '檔案', icon: FolderOpen, view: 'files', always: true },
-  { label: '從 Slima 匯入', short: 'Slima', icon: Download, view: 'slima', always: false },
-  { label: '專案', icon: Clapperboard, view: 'projects', always: true },
+  { label: msg('shell.canvas'), icon: LayoutDashboard, view: 'canvas', always: true },
+  { label: msg('shell.outline'), icon: ListTree, view: 'outline', always: true },
+  { label: msg('shell.storyboard'), icon: LayoutList, view: 'storyboard', always: true },
+  { label: msg('shell.characters'), icon: Users, view: 'characters', always: true },
+  { label: msg('shell.locations'), icon: MapPin, view: 'locations', always: true },
+  { label: msg('shell.records'), icon: History, view: 'records', always: true },
+  { label: msg('shell.files'), icon: FolderOpen, view: 'files', always: true },
+  {
+    label: msg('shell.importFromSlima'),
+    short: 'Slima',
+    icon: Download,
+    view: 'slima',
+    always: false,
+  },
+  { label: msg('shell.projects'), icon: Clapperboard, view: 'projects', always: true },
 ]
 
 /**
@@ -148,15 +155,15 @@ export function AppLayout({
         {header}
         <div className="relative flex min-h-0 flex-1 overflow-clip">
           <nav
-            aria-label="主導覽"
+            aria-label={t('shell.mainNavigation')}
             data-testid="layout-nav"
             className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-border bg-surface-raised py-2"
           >
             {NAV_ITEMS.filter((item) => item.always || showSlima).map(
               ({ label, short, icon, view: target }) => (
                 <NavButton
-                  key={label}
-                  label={label}
+                  key={label.msgKey}
+                  label={t(label)}
                   short={short}
                   icon={icon}
                   active={target !== undefined && target === view}
@@ -166,7 +173,7 @@ export function AppLayout({
             )}
             <div className="flex-1" />
             <NavButton
-              label="設定"
+              label={t('shell.settings')}
               icon={Settings}
               active={view === 'settings'}
               onClick={() => onNavigate?.('settings')}
@@ -191,7 +198,7 @@ export function AppLayout({
 
             <aside
               ref={setPanelElement}
-              aria-label="詳細面板"
+              aria-label={t('shell.detailsPanel')}
               inert={!panelOpen}
               data-testid="layout-panel"
               data-open={panelOpen}
@@ -210,11 +217,15 @@ export function AppLayout({
 
         {showQueue ? (
           <footer
-            aria-label="生成佇列"
+            aria-label={t('shell.generationQueue')}
             data-testid="layout-queue"
             className="shrink-0 border-t border-border bg-surface-raised px-4"
           >
-            {queue ?? <h2 className="py-2 text-sm font-medium text-fg-muted">生成佇列</h2>}
+            {queue ?? (
+              <h2 className="py-2 text-sm font-medium text-fg-muted">
+                {t('shell.generationQueue')}
+              </h2>
+            )}
           </footer>
         ) : null}
       </div>

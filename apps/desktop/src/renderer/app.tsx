@@ -25,6 +25,7 @@ import { useSlimaStatus } from './features/slima/use-slima-status'
 import { HistoryProvider } from './lib/history'
 import { call } from './lib/svs'
 import { applyTheme } from './lib/theme'
+import { t } from '@svs/schema'
 
 export function App() {
   const { state, reload } = useAppData()
@@ -58,8 +59,8 @@ export function App() {
   if (state.status === 'loading' || view === undefined) {
     return (
       <p className="flex items-center gap-2 p-6 text-fg-muted">
-        <Spinner label="載入中" />
-        載入中…
+        <Spinner label={t('shell.loading')} />
+        {t('shell.loading2')}
       </p>
     )
   }

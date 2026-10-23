@@ -2,11 +2,15 @@
 import { menu } from './menu'
 import { help } from './help'
 import { onboarding } from './onboarding'
+import { projects } from './projects'
+import { shell } from './shell'
 // <i18n:imports>
 
 export const zhTW = {
   ...menu,
   ...help,
   ...onboarding,
+  ...projects,
+  ...shell,
   // <i18n:spread>
 } as const

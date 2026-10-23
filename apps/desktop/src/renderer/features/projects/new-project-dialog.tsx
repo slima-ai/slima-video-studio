@@ -1,11 +1,12 @@
-import type { ProjectInfo } from '@svs/schema'
+import { t, type ProjectInfo } from '@svs/schema'
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '../../components/button'
 import { Modal } from '../../components/modal'
 import { call, errorText } from '../../lib/svs'
 
-export const DEFAULT_PROJECT_NAME = '我的短片'
+/** 新專案預設的名字（依目前的語言；不是常數：切換語言之後要跟著變）。 */
+export const defaultProjectName = (): string => t('projects.myShortFilm')
 
 /**
  * 新專案：只問一件事——名字。存在哪裡用一行小字說清楚，要換再按「更改…」。
@@ -15,7 +16,7 @@ export function NewProjectDialog({
   onClose,
   onCreated,
   mode = 'new',
-  initialName = DEFAULT_PROJECT_NAME,
+  initialName = defaultProjectName(),
 }: {
   onClose: () => void
   onCreated: (project: ProjectInfo) => void
@@ -78,7 +79,7 @@ export function NewProjectDialog({
 
   return (
     <Modal
-      label={saveAs ? '另存為' : '新專案'}
+      label={saveAs ? t('projects.saveAs') : t('projects.newProject')}
       onClose={onClose}
       dismissible={!busy}
       testId={saveAs ? 'save-as-dialog' : 'new-project-dialog'}
@@ -90,15 +91,15 @@ export function NewProjectDialog({
           create()
         }}
       >
-        <h2 className="text-base font-semibold">{saveAs ? '另存為' : '新專案'}</h2>
+        <h2 className="text-base font-semibold">
+          {saveAs ? t('projects.saveAs') : t('projects.newProject')}
+        </h2>
         {saveAs ? (
-          <p className="text-sm text-fg-muted">
-            把現在的專案（連同圖片、影片）複製成另一份，之後做的會存在新的這一份；原本的那份留在原處。
-          </p>
+          <p className="text-sm text-fg-muted">{t('projects.copyThisProjectWithIts')}</p>
         ) : null}
         <div className="space-y-1">
           <label className="block text-sm font-medium" htmlFor="new-project-name">
-            {saveAs ? '新的這一份的名字' : '專案名字'}
+            {saveAs ? t('projects.nameOfTheNewCopy') : t('projects.projectName')}
           </label>
           <input
             id="new-project-name"
@@ -114,7 +115,7 @@ export function NewProjectDialog({
         </div>
         <p className="flex items-center gap-2 text-xs text-fg-muted">
           <span className="min-w-0 flex-1 truncate" title={folder} data-testid="new-project-folder">
-            存在：{folder ?? '…'}
+            {t('projects.savedInFolder', { folder: folder ?? '…' })}
           </span>
           <button
             type="button"
@@ -123,7 +124,7 @@ export function NewProjectDialog({
             className="shrink-0 rounded-md px-2 py-1 text-accent hover:bg-surface-overlay disabled:opacity-50"
             onClick={change}
           >
-            更改…
+            {t('projects.change')}
           </button>
         </p>
         {error ? (
@@ -133,7 +134,7 @@ export function NewProjectDialog({
         ) : null}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>
-            取消
+            {t('projects.cancel')}
           </Button>
           <Button
             type="submit"
@@ -141,7 +142,7 @@ export function NewProjectDialog({
             data-testid="new-project-create"
             disabled={busy || trimmed === ''}
           >
-            {saveAs ? '另存' : '建立'}
+            {saveAs ? t('projects.save') : t('projects.create')}
           </Button>
         </div>
       </form>

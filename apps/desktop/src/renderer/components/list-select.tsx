@@ -2,6 +2,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
 import { cn } from '../lib/cn'
+import { t } from '@svs/schema'
 
 export interface ListOption {
   value: string
@@ -78,7 +79,7 @@ export function ListSelect({
   value,
   options,
   onChange,
-  placeholder = '請選擇',
+  placeholder = t('shell.choose'),
   id,
   testId,
   label,

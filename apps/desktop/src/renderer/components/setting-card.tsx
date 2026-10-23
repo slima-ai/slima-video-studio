@@ -4,6 +4,7 @@ import { useId, useState, type ReactNode } from 'react'
 
 import { cn } from '../lib/cn'
 import { StatusLight, type StatusLightProps } from './status-light'
+import { t } from '@svs/schema'
 
 export interface SettingCardProps {
   /** 圖示（lucide 元件）：畫在卡左上的圓形底上。 */
@@ -92,7 +93,7 @@ export function SettingCard({
               className={cn('size-3.5 transition-transform', open && 'rotate-180')}
               aria-hidden
             />
-            {open ? '收起' : '更多'}
+            {open ? t('shell.showLess') : t('shell.more')}
           </button>
           <div id={detailsId} hidden={!open} className="mt-3 border-t border-border pt-3">
             {open ? details : null}

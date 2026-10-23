@@ -1,4 +1,4 @@
-import { AI_TURN_UNDO_LABEL, type HistoryState } from '@svs/schema'
+import { AI_TURN_UNDO_LABEL, type HistoryState, t } from '@svs/schema'
 import {
   createContext,
   useCallback,
@@ -83,34 +83,34 @@ export function HistoryProvider({ enabled, children }: HistoryProviderProps) {
         .then((result) => {
           if (!result.applied) {
             if (result.blocked === 'ai_running') {
-              toast.show({ message: 'Claude 正在改這個專案，等它做完或按停止，再復原。' })
+              toast.show({ message: t('shell.claudeIsEditingThisProject') })
               return
             }
             toast.show({
-              message: direction === 'undo' ? '沒有可以復原的動作' : '沒有可以重做的動作',
+              message: direction === 'undo' ? t('shell.nothingToUndo') : t('shell.nothingToRedo'),
             })
             return
           }
           const other = direction === 'undo' ? 'redo' : 'undo'
           // 這一步的內容後來又被改過，沒動：按了不能毫無回應，說清楚為什麼、再按一次會怎樣
           if (result.skipped === 'all') {
-            const skippedText = '這一步的內容後來又被改過，先略過。'
+            const skippedText = t('shell.thatStepWasChangedAgain')
             let message: string
             if (direction === 'undo') {
               const next = result.state.undoLabel
               message = !result.state.canUndo
                 ? skippedText
                 : next === AI_TURN_UNDO_LABEL
-                  ? '這一步後來又被 Claude 改過，先略過；再按一次會退回 Claude 那一輪。'
-                  : `${skippedText}再按一次會復原更早的一步。`
+                  ? t('shell.claudeChangedThatStepAgain')
+                  : t('shell.pressAgainToUndoAn', { skippedText })
             } else {
               // 重做：後面沒有更後的一步了，就只說略過，不說再按會怎樣
               const next = result.state.redoLabel
               message = !result.state.canRedo
                 ? skippedText
                 : next === AI_TURN_UNDO_LABEL
-                  ? `${skippedText}再按一次會重做 Claude 那一輪。`
-                  : `${skippedText}再按一次會重做更後的一步。`
+                  ? t('shell.pressAgainToRedoClaude', { skippedText })
+                  : t('shell.pressAgainToRedoA', { skippedText })
             }
             toast.show({ key: 'history', message })
             return
@@ -121,7 +121,7 @@ export function HistoryProvider({ enabled, children }: HistoryProviderProps) {
               result.skipped === 'some' ? '（有些內容後來又被改過，沒動）' : ''
             }`,
             action: {
-              label: direction === 'undo' ? '重做' : '復原',
+              label: direction === 'undo' ? t('shell.redo2') : t('shell.undo2'),
               onAction: () => {
                 run(other)
               },
