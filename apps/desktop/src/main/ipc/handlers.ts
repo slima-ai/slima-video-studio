@@ -618,6 +618,11 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
       shots.setEndFrame(shotId, assetHash ?? undefined),
     ),
   )
+  registry.registerHandler('shots.endFrameCheck', ({ shotId }) => shots.endFrameCheck(shotId))
+  registry.registerHandler('shots.generateEndFrame', async ({ shotId }) => {
+    await shots.generateEndFrame(shotId)
+    return { started: true as const }
+  })
   registry.registerHandler('shots.setReferences', ({ shotId, assetHashes }) =>
     history.record('指定參考圖', () => shots.setReferences(shotId, assetHashes)),
   )

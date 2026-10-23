@@ -34,6 +34,7 @@ export const ESTIMATE_COST_ACTIONS = [
   'split_scene_into_shots',
   'generate_first_frames',
   'generate_videos',
+  'generate_end_frame',
 ] as const
 
 /** 故事 → 分場 → 鏡頭。兩個「拆」的步驟會呼叫文字模型，先過額度。 */
@@ -122,7 +123,7 @@ export function registerStoryTools(ctx: ToolContext): void {
     name: 'estimate_cost',
     title: 'Estimate the cost of a step',
     description:
-      "Ask what a step would cost before doing it. Does not spend or reserve anything. Steps: split_story_into_scenes and split_scene_into_shots (text), generate_first_frames and generate_videos (pictures and videos; the same numbers the app shows in its own 'generate all' confirmation, for the shots you name or every shot in the cut). Returns the app's estimate, how much the allowance would reserve (the estimate × " +
+      "Ask what a step would cost before doing it. Does not spend or reserve anything. Steps: split_story_into_scenes and split_scene_into_shots (text), generate_end_frame (one picture for the shot named by shotId; see generate_end_frame), generate_first_frames and generate_videos (pictures and videos; the same numbers the app shows in its own 'generate all' confirmation, for the shots you name or every shot in the cut). Returns the app's estimate, how much the allowance would reserve (the estimate × " +
       String(TEXT_RESERVE_FACTOR) +
       ' for text steps, because reasoning models often cost more than estimated; × ' +
       String(GENERATION_RESERVE_FACTOR) +
@@ -135,6 +136,7 @@ export function registerStoryTools(ctx: ToolContext): void {
         .optional()
         .describe('For split_story_into_scenes: the story text'),
       sceneId: z.string().optional().describe('For split_scene_into_shots: the scene id'),
+      shotId: z.string().optional().describe('For generate_end_frame: the shot id'),
       shotIds: z
         .array(z.string().min(1))
         .max(100)
@@ -154,7 +156,23 @@ export function registerStoryTools(ctx: ToolContext): void {
         .describe('For generate_first_frames and generate_videos: the cheaper "draft" model tier'),
     },
     hints: { readOnly: true },
-    run: async ({ action, story, sceneId, shotIds, redo, draft }) => {
+    run: async ({ action, story, sceneId, shotId, shotIds, redo, draft }) => {
+      if (action === 'generate_end_frame') {
+        const check = await ctx.caller.call('shots.endFrameCheck', { shotId: shotId ?? '' })
+        const allowance = ctx.allowance.status()
+        const wouldReserveUsd = check.demoMode ? 0 : check.estimatedUsd * GENERATION_RESERVE_FACTOR
+        return {
+          possible: check.ok,
+          ...(check.issue === undefined ? {} : { issue: check.issue }),
+          demoMode: check.demoMode,
+          estimatedUsd: check.estimatedUsd,
+          wouldReserveUsd,
+          allowance,
+          fits: check.demoMode || wouldReserveUsd <= allowance.remainingUsd,
+          model: check.model ?? null,
+          references: check.references,
+        }
+      }
       if (action === 'generate_first_frames' || action === 'generate_videos') {
         return estimateBatch(
           ctx,

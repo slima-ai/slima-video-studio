@@ -348,6 +348,62 @@ describe('影片線的花錢步驟（真實模式、假的 OpenRouter）', () =>
     expect(r.controller.allowance.status().committedUsd).toBe(committedBefore)
   })
 
+  it('尾幀（用首幀改圖）：沒寫尾幀描述會被擋；估價列出參考圖；額度 0 被擋下（說出估價、不送請求）；有額度就生成，存成尾幀，view_first_frames frame=end 看得到', async () => {
+    const { r, fake } = await startReal()
+    r.h.settings.update({ mcp: { allowanceUsd: 5 } })
+    const ids = await withShots(r)
+    const shotId = ids[0] ?? ''
+    await r.call('generate_first_frames', { shotIds: [shotId] })
+    await waitDone(r)
+
+    const none = await r.call('view_first_frames', { frame: 'end' })
+    expect(imageBlocks(none)).toHaveLength(0)
+    expect(textOf(none)).toContain('No end frames yet')
+
+    const noDescription = await r.call('generate_end_frame', { shotId })
+    expect(noDescription.isError).toBe(true)
+    expect(textOf(noDescription)).toContain('尾幀描述')
+
+    await r.call('update_shot', { shotId, endDescription: 'the cat now sits on the far side' })
+    const estimate = dataOf(
+      z.looseObject({
+        possible: z.boolean(),
+        estimatedUsd: z.number(),
+        fits: z.boolean(),
+        references: z.array(z.string()),
+      }),
+      await r.call('estimate_cost', { action: 'generate_end_frame', shotId }),
+    )
+    expect(estimate).toMatchObject({ possible: true, fits: true, references: ['first frame'] })
+    expect(estimate.estimatedUsd).toBeGreaterThan(0)
+
+    r.h.settings.update({ mcp: { allowanceUsd: 0 } })
+    const requestsBefore = noJobs(fake).length
+    const committedBefore = r.controller.allowance.status().committedUsd
+    const refused = await r.call('generate_end_frame', { shotId })
+    expect(refused.isError).toBe(true)
+    expect(textOf(refused)).toContain('額度只剩 US$0.00')
+    expect(textOf(refused)).toMatch(/預估要花 US\$\d/)
+    expect(noJobs(fake)).toHaveLength(requestsBefore)
+    expect(r.controller.allowance.status().committedUsd).toBe(committedBefore)
+
+    r.h.settings.update({ mcp: { allowanceUsd: 5 } })
+    const started = dataOf(
+      z.looseObject({
+        started: z.boolean(),
+        spending: z.looseObject({ estimatedUsd: z.number() }),
+      }),
+      await r.call('generate_end_frame', { shotId }),
+    )
+    expect(started.started).toBe(true)
+    await waitDone(r)
+    const detail1 = await detail(r, shotId)
+    expect(detail1.hasEndFrame).toBe(true)
+    expect(detail1.endFrame).toHaveProperty('usedByCurrentVideoModel')
+    const seen = await r.call('view_first_frames', { frame: 'end' })
+    expect(imageBlocks(seen)).toHaveLength(1)
+  })
+
   const Estimate = z.looseObject({
     possible: z.boolean(),
     issue: z.string().optional(),

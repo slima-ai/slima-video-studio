@@ -17,6 +17,7 @@ import {
   isAppError,
   type AssetRef,
   type CanvasFinalCut,
+  type EndFrameCheck,
   type ModelTier,
   type NodeRun,
   type QuickStyleId,
@@ -40,10 +41,12 @@ import {
 import {
   STUDIO_SERVICE_KEY,
   ShotItemSchema,
+  buildEndFrameWorkflow,
   buildShotWorkflow,
   composeShotPrompts,
   registerQuickStartNodes,
   type CharacterAnchor,
+  type EndFrameSubject,
   type SceneAnchor,
   type ShotItem,
 } from '@svs/workflows'
@@ -170,6 +173,10 @@ export interface ShotService {
   setReferences: (shotId: string, assetHashes: readonly string[]) => ShotReferencesState
   /** 指定尾幀（影片最後一格要長成這張圖；只能是專案裡已有的圖）；undefined＝拿掉。影片會變成需要重新生成。 */
   setEndFrame: (shotId: string, assetHash: string | undefined) => ShotView
+  /** 用首幀改圖生尾幀之前的檢查：能不能開始、預估花費、用哪個模型、會帶哪些參考圖。不花錢。 */
+  endFrameCheck: (shotId: string) => EndFrameCheck
+  /** 用採用中的首幀（加出場角色主圖）改圖生尾幀，存成這一鏡的尾幀；背景執行，預估超過上限等問題直接丟出白話錯誤。 */
+  generateEndFrame: (shotId: string) => Promise<void>
   /** 新增一個空的鏡頭；有指定 afterShotId 就放在它後面，否則放最後。 */
   create: (input: { sceneId?: string | undefined; afterShotId?: string | undefined }) => ShotView
   /**
@@ -241,6 +248,9 @@ export function generatedNodeKeys(shotId: string, mode: RegenerateMode): string[
   const video = `${shotKey(shotId)}:video`
   return mode === 'frame' ? [image] : mode === 'video' ? [video] : [image, video]
 }
+
+/** 生成佇列裡這一鏡的任務標「第 N 鏡」。 */
+const stepLabelOf = (shot: Shot): string => `第 ${String(shot.number)} 鏡`
 
 const invalid = (userMessage: string): AppError =>
   new AppError({ code: 'invalid_request', userMessage })
@@ -418,6 +428,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       number: shot.number,
       description: shot.description,
       action: shot.action,
+      ...(shot.endDescription === '' ? {} : { endDescription: shot.endDescription }),
       cameraMove: shot.cameraMove,
       durationSec: shot.durationSec,
       characters: names,
@@ -439,6 +450,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       firstFrames: takes.filter((t) => t.kind === 'first_frame').map(withUsage),
       videos: takes.filter((t) => t.kind === 'video').map(withUsage),
       ...(endTake ? { endFrame: withUsage(endTake), endFrameSupported: endFrameSupported() } : {}),
+      ...(takes.filter((t) => t.kind === 'last_frame').length > 1
+        ? { endFrames: takes.filter((t) => t.kind === 'last_frame').map(withUsage) }
+        : {}),
     }
   }
 
@@ -935,6 +949,80 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     }
   }
 
+  /** 生尾幀的準備：檢查（不花錢）加上真的要跑的流程與輸入。check.ok 為 false 時沒有 plan。 */
+  const prepareEndFrame = (
+    s: Session,
+    shot: Shot,
+  ): {
+    check: EndFrameCheck
+    plan?: {
+      flow: Workflow
+      subject: EndFrameSubject
+      modelId: string
+      variation: number
+      firstFrameHash: string
+      description: string
+    }
+  } => {
+    const { handle } = s
+    const { demoMode, budget } = settings.get()
+    const base = { demoMode, estimatedUsd: 0, references: [] as string[] }
+    const fail = (issue: string, extra: Partial<EndFrameCheck> = {}) => ({
+      check: { ...base, ...extra, ok: false, issue },
+    })
+    if (s.quick) return fail(t('endFrame.gen.quick'))
+    if (s.regens.has(shot.id)) return fail(t('endFrame.gen.busy'))
+    const first = handle.repos.shots.listTakes(shot.id, 'first_frame').find((take) => take.adopted)
+    const firstRef = first ? assetRefOf(handle, first.assetHash) : undefined
+    if (!first || !firstRef) return fail(t('endFrame.gen.noFrame'))
+    const description = shot.endDescription.trim()
+    if (description === '') return fail(t('endFrame.gen.noDescription'))
+    const edit = pickEditModel(settingsService, models)
+    if (!edit) return fail(t('endFrame.gen.noModel'))
+    const modelName = models.get(edit.id)?.displayName ?? edit.id
+    // 出場角色的主圖（依出場順序，鎖定了而且有主圖的才有）；首幀佔一個名額
+    const anchors = lockedAnchors(handle)
+    const everyone = handle.repos.characters.list()
+    const characters = shot.characters.flatMap((appearance) => {
+      const name = appearance.name ?? everyone.find((c) => c.id === appearance.characterId)?.name
+      const hero = anchors.find((anchor) => anchor.name === name)?.images?.hero
+      return name !== undefined && hero ? [{ name, ref: hero }] : []
+    })
+    const picked = characters.slice(0, Math.max(0, edit.referenceLimit - 1))
+    const subject: EndFrameSubject = { description, firstFrame: firstRef, characters: picked }
+    const variation = handle.repos.shots
+      .listTakes(shot.id, 'last_frame')
+      .filter((take) => take.modelId !== UPLOAD_MODEL).length
+    const flow = buildEndFrameWorkflow({
+      model: edit.id,
+      aspectRatio: handle.repos.projects.get().aspectRatio,
+      variation,
+    })
+    const estimate = estimateWorkflowCost(flow, registry, {
+      priceLookup: (id, usage) => models.estimate(id, usage),
+    })
+    const estimatedUsd = estimate.totalUsd
+    const references = [`first frame`, ...picked.map((character) => character.name)]
+    const found = { model: modelName, estimatedUsd, references }
+    const exceeded = checkBudget({
+      budget,
+      runProjectedUsd: estimatedUsd,
+      projectBaseUsd: handle.repos.costs.totalUsd(handle.projectId),
+    })
+    if (exceeded) return fail(budgetExceededError(exceeded).userMessage, found)
+    return {
+      check: { ...base, ...found, ok: true },
+      plan: {
+        flow,
+        subject,
+        modelId: edit.id,
+        variation,
+        firstFrameHash: first.assetHash,
+        description,
+      },
+    }
+  }
+
   /** 現在會用的圖片、影片模型與名稱（沒設定就是 undefined）。 */
   const modelInfo = (quality?: ModelTier) => {
     const { demoMode, budget } = settings.get()
@@ -1241,7 +1329,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         },
       },
       // 生成佇列裡這一鏡的任務標「第 N 鏡」
-      { stepLabel: `第 ${String(shot.number)} 鏡` },
+      { stepLabel: stepLabelOf(shot) },
     )
     const running = engine
       .run(flow, {
@@ -1378,6 +1466,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       const updated = shots.update(shotId, {
         ...(edit.description === undefined ? {} : { description: edit.description.trim() }),
         ...(edit.action === undefined ? {} : { action: edit.action.trim() }),
+        ...(edit.endDescription === undefined
+          ? {}
+          : { endDescription: edit.endDescription.trim() }),
         ...(edit.cameraMove === undefined
           ? {}
           : { cameraMove: edit.cameraMove?.trim() ? edit.cameraMove.trim() : null }),
@@ -1452,6 +1543,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         durationSec: source.durationSec,
         description: source.description,
         action: source.action,
+        endDescription: source.endDescription,
         dialogue: source.dialogue,
         characters: source.characters,
         inCut: source.inCut,
@@ -1617,6 +1709,111 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       shots.reorder(ids)
       changed(s)
       return snapshot()
+    },
+
+    endFrameCheck(shotId) {
+      const s = need()
+      const shot = s.handle.repos.shots.get(shotId)
+      if (!shot) throw invalid(t('endFrame.error.noShot'))
+      const { check } = prepareEndFrame(s, shot)
+      return check
+    },
+
+    async generateEndFrame(shotId) {
+      const s = need()
+      const { handle } = s
+      const shot = handle.repos.shots.get(shotId)
+      if (!shot) throw invalid(t('endFrame.error.noShot'))
+      const { check, plan } = prepareEndFrame(s, shot)
+      if (!check.ok || !plan) throw invalid(check.issue ?? t('endFrame.gen.failed'))
+      const queue = runtime.queue()
+      const tool = tools()
+      if (!queue || !tool) {
+        throw new AppError({
+          code: 'internal_error',
+          userMessage: t('endFrame.gen.failed'),
+        })
+      }
+      const controller = new AbortController()
+      s.regens.set(shotId, controller)
+      s.activity.set(shotId, 'image')
+      s.errors.delete(shotId)
+      changed(s)
+      const fromAi = isAiCall()
+      const progress = { started: false }
+      const engine = createProjectEngine(
+        handle,
+        {
+          registry,
+          services: {
+            [STUDIO_SERVICE_KEY]: createStudioServices({ queue, handle, tools: tool, models }),
+          },
+          priceLookup: (id, usage) => models.estimate(id, usage),
+          onEvent: (event) => {
+            if (event.type === 'run-started') progress.started = true
+            if (handle.closed || event.type !== 'node-finished' || event.nodeId !== 'image') return
+            if (isDone(event.nodeRun)) {
+              const out = ImageOutputSchema.safeParse(event.nodeRun.output)
+              if (out.success) {
+                const take = saveTake(s, shotId, 'last_frame', out.data.image, {
+                  modelId: plan.modelId,
+                  seed: plan.variation,
+                  nodeRun: event.nodeRun,
+                  inputHash: hashValue({ firstFrame: plan.firstFrameHash, text: plan.description }),
+                })
+                handle.repos.shots.adoptTake(take.id)
+                changed(s)
+              }
+            } else if (event.nodeRun.status === 'failed') {
+              s.errors.set(shotId, {
+                message: event.nodeRun.error?.userMessage ?? t('endFrame.gen.failed'),
+                step: 'image',
+              })
+              changed(s)
+            }
+          },
+        },
+        { stepLabel: stepLabelOf(shot) },
+      )
+      const running = engine
+        .run(plan.flow, {
+          projectId: handle.projectId,
+          signal: controller.signal,
+          inputs: { item: plan.subject },
+          budget: settings.get().budget,
+        })
+        .catch((error: unknown) => {
+          if (!handle.closed && !controller.signal.aborted) {
+            s.errors.set(shotId, {
+              message: isAppError(error) ? error.userMessage : t('endFrame.gen.failed'),
+              step: 'image',
+            })
+            if (!isAppError(error))
+              log.error(`unexpected error while generating an end frame: ${String(error)}`)
+          }
+          throw error
+        })
+        .finally(() => {
+          s.regens.delete(shotId)
+          s.activity.delete(shotId)
+          changed(s)
+          releaseIdle(s)
+        })
+        .then((result) => {
+          if (!fromAi || handle.closed || controller.signal.aborted) return
+          if (result.run.status !== 'succeeded') return
+          broadcast('canvas.aiChanged', {
+            at: (deps.now?.() ?? new Date()).toISOString(),
+            channel: 'generation.done',
+            changed: generatedNodeKeys(shotId, 'frame'),
+            added: [],
+            removed: [],
+          })
+        })
+      // 預估超過上限等：執行前就失敗，直接把原本的錯誤交給呼叫端
+      if (!progress.started) await running
+      running.catch(() => undefined)
+      log.info(`generating the end frame of shot ${String(shot.number)}`)
     },
 
     async regenerate(shotId, mode) {

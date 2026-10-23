@@ -137,6 +137,8 @@ export const ShotSchema = z.object({
   description: z.string().default(''),
   /** 這幾秒裡發生什麼動作（給影片模型）；空字串代表沒有，影片 Prompt 照舊用畫面描述。 */
   action: z.string().default(''),
+  /** 尾幀長什麼樣子（給「用首幀改圖生尾幀」）；空字串代表沒有寫。 */
+  endDescription: z.string().default(''),
   /** 組裝後送給模型的 Prompt；使用者手動改過會存在這裡。 */
   prompt: z.string().optional(),
   dialogue: z.string().default(''),

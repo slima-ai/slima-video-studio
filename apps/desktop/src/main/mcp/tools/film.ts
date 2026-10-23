@@ -206,6 +206,39 @@ export function registerFilmTools(ctx: ToolContext): void {
   })
 
   defineTool(ctx, {
+    name: 'generate_end_frame',
+    title: 'Generate the end frame of a shot',
+    description:
+      "Draw the END frame of one shot by EDITING its adopted first-frame picture: the same picture a few seconds later, so the camera position, scene, lighting and style stay identical and only what endDescription says changes (write endDescription first with update_shot, see its description). The picture model gets these reference pictures, in this order: picture 1 = the shot's adopted first frame, then the design picture (hero) of each locked character that appears in the shot (up to the model's limit; estimate_cost action generate_end_frame lists them). The prompt says: same picture, same camera, change only the end description, each character appears exactly once and its old place is left empty. The result is stored as the shot's end frame (it replaces the end frame in use; older versions stay: get_shot takes.endFrames, adopt_version to go back). Look at it with view_first_frames (shows the end frame too) before using it. It is only SENT to the video model if the model accepts an end frame (get_shot endFrame.usedByCurrentVideoModel); the shot's video then needs regenerating (regenerate_shot what=\"video\", costs money: estimate first). Calls the picture model, so it counts against the spending allowance: the app checks the estimate itself and refuses, saying the estimate, if the allowance is too small (estimate_cost action generate_end_frame tells you the price first). Runs in the background: call wait_for_generation. Free in demo mode.",
+    input: { shotId: z.string().min(1) },
+    hints: { readOnly: false },
+    run: async ({ shotId }) => {
+      const check = await ctx.caller.call('shots.endFrameCheck', { shotId })
+      if (!check.ok) {
+        throw new McpToolError(
+          check.issue ?? 'The end frame cannot be generated now.',
+          'cannot_generate',
+        )
+      }
+      const reserved = reserveSpending(
+        ctx,
+        'end frame',
+        check.estimatedUsd,
+        GENERATION_RESERVE_FACTOR,
+      )
+      await ctx.caller.call('shots.generateEndFrame', { shotId })
+      return {
+        started: true,
+        model: check.model ?? null,
+        references: check.references,
+        demoMode: check.demoMode,
+        spending: { estimatedUsd: check.estimatedUsd, ...reserved },
+        next: 'Call wait_for_generation until finished, then look at the result.',
+      }
+    },
+  })
+
+  defineTool(ctx, {
     name: 'cancel_generation',
     title: 'Cancel the generation of a shot',
     description:
@@ -232,7 +265,7 @@ export function registerFilmTools(ctx: ToolContext): void {
     name: 'view_first_frames',
     title: 'Look at first-frame pictures',
     description:
-      "Returns the adopted first-frame picture of several shots as images you can look at (downsized), in shot order, with a text list saying which shot each image is. Use it to check composition, the character's look, and anything that should not be there. Pass version to look at an older/newer version of ONE shot.",
+      'Returns the adopted first-frame picture of several shots as images you can look at (downsized), in shot order, with a text list saying which shot each image is. Use it to check composition, the character\'s look, and anything that should not be there. Pass version to look at an older/newer version of ONE shot. Pass frame="end" to look at the END frame of the shots instead (the one in use: set_shot_end_frame or generate_end_frame).',
     input: {
       shotIds: z
         .array(z.string().min(1))
@@ -245,17 +278,24 @@ export function registerFilmTools(ctx: ToolContext): void {
         .positive()
         .optional()
         .describe('A specific version (only with exactly one shotId)'),
+      frame: z
+        .enum(['first', 'end'])
+        .default('first')
+        .describe('Which picture of the shot: the first frame (default) or the end frame'),
     },
     hints: { readOnly: true },
-    run: async ({ shotIds, version }) => {
+    run: async ({ shotIds, version, frame }) => {
       const { shots } = await ctx.caller.call('shots.list', {})
+      // 尾幀：有生成過多版就列全部，否則只有採用中的那一張（上傳或指定的）
+      const takesOf = (s: ShotView): readonly Take[] =>
+        frame === 'end' ? (s.endFrames ?? (s.endFrame ? [s.endFrame] : [])) : s.firstFrames
       const chosen = (shotIds === undefined ? shots : shots.filter((s) => shotIds.includes(s.id)))
-        .filter((s) => takeOf(s.firstFrames, shotIds?.length === 1 ? version : undefined))
+        .filter((s) => takeOf(takesOf(s), shotIds?.length === 1 ? version : undefined))
         .slice(0, 8)
       const images = []
       const order = []
       for (const shot of chosen) {
-        const take = takeOf(shot.firstFrames, shotIds?.length === 1 ? version : undefined)
+        const take = takeOf(takesOf(shot), shotIds?.length === 1 ? version : undefined)
         if (!take) continue
         images.push(await ctx.viewer.image(take.assetHash))
         order.push({
@@ -270,7 +310,9 @@ export function registerFilmTools(ctx: ToolContext): void {
           imagesInOrder: order,
           note:
             order.length === 0
-              ? 'No first-frame pictures yet: use generate_first_frames.'
+              ? frame === 'end'
+                ? 'No end frames yet: use generate_end_frame or set_shot_end_frame.'
+                : 'No first-frame pictures yet: use generate_first_frames.'
               : undefined,
         },
         images,

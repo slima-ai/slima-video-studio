@@ -139,6 +139,12 @@ export function testSettingsDeps(
       setEndFrame: () => {
         throw new Error('not used')
       },
+      endFrameCheck: () => {
+        throw new Error('not used')
+      },
+      generateEndFrame: () => {
+        throw new Error('not used')
+      },
       setReferences: () => {
         throw new Error('測試用的鏡頭服務不能指定參考圖')
       },

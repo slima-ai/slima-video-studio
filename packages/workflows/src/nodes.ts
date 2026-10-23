@@ -37,6 +37,7 @@ export const NODE_TYPES = {
   locationConceptPrompt: 'location.conceptPrompt',
   locationAnglePrompt: 'location.anglePrompt',
   fixedImage: 'image.fixed',
+  endFramePrompt: 'shot.endFramePrompt',
 } as const
 
 /** 節點在節點圖上的白話名稱與色條分類。 */
@@ -812,6 +813,56 @@ export const locationAnglePromptNode = defineNode({
   },
 })
 
+// ------------------------------------------------------------------ 尾幀（用首幀改圖）
+
+export const EndFrameSubjectSchema = z.object({
+  /** 尾幀長什麼樣子（使用者或 Claude 寫的 endDescription）。 */
+  description: z.string().trim().min(1),
+  /** 採用中的首幀圖：圖 1，鏡位、場景、光線、畫風都以它為準。 */
+  firstFrame: AssetRefSchema,
+  /** 出場角色的主圖（依出場順序）：圖 2、3…，只用來讓臉、顏色與比例不走樣。 */
+  characters: z.array(z.object({ name: z.string().min(1), ref: AssetRefSchema })).default([]),
+})
+export type EndFrameSubject = z.input<typeof EndFrameSubjectSchema>
+
+/**
+ * 尾幀的 Prompt（英文：圖片模型卡的 prompt.language 是 en）：同一個畫面、同一個鏡位，幾秒後的樣子。
+ * 角色只出現一次、原來的位置是空的——不然編輯模型常把角色留在原位又多畫一隻。
+ */
+export function composeEndFramePrompt(subject: EndFrameSubject): string {
+  const parsed = EndFrameSubjectSchema.parse(subject)
+  const sheets = parsed.characters
+    .map(
+      (character, index) =>
+        ` Image ${String(index + 2)} is the design sheet of "${character.name}": its face, colours and proportions must match it exactly.`,
+    )
+    .join('')
+  return (
+    'Image 1 is the current picture of this shot. Redraw THE SAME PICTURE a few seconds later: ' +
+    'exactly the same camera position and framing, and the same scene, lighting, colours and painting style as image 1; ' +
+    'leave everything that is not mentioned untouched. ' +
+    `Change only this: ${parsed.description.replace(/[.\s]+$/u, '')}. ` +
+    'Each character appears exactly once; the place where a character used to be is now empty ' +
+    '(just the background: no person, no shadow, no ghost image).' +
+    sheets
+  )
+}
+
+export const endFramePromptNode = defineNode({
+  type: NODE_TYPES.endFramePrompt,
+  version: 1,
+  inputs: { subject: { type: 'json' } },
+  outputs: { prompt: 'text', references: 'json' },
+  params: z.object({}),
+  run: ({ inputs }) => {
+    const subject = EndFrameSubjectSchema.parse(inputs.subject)
+    return {
+      prompt: composeEndFramePrompt(subject),
+      references: [subject.firstFrame, ...subject.characters.map((character) => character.ref)],
+    }
+  },
+})
+
 // ------------------------------------------------------------------ 圖片編輯（帶參考圖）
 
 export const imageEditNode = defineNode({
@@ -1016,6 +1067,7 @@ export const QUICK_START_NODES: readonly NodeDefinition[] = [
   turnaroundPromptNode,
   locationConceptPromptNode,
   locationAnglePromptNode,
+  endFramePromptNode,
   imageEditNode,
   imageNode,
   fixedImageNode,

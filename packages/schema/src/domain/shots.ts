@@ -41,6 +41,8 @@ export const ShotViewSchema = z.object({
   description: z.string(),
   /** 這幾秒裡發生什麼動作（和 description 分開：description 只寫靜止的畫面）；沒有就是空字串。 */
   action: z.string(),
+  /** 尾幀長什麼樣子（同一個鏡位、幾秒後）；沒寫就沒有這個欄位。 */
+  endDescription: z.string().optional(),
   /** 運鏡的白話描述；固定鏡頭是 null。 */
   cameraMove: z.string().nullable(),
   durationSec: z.number().positive(),
@@ -74,6 +76,8 @@ export const ShotViewSchema = z.object({
   videos: z.array(TakeViewSchema),
   /** 另外指定的尾幀（影片最後一格要長成這張圖）；沒指定就沒有這個欄位。 */
   endFrame: TakeViewSchema.optional(),
+  /** 生成過的尾幀版本（舊的在前；用 adopt 換回舊的）；沒有生成過就沒有這個欄位。 */
+  endFrames: z.array(TakeViewSchema).optional(),
   /** 有尾幀時：現在用的影片模型接不接受尾幀（不接受就不會送，影片照舊只用首幀）。 */
   endFrameSupported: z.boolean().optional(),
 })
@@ -91,6 +95,8 @@ export const ShotEditSchema = z.object({
   description: z.string().min(1).max(1000).optional(),
   /** 空字串代表清掉。 */
   action: z.string().max(1000).optional(),
+  /** 空字串代表清掉。 */
+  endDescription: z.string().max(1000).optional(),
   cameraMove: z.string().max(100).nullable().optional(),
   durationSec: z.number().min(1).max(15).optional(),
   prompt: z.string().max(4000).nullable().optional(),
@@ -191,6 +197,19 @@ export const ShotBatchCheckSchema = z.object({
   models: z.object({ image: z.string().optional(), video: z.string().optional() }),
 })
 export type ShotBatchCheck = z.infer<typeof ShotBatchCheckSchema>
+
+/** 用首幀改圖生尾幀之前的檢查：能不能開始、預估花費、用哪個模型、會帶哪些參考圖。 */
+export const EndFrameCheckSchema = z.object({
+  ok: z.boolean(),
+  issue: z.string().optional(),
+  demoMode: z.boolean(),
+  estimatedUsd: z.number().nonnegative(),
+  /** 用的圖片模型（顯示名稱）。 */
+  model: z.string().optional(),
+  /** 會帶進去的參考圖：第一張是這一鏡採用中的首幀，後面是出場角色的主圖（角色名）。 */
+  references: z.array(z.string()),
+})
+export type EndFrameCheck = z.infer<typeof EndFrameCheckSchema>
 
 /** 批次生成開始之後的結果：某個鏡頭沒辦法開始不影響其他鏡頭。 */
 export const ShotBatchResultSchema = z.object({

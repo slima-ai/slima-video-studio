@@ -396,6 +396,128 @@ describe('shots.regenerate', { timeout: 30_000 }, () => {
       }
     })
 
+    const editRequests = (projects: ReturnType<typeof setup>['projects']) =>
+      (projects.current()?.repos.jobs.list() ?? [])
+        .map(
+          (job) =>
+            job.input as { capability?: string; prompt?: string; referenceAssets?: string[] },
+        )
+        .filter((input) => input.capability === 'edit')
+
+    it('用首幀改圖生尾幀：送出圖片編輯請求（參考圖是首幀，Prompt 說同一個鏡位、只改尾幀描述）；存成採用中的尾幀；首幀不動、影片需要重跑', async () => {
+      const { shots, runQuickStart, idle, projects, canvas } = setup()
+      await runQuickStart()
+      const [first] = shots.list().shots
+      if (!first) throw new Error('沒有鏡頭')
+      const frameHash = first.firstFrames[0]?.assetHash
+      shots.update(first.id, { endDescription: 'the cat now sits on the far side.  ' })
+      expect(shots.list().shots[0]?.endDescription).toBe('the cat now sits on the far side.')
+
+      const check = shots.endFrameCheck(first.id)
+      expect(check).toMatchObject({ ok: true, demoMode: true, references: ['first frame'] })
+      expect(check.estimatedUsd).toBeGreaterThanOrEqual(0)
+
+      await shots.generateEndFrame(first.id)
+      await idle(first.id)
+      const requests = editRequests(projects)
+      expect(requests).toHaveLength(1)
+      expect(requests[0]?.referenceAssets).toEqual([frameHash])
+      expect(requests[0]?.prompt).toContain('Image 1 is the current picture of this shot')
+      expect(requests[0]?.prompt).toContain('exactly the same camera position')
+      expect(requests[0]?.prompt).toContain('Change only this: the cat now sits on the far side. ')
+      expect(requests[0]?.prompt).toContain('appears exactly once')
+
+      const after = shots.list().shots[0]
+      expect(after?.endFrame).toMatchObject({ kind: 'last_frame', adopted: true })
+      expect(after?.firstFrames).toEqual(first.firstFrames)
+      expect(after?.videos).toHaveLength(1)
+      // 尾幀換了：圖不變，影片需要重跑
+      const node = (kind: string) =>
+        canvas.get().nodes.find((n) => n.key === `shot:${first.id}:${kind}`)
+      expect(node('image')?.status).toBe('done')
+      expect(node('video')?.status).toBe('stale')
+      expect(node('image')).toMatchObject({ endAssetHash: after?.endFrame?.assetHash })
+    })
+
+    it('再生一次：又送一個編輯請求（變化編號不同）；沒有首幀、沒有尾幀描述、找不到鏡頭都用白話說明，不開始、不花錢', async () => {
+      const { shots, runQuickStart, idle, projects } = setup()
+      await runQuickStart()
+      const [first] = shots.list().shots
+      if (!first) throw new Error('沒有鏡頭')
+      // 沒寫尾幀描述
+      expect(shots.endFrameCheck(first.id)).toMatchObject({
+        ok: false,
+        issue: '這一鏡還沒有寫尾幀描述：請先寫下尾幀長什麼樣子。',
+      })
+      await expect(shots.generateEndFrame(first.id)).rejects.toThrow(/尾幀描述/)
+      expect(editRequests(projects)).toHaveLength(0)
+
+      // 沒有首幀圖
+      const empty = shots.create({})
+      shots.update(empty.id, { endDescription: 'x' })
+      expect(shots.endFrameCheck(empty.id).issue).toContain('還沒有首幀圖')
+
+      shots.update(first.id, { endDescription: 'the cat sits down' })
+      await shots.generateEndFrame(first.id)
+      await idle(first.id)
+      await shots.generateEndFrame(first.id)
+      await idle(first.id)
+      expect(editRequests(projects)).toHaveLength(2)
+
+      expect(() => shots.endFrameCheck('nope')).toThrow(/找不到這個鏡頭/)
+    })
+
+    it('已經有指定（上傳）的尾幀時，生成的新尾幀會換成採用中的那一張；舊的還在（endFrames 列得出來）', async () => {
+      const { shots, runQuickStart, idle } = setup()
+      await runQuickStart()
+      const [first, second] = shots.list().shots
+      const uploaded = second?.firstFrames[0]?.assetHash
+      if (!first || !uploaded) throw new Error('沒有鏡頭或圖')
+      shots.setEndFrame(first.id, uploaded)
+      expect(shots.list().shots[0]?.endFrame?.modelId).toBe('upload')
+      shots.update(first.id, { endDescription: 'the cat sits down' })
+      await shots.generateEndFrame(first.id)
+      await idle(first.id)
+      const after = shots.list().shots[0]
+      expect(after?.endFrame?.modelId).toBe('mock/image')
+      expect(after?.endFrames?.map((take) => take.modelId)).toEqual(['upload', 'mock/image'])
+      expect(after?.endFrames?.filter((take) => take.adopted)).toHaveLength(1)
+    })
+
+    it('預估超過單次花費上限 → 檢查說「超過單次花費上限」、不開始、沒有送出請求；調高後可以生', async () => {
+      const { shots, settings, runQuickStart, idle, projects } = setup()
+      await runQuickStart()
+      const [first] = shots.list().shots
+      if (!first) throw new Error('沒有鏡頭')
+      shots.update(first.id, { endDescription: 'the cat sits down' })
+      settings.update({ budget: { perRunLimitUsd: 0.0001 } })
+      const check = shots.endFrameCheck(first.id)
+      expect(check.ok).toBe(false)
+      expect(check.issue).toMatch(/超過「單次花費上限」/)
+      expect(check.estimatedUsd).toBeGreaterThan(0)
+      await expect(shots.generateEndFrame(first.id)).rejects.toThrow(/超過「單次花費上限」/)
+      expect(editRequests(projects)).toHaveLength(0)
+      expect(shots.list().shots[0]?.endFrame).toBeUndefined()
+
+      settings.update({ budget: { perRunLimitUsd: 5 } })
+      await shots.generateEndFrame(first.id)
+      await idle(first.id)
+      expect(shots.list().shots[0]?.endFrame).toBeDefined()
+    })
+
+    it('英文介面：生尾幀的說明是英文', async () => {
+      const { shots, runQuickStart } = setup()
+      await runQuickStart()
+      const [first] = shots.list().shots
+      if (!first) throw new Error('沒有鏡頭')
+      setLocale('en')
+      try {
+        expect(shots.endFrameCheck(first.id).issue).toMatch(/no end-frame description/)
+      } finally {
+        setLocale('zh-TW')
+      }
+    })
+
     it('換一張尾幀：只留新的那張（不累積舊版本）；複製鏡頭不帶尾幀', async () => {
       const { shots, runQuickStart, projects } = setup()
       await runQuickStart()

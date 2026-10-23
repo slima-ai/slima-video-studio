@@ -101,6 +101,7 @@ import {
 import { SHOT_PIN_MAX, ShotReferencesStateSchema } from './domain/shot-references'
 import {
   RegenerateModeSchema,
+  EndFrameCheckSchema,
   ShotBatchCheckSchema,
   ShotBatchRequestSchema,
   ShotBatchResultSchema,
@@ -734,6 +735,19 @@ export const ipcContract = {
   'shots.setEndFrame': {
     request: z.object({ shotId: IdSchema, assetHash: ContentHashSchema.nullable() }),
     response: ShotViewSchema,
+  },
+  /** 用首幀改圖生尾幀之前的檢查：能不能開始、預估花費、用哪個模型、會帶哪些參考圖。不花錢。 */
+  'shots.endFrameCheck': {
+    request: z.object({ shotId: IdSchema }),
+    response: EndFrameCheckSchema,
+  },
+  /**
+   * 用這一鏡採用中的首幀（加出場角色的主圖）改圖，生成「同一個鏡位、幾秒後」的尾幀，存成這一鏡的尾幀。
+   * 在背景做；預估超過上限、沒有首幀、沒有寫尾幀描述等問題會直接丟出白話錯誤。可以復原。
+   */
+  'shots.generateEndFrame': {
+    request: z.object({ shotId: IdSchema }),
+    response: z.object({ started: z.literal(true) }),
   },
   /** 重新生成一個鏡頭（在背景執行，進度用 shots.changed 事件推送）。 */
   'shots.regenerate': {
