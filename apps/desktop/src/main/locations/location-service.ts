@@ -16,6 +16,7 @@ import {
   type LocationImagesState,
   type LocationReferencePurpose,
   type LocationReferencesState,
+  t,
 } from '@svs/schema'
 import {
   QUICK_STYLE_IDS,
@@ -109,7 +110,7 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
 
   const need = (): ProjectHandle => {
     const handle = projects.current()
-    if (!handle || handle.closed) throw invalid('請先開啟或建立一個專案。')
+    if (!handle || handle.closed) throw invalid(t('chat.openOrCreateAProject'))
     return handle
   }
 
@@ -139,23 +140,28 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
     const handle = projects.current()
     const card = handle?.repos.locationCards.get(locationId)
     if (!handle || !card)
-      return { ...base, ok: false, issue: '找不到這個場景卡。', estimatedUsd: 0 }
+      return { ...base, ok: false, issue: t('chat.couldnTFindThisLocation'), estimatedUsd: 0 }
     if (card.status === 'locked') {
       return {
         ...base,
         ok: false,
-        issue: '這張場景卡已經鎖定，要先解除鎖定才能重新生成。',
+        issue: t('chat.thisLocationIsLockedUnlock'),
         estimatedUsd: 0,
       }
     }
     if (active.has(locationId)) {
-      return { ...base, ok: false, issue: '這張場景卡正在生成圖片。', estimatedUsd: 0 }
+      return {
+        ...base,
+        ok: false,
+        issue: t('chat.thisLocationIsGeneratingPictures'),
+        estimatedUsd: 0,
+      }
     }
     if (kind === 'angles' && !assetRefOf(handle, card.mainAssetHash)) {
       return {
         ...base,
         ok: false,
-        issue: '先從概念圖挑一張主場景圖，才能生出其他角度。',
+        issue: t('chat.pickAMainLocationPicture'),
         estimatedUsd: 0,
       }
     }
@@ -168,9 +174,7 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
         ...base,
         ok: false,
         issue:
-          kind === 'concepts'
-            ? '還沒有可用的圖片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。'
-            : '還沒有能「參考圖片再生成」的圖片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。',
+          kind === 'concepts' ? t('chat.noImageModelIsAvailable') : t('chat.thereSNoImageModel'),
         estimatedUsd: 0,
       }
     }
@@ -194,21 +198,21 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
   const generate = (locationId: string, kind: LocationGenerateKind): void => {
     const handle = need()
     const card = handle.repos.locationCards.get(locationId)
-    if (!card) throw invalid('找不到這個場景卡。')
+    if (!card) throw invalid(t('chat.couldnTFindThisLocation'))
     const checked = check(locationId, kind)
-    if (!checked.ok) throw invalid(checked.issue ?? '現在不能生成。')
+    if (!checked.ok) throw invalid(checked.issue ?? t('chat.canTGenerateRightNow'))
     const model =
       kind === 'concepts'
         ? settingsService.resolveModel('t2i')
         : pickEditModel(settingsService, models)?.id
     const main = assetRefOf(handle, card.mainAssetHash)
-    if (!model || (kind === 'angles' && !main)) throw invalid('現在不能生成。')
+    if (!model || (kind === 'angles' && !main)) throw invalid(t('chat.canTGenerateRightNow'))
     const queue = runtime.queue()
     const tool = tools()
     if (!queue || !tool) {
       throw new AppError({
         code: 'internal_error',
-        userMessage: '生成服務還沒準備好，請重新啟動 App。',
+        userMessage: t('chat.theGenerationServiceIsnT'),
       })
     }
 
@@ -255,7 +259,7 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
         throw new AppError({
           code: failed?.error?.code ?? 'internal_error',
           retryable: failed?.error?.retryable ?? false,
-          userMessage: failed?.error?.userMessage ?? '有一張圖沒有生成成功。',
+          userMessage: failed?.error?.userMessage ?? t('chat.onePictureDidnTGenerate'),
         })
       }
       return parsed.data.image
@@ -306,11 +310,15 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
         )
         const [first] = failures
         if (failures.length === 0 || run.controller.signal.aborted) return
-        const reason = isAppError(first) ? first.userMessage : '圖片生成失敗，請再試一次。'
+        const reason = isAppError(first)
+          ? first.userMessage
+          : t('chat.pictureGenerationFailedPleaseTry')
         if (!isAppError(first)) log.error(`場景圖片生成發生未預期錯誤：${String(first)}`)
         lastErrors.set(
           locationId,
-          run.done > 0 ? `有 ${String(failures.length)} 張沒有成功：${reason}` : reason,
+          run.done > 0
+            ? t('chat.picturesDidnTGenerate', { value: String(failures.length), reason })
+            : reason,
         )
       })
       .finally(() => {
@@ -328,7 +336,9 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
 
     setAnchor(locationId, text) {
       if (text.length > LOCATION_ANCHOR_MAX) {
-        throw invalid(`場景描述不要超過 ${String(LOCATION_ANCHOR_MAX)} 個字。`)
+        throw invalid(
+          t('chat.keepTheLocationDescriptionUnder', { value: String(LOCATION_ANCHOR_MAX) }),
+        )
       }
       return need().repos.locationCards.setAnchor(locationId, text)
     },
@@ -346,12 +356,12 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
     },
 
     pickMain(locationId, conceptId) {
-      if (active.has(locationId)) throw invalid('正在生成圖片，等它完成再挑主圖。')
+      if (active.has(locationId)) throw invalid(t('chat.picturesAreBeingGeneratedPick'))
       return need().repos.locationCards.pickMain(locationId, conceptId)
     },
 
     lock(locationId) {
-      if (active.has(locationId)) throw invalid('正在生成圖片，等它完成再鎖定。')
+      if (active.has(locationId)) throw invalid(t('chat.picturesAreBeingGeneratedLock'))
       return need().repos.locationCards.lock(locationId)
     },
 
@@ -366,7 +376,7 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
       const handle = need()
       const meta = handle.assets.getMeta(assetHash)
       if (!meta?.mime.startsWith('image/')) {
-        throw invalid('專案裡找不到這張圖片，請先把圖放進專案（例如放到畫布上）。')
+        throw invalid(t('chat.couldnTFindThisPicture2'))
       }
       handle.repos.locationCards.addReference({ locationId, assetHash, purpose, label })
       return { locationId, references: handle.repos.locationCards.listReferences(locationId) }

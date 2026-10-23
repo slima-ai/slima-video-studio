@@ -5,13 +5,14 @@ import { Button } from '../../components/button'
 import { assetUrl } from '../../lib/asset'
 import { call, errorText } from '../../lib/svs'
 import { useEscape } from '../../lib/use-escape'
+import { t, msg } from '@svs/schema'
 
 interface Props {
   character: CharacterView
   onChanged: (character: CharacterView) => void
 }
 
-const STATUS_LABEL = { draft: '草稿', locked: '已鎖定' } as const
+const STATUS_LABEL = { draft: msg('chat.draft'), locked: msg('chat.locked') } as const
 
 /** 版本紀錄：每次鎖定之後再改，都會留下新的一版；舊版本留著，隨時可以拿它的內容重新開始。 */
 export function VersionHistory({ character, onChanged }: Props) {
@@ -64,14 +65,12 @@ export function VersionHistory({ character, onChanged }: Props) {
 
   return (
     <section
-      aria-label="版本紀錄"
+      aria-label={t('chat.versionHistory')}
       className="space-y-2 rounded-md border border-border p-3"
       data-testid="character-versions"
     >
-      <h3 className="text-sm font-medium">版本紀錄</h3>
-      <p className="text-xs text-fg-muted">
-        鎖定之後再改長相、服裝、主圖或三視圖，會變成新的一版草稿，舊版本都會留著。
-      </p>
+      <h3 className="text-sm font-medium">{t('chat.versionHistory')}</h3>
+      <p className="text-xs text-fg-muted">{t('chat.afterLockingChangingTheLook')}</p>
       {error ? (
         <p role="alert" className="text-sm text-danger">
           {error}
@@ -89,7 +88,7 @@ export function VersionHistory({ character, onChanged }: Props) {
             {v.heroAssetHash ? (
               <img
                 src={assetUrl(v.heroAssetHash)}
-                alt={`第 ${String(v.version)} 版主圖`}
+                alt={t('chat.versionMainPicture', { value: String(v.version) })}
                 className="size-16 shrink-0 rounded object-cover"
               />
             ) : (
@@ -97,12 +96,16 @@ export function VersionHistory({ character, onChanged }: Props) {
             )}
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-medium">第 {v.version} 版</span>
-                <span className="text-xs text-fg-muted">{STATUS_LABEL[v.status]}</span>
-                {v.current ? <span className="text-xs text-success">目前使用中</span> : null}
+                <span className="font-medium">
+                  {t('chat.version2', { value: String(v.version) })}
+                </span>
+                <span className="text-xs text-fg-muted">{t(STATUS_LABEL[v.status])}</span>
+                {v.current ? (
+                  <span className="text-xs text-success">{t('chat.inUseNow')}</span>
+                ) : null}
               </div>
               <p className="line-clamp-2 text-xs text-fg-muted">
-                {v.anchorText === '' ? '（沒有寫固定外觀描述）' : v.anchorText}
+                {v.anchorText === '' ? t('chat.noFixedAppearanceWritten') : v.anchorText}
               </p>
               {v.turnaround ? (
                 <div className="flex gap-1">
@@ -110,7 +113,7 @@ export function VersionHistory({ character, onChanged }: Props) {
                     <img
                       key={hash}
                       src={assetUrl(hash)}
-                      alt={['正面', '側面', '背面'][i] ?? ''}
+                      alt={[t('chat.front'), t('chat.side'), t('chat.back')][i] ?? ''}
                       className="h-10 rounded object-cover"
                     />
                   ))}
@@ -119,7 +122,9 @@ export function VersionHistory({ character, onChanged }: Props) {
             </div>
             {v.current ? null : confirmingId === v.id ? (
               <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
-                <span>{hasDraft ? '目前這一版草稿會被換掉。' : '會開新的一版草稿。'}</span>
+                <span>
+                  {hasDraft ? t('chat.theCurrentDraftWillBe') : t('chat.thisStartsANewDraft')}
+                </span>
                 <div className="flex gap-1">
                   <Button
                     size="sm"
@@ -128,7 +133,7 @@ export function VersionHistory({ character, onChanged }: Props) {
                     disabled={busy}
                     onClick={() => void restore(v.id)}
                   >
-                    確定
+                    {t('chat.ok')}
                   </Button>
                   <Button
                     size="sm"
@@ -137,7 +142,7 @@ export function VersionHistory({ character, onChanged }: Props) {
                       setConfirmingId(undefined)
                     }}
                   >
-                    取消
+                    {t('chat.cancel')}
                   </Button>
                 </div>
               </div>
@@ -151,7 +156,7 @@ export function VersionHistory({ character, onChanged }: Props) {
                   setConfirmingId(v.id)
                 }}
               >
-                用這一版重新開始
+                {t('chat.startAgainFromThisVersion')}
               </Button>
             )}
           </li>

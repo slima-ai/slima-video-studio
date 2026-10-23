@@ -5,6 +5,7 @@ import { Mascot, type MascotMood } from '../../brand/mascot'
 import { Button } from '../../components/button'
 import { cn } from '../../lib/cn'
 import { Markdown } from './markdown'
+import { t } from '@svs/schema'
 
 /** Claude 這次用過的工具：一行一個，進行中轉圈、做完打勾、失敗打叉；滑過看結果摘要。 */
 function StepRow({ step }: { step: ChatStep }) {
@@ -70,7 +71,9 @@ export function MessageView({
         ) : null}
         {message.notes !== undefined && message.notes.length > 0 ? (
           <details className="text-xs text-fg-muted" data-testid="chat-notes">
-            <summary className="cursor-pointer select-none">Claude 的工作筆記（已收起）</summary>
+            <summary className="cursor-pointer select-none">
+              {t('chat.claudeSWorkingNotesCollapsed')}
+            </summary>
             {message.notes.map((note, index) => (
               <p key={index} className="mt-1 whitespace-pre-wrap break-words">
                 {note}
@@ -82,22 +85,22 @@ export function MessageView({
         {waiting ? (
           <p className="flex items-center gap-1.5 text-xs text-fg-muted" role="status">
             <Loader2 className="size-3 animate-spin" aria-hidden />
-            Claude 正在想…
+            {t('chat.claudeIsThinking')}
           </p>
         ) : null}
         {message.state === 'stopped' ? (
           <p className="text-xs text-fg-muted" data-testid="chat-stopped">
-            已停止。已經送出去的生成任務不會跟著取消（到下方的生成佇列管理）。
+            {t('chat.stoppedGenerationsAlreadySentAre')}
           </p>
         ) : null}
         {message.state === 'error' ? (
           <p role="alert" className="text-sm text-danger" data-testid="chat-error">
-            {message.error ?? 'Claude 這次沒有做完，請再試一次。'}
+            {message.error ?? t('chat.claudeDidnTFinishThis')}
           </p>
         ) : null}
         {message.state === 'error' && message.resumable === true && onContinue ? (
           <Button size="sm" variant="primary" data-testid="chat-continue" onClick={onContinue}>
-            繼續
+            {t('chat.continue')}
           </Button>
         ) : null}
       </div>

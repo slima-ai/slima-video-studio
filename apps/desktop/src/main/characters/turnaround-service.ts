@@ -15,6 +15,7 @@ import {
   type TurnaroundCuts,
   type TurnaroundView,
   type TurnaroundsState,
+  t,
 } from '@svs/schema'
 import {
   QUICK_STYLE_IDS,
@@ -119,13 +120,13 @@ export function createTurnaroundService(deps: TurnaroundServiceDeps): Turnaround
     const handle = projects.current()
     const base = { count: TURNAROUNDS_PER_ROUND, demoMode }
     if (!handle?.repos.characters.get(characterId)) {
-      return { ...base, ok: false, issue: '找不到這個角色。', estimatedUsd: 0 }
+      return { ...base, ok: false, issue: t('chat.couldnTFindThisCharacter2'), estimatedUsd: 0 }
     }
     if (!heroRef(handle, characterId)) {
       return {
         ...base,
         ok: false,
-        issue: '先從概念圖挑一張主圖，三視圖才知道要畫誰。',
+        issue: t('chat.pickAMainPictureFrom'),
         estimatedUsd: 0,
       }
     }
@@ -133,8 +134,7 @@ export function createTurnaroundService(deps: TurnaroundServiceDeps): Turnaround
       return {
         ...base,
         ok: false,
-        issue:
-          '還沒有能「參考圖片再生成」的圖片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。',
+        issue: t('chat.thereSNoImageModel'),
         estimatedUsd: 0,
       }
     }
@@ -158,18 +158,18 @@ export function createTurnaroundService(deps: TurnaroundServiceDeps): Turnaround
   const generate = (characterId: string): void => {
     const handle = projects.current()
     const character = handle?.repos.characters.get(characterId)
-    if (!handle || !character) throw invalid('找不到這個角色。')
-    if (active.has(characterId)) throw invalid('這個角色的三視圖正在生成中。')
+    if (!handle || !character) throw invalid(t('chat.couldnTFindThisCharacter2'))
+    if (active.has(characterId)) throw invalid(t('chat.thisCharacterSTurnaroundIs'))
     const checked = check(characterId)
     const model = editModel()
     const hero = heroRef(handle, characterId)
-    if (!checked.ok || !model || !hero) throw invalid(checked.issue ?? '現在不能生成三視圖。')
+    if (!checked.ok || !model || !hero) throw invalid(checked.issue ?? t('chat.aTurnaroundCanTBe'))
     const queue = runtime.queue()
     const tool = tools()
     if (!queue || !tool) {
       throw new AppError({
         code: 'internal_error',
-        userMessage: '生成服務還沒準備好，請重新啟動 App。',
+        userMessage: t('chat.theGenerationServiceIsnT'),
       })
     }
 
@@ -221,7 +221,7 @@ export function createTurnaroundService(deps: TurnaroundServiceDeps): Turnaround
         throw new AppError({
           code: failed?.error?.code ?? 'internal_error',
           retryable: failed?.error?.retryable ?? false,
-          userMessage: failed?.error?.userMessage ?? '有一組三視圖沒有生成成功。',
+          userMessage: failed?.error?.userMessage ?? t('chat.oneTurnaroundDidnTGenerate'),
         })
       }
       const sheetHash = parsed.data.image.hash
@@ -254,11 +254,15 @@ export function createTurnaroundService(deps: TurnaroundServiceDeps): Turnaround
         )
         const [first] = failures
         if (failures.length === 0 || run.controller.signal.aborted) return
-        const reason = isAppError(first) ? first.userMessage : '三視圖生成失敗，請再試一次。'
+        const reason = isAppError(first)
+          ? first.userMessage
+          : t('chat.theTurnaroundFailedToGenerate')
         if (!isAppError(first)) log.error(`三視圖生成發生未預期錯誤：${String(first)}`)
         lastErrors.set(
           characterId,
-          run.done > 0 ? `有 ${String(failures.length)} 組沒有成功：${reason}` : reason,
+          run.done > 0
+            ? t('chat.turnaroundsDidnTGenerate', { value: String(failures.length), reason })
+            : reason,
         )
       })
       .finally(() => {
@@ -284,10 +288,10 @@ export function createTurnaroundService(deps: TurnaroundServiceDeps): Turnaround
     async reslice(characterId, turnaroundId, cutsInput) {
       const handle = projects.current()
       const tool = tools()
-      if (!handle || !tool) throw invalid('請先開啟專案。')
+      if (!handle || !tool) throw invalid(t('chat.openAProjectFirst'))
       const cuts = TurnaroundCutsSchema.parse(cutsInput)
       const current = handle.repos.characters.getTurnaround(characterId, turnaroundId)
-      if (!current) throw invalid('找不到這組三視圖。')
+      if (!current) throw invalid(t('chat.couldnTFindThisTurnaround'))
       const slices = await sliceSheet(handle, tool, current.sheetHash, cuts)
       const updated = handle.repos.characters.updateTurnaroundSlices(characterId, turnaroundId, {
         ...slices,

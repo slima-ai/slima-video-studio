@@ -5,6 +5,7 @@ import { Button } from '../../components/button'
 import { assetUrl } from '../../lib/asset'
 import { call, errorText } from '../../lib/svs'
 import { useConcepts } from './use-concepts'
+import { t } from '@svs/schema'
 
 export interface ConceptPickerProps {
   character: CharacterView
@@ -43,26 +44,26 @@ export function ConceptPicker({ character, onChanged }: ConceptPickerProps) {
 
   const costText = check
     ? check.demoMode
-      ? '示範模式：結果是假的，不會花錢'
-      : `預估約 ${usd(check.estimatedUsd)}${check.modelName ? `（${check.modelName}）` : ''}`
+      ? t('chat.demoModeSampleResultsNothing')
+      : check.modelName
+        ? t('chat.estimateAbout', { value: usd(check.estimatedUsd), modelName: check.modelName })
+        : t('chat.estimateAbout2', { value: usd(check.estimatedUsd) })
     : ''
   const problem = pickError ?? error ?? state?.error
 
   return (
     <div className="space-y-3 rounded-md border border-border p-3" data-testid="concept-section">
-      <h3 className="text-sm font-medium">概念圖與主圖</h3>
-      <p className="text-xs text-fg-muted">
-        先生成 4 張長相的候選，挑一張最像的當「主圖」。之後的三視圖和影片都以主圖為準。
-      </p>
+      <h3 className="text-sm font-medium">{t('chat.conceptPicturesAndMainPicture')}</h3>
+      <p className="text-xs text-fg-muted">{t('chat.generate4CandidateLooksThen')}</p>
 
       {character.heroAssetHash ? (
         <div className="flex items-start gap-3" data-testid="concept-hero">
           <img
             src={assetUrl(character.heroAssetHash)}
-            alt={`${character.name}的主圖`}
+            alt={t('chat.sMainPicture', { name: character.name })}
             className="size-40 rounded-md border border-border object-cover"
           />
-          <p className="text-sm text-fg-muted">目前的主圖</p>
+          <p className="text-sm text-fg-muted">{t('chat.currentMainPicture')}</p>
         </div>
       ) : null}
 
@@ -70,7 +71,10 @@ export function ConceptPicker({ character, onChanged }: ConceptPickerProps) {
         {generating ? (
           <>
             <span className="text-sm" data-testid="concept-progress">
-              生成中… 已完成 {generating.done}／{generating.total}
+              {t('chat.generatingOfDone', {
+                value: String(generating.done),
+                value2: String(generating.total),
+              })}
             </span>
             <Button
               size="sm"
@@ -78,7 +82,7 @@ export function ConceptPicker({ character, onChanged }: ConceptPickerProps) {
               onClick={() => void cancel()}
               data-testid="concept-cancel"
             >
-              取消
+              {t('chat.cancel')}
             </Button>
           </>
         ) : (
@@ -90,7 +94,9 @@ export function ConceptPicker({ character, onChanged }: ConceptPickerProps) {
               disabled={!check?.ok}
               onClick={() => void generate()}
             >
-              {concepts.length > 0 ? '整組重跑（4 張）' : '生成 4 張概念圖'}
+              {concepts.length > 0
+                ? t('chat.redoAll4Pictures')
+                : t('chat.generate4ConceptPictures')}
             </Button>
             <span className="text-xs text-fg-muted" data-testid="concept-cost">
               {check && !check.ok ? check.issue : costText}
@@ -107,7 +113,7 @@ export function ConceptPicker({ character, onChanged }: ConceptPickerProps) {
 
       {rounds.map(({ round, items }) => (
         <div key={round} data-testid={`concept-round-${String(round)}`}>
-          <p className="mb-1 text-xs text-fg-muted">第 {round} 輪</p>
+          <p className="mb-1 text-xs text-fg-muted">{t('chat.round', { value: String(round) })}</p>
           <div className="grid grid-cols-4 gap-2">
             {items.map((concept) => {
               const chosen = concept.assetHash === character.heroAssetHash
@@ -116,7 +122,7 @@ export function ConceptPicker({ character, onChanged }: ConceptPickerProps) {
                   key={concept.id}
                   type="button"
                   data-testid={`concept-${concept.id}`}
-                  aria-label="挑這張當主圖"
+                  aria-label={t('chat.useAsMainPicture')}
                   aria-pressed={chosen}
                   onClick={() => void pick(concept)}
                   className={`overflow-hidden rounded-md border-2 ${
@@ -125,7 +131,7 @@ export function ConceptPicker({ character, onChanged }: ConceptPickerProps) {
                 >
                   <img
                     src={assetUrl(concept.assetHash)}
-                    alt="概念圖"
+                    alt={t('chat.conceptPictures')}
                     className="aspect-square w-full object-cover"
                   />
                 </button>

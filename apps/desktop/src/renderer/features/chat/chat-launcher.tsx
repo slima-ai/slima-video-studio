@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { Mascot } from '../../brand/mascot'
 import { cn } from '../../lib/cn'
 import { useChatDock } from './chat-context'
+import { t } from '@svs/schema'
 
 /** 畫布右下角的小按鈕：按了從右邊滑出 Claude 對話。功能沒打開（實驗功能開關）就不出現。 */
 export function ChatLauncher() {
@@ -15,7 +16,7 @@ export function ChatLauncher() {
       type="button"
       data-testid="chat-launcher"
       aria-pressed={open}
-      title="和 Claude 對話：用你自己登入的 Claude Code，直接幫你改這個專案"
+      title={t('chat.chatWithClaudeUseYour')}
       className={cn(
         'flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs shadow-card transition-colors',
         open

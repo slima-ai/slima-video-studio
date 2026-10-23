@@ -1,4 +1,10 @@
-import { CHARACTER_AVOID_MAX_CHARS, type CharacterEdit, type CharacterView } from '@svs/schema'
+import {
+  CHARACTER_AVOID_MAX_CHARS,
+  type CharacterEdit,
+  type CharacterView,
+  t,
+  msg,
+} from '@svs/schema'
 import { Plus, Trash2, Users } from 'lucide-react'
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
 
@@ -47,9 +53,9 @@ export function diffCharacter(c: CharacterView, draft: Draft): CharacterEdit {
 const FIELD = 'mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal'
 
 const STATUS_TEXT = {
-  none: '還沒寫',
-  draft: '草稿（還沒鎖定，生成時不會帶入）',
-  locked: '已鎖定（生成時會原封不動帶入）',
+  none: msg('chat.notWrittenYet'),
+  draft: msg('chat.draftNotLockedSoIt'),
+  locked: msg('chat.lockedUsedWordForWord'),
 } as const
 
 interface AnchorProps {
@@ -99,23 +105,20 @@ function AnchorEditor({ character, onChanged }: AnchorProps) {
       data-testid="character-anchor-section"
     >
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium">固定外觀描述</h3>
+        <h3 className="text-sm font-medium">{t('chat.fixedAppearance')}</h3>
         <span
           className="text-xs text-fg-muted"
           data-testid="character-anchor-status"
           data-status={character.anchorStatus}
         >
-          {character.version > 0 ? `第 ${String(character.version)} 版・` : ''}
-          {STATUS_TEXT[character.anchorStatus]}
+          {character.version > 0 ? t('chat.version', { value: String(character.version) }) : ''}
+          {t(STATUS_TEXT[character.anchorStatus])}
         </span>
       </div>
-      <p className="text-xs text-fg-muted">
-        鎖定之後，這個角色出場的每個鏡頭，都會把這段話原封不動放進給 AI 的描述裡，
-        讓長相保持一樣。寫得越精簡、越具體越好。
-      </p>
+      <p className="text-xs text-fg-muted">{t('chat.onceLockedEveryShotThis')}</p>
       <textarea
         data-testid="character-anchor"
-        aria-label="固定外觀描述"
+        aria-label={t('chat.fixedAppearance')}
         rows={3}
         value={text}
         maxLength={1000}
@@ -126,7 +129,7 @@ function AnchorEditor({ character, onChanged }: AnchorProps) {
       />
       {character.anchorStatus === 'draft' && character.version > 1 ? (
         <p className="text-xs text-warning" data-testid="character-anchor-relock">
-          長相或服裝改過了，確認這段描述還對，再按一次「鎖定」。
+          {t('chat.theLookOrOutfitChanged')}
         </p>
       ) : null}
       {error ? (
@@ -139,10 +142,10 @@ function AnchorEditor({ character, onChanged }: AnchorProps) {
           size="sm"
           data-testid="character-anchor-suggest"
           disabled={busy !== undefined || !hasLooks}
-          title={hasLooks ? undefined : '先寫長相或服裝，AI 才有東西可以整理'}
+          title={hasLooks ? undefined : t('chat.writeTheLookOrOutfit')}
           onClick={() => void run('suggest')}
         >
-          {busy === 'suggest' ? 'AI 整理中…' : '請 AI 幫我整理'}
+          {busy === 'suggest' ? t('chat.aiIsWritingIt') : t('chat.askAiToWriteIt')}
         </Button>
         <Button
           size="sm"
@@ -150,7 +153,7 @@ function AnchorEditor({ character, onChanged }: AnchorProps) {
           disabled={busy !== undefined || !dirty}
           onClick={() => void run('save')}
         >
-          儲存描述
+          {t('chat.saveDescription')}
         </Button>
         <Button
           size="sm"
@@ -159,7 +162,7 @@ function AnchorEditor({ character, onChanged }: AnchorProps) {
           disabled={busy !== undefined || !canLock}
           onClick={() => void run('lock')}
         >
-          鎖定
+          {t('chat.lock')}
         </Button>
       </div>
     </div>
@@ -214,13 +217,13 @@ function CharacterCard({ character, onSaved, onDeleted }: CardProps) {
 
   return (
     <section
-      aria-label={`角色：${character.name}`}
+      aria-label={t('chat.character', { name: character.name })}
       data-testid="character-card"
       className="space-y-3 rounded-lg border border-border bg-surface-raised shadow-card p-5"
     >
       <div className="grid grid-cols-3 gap-3">
         <label className="col-span-2 block text-sm font-medium">
-          名字
+          {t('chat.name')}
           <input
             data-testid="character-name"
             value={draft.name}
@@ -232,7 +235,7 @@ function CharacterCard({ character, onSaved, onDeleted }: CardProps) {
           />
         </label>
         <label className="block text-sm font-medium">
-          年齡（選填）
+          {t('chat.ageOptional')}
           <input
             data-testid="character-age"
             value={draft.age}
@@ -245,7 +248,7 @@ function CharacterCard({ character, onSaved, onDeleted }: CardProps) {
         </label>
       </div>
       <label className="block text-sm font-medium">
-        長相（髮型髮色、眼睛、身形、特徵）
+        {t('chat.lookHairEyesBuildFeatures')}
         <textarea
           data-testid="character-appearance"
           rows={3}
@@ -257,7 +260,7 @@ function CharacterCard({ character, onSaved, onDeleted }: CardProps) {
         />
       </label>
       <label className="block text-sm font-medium">
-        個性
+        {t('chat.personality')}
         <textarea
           data-testid="character-personality"
           rows={2}
@@ -269,24 +272,24 @@ function CharacterCard({ character, onSaved, onDeleted }: CardProps) {
         />
       </label>
       <label className="block text-sm font-medium">
-        影片裡不要出現的特徵（英文，逗號分隔）
+        {t('chat.featuresToAvoidInVideo')}
         <textarea
           data-testid="character-avoid"
           rows={2}
           value={draft.avoid}
           maxLength={CHARACTER_AVOID_MAX_CHARS}
-          placeholder="例如小饅頭：mouth, eyebrows, eyelids, arms, legs, hands, feet"
+          placeholder={t('chat.forExampleLittleBunMouth')}
           onChange={(event) => {
             set({ avoid: event.target.value })
           }}
           className={FIELD}
         />
         <span className="mt-1 block text-xs font-normal text-fg-muted">
-          生影片時，這個角色出場的鏡頭會把這份清單接在負面提示後面，免得模型替他長出不存在的五官或手腳。
+          {t('chat.whenMakingVideoShotsWith')}
         </span>
       </label>
       <label className="block text-sm font-medium">
-        服裝
+        {t('chat.outfit')}
         <textarea
           data-testid="character-outfit"
           rows={2}
@@ -311,20 +314,20 @@ function CharacterCard({ character, onSaved, onDeleted }: CardProps) {
           disabled={!dirty || busy || draft.name.trim() === ''}
           onClick={() => void save()}
         >
-          儲存
+          {t('chat.save')}
         </Button>
-        {dirty ? <span className="text-sm text-fg-muted">還沒儲存</span> : null}
+        {dirty ? <span className="text-sm text-fg-muted">{t('chat.notSavedYet')}</span> : null}
         <div className="flex-1" />
         {!onDeleted ? null : confirmingDelete ? (
           <>
-            <span className="text-sm">確定刪除「{character.name}」？</span>
+            <span className="text-sm">{t('chat.delete', { name: character.name })}</span>
             <Button
               size="sm"
               data-testid="character-delete-confirm"
               disabled={busy}
               onClick={() => void remove()}
             >
-              確定刪除
+              {t('chat.yesDelete')}
             </Button>
             <Button
               size="sm"
@@ -333,7 +336,7 @@ function CharacterCard({ character, onSaved, onDeleted }: CardProps) {
                 setConfirmingDelete(false)
               }}
             >
-              不刪
+              {t('chat.keep')}
             </Button>
           </>
         ) : (
@@ -347,7 +350,7 @@ function CharacterCard({ character, onSaved, onDeleted }: CardProps) {
             }}
           >
             <Trash2 className="size-4" />
-            刪除角色
+            {t('chat.deleteCharacter')}
           </Button>
         )}
       </div>
@@ -463,8 +466,8 @@ export function CharactersPage() {
 
   return (
     <Page
-      title="角色"
-      hint="把角色的長相、個性和服裝寫下來，之後的影片就能讓同一個角色保持一樣的樣子。"
+      title={t('chat.characters')}
+      hint={t('chat.writeDownACharacterS')}
       testId="characters-page"
     >
       <div>
@@ -473,7 +476,7 @@ export function CharactersPage() {
             testId="character-empty"
             icon={Users}
             className="py-16"
-            message="還沒有角色。先建立一個，之後每個鏡頭都能讓他保持同樣的長相。"
+            message={t('chat.noCharactersYetCreateOne')}
             action={
               <Button
                 variant="primary"
@@ -482,7 +485,7 @@ export function CharactersPage() {
                   setCreating(true)
                 }}
               >
-                建立第一個角色
+                {t('chat.createYourFirstCharacter')}
               </Button>
             }
           />
@@ -501,8 +504,8 @@ export function CharactersPage() {
               <input
                 ref={nameInput}
                 data-testid="character-new-name"
-                aria-label="新角色的名字"
-                placeholder="例如：阿鐵"
+                aria-label={t('chat.newCharacterSName')}
+                placeholder={t('chat.forExampleMina')}
                 value={newName}
                 maxLength={40}
                 onChange={(event) => {
@@ -513,12 +516,12 @@ export function CharactersPage() {
               <Button
                 type="submit"
                 variant="primary"
-                aria-label="新增角色"
+                aria-label={t('chat.addCharacter')}
                 data-testid="character-add"
                 disabled={adding || newName.trim() === ''}
               >
                 <Plus className="size-4" />
-                新增
+                {t('chat.add')}
               </Button>
             </form>
             {error ? (
@@ -526,7 +529,11 @@ export function CharactersPage() {
                 {error}
               </p>
             ) : null}
-            <ul className="space-y-1" aria-label="角色清單" data-testid="character-list">
+            <ul
+              className="space-y-1"
+              aria-label={t('chat.characterList')}
+              data-testid="character-list"
+            >
               {characters.map((c) => (
                 <li key={c.id}>
                   <button
@@ -548,10 +555,10 @@ export function CharactersPage() {
                         className="ml-2 text-xs text-success"
                         data-testid={`character-item-lock-${c.name}`}
                       >
-                        已鎖定 v{c.version}
+                        {t('chat.lockedV', { value: String(c.version) })}
                       </span>
                     ) : c.anchorStatus === 'draft' ? (
-                      <span className="ml-2 text-xs text-warning">草稿</span>
+                      <span className="ml-2 text-xs text-warning">{t('chat.draft')}</span>
                     ) : null}
                   </button>
                 </li>
@@ -579,7 +586,7 @@ export function CharactersPage() {
                     setSelectedId(undefined)
                   }}
                 >
-                  關閉
+                  {t('chat.close')}
                 </Button>
               </div>
               <CharacterDetail

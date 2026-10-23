@@ -11,6 +11,9 @@ import {
   type ChatPanelMessage,
   type ChatPrereq,
   type ChatStep,
+  t,
+  msg,
+  messageVariants,
 } from '@svs/schema'
 
 import type { Logger } from '../logger'
@@ -94,7 +97,7 @@ export interface ChatService {
 }
 
 /** 預設的對話標題；使用者講第一句話之後，標題換成那句話的開頭。 */
-export const DEFAULT_CHAT_TITLE = '新對話'
+export const DEFAULT_CHAT_TITLE = msg('chat.newChat')
 const TITLE_FROM_TEXT_MAX = 20
 const CHECK_TTL_MS = 60_000
 /** 打開面板時，預熱或上一次的檢查結果多久內還算數（送話前另外有 CHECK_TTL_MS 的檢查，登出、移除會在那裡被擋下來）。 */
@@ -151,9 +154,9 @@ interface Conversation {
 const invalid = (userMessage: string): AppError =>
   new AppError({ code: 'invalid_request', userMessage })
 
-const NEED_LOGIN = '還沒登入 Claude。請先在終端機執行 claude 並登入，再回來試一次。'
-const NO_MCP = '連不上 App 的「AI 工具連線」。請到設定確認它是開著的，再送一次。'
-const LOST = '和 Claude 的連線中斷了。再送一則訊息，會接著上次的對話繼續。'
+const NEED_LOGIN = msg('chat.youReNotSignedIn')
+const NO_MCP = msg('chat.canTReachTheApp')
+const LOST = msg('chat.theConnectionToClaudeWas')
 
 export function createChatService(deps: ChatServiceDeps): ChatService {
   const now = deps.now ?? (() => new Date())
@@ -225,7 +228,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
   const get = (conversationId: string): Conversation => {
     loadFromDisk()
     const conv = conversations.get(conversationId)
-    if (!conv) throw invalid('找不到這個對話。')
+    if (!conv) throw invalid(t('chat.couldnTFindThisChat'))
     return conv
   }
 
@@ -338,7 +341,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     }
     message.steps = message.steps.map((step) =>
       step.status === 'running'
-        ? { ...step, status: 'error', label: toolLabel(step.tool), summary: '沒有做完' }
+        ? { ...step, status: 'error', label: toolLabel(step.tool), summary: t('chat.didnTFinish') }
         : step,
     )
     message.state = outcome.state
@@ -369,12 +372,12 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
           persist(conv)
         }
         if (!signal.mcpConnected && turn) {
-          finishTurn(conv, { state: 'error', error: NO_MCP })
+          finishTurn(conv, { state: 'error', error: t(NO_MCP) })
           proc.close()
         }
         return
       case 'auth_failed':
-        if (turn) finishTurn(conv, { state: 'error', error: NEED_LOGIN })
+        if (turn) finishTurn(conv, { state: 'error', error: t(NEED_LOGIN) })
         proc.close()
         return
       case 'text_start':
@@ -436,7 +439,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
             error:
               signal.budgetLimit === true
                 ? budgetLimitMessage(conv.budgetUsd ?? CHAT_BUDGET_DEFAULT_USD)
-                : (signal.error ?? LOST),
+                : (signal.error ?? t(LOST)),
             ...(signal.resumable === true ? { resumable: true } : {}),
           })
         }
@@ -480,7 +483,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       deps.log.warn(
         `Claude 對話行程結束：code=${String(info.code)} signal=${String(info.signal)} ${info.stderr.slice(-300)}`,
       )
-      finishTurn(conv, { state: 'error', error: LOST })
+      finishTurn(conv, { state: 'error', error: t(LOST) })
     }
   }
 
@@ -618,7 +621,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       const conv: Conversation = {
         info: {
           id: newId(),
-          title: DEFAULT_CHAT_TITLE,
+          title: t(DEFAULT_CHAT_TITLE),
           createdAt: at,
           updatedAt: at,
           running: false,
@@ -649,9 +652,9 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
 
     async send(conversationId, text) {
       const conv = get(conversationId)
-      if (!enabled()) throw invalid('Claude 對話是實驗功能，現在沒有打開。到設定可以打開它。')
-      if (!deps.settings.get().mcp.enabled) throw invalid(NO_MCP)
-      if (conv.turn) throw invalid('Claude 還在做上一則，等它做完，或先按停止。')
+      if (!enabled()) throw invalid(t('chat.claudeChatIsAnExperimental'))
+      if (!deps.settings.get().mcp.enabled) throw invalid(t(NO_MCP))
+      if (conv.turn) throw invalid(t('chat.claudeIsStillWorkingOn'))
       clearIdle(conv)
       conv.turn = {
         assistant: {
@@ -674,10 +677,13 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
         const prereq = prereqOf(check)
         throw invalid(
           prereq.state === 'not_installed'
-            ? '找不到 Claude Code。這個功能需要你電腦上的 Claude Code。'
+            ? t('chat.couldnTFindClaudeCode')
             : prereq.state === 'too_old'
-              ? `Claude Code 的版本太舊（${prereq.version}），請更新到 ${prereq.minVersion} 以上。`
-              : NEED_LOGIN,
+              ? t('chat.yourClaudeCodeIsToo', {
+                  version: prereq.version,
+                  minVersion: prereq.minVersion,
+                })
+              : t(NEED_LOGIN),
         )
       }
       // 使用者在兩句之間按過復原或重做：附一段說明，不然 Claude 以為自己的改動不見了、會自己改回去。
@@ -694,7 +700,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       }
       conv.claudePath = check.path
       conv.messages.push(user, turn.assistant)
-      if (conv.info.title === DEFAULT_CHAT_TITLE) {
+      if (messageVariants(DEFAULT_CHAT_TITLE.msgKey).includes(conv.info.title)) {
         const oneLine = text.replace(/\s+/g, ' ').trim()
         conv.info.title =
           oneLine.length > TITLE_FROM_TEXT_MAX
@@ -715,7 +721,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
         deps.log.error(`啟動 Claude 對話行程失敗：${String(error)}`)
         finishTurn(conv, {
           state: 'error',
-          error: 'Claude 沒辦法啟動，請確認 Claude Code 能正常使用。',
+          error: t('chat.claudeCouldnTStartMake'),
         })
       }
     },

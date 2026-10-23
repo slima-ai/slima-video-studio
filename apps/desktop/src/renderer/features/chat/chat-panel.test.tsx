@@ -1,4 +1,10 @@
-import type { ChatConversation, ChatPanelMessage, ChatPrereq } from '@svs/schema'
+import {
+  DEFAULT_LOCALE,
+  setLocale,
+  type ChatConversation,
+  type ChatPanelMessage,
+  type ChatPrereq,
+} from '@svs/schema'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -496,5 +502,42 @@ describe('Claude 對話面板：「正在檢查」不閃', () => {
     expect(shown()).toBe(true)
     expect(screen.queryByTestId('chat-checking')).toBeNull()
     expect(screen.getByTestId('chat-input')).toBeTruthy()
+  })
+})
+
+describe('Claude 對話面板：英文介面', () => {
+  afterEach(() => {
+    setLocale(DEFAULT_LOCALE)
+  })
+
+  it('面板、起手式、按鈕的字都是英文，沒有中文與全形標點', async () => {
+    setLocale('en')
+    setup({
+      conversations: [conversation({ id: ID, title: 'New chat' })],
+      messages: {
+        [ID]: [
+          message({ id: 'u1', role: 'user', text: 'Hi' }),
+          message({ id: 'a1', state: 'stopped' }),
+        ],
+      },
+    })
+    await openPanel()
+    await screen.findByTestId('chat-input')
+    await screen.findByTestId('chat-stopped')
+    const copy = document.body.cloneNode(true) as HTMLElement
+    for (const el of copy.querySelectorAll('textarea, input')) el.remove()
+    const text = copy.textContent
+    expect(text).toContain('Stopped.')
+    expect(text).toContain('New chat')
+    const bad = /[㐀-鿿，。：；（）、！？「」・]/
+    expect(bad.test(text), new RegExp(`.{0,24}${bad.source}.{0,24}`).exec(text)?.[0]).toBe(false)
+    // 輸入框的提示與按鈕的提示（屬性）也要是英文
+    const attrs = [...document.body.querySelectorAll('[title], [aria-label], [placeholder]')]
+      .map(
+        (el) =>
+          `${el.getAttribute('title') ?? ''}${el.getAttribute('aria-label') ?? ''}${el.getAttribute('placeholder') ?? ''}`,
+      )
+      .join('|')
+    expect(bad.test(attrs), attrs).toBe(false)
   })
 })
