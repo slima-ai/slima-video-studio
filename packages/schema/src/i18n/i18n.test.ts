@@ -102,9 +102,14 @@ describe('resolveLocale：環境變數 > 設定 > 作業系統', () => {
     expect(localeFromSystem([])).toBe('zh-TW')
   })
 
-  it('英文介面還沒完成（ENGLISH_UI_READY=false）時，跟著系統一律是繁中；完成後才跟著系統', () => {
-    const result = resolveLocale({ preference: 'system', systemLanguages: ['en-US'] })
-    expect(result).toBe(ENGLISH_UI_READY ? 'en' : 'zh-TW')
+  it('英文介面完成了（ENGLISH_UI_READY=true）：跟著系統就是依系統語言；要撤回改成 false 就一律繁中', () => {
+    expect(ENGLISH_UI_READY).toBe(true)
+    expect(resolveLocale({ preference: 'system', systemLanguages: ['en-US'] })).toBe('en')
+    expect(resolveLocale({ preference: 'system', systemLanguages: ['zh-TW'] })).toBe('zh-TW')
+    expect(resolveLocale({ preference: 'system', systemLanguages: [] })).toBe('zh-TW')
+    // 明確選的語言不受系統影響
+    expect(resolveLocale({ preference: 'zh-TW', systemLanguages: ['en-US'] })).toBe('zh-TW')
+    expect(resolveLocale({ preference: 'en', systemLanguages: ['zh-TW'] })).toBe('en')
   })
 })
 

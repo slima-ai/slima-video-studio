@@ -14,6 +14,7 @@ import { Button } from '../../components/button'
 import { SettingCard } from '../../components/setting-card'
 import { Switch } from '../../components/switch'
 import { call, errorText } from '../../lib/svs'
+import { LanguageCard } from './language-card'
 
 export interface GeneralSectionProps {
   settings: AppSettings
@@ -26,7 +27,7 @@ const THEME_LABELS: Record<ThemePreference, MessageRef> = {
   dark: msg('settings.dark'),
 }
 
-/** 「一般」區的三張卡：示範模式、外觀、單次花費上限。 */
+/** 「一般」區的四張卡：示範模式、外觀、單次花費上限、介面語言。 */
 export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
   const [limit, setLimit] = useState(String(settings.budget.perRunLimitUsd))
   const [error, setError] = useState<string | undefined>()
@@ -173,6 +174,8 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
           </form>
         }
       />
+
+      <LanguageCard value={settings.language} onChanged={onChanged} />
 
       {error ? (
         <p role="alert" className="text-sm text-danger md:col-span-2">

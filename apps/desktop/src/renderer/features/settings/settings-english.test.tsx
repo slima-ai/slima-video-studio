@@ -109,7 +109,7 @@ describe('設定頁在英文介面：各區的字都是英文', () => {
   it('語言選單：三個選項（跟隨系統、繁體中文、English）；選 English 只送 language', async () => {
     const fake = installFakeSvs({ 'settings.update': () => ({}) })
     const onChanged = vi.fn()
-    render(<ExperimentsSection settings={SETTINGS} onChanged={onChanged} />)
+    render(<GeneralSection settings={SETTINGS} onChanged={onChanged} />)
     expect(screen.getByTestId<HTMLInputElement>('language-system').checked).toBe(true)
     expect(screen.getByTestId('language-zh-TW').parentElement?.textContent).toBe('繁體中文')
     expect(screen.getByTestId('language-en').parentElement?.textContent).toBe('English')
@@ -130,7 +130,7 @@ describe('設定頁在英文介面：各區的字都是英文', () => {
         throw new Error('disk full')
       },
     })
-    render(<ExperimentsSection settings={SETTINGS} onChanged={vi.fn()} />)
+    render(<GeneralSection settings={SETTINGS} onChanged={vi.fn()} />)
     fireEvent.click(screen.getByTestId('language-en'))
     await screen.findByRole('alert')
     expect(screen.getByTestId<HTMLInputElement>('language-system').checked).toBe(true)

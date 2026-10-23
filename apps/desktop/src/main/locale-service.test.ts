@@ -31,9 +31,13 @@ describe('主行程的介面語言', () => {
     expect(getLocale()).toBe('zh-TW')
   })
 
-  it('跟著系統：英文介面完成之前，英文系統也是繁中（不出現半英文半中文）', () => {
+  it('跟著系統：英文系統是英文、中文系統與抓不到語言是繁中', () => {
     const settings = createMemorySettingsStore() // language: 'system'
     startLocaleService({ settings, override: undefined, systemLanguages: () => ['en-US'] })
+    expect(getLocale()).toBe('en')
+    startLocaleService({ settings, override: undefined, systemLanguages: () => ['zh-Hant-TW'] })
+    expect(getLocale()).toBe('zh-TW')
+    startLocaleService({ settings, override: undefined, systemLanguages: () => [] })
     expect(getLocale()).toBe('zh-TW')
   })
 })

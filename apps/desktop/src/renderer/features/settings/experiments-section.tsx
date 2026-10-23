@@ -11,7 +11,6 @@ import { useEffect, useState } from 'react'
 import { SettingCard } from '../../components/setting-card'
 import { Switch } from '../../components/switch'
 import { call, errorText } from '../../lib/svs'
-import { LanguageCard } from './language-card'
 
 export interface ExperimentsSectionProps {
   settings: AppSettings
@@ -79,7 +78,6 @@ export function ExperimentsSection({ settings, onChanged }: ExperimentsSectionPr
           </div>
         }
       />
-      <LanguageCard value={settings.language} onChanged={onChanged} />
       {error ? (
         <p role="alert" className="text-sm text-danger md:col-span-2">
           {error}
