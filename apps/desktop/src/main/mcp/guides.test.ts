@@ -80,6 +80,13 @@ describe('load_guide("production")', () => {
     expect(unproven).toContain('not been tested here')
   })
 
+  it('avoid：只列這個角色沒有、同鏡其他角色也沒有的特徵；同鏡的清單併用，有衝突就拿掉或拆鏡', () => {
+    expect(production).toContain('avoid list')
+    expect(production).toContain('every other character in the same shot lacks too')
+    expect(production).toContain('combined as written')
+    expect(production).toContain('drop it or split the shots')
+  })
+
   it('送參考圖給影片模型：已實測過（Kling 經 OpenRouter 變差、App 標不建議），寫在「沒驗證」之外，不能再說沒測過', () => {
     const tested = production.slice(0, production.indexOf('Not yet proven'))
     expect(tested).toContain('In one real test (Kling via OpenRouter')
