@@ -543,6 +543,16 @@ describe('工具', () => {
     const mentioned = [...new Set(text.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? [])]
     expect(mentioned.length).toBeGreaterThan(3)
     expect(mentioned.filter((name) => !toolNames.has(name))).toEqual([])
+    // 指南教的新做法：兩個鏡頭參考圖工具，以及「描述／動作／運鏡」三個欄位，欄位名都要真的在 update_shot 裡
+    expect(mentioned).toEqual(
+      expect.arrayContaining(['get_shot_references', 'set_shot_references']),
+    )
+    const updateShot = (await client.listTools()).tools.find((tool) => tool.name === 'update_shot')
+    const fields = Object.keys(updateShot?.inputSchema.properties ?? {})
+    for (const field of ['description', 'action', 'cameraMove']) {
+      expect(text).toContain(field)
+      expect(fields).toContain(field)
+    }
     env.settings.update({ productionGuide: '臉先鎖定，再拍鏡頭。' })
     expect(await read()).toContain('臉先鎖定，再拍鏡頭。')
     expect(await read()).not.toContain('Production and consistency')

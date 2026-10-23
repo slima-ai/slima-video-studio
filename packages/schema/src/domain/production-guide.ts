@@ -9,42 +9,49 @@
  */
 export const DEFAULT_PRODUCTION_GUIDE = `# Production and consistency: keeping the same people and places in every shot
 
-Read this before you define characters or places, and again when a character or place stops looking the same from shot to shot. The storyboard guide covers how shots follow each other and the cinematography guide covers camera choices; this one covers how to make the look stay put.
+Read this before you define characters or places, and again when one stops looking the same from shot to shot. Shot order and camera choices are in the storyboard and cinematography guides; this one covers keeping the look steady.
 
 Why it is hard
-Image and video models do not remember anything between requests. A character looks the same in shot 5 as in shot 1 only when the same words and the same reference pictures go with every request. Consistency comes from what you lock and send, not from the model.
+Image and video models remember nothing between requests. A character looks the same in shot 5 as in shot 1 only when the same words and reference pictures go with every request. Consistency comes from what you lock and send, not from the model.
 
 Define first, shoot later
-1. List who and what appears: characters, places, and any object the story depends on. Decide what must never change from shot to shot: face, hair, clothes, colours, a place's layout and light.
-2. Give each character one fixed look in plain words: what can be seen, short and concrete, no feelings. A locked look is sent word for word with every shot that includes the character, so write it once and never paraphrase it later.
-3. Make the reference pictures before any shot picture. Pictures cost little next to video. Look at them yourself (view_character_images), fix the words or regenerate, then pick one and lock it.
-4. If the character already has an original design picture, use it: ask the user to drop it onto the canvas, find it with list_project_images and attach it with add_character_reference, saying what it shows (face, body, turnaround, expression, costume, prop or general). The concept pictures are then drawn from it instead of from words alone, so the character stays the same as the original.
+1. List who and what appears: characters, places, any object the story depends on. Decide what must never change: face, hair, clothes, colours, a place's layout and light.
+2. Give each character one fixed look in plain words: what can be seen, short and concrete, no feelings. A locked look is sent word for word with every shot that includes the character, so write it once and never paraphrase it.
+3. Make the reference pictures before any shot picture. Pictures cost little next to video: look at them yourself (view_character_images), fix the words or regenerate, then pick one and lock it.
+4. If the character already has an original design picture, use it: ask the user to drop it onto the canvas, find it with list_project_images and attach it with add_character_reference, saying what it shows (face, body, turnaround, expression, costume, prop or general). The concept pictures are then drawn from it, not from words alone.
 
 What a reference picture is for
-- A character needs one clear front picture (the hero); an attached original design sheet counts as the best starting point. If shots will show the side or the back, the three-view sheet matters too: the app uses the side or back view for those angles and the hero for close-ups. Without a view to follow, the model invents the unseen side and the look drifts there. list_characters shows hasTurnaround; the user builds the sheet on the character card (you cannot yet), so tell them when a planned shot needs it.
-- A place is a picture of the empty setting, no people in it, with a main view; add a pulled-back view and a reverse view if the scene cuts around. Keep light and time of day fixed inside one scene.
-- If the user has made place cards on the canvas, a shot that names that place uses them automatically. You cannot create place cards with tools yet; say so when it would help, instead of describing the place differently in every shot.
+- A character needs one clear front picture (the hero); an attached original design sheet is the best start. If shots show the side or back, the three-view sheet matters too: the app uses those views for those angles and the hero for close-ups; without one, the model invents the unseen side and the look drifts. list_characters shows hasTurnaround; the user builds the sheet on the character card (you cannot yet), so say when a planned shot needs it.
+- A place is a picture of the empty setting, no people, with a main view; add a pulled-back and a reverse view if the scene cuts around.
+- Place cards the user made on the canvas are used automatically by shots naming that place. You cannot create them with tools yet; say so instead of describing the place differently in every shot.
 
 Spend the reference slots where the shot needs them
-Each image model accepts only a few reference pictures per request (get_capabilities and list_models tell you which model is in use). The app picks them for every shot from the size and angle: the face-forward picture for close-ups, the side or back view for those angles, the place picture for wide shots. A shot with several characters leaves each one fewer pictures, so crowded shots are the ones that drift first: keep them rare, or give the shot fewer characters.
+Each image model accepts only a few reference pictures per request (get_capabilities, list_models). For locked characters and places the app picks per shot from size and angle: the hero first (side or back view for those angles), then the character's attached pictures that fit (face and expression for close-ups; body and costume for wide, full-body, side, back), then the front view; the place takes one slot. Several characters leave each one fewer, so crowded shots drift first: keep them rare.
+If the pick shows the wrong face, outfit or place, look with get_shot_references, then choose by hand with set_shot_references (an empty list returns to automatic). The first frame must then be regenerated, which costs money: quote it first.
+
+Write each shot in three places
+- description: only what the first frame shows (who is where, pose, expression, setting). It is a still picture, so movement or camera words ("the camera pans left") reach the image model as if part of the picture.
+- action: only what happens during the seconds, as who does what from where to where ("the small yellow dome hops once to the left and lands"). Name each subject by how it looks; do not re-describe its looks. For a character with no mouth, face or arms, say it stays as it is: given no motion, a video model tends to invent one (in one real test a faceless character grew an expression and a mouth).
+- cameraMove: camera movement goes in this field only, never in description or action.
+Size and position: image models do not follow numbers. Say what is in front and behind, who is near the frame edge, how far apart things are, not only "a quarter of the frame" (a test asked for a quarter and got about 18%).
+Style: the app adds the project's art style (configure_project) to every prompt. Keep descriptions in its vocabulary, naming it when needed (for example hand-drawn picture book); words from another look (photo, lens) pull one shot away from the rest.
 
 Look before you spend more
-Reference pictures, then first frames (view_first_frames), then video (view_video_stills). Check each stage against the references before starting the next, and fix a fault at the earliest stage where it appears: a wrong face in the first frame is cheaper to redo than the video made from it.
+Reference pictures, then first frames (view_first_frames), then video (view_video_stills). Check each stage against the references before the next and fix a fault at the earliest stage where it shows: a wrong face in the first frame is cheaper to redo than the video made from it.
 
 When something drifts
-1. Compare the shot with the locked pictures and words: what exactly changed (colour, shape, a missing detail)?
-2. Fix the cause once: sharpen the locked look, or replace the reference picture. Do not pile more words into one shot's prompt; the next shot will drift again.
-3. Redo only that shot (regenerate_shot). If the same fault comes back every time, the model may be the limit; try another (list_models) and tell the user why.
+1. Compare the shot with the locked pictures and words: what exactly changed?
+2. Fix the cause once: sharpen the locked look or replace the reference picture. Piling words into one shot's prompt only moves the drift to the next shot.
+3. Redo only that shot (regenerate_shot). If the same fault keeps returning, the model may be the limit; try another (list_models).
 
 Long or busy action
-Do not ask one clip for a fight or a long chase. Split it into several short shots, one action each, so every shot has its own first frame, can be redone alone, and has a price you can quote.
+Do not ask one clip for a fight or a long chase. Split it into short shots, one action each, so each has its own first frame, can be redone alone, and has a price you can quote.
 
 Not yet proven (say so instead of promising)
 - Some guides advise one close-up of the face and a separate picture of the body without the face. We found this only in one blog post and have not tested it here.
-- Whether extra reference pictures sent to a video model keep a character steadier than the first-frame picture alone has not been tested here.
-- A model's own consistency features differ by model and may not be available through the app yet.
+- Whether extra reference pictures sent to a video model keep a character steadier than the first frame alone has not been tested here.
 
-Tell the user what you locked and why in a sentence each, and quote the price before anything that spends money.
+Tell the user what you locked and why, and quote the price before anything that spends money.
 `
 
 /** 自訂指南的字數上限（只有 Claude 載入指南時才會讀到；太長會佔掉對話的空間）。 */
