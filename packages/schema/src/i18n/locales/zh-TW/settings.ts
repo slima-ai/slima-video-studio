@@ -259,7 +259,8 @@ export const settings = {
   'settings.theNumberOfCharacters': '字數',
   'settings.theInputAndOutputToken': '輸入與輸出 token 數',
   'settings.language': '語言',
-  'settings.languageSummary': '選擇 App 的介面語言。英文介面還沒做完，有些地方會還是中文。',
+  'settings.languageSummary':
+    '選擇 App 的介面語言。送給 AI 模型的提示詞不會翻譯，所以生成佇列與生成紀錄裡偶爾還是會看到中文。',
   'settings.listSeparator': '、',
   'settings.listSeparator2': '；',
   'settings.optionRecommended': '（推薦）',

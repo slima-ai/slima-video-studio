@@ -4,6 +4,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 import { boundaryConfigs } from './tools/eslint/boundaries.mjs'
+import { hanConfigs } from './tools/i18n/no-hard-coded-han.mjs'
 
 export default tseslint.config(
   {
@@ -55,5 +56,7 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.node } },
   },
   ...boundaryConfigs,
+  // 寫死的中文字串（例外清單與理由：tools/i18n/han-exceptions.mjs）
+  ...hanConfigs(),
   prettier,
 )

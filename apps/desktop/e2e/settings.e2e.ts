@@ -172,7 +172,7 @@ test.describe('第一次使用的引導與設定頁', () => {
       await expect(next.locator('html')).toHaveAttribute('data-theme', 'light')
       await next.getByRole('button', { name: '設定' }).click()
       await expect(next.getByTestId('theme-light')).toBeChecked()
-      await next.getByTestId('general-section').getByText('跟隨系統', { exact: true }).click()
+      await next.getByTestId('theme-system').locator('xpath=..').click()
       await expect(next.locator('html')).not.toHaveAttribute('data-theme', /.+/)
     } finally {
       await again.app.close()
@@ -397,7 +397,7 @@ test.describe('第一次使用的引導與設定頁', () => {
   })
 })
 
-test.describe('介面語言（實驗功能）', () => {
+test.describe('介面語言（設定 → 一般）', () => {
   // 空字串＝不固定語言（launchApp 預設固定繁體中文），讓設定檔裡選的語言生效
   test.use({ appEnv: { SVS_LOCALE: '' } })
 
@@ -407,11 +407,15 @@ test.describe('介面語言（實驗功能）', () => {
     userDataDir,
   }) => {
     const html = page.locator('html')
+    // 「跟隨系統」會看跑測試的機器是什麼語言（CI 的 Linux 多半是英文），所以先明確選繁體中文；
+    // 系統語言怎麼對到介面語言由單元測試涵蓋（i18n.test.ts、locale-service.test.ts）
+    await page.evaluate(() => window.svs.invoke('settings.update', { language: 'zh-TW' }))
     await expect(html).toHaveAttribute('lang', 'zh-Hant')
     await page.getByRole('button', { name: '設定' }).click()
-    // 英文介面還沒做完，所以「跟隨系統」仍然是繁體中文；語言選單在實驗功能裡
-    await expect(page.getByTestId('language-system')).toBeChecked()
-    await page.locator('#experiments').getByText('English', { exact: true }).click()
+    // 語言選單在「一般」，三個選項：跟隨系統、繁體中文、English
+    await expect(page.locator('#general').getByTestId('language-zh-TW')).toBeChecked()
+    await expect(page.getByTestId('language-system')).toBeAttached()
+    await page.locator('#general').getByText('English', { exact: true }).click()
     await expect(html).toHaveAttribute('lang', 'en')
     await expect(
       page.getByTestId('layout-nav').getByRole('button', { name: 'Settings' }),
@@ -426,7 +430,7 @@ test.describe('介面語言（實驗功能）', () => {
       await next.waitForLoadState('domcontentloaded')
       await expect(next.locator('html')).toHaveAttribute('lang', 'en')
       await next.getByRole('button', { name: 'Settings' }).click()
-      await next.locator('#experiments').getByText('繁體中文', { exact: true }).click()
+      await next.locator('#general').getByText('繁體中文', { exact: true }).click()
       await expect(next.locator('html')).toHaveAttribute('lang', 'zh-Hant')
       await expect(
         next.getByTestId('layout-nav').getByRole('button', { name: '設定' }),

@@ -13,10 +13,7 @@ export interface LanguageCardProps {
 const nameOf = (option: LanguagePreference): string =>
   option === 'system' ? t('settings.followSystem') : LANGUAGE_NAMES[option]
 
-/**
- * 介面語言。英文介面還沒全部做完（ENGLISH_UI_READY 是 false）之前放在「實驗功能」，不給一般使用者看到半英文半中文；
- * 做完那支 PR 會搬到「一般」。換了之後主行程會通知畫面整個重畫（見 docs/i18n.md）。
- */
+/** 介面語言（設定 → 一般）。換了之後主行程會通知畫面整個重畫（見 docs/i18n.md）。 */
 export function LanguageCard({ value, onChanged }: LanguageCardProps) {
   // 先照使用者的操作換，畫面立刻有反應；存失敗再換回來
   const [chosen, setChosen] = useState(value)

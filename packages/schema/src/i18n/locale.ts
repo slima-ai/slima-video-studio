@@ -13,10 +13,12 @@ export type LanguagePreference = z.infer<typeof LanguagePreferenceSchema>
 export const DEFAULT_LOCALE: Locale = 'zh-TW'
 
 /**
- * 英文介面完成了沒有。沒完成之前，設成「跟著系統」不會變英文（半英文半中文比全中文更糟）；
- * 只有明確指定（設定檔的 `language: "en"`，或環境變數 `SVS_LOCALE=en`）才會用英文。全部轉完的那支 PR 把它改成 true。
+ * 英文介面完成了沒有。沒完成的時候，設成「跟著系統」不會變英文（半英文半中文比全中文更糟）；
+ * 只有明確指定（設定檔的 `language: "en"`，或環境變數 `SVS_LOCALE=en`）才會用英文。
+ * 現在是 true：第一次開 App、系統語言不是中文的人會直接看到英文介面。要撤回只要改回 false（一行）：
+ * 跟著系統又一律是繁體中文，語言選單照樣在（選了 English 的人不受影響）。
  */
-export const ENGLISH_UI_READY = false as boolean
+export const ENGLISH_UI_READY = true as boolean
 
 let current: Locale = DEFAULT_LOCALE
 const listeners = new Set<(locale: Locale) => void>()

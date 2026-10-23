@@ -189,8 +189,8 @@ test.describe('畫布：雙擊就地改名、改鏡頭描述', () => {
     const videoCard = page.locator(`.react-flow__node[data-id="${video.id}"]`)
     // 沒有尾幀：只有一張圖，「吃：」只有動作（沒寫動作＝不亮），沒有「尾幀」
     await expect(imageCard.getByTestId('frame-pair')).toHaveCount(0)
-    await expect(videoCard.getByTestId('io-吃')).toContainText('動作')
-    await expect(videoCard.getByTestId('io-吃')).not.toContainText('尾幀')
+    await expect(videoCard.getByTestId('io-in')).toContainText('動作')
+    await expect(videoCard.getByTestId('io-in')).not.toContainText('尾幀')
     await ioFits(page, video.id)
     await page.screenshot({ path: test.info().outputPath('end-frame-without.png') })
 
@@ -208,7 +208,7 @@ test.describe('畫布：雙擊就地改名、改鏡頭描述', () => {
     await expect(imageCard.getByTestId('frame-pair')).toBeVisible()
     await expect(imageCard.getByTestId('first-frame-thumb')).toContainText('首')
     await expect(imageCard.getByTestId('end-frame-thumb')).toContainText('尾')
-    await expect(videoCard.getByTestId('io-吃')).toContainText('尾幀')
+    await expect(videoCard.getByTestId('io-in')).toContainText('尾幀')
     // 「出：影片」還看得到：沒有被「吃：…尾幀」擠掉
     await expect(videoCard.getByTestId('io-video-out')).toBeVisible()
     await ioFits(page, video.id)
@@ -221,7 +221,7 @@ test.describe('畫布：雙擊就地改名、改鏡頭描述', () => {
     )
     if (!cleared.ok) throw new Error(cleared.error.userMessage)
     await expect(imageCard.getByTestId('frame-pair')).toHaveCount(0)
-    await expect(videoCard.getByTestId('io-吃')).not.toContainText('尾幀')
+    await expect(videoCard.getByTestId('io-in')).not.toContainText('尾幀')
   })
 })
 
