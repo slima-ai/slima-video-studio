@@ -267,6 +267,7 @@ const PORTS: Readonly<Record<Exclude<NodeKind, 'cut'>, readonly PortSpec[]>> = {
       tone: 'ref',
       type: 'ref',
       label: msg('canvas.character'),
+      short: msg('canvas.castShort'),
       top: 100,
     },
     {
@@ -275,6 +276,7 @@ const PORTS: Readonly<Record<Exclude<NodeKind, 'cut'>, readonly PortSpec[]>> = {
       tone: 'ref',
       type: 'ref',
       label: msg('canvas.location'),
+      short: msg('canvas.placeShort'),
       top: 124,
     },
     {
@@ -283,6 +285,7 @@ const PORTS: Readonly<Record<Exclude<NodeKind, 'cut'>, readonly PortSpec[]>> = {
       tone: 'main',
       type: 'shot',
       label: msg('canvas.shotDescription'),
+      short: msg('canvas.textShort'),
       top: 70,
     },
   ],
@@ -303,6 +306,7 @@ const PORTS: Readonly<Record<Exclude<NodeKind, 'cut'>, readonly PortSpec[]>> = {
       tone: 'ref',
       type: 'ref',
       label: msg('canvas.referencePictures'),
+      short: msg('canvas.refsShort'),
       top: 130,
     },
     {
@@ -311,7 +315,7 @@ const PORTS: Readonly<Record<Exclude<NodeKind, 'cut'>, readonly PortSpec[]>> = {
       tone: 'main',
       type: 'image',
       label: msg('canvas.firstFrame3'),
-      short: msg('canvas.picture'),
+      short: msg('canvas.imageShort'),
       top: 70,
     },
   ],

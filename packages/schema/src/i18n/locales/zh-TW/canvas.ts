@@ -601,4 +601,9 @@ export const canvas = {
   'canvas.refTipWithLabel': '{owner}・{purpose}（{label}）',
   'canvas.refTip': '{owner}・{purpose}',
   'canvas.usageEstimated': '{line}（估算）',
+  'canvas.castShort': '角色',
+  'canvas.placeShort': '地點',
+  'canvas.textShort': '畫面描述',
+  'canvas.refsShort': '參考圖',
+  'canvas.imageShort': '圖',
 } as const

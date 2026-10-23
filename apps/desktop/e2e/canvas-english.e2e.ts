@@ -100,7 +100,36 @@ test.describe('英文介面的畫布', () => {
     expect(await kindCount(page, 'shot')).toBe(3)
     expect(await visibleBadText(page), '長完之後').toBeUndefined()
 
-    // 步驟、右鍵選單、剪輯卡、鏡頭的面板（編輯與試跑）
+    // 卡片尺寸是固定的：「In: … Out: …」那一行在英文下也要放得下（不能被切掉；各作業系統的字體寬度不同，留一成的餘地）
+    const cut = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-testid="node-io"]')]
+        .map((el) => ({ w: (el as HTMLElement).scrollWidth, c: (el as HTMLElement).clientWidth }))
+        .filter((m) => m.w > m.c * 1.1),
+    )
+    expect(cut, 'In/Out 那一行被切掉').toEqual([])
+    // 指定尾幀之後影片格的「吃」多一項（End）：這一行也要放得下
+    const listed = await page.evaluate(() => window.svs.invoke('shots.list', {}))
+    if (!listed.ok) throw new Error(listed.error.userMessage)
+    const withHash = listed.data.shots[0]
+    const assetHash = withHash?.firstFrames[0]?.assetHash
+    if (!withHash || !assetHash) throw new Error('沒有首幀圖')
+    await page.evaluate(
+      ({ shotId, hash }) => window.svs.invoke('shots.setEndFrame', { shotId, assetHash: hash }),
+      { shotId: withHash.id, hash: assetHash },
+    )
+    const video = (await canvasNodes(page)).find((n) => n.data.kind === 'video')
+    if (!video) throw new Error('沒有影片格')
+    await centerOn(page, video.id)
+    await expect(page.getByTestId(`node-${video.id}`).getByTestId('io-vid-end')).toBeVisible()
+    const cutWithEnd = await page.evaluate((id) => {
+      const line = document.querySelector(`[data-testid="node-${id}"] [data-testid="node-io"]`)
+      return line instanceof HTMLElement ? { w: line.scrollWidth, c: line.clientWidth } : undefined
+    }, video.id)
+    expect(cutWithEnd, '有尾幀的影片格').toBeDefined()
+    expect(cutWithEnd && cutWithEnd.w > cutWithEnd.c * 1.1, '有尾幀時 In/Out 那一行被切掉').toBe(
+      false,
+    )
+    // 步驟、右鍵選單、剪輯卡、鏡頭的面板
     const shots = (await canvasNodes(page)).filter((n) => n.data.kind === 'shot')
     const [first] = shots
     if (!first) throw new Error('沒有鏡頭')

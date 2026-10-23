@@ -112,7 +112,7 @@ export const canvas = {
   'canvas.story': 'Story',
   'canvas.thisSceneSClips': 'This scene’s clips',
   'canvas.shotDescription': 'Shot description',
-  'canvas.readyMadePicture': 'Ready-made picture',
+  'canvas.readyMadePicture': 'Ready',
   'canvas.referencePictures': 'Reference pictures',
   'canvas.film': 'Film',
   'canvas.movedTo': 'Moved to {sceneTitle}',
@@ -668,4 +668,9 @@ export const canvas = {
   'canvas.refTipWithLabel': '{owner} · {purpose} ({label})',
   'canvas.refTip': '{owner} · {purpose}',
   'canvas.usageEstimated': '{line} (estimated)',
+  'canvas.castShort': 'Cast',
+  'canvas.placeShort': 'Place',
+  'canvas.textShort': 'Text',
+  'canvas.refsShort': 'Refs',
+  'canvas.imageShort': 'Image',
 } as const
