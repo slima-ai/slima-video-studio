@@ -1,4 +1,4 @@
-import { getLocale, intlTag, type Locale } from './locale'
+import { getLocale, intlTag, onLocaleChange, type Locale } from './locale'
 import type { EnglishDictionary } from './dictionary'
 import { en as enRaw } from './locales/en'
 import { zhTW } from './locales/zh-TW'
@@ -167,6 +167,33 @@ const preferred = (keys: readonly string[]): string | undefined =>
  */
 export function retranslate(stored: string): string {
   if (stored.trim() === '') return stored
+  // 任務清單每次更新都會對每個失敗的任務再算一遍：記住同一串字的結果（換語言時整份清掉，見下面的 onLocaleChange）
+  const cached = retranslateCache.get(stored)
+  if (cached !== undefined) {
+    retranslateStats.hits++
+    return cached
+  }
+  const result = retranslateUncached(stored)
+  if (retranslateCache.size >= RETRANSLATE_CACHE_MAX) retranslateCache.clear()
+  retranslateCache.set(stored, result)
+  return result
+}
+
+const RETRANSLATE_CACHE_MAX = 2000
+const retranslateCache = new Map<string, string>()
+/** 給測試看「第二次是不是從快取拿的」：命中次數與目前記住幾串。 */
+export const retranslateStats = {
+  hits: 0,
+  get size(): number {
+    return retranslateCache.size
+  },
+}
+// 換語言：同一串字要翻成另一個語言，舊的結果全部作廢
+onLocaleChange(() => {
+  retranslateCache.clear()
+})
+
+function retranslateUncached(stored: string): string {
   storedIndex ??= buildStoredIndex()
   const exactKeys = storedIndex.exact.get(stored)
   if (exactKeys !== undefined) {
