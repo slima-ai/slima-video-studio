@@ -440,3 +440,38 @@ test.describe('介面語言（設定 → 一般）', () => {
     }
   })
 })
+
+for (const locale of ['zh-TW', 'en'] as const) {
+  test.describe(`介面語言卡的三個選項要排在同一排（${locale}）`, () => {
+    test.use({ appEnv: { SVS_LOCALE: locale } })
+
+    // 設定頁內容欄的寬度是固定的，所以不同視窗大小排法應該一樣；e2e 預設的 1280×720 與大螢幕 2000×1200 都量
+    for (const [width, height] of [
+      [1280, 720],
+      [2000, 1200],
+    ] as const) {
+      test(`${String(width)}×${String(height)}`, async ({ page }) => {
+        await page.setViewportSize({ width, height })
+        await page
+          .getByRole('button', { name: locale === 'en' ? 'Settings' : '設定', exact: true })
+          .click()
+        const options = ['system', 'zh-TW', 'en'].map((id) =>
+          page.getByTestId(`language-${id}`).locator('xpath=..'),
+        )
+        for (const option of options) await option.scrollIntoViewIfNeeded()
+        const boxes = await Promise.all(options.map((option) => option.boundingBox()))
+        const tops = boxes.map((box) => Math.round(box?.y ?? -1))
+        expect(new Set(tops).size, `三個選項的上緣：${tops.join('、')}`).toBe(1)
+        // 也都在卡片裡面（沒有擠出去）
+        const card = await page
+          .getByTestId('language-en')
+          .locator('xpath=ancestor::fieldset')
+          .boundingBox()
+        const last = boxes[2]
+        expect((last?.x ?? 0) + (last?.width ?? 0)).toBeLessThanOrEqual(
+          (card?.x ?? 0) + (card?.width ?? 0) + 1,
+        )
+      })
+    }
+  })
+}

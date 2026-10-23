@@ -216,7 +216,7 @@ export const settings = {
   'settings.experiments': '實驗功能',
   'settings.settings': '設定',
   'settings.retry': '重試',
-  'settings.demoModeAppearanceAndThe': '示範模式、外觀與單次花費上限。',
+  'settings.demoModeAppearanceAndThe': '示範模式、外觀、單次花費上限與介面語言。',
   'settings.letYourOwnClaudeOr':
     '讓你自己的 Claude 等 AI 工具連到這個 App；用示範模式不需要金鑰就能玩；AI 工具花多少由你設定，預設不能花。',
   'settings.callAiServicesWithYour':
@@ -259,6 +259,7 @@ export const settings = {
   'settings.theNumberOfCharacters': '字數',
   'settings.theInputAndOutputToken': '輸入與輸出 token 數',
   'settings.language': '語言',
+  'settings.followSystemShort': '跟隨系統',
   'settings.languageSummary':
     '選擇 App 的介面語言。送給 AI 模型的提示詞不會翻譯，所以生成佇列與生成紀錄裡偶爾還是會看到中文。',
   'settings.listSeparator': '、',

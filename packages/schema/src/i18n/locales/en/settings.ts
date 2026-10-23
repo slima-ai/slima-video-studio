@@ -230,7 +230,8 @@ export const settings = {
   'settings.experiments': 'Experiments',
   'settings.settings': 'Settings',
   'settings.retry': 'Retry',
-  'settings.demoModeAppearanceAndThe': 'Demo mode, appearance and the per-run spending limit.',
+  'settings.demoModeAppearanceAndThe':
+    'Demo mode, appearance, the per-run spending limit and the language.',
   'settings.letYourOwnClaudeOr':
     'Let your own Claude or other AI tools connect to this app. Demo mode needs no keys. You set how much AI tools can spend; by default they can’t spend anything.',
   'settings.callAiServicesWithYour':
@@ -274,6 +275,7 @@ export const settings = {
   'settings.theNumberOfCharacters': 'the number of characters',
   'settings.theInputAndOutputToken': 'the input and output token counts',
   'settings.language': 'Language',
+  'settings.followSystemShort': 'System',
   'settings.languageSummary':
     'Choose the language of the app. The prompts sent to AI models aren’t translated, so you may still see some Chinese in the generation queue and records.',
   'settings.listSeparator': ', ',

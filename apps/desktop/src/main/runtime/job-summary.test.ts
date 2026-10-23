@@ -104,16 +104,16 @@ describe('toJobSummary', () => {
     const failed: Job = {
       ...base,
       status: 'failed',
-      error: { code: 'auth', retryable: false, userMessage: stored },
+      error: { code: 'internal_error', retryable: false, userMessage: stored },
     }
     expect(toJobSummary(failed).error?.userMessage).toBe(stored)
     setLocale('en')
     const english = toJobSummary(failed).error?.userMessage ?? ''
     expect(english).toBe(t('errors.theServiceKeyForIs', { name: 'OpenRouter' }))
     expect(english).not.toMatch(/[㐀-鿿]/)
-    const raw = {
+    const raw: Job = {
       ...failed,
-      error: { code: 'x', retryable: true, userMessage: 'HTTP 502 Bad Gateway' },
+      error: { code: 'internal_error', retryable: true, userMessage: 'HTTP 502 Bad Gateway' },
     }
     expect(toJobSummary(raw).error?.userMessage).toBe('HTTP 502 Bad Gateway')
   })
