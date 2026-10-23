@@ -1,4 +1,4 @@
-import { type AppError, type Job } from '@svs/schema'
+import { retranslate, setLocale, t, type AppError, type Job } from '@svs/schema'
 import { describe, expect, it, vi } from 'vitest'
 
 import { parseRetryAfter } from '../http/errors'
@@ -129,6 +129,74 @@ describe('OpenRouterClient.chat', () => {
     expect(error).toMatchObject({ code: 'provider_auth_failed', retryable: false })
     expect(error.userMessage).toContain('OpenRouter')
     expect(JSON.stringify(error.toShape())).not.toContain('SUPERSECRET')
+  })
+
+  // 2026-10-23 從真的 OpenRouter 取得的回應（金鑰上限 30 美金用完；網址裡的金鑰編號換成 KEY_ID）：
+  // 狀態碼是 403（跟「金鑰無效」同一個），只有 body 說得出差別。
+  const KEY_LIMIT_BODY = {
+    error: {
+      message:
+        'Key limit exceeded (total limit). Manage it using https://openrouter.ai/workspaces/default/keys/KEY_ID $30.30 of $30.00 used; does not reset.',
+      code: 403,
+      metadata: {
+        limit_source: 'openrouter_key_limit',
+        remedy_hint:
+          "Raise or remove this API key's usage limit at https://openrouter.ai/settings/keys, or use a key without a limit.",
+        scope: 'key_limit',
+        limit_usd: 30,
+        spend_usd: 30.3049008,
+        resets_at: null,
+      },
+    },
+  }
+
+  it('403「Key limit exceeded」（金鑰額度用完）→ 餘額不足、不叫人重貼金鑰（真實回應樣本）', async () => {
+    const { impl } = fakeFetch(json(KEY_LIMIT_BODY, { status: 403 }))
+    const error = await failure(make(impl).chat(req, signal))
+    expect(error).toMatchObject({ code: 'provider_insufficient_funds', retryable: false })
+    expect(error.userMessage).toContain('OpenRouter')
+    expect(error.userMessage).toMatch(/額度/)
+    expect(error.userMessage).not.toBe(t('errors.theServiceKeyForIs', { name: 'OpenRouter' }))
+    expect(error.userMessage).not.toContain('設定頁重新輸入')
+    setLocale('en')
+    expect(retranslate(error.userMessage)).toBe(t('errors.keyLimitReached', { name: 'OpenRouter' }))
+    expect(retranslate(error.userMessage)).toMatch(/spending limit/)
+    setLocale('zh-TW')
+  })
+
+  it('旁白、配樂碰到金鑰額度用完也是同一句（佇列裡實際失敗的就是這兩種）', async () => {
+    const { impl } = fakeFetch(
+      json(KEY_LIMIT_BODY, { status: 403 }),
+      json(KEY_LIMIT_BODY, { status: 403 }),
+    )
+    const client = new OpenRouterClient({
+      getKey: () => KEY,
+      endpointFor: () => 'vendor/model',
+      fetch: impl,
+    })
+    const speech = await failure(
+      client.speech(
+        { modelId: 'openrouter/minimax-speech-2.8-hd', text: '嗨', voice: 'v' },
+        signal,
+      ),
+    )
+    const music = await failure(
+      client.generateMusic({ modelId: 'openrouter/lyria-3-pro', prompt: 'calm' }, signal),
+    )
+    for (const error of [speech, music])
+      expect(error).toMatchObject({ code: 'provider_insufficient_funds', retryable: false })
+    expect(speech.userMessage).toBe(music.userMessage)
+    expect(speech.userMessage).not.toContain('設定頁重新輸入')
+  })
+
+  it('403 沒有額度字樣（真的沒權限）仍然是 Key 無效', async () => {
+    const { impl } = fakeFetch(
+      json({ error: { message: 'Forbidden', code: 403 } }, { status: 403 }),
+      json({ error: { message: 'User not found.', code: 401 } }, { status: 401 }),
+    )
+    const client = make(impl)
+    expect(await failure(client.chat(req, signal))).toMatchObject({ code: 'provider_auth_failed' })
+    expect(await failure(client.chat(req, signal))).toMatchObject({ code: 'provider_auth_failed' })
   })
 
   it('429 → 可重試，並帶上 Retry-After；5xx → 可重試；402 → 餘額不足；400 → 被拒絕', async () => {

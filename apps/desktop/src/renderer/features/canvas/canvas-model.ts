@@ -122,7 +122,8 @@ export const NODE_SIZE: Readonly<
   Record<Exclude<NodeKind, 'scene' | 'cut' | 'group' | 'step'>, { w: number; h: number }>
 > = {
   oneliner: { w: 300, h: 440 },
-  shot: { w: 230, h: 188 },
+  // 內文 188＋最下面「展開步驟」自己的一行 24（要和主行程 projection 的 SIZE.shot 一致）
+  shot: { w: 230, h: 212 },
   image: { w: 230, h: 246 },
   video: { w: 230, h: 246 },
   character: { w: 220, h: 200 },

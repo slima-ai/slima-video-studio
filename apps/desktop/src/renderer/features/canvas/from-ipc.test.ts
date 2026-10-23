@@ -124,7 +124,7 @@ describe('toFlowGraph', () => {
   it('場畫成可以只從標題拖的底層框，剪輯畫成直長型，其他畫成卡片並固定尺寸', () => {
     expect(node('scene:s1')).toMatchObject({ type: 'frame', width: 400, height: 300, zIndex: -1 })
     expect(node('cut')).toMatchObject({ type: 'cut', width: 260 })
-    expect(node('shot:a')).toMatchObject({ type: 'card', width: 230, height: 188 })
+    expect(node('shot:a')).toMatchObject({ type: 'card', width: 230, height: 212 })
   })
 
   it('節點資料：場與鏡頭的歸屬、角色標籤、放進成品、縮圖與版本', () => {
