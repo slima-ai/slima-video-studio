@@ -4,6 +4,7 @@ import {
   allowanceCard,
   cutCard,
   demoModeName,
+  perRunLimitCard,
   joinIntoFilmButton,
   resetUsedButton,
   saveButton,
@@ -48,7 +49,7 @@ Notes
 const spending = (): string => `# Spending
 
 - Demo mode never spends money. In real mode, every tool that calls an AI model (text, image or video) first estimates its cost and reserves it from the spending allowance.
-- The allowance is the card ${allowanceCard()} under ${settingsAiTools()} in the app's Settings page; the person sets it and it starts at US$0. You cannot change it. If a tool says the allowance is too small, tell the user the estimate and ask them to raise ${allowanceCard()} there.
+- The allowance is the card ${allowanceCard()} under ${settingsAiTools()} in the app's Settings page; the person sets it and it starts at US$0. You cannot change it. If a tool says the allowance is too small, tell the user the estimate and ask them to raise ${allowanceCard()} there. Do not mix it up with ${perRunLimitCard()} under ${settingsGeneral()}: that one only caps a single generation, while ${allowanceCard()} caps everything AI tools spend in total.
 - The reservation is a safety margin (the estimate times 1.25 for pictures and videos, times 2 for text). When everything has finished, the next tool you call turns it into what was really charged and gives the unused part back, so the allowance left grows again; while something is still generating it stays reserved. The user can also reset what has been used with ${resetUsedButton()} on that card.
 - Moving from demo to real AI is something only the user can do, in two places: paste a service key (OpenRouter or fal.ai) on the card of that service under ${settingsApiKeys()} and press ${saveButton()}, then switch off ${demoModeName()} under ${settingsGeneral()}. ${settingsAiTools()} is NOT where keys go: it only lets AI tools like you connect to the app, and holds ${allowanceCard()}. If the user asks how to use real AI, tell them exactly this.
 - Never try to work around a refusal.

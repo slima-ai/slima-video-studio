@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, setLocale } from '@svs/schema'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -65,11 +66,51 @@ describe('GeneralSection', () => {
     fireEvent.change(screen.getByTestId('per-run-limit'), { target: { value: '12.5' } })
     fireEvent.click(screen.getByRole('button', { name: '儲存' }))
     await waitFor(() => {
-      expect(screen.getByRole('status').textContent).toBe('已儲存。')
+      // 寫明存到哪一張、存了多少（不是只說「已儲存」）
+      expect(screen.getByRole('status').textContent).toBe('單次花費上限已存為 US$12.5')
     })
     expect(svs.payloadsOf('settings.update')).toEqual([
       { budget: { perRunLimitUsd: 12.5, projectLimitUsd: 40 } },
     ])
+  })
+
+  it('單次花費上限那張卡：開頭一句講「每按一次生成最多花多少」，並指到另一張卡（頁籤＋卡名），旁邊有「前往」', () => {
+    installFakeSvs()
+    render(<GeneralSection settings={SETTINGS} onChanged={vi.fn()} />)
+    const card = screen.getByTestId('per-run-limit').closest('[data-testid]')
+    expect(document.body.textContent).toContain('每按一次生成，最多花多少')
+    expect(screen.getByTestId('per-run-pointer').textContent).toBe(
+      '想調「AI 工具一共能花多少」？那是另一張卡：設定 → AI 工具連線的「AI 工具的總額度」。 前往',
+    )
+    expect(card).toBeTruthy()
+    // 「前往」捲到 AI 工具那一區
+    const target = document.createElement('div')
+    target.id = 'connections'
+    const scrolled = vi.fn()
+    target.scrollIntoView = scrolled
+    document.body.append(target)
+    fireEvent.click(screen.getByRole('button', { name: '前往' }))
+    expect(scrolled).toHaveBeenCalledOnce()
+    target.remove()
+  })
+
+  it('英文介面：存好的提示與指到另一張卡的那行都是英文，寫明頁籤與卡名', async () => {
+    setLocale('en')
+    try {
+      installFakeSvs()
+      render(<GeneralSection settings={SETTINGS} onChanged={vi.fn()} />)
+      fireEvent.change(screen.getByTestId('per-run-limit'), { target: { value: '30' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => {
+        expect(screen.getByRole('status').textContent).toBe('Per-run spending limit saved as US$30')
+      })
+      expect(screen.getByTestId('per-run-pointer').textContent).toBe(
+        'Looking for how much AI tools can spend in total? That’s a different card: “Total allowance for AI tools” in Settings → AI tools. Go there',
+      )
+      expect(document.body.textContent).toContain('The most a single generation can cost')
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
   })
 
   it('不是正數 → 不能儲存並提示', () => {

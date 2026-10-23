@@ -1,4 +1,4 @@
-import type { LlmRequest } from '@svs/schema'
+import { DEFAULT_LOCALE, setLocale, type LlmRequest } from '@svs/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
@@ -276,6 +276,24 @@ describe('花錢的步驟與額度（真實模式、假的 OpenRouter 伺服器�
     for (const close of closeFakes.splice(0)) await close()
   })
 
+  it('英文介面：額度不夠被擋時，訊息寫出英文介面的頁籤與兩張卡名（總額度才是要調的那張）', async () => {
+    const { r } = await startReal()
+    await r.call('create_project', { name: 'x' })
+    setLocale('en')
+    try {
+      const refused = await r.call('split_story_into_scenes', { story: 'A cat finds a home' })
+      expect(refused.isError).toBe(true)
+      const text = textOf(refused)
+      expect(text).toContain(
+        'raise the card “Total allowance for AI tools” under Settings → AI tools',
+      )
+      expect(text).toContain('It is not the card “Per-run spending limit” under Settings → General')
+      expect(text).not.toMatch(/[㐀-鿿]/)
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
+  })
+
   it('額度 0：拆故事被擋下——白話訊息說明預估、預留、還剩多少、只有人能調；沒有任何請求送出去、沒有預留任何金額', async () => {
     const { r, fake } = await startReal()
     await r.call('create_project', { name: 'x' })
@@ -285,7 +303,12 @@ describe('花錢的步驟與額度（真實模式、假的 OpenRouter 伺服器�
     expect(text).toContain('only US$0.00 is left of the AI tools allowance')
     expect(text).toContain('設定 → AI 工具連線')
     // 跟設定頁卡片的名字一致，使用者才找得到要調的那一張
-    expect(text).toContain('ask the user to raise 「AI 工具的總額度」')
+    expect(text).toContain(
+      'ask the user to raise the card 「AI 工具的總額度」 under 設定 → AI 工具連線',
+    )
+    // 另一張長得像的卡（單次花費上限）也寫明在哪、管什麼，免得 AI 或使用者把兩張搞混
+    expect(text).toContain('It is not the card 「單次花費上限」 under 設定 → 一般')
+    expect(text).toContain('only limits a single generation')
     expect(text).toContain('Only a person can change that allowance')
     expect(text).not.toMatch(/undefined|NaN|\.ts:|at .*\(/)
     expect(fake.requests.filter((q) => q.path === '/chat/completions')).toHaveLength(0)

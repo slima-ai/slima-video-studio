@@ -14,6 +14,7 @@ import { Button } from '../../components/button'
 import { SettingCard } from '../../components/setting-card'
 import { Switch } from '../../components/switch'
 import { call, errorText } from '../../lib/svs'
+import { AreaPointer, areaPath } from './area-pointer'
 import { LanguageCard } from './language-card'
 
 export interface GeneralSectionProps {
@@ -32,6 +33,8 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
   const [limit, setLimit] = useState(String(settings.budget.perRunLimitUsd))
   const [error, setError] = useState<string | undefined>()
   const [saved, setSaved] = useState(false)
+  /** 最近一次存成功的單次上限（提示要寫「存了多少」，輸入框之後再改也不影響已顯示的那句）。 */
+  const [savedAs, setSavedAs] = useState<number | undefined>()
   // 勾選框先照使用者的操作更新，不用等主行程回應；失敗時再還原
   const [demo, setDemo] = useState(settings.demoMode)
   useEffect(() => {
@@ -137,6 +140,8 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
               if (!valid) return
               void update({ budget: { ...settings.budget, perRunLimitUsd: parsed } }).then((ok) => {
                 setSaved(ok)
+                // 提示寫明存到哪一張、存了多少（不是只說「已儲存」）
+                if (ok) setSavedAs(parsed)
               })
             }}
           >
@@ -168,9 +173,20 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
             )}
             {saved ? (
               <p role="status" className="mt-1 text-sm text-success">
-                {t('settings.saved2')}
+                {t('settings.cardSavedAs', {
+                  card: t('settings.perRunSpendingLimit'),
+                  value: String(savedAs ?? parsed),
+                })}
               </p>
             ) : null}
+            <AreaPointer
+              testId="per-run-pointer"
+              targetId="connections"
+              text={t('settings.perRunPointer', {
+                where: areaPath('aiTools'),
+                card: t('mcp.allowanceCard'),
+              })}
+            />
           </form>
         }
       />

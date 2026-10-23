@@ -45,7 +45,12 @@ export const settings = {
   'settings.enterAWholeNumberFrom': '請輸入 1024 到 65535 之間的整數。',
   'settings.totalAllowanceForAiTools': 'AI 工具的總額度（美金）',
   'settings.theMostAiToolsLike':
-    'Claude 等 AI 工具透過 App 生成時，一共最多能花多少（花的是你服務金鑰帳戶的錢）；預設 US$0，用完就不能再生成。',
+    'AI 工具（Claude 等）一共能花多少：透過 App 生成時累計最多花這麼多（花的是你服務金鑰帳戶的錢）；預設 US$0，用完就不能再生成。',
+  'settings.allowancePointer':
+    '想調「每按一次生成最多花多少」？那是另一張卡：{where}的「{card}」。',
+  'settings.perRunPointer': '想調「AI 工具一共能花多少」？那是另一張卡：{where}的「{card}」。',
+  'settings.goThere': '前往',
+  'settings.cardSavedAs': '{card}已存為 US${value}',
   'settings.enter0OrALarger': '請輸入 0 或更大的數字。',
   'settings.reservedLeftToSpend': '已預留 {value}，還能花 {value2}。',
   'settings.notSavedYet': '還沒儲存',
@@ -147,7 +152,7 @@ export const settings = {
   'settings.lightDarkOrFollowThe': '淺色、深色，或跟著系統換。',
   'settings.perRunSpendingLimit': '單次花費上限',
   'settings.eachTimeYouGenerateOr':
-    '每按一次生成（你按的，或 AI 工具要求的）：預估花費超過這個金額，那一次就不會開始。花的是你在 OpenRouter、fal.ai 等服務的帳戶。',
+    '每按一次生成，最多花多少：預估花費超過這個金額，那一次就不會開始（你按的，或 AI 工具要求的都算）。花的是你在 OpenRouter、fal.ai 等服務的帳戶。',
   'settings.perRunSpendingLimitUs': '單次花費上限（美金）',
   'settings.ifItSOverYou':
     '超過時會告訴你預估多少，不會直接做；要做更大的就到這裡調高，再做一次。預設 US${value}。示範模式不花錢。',
