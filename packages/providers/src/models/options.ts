@@ -1,4 +1,4 @@
-import { KEY_PROVIDERS, type ModelCard, type ModelOption, type Pricing } from '@svs/schema'
+import { KEY_PROVIDERS, type ModelCard, type ModelOption, type Pricing, t } from '@svs/schema'
 
 const usd = (n: number): string => `US$${String(Number(n.toFixed(4)))}`
 
@@ -6,22 +6,36 @@ const usd = (n: number): string => `US$${String(Number(n.toFixed(4)))}`
 export function priceLabel(pricing: Pricing): string {
   switch (pricing.unit) {
     case 'second':
-      if (pricing.usd === 0) return '免費（示範）'
+      if (pricing.usd === 0) return t('settings.freeDemo')
       return pricing.usdWithAudio === undefined
-        ? `約 ${usd(pricing.usd)}／秒`
-        : `約 ${usd(pricing.usd)}／秒（有聲 ${usd(pricing.usdWithAudio)}／秒）`
+        ? t('settings.aboutSec', { value: usd(pricing.usd) })
+        : t('settings.aboutSecSecWithSound', {
+            value: usd(pricing.usd),
+            value2: usd(pricing.usdWithAudio),
+          })
     case 'image':
-      return pricing.usd === 0 ? '免費（示範）' : `約 ${usd(pricing.usd)}／張`
+      return pricing.usd === 0
+        ? t('settings.freeDemo')
+        : t('settings.aboutImage', { value: usd(pricing.usd) })
     case 'track':
-      return pricing.usd === 0 ? '免費（示範）' : `約 ${usd(pricing.usd)}／首`
+      return pricing.usd === 0
+        ? t('settings.freeDemo')
+        : t('settings.aboutTrack', { value: usd(pricing.usd) })
     case 'minute':
-      return pricing.usd === 0 ? '免費（示範）' : `約 ${usd(pricing.usd)}／分鐘`
+      return pricing.usd === 0
+        ? t('settings.freeDemo')
+        : t('settings.aboutMin', { value: usd(pricing.usd) })
     case 'million_chars':
-      return pricing.usd === 0 ? '免費（示範）' : `約 ${usd(pricing.usd)}／百萬字元`
+      return pricing.usd === 0
+        ? t('settings.freeDemo')
+        : t('settings.about1mCharacters', { value: usd(pricing.usd) })
     case 'million_tokens':
       return pricing.inputUsd === 0 && pricing.outputUsd === 0
-        ? '免費（示範）'
-        : `依用量計費（每百萬 token：輸入 ${usd(pricing.inputUsd)}／輸出 ${usd(pricing.outputUsd)}）`
+        ? t('settings.freeDemo')
+        : t('settings.payPerUsePer1m', {
+            value: usd(pricing.inputUsd),
+            value2: usd(pricing.outputUsd),
+          })
   }
 }
 
@@ -39,22 +53,34 @@ function usdShort(n: number): string {
 export function priceShort(pricing: Pricing): string {
   switch (pricing.unit) {
     case 'second':
-      return pricing.usd === 0 ? '免費（示範）' : `每 5 秒約 ${usdShort(pricing.usd * 5)}`
+      return pricing.usd === 0
+        ? t('settings.freeDemo')
+        : t('settings.aboutPer5Sec', { value: usdShort(pricing.usd * 5) })
     case 'image':
-      return pricing.usd === 0 ? '免費（示範）' : `每張約 ${usdShort(pricing.usd)}`
+      return pricing.usd === 0
+        ? t('settings.freeDemo')
+        : t('settings.aboutPerImage', { value: usdShort(pricing.usd) })
     case 'track':
-      return pricing.usd === 0 ? '免費（示範）' : `每首約 ${usdShort(pricing.usd)}`
+      return pricing.usd === 0
+        ? t('settings.freeDemo')
+        : t('settings.aboutPerTrack', { value: usdShort(pricing.usd) })
     case 'minute':
-      return pricing.usd === 0 ? '免費（示範）' : `每分鐘約 ${usdShort(pricing.usd)}`
+      return pricing.usd === 0
+        ? t('settings.freeDemo')
+        : t('settings.aboutPerMin', { value: usdShort(pricing.usd) })
     case 'million_chars':
-      return pricing.usd === 0 ? '免費（示範）' : `每萬字約 ${usdShort(pricing.usd / 100)}`
+      return pricing.usd === 0
+        ? t('settings.freeDemo')
+        : t('settings.aboutPer10000Characters', { value: usdShort(pricing.usd / 100) })
     case 'million_tokens':
-      return pricing.inputUsd === 0 && pricing.outputUsd === 0 ? '免費（示範）' : '依用量計費'
+      return pricing.inputUsd === 0 && pricing.outputUsd === 0
+        ? t('settings.freeDemo')
+        : t('settings.payPerUse')
   }
 }
 
 export function providerName(provider: string): string {
-  if (provider === 'mock') return '示範'
+  if (provider === 'mock') return t('settings.demo')
   return KEY_PROVIDERS.find((p) => p.id === provider)?.name ?? provider
 }
 
@@ -79,8 +105,9 @@ export function toModelOption(
     capabilities: card.capabilities,
     tier: card.tier,
     recommended: card.recommended,
-    priceLabel: card.provider === 'mock' ? '免費（示範，不會真的收費）' : priceLabel(pricing),
-    priceShort: card.provider === 'mock' ? '免費（示範）' : priceShort(pricing),
+    priceLabel:
+      card.provider === 'mock' ? t('settings.freeDemoNothingIsCharged') : priceLabel(pricing),
+    priceShort: card.provider === 'mock' ? t('settings.freeDemo') : priceShort(pricing),
     priceVerified: card.verification.pricing || card.provider === 'mock',
     badges: card.badges,
     voices: card.voices,

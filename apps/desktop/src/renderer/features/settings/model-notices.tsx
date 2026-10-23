@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 
 import { useToast } from '../../components/toast'
 import { call } from '../../lib/svs'
+import { t } from '@svs/schema'
 
 /**
  * 模型通知（例如選的模型下架、自動換成別的）：App 一打開、或主行程說有新的通知時，
@@ -19,7 +20,7 @@ export function ModelNotices({ onOpenSettings }: { onOpenSettings: () => void })
             toast.show({
               key: `model-notice-${String(index)}`,
               message,
-              action: { label: '到設定', onAction: onOpenSettings },
+              action: { label: t('settings.goToSettings'), onAction: onOpenSettings },
             })
           })
         })

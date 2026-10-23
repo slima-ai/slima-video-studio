@@ -1,4 +1,5 @@
 export * from './locale'
+export { LANGUAGE_NAMES } from './locales/zh-TW/language-names'
 export {
   formatDate,
   formatNumber,

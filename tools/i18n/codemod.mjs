@@ -324,9 +324,16 @@ for (const [file, { text }] of sources) {
   let next = text
   for (const e of fileEdits.sort((a, b) => b.start - a.start))
     next = next.slice(0, e.start) + e.replacement + next.slice(e.end)
-  // import：加進 '@svs/schema'（有就補 specifier，沒有就新增一行）
+  // import：加進 '@svs/schema'（有就補 specifier，沒有就新增一行）；
+  // @svs/schema 自己的檔案不能 import 自己的套件名（循環相依），改用到 i18n 的相對路徑
   const need = [usesT ? 't' : null, usesMsg ? 'msg' : null].filter(Boolean)
-  const importRe = /import\s+(type\s+)?\{([^}]*)\}\s+from\s+'@svs\/schema'\n/
+  const schemaSrc = join(ROOT, 'packages', 'schema', 'src')
+  const source = file.startsWith(schemaSrc + '/')
+    ? (relative(dirname(file), join(schemaSrc, 'i18n')) || '.').replace(/^(?!\.)/, './')
+    : '@svs/schema'
+  const importRe = new RegExp(
+    `import\\s+(type\\s+)?\\{([^}]*)\\}\\s+from\\s+'${source.replace(/[./]/g, '\\$&')}'\\n`,
+  )
   const m = importRe.exec(next)
   if (m && !m[1]) {
     const names = m[2]
@@ -334,10 +341,10 @@ for (const [file, { text }] of sources) {
       .map((s) => s.trim())
       .filter(Boolean)
     for (const n of need) if (!names.includes(n)) names.push(n)
-    next = next.replace(importRe, `import { ${names.join(', ')} } from '@svs/schema'\n`)
+    next = next.replace(importRe, `import { ${names.join(', ')} } from '${source}'\n`)
   } else {
     const importAt = [...next.matchAll(/^import .*$/gm)]
-    const line = `import { ${need.join(', ')} } from '@svs/schema'\n`
+    const line = `import { ${need.join(', ')} } from '${source}'\n`
     if (importAt.length === 0) next = line + '\n' + next
     else {
       const last = importAt.at(-1)

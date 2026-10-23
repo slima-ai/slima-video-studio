@@ -3,6 +3,9 @@ import {
   THEME_PREFERENCES,
   type AppSettings,
   type ThemePreference,
+  t,
+  msg,
+  type MessageRef,
 } from '@svs/schema'
 import { CircleDollarSign, FlaskConical, Palette } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -17,10 +20,10 @@ export interface GeneralSectionProps {
   onChanged: () => void
 }
 
-const THEME_LABELS: Record<ThemePreference, string> = {
-  system: '跟隨系統',
-  light: '淺色',
-  dark: '深色',
+const THEME_LABELS: Record<ThemePreference, MessageRef> = {
+  system: msg('settings.followSystem'),
+  light: msg('settings.light'),
+  dark: msg('settings.dark'),
 }
 
 /** 「一般」區的三張卡：示範模式、外觀、單次花費上限。 */
@@ -61,16 +64,16 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
     <div className="contents" data-testid="general-section">
       <SettingCard
         icon={FlaskConical}
-        title="示範模式"
+        title={t('settings.demoMode')}
         status={
           demo
-            ? { tone: 'ok', label: '開著・不花錢' }
-            : { tone: 'warn', label: '關著・會用真的服務' }
+            ? { tone: 'ok', label: t('settings.onCostsNothing') }
+            : { tone: 'warn', label: t('settings.offUsesRealServices') }
         }
-        summary="用假的結果跑完整個流程，不需要金鑰、不會花錢，適合先熟悉操作。"
+        summary={t('settings.runTheWholeProcessWith')}
         action={
           <Switch
-            aria-label="示範模式"
+            aria-label={t('settings.demoMode')}
             data-testid="demo-mode"
             checked={demo}
             onChange={(event) => {
@@ -86,11 +89,11 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
 
       <SettingCard
         icon={Palette}
-        title="外觀"
-        summary="淺色、深色，或跟著系統換。"
+        title={t('settings.appearance')}
+        summary={t('settings.lightDarkOrFollowThe')}
         body={
           <fieldset>
-            <legend className="sr-only">外觀</legend>
+            <legend className="sr-only">{t('settings.appearance')}</legend>
             <div className="inline-flex rounded-md border border-border bg-surface p-0.5">
               {THEME_PREFERENCES.map((option) => (
                 <label
@@ -113,7 +116,7 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
                     }}
                     className="sr-only"
                   />
-                  {THEME_LABELS[option]}
+                  {t(THEME_LABELS[option])}
                 </label>
               ))}
             </div>
@@ -123,9 +126,9 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
 
       <SettingCard
         icon={CircleDollarSign}
-        title="單次花費上限"
+        title={t('settings.perRunSpendingLimit')}
         status={{ tone: 'ok', label: `US$${String(settings.budget.perRunLimitUsd)}` }}
-        summary="每按一次生成（你按的，或 AI 工具要求的）：預估花費超過這個金額，那一次就不會開始。花的是你在 OpenRouter、fal.ai 等服務的帳戶。"
+        summary={t('settings.eachTimeYouGenerateOr')}
         body={
           <form
             onSubmit={(event) => {
@@ -137,7 +140,7 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
             }}
           >
             <label className="sr-only" htmlFor="per-run-limit">
-              單次花費上限（美金）
+              {t('settings.perRunSpendingLimitUs')}
             </label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-fg-muted">US$</span>
@@ -153,17 +156,18 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
                 className="w-28 rounded-md border border-border bg-surface px-3 py-2 text-sm"
               />
               <Button type="submit" variant="secondary" disabled={!valid}>
-                儲存
+                {t('settings.save')}
               </Button>
             </div>
             <p className="mt-1 text-xs text-fg-muted">
-              超過時會告訴你預估多少，不會直接做；要做更大的就到這裡調高，再做一次。預設 US$
-              {DEFAULT_PER_RUN_LIMIT_USD}。示範模式不花錢。
+              {t('settings.ifItSOverYou', { value: String(DEFAULT_PER_RUN_LIMIT_USD) })}
             </p>
-            {valid ? null : <p className="mt-1 text-sm text-danger">請輸入大於 0 的數字。</p>}
+            {valid ? null : (
+              <p className="mt-1 text-sm text-danger">{t('settings.enterANumberGreaterThan')}</p>
+            )}
             {saved ? (
               <p role="status" className="mt-1 text-sm text-success">
-                已儲存。
+                {t('settings.saved2')}
               </p>
             ) : null}
           </form>

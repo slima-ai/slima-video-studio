@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { cn } from '../../lib/cn'
+import { t, type MessageRef } from '@svs/schema'
 
 export interface SettingsTag {
   id: string
-  label: string
+  label: MessageRef
 }
 
 /**
@@ -95,7 +96,7 @@ export function SettingsTags({ tags }: { tags: readonly SettingsTag[] }) {
   return (
     <nav
       ref={navRef}
-      aria-label="跳到設定的這一區"
+      aria-label={t('settings.jumpToThisSectionOf')}
       data-testid="settings-tags"
       className="flex max-w-full items-center gap-1 overflow-x-auto"
     >
@@ -115,7 +116,7 @@ export function SettingsTags({ tags }: { tags: readonly SettingsTag[] }) {
             document.getElementById(tag.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
           }}
         >
-          {tag.label}
+          {t(tag.label)}
         </button>
       ))}
     </nav>

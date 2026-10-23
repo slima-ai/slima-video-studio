@@ -5,6 +5,7 @@ import { Button } from '../../../components/button'
 import { SettingCard } from '../../../components/setting-card'
 import { codeLight, desktopLight } from './connection-state'
 import { claudeCodeCommand, type McpConnection } from './use-mcp'
+import { t } from '@svs/schema'
 
 function Note({ mcp, kind }: { mcp: McpConnection; kind: 'desktop' | 'code' }) {
   const { note } = mcp
@@ -39,7 +40,7 @@ export function ClaudeDesktopCard({ mcp }: { mcp: McpConnection }) {
       icon={Monitor}
       title="Claude Desktop"
       status={{ ...desktopLight(info), testId: 'connect-desktop-status' }}
-      summary="用 Claude 桌面版，一鍵連上這個 App，直接叫它幫你拆分鏡、做影片；按「連接」會一併打開「允許 AI 工具連線」。"
+      summary={t('settings.connectClaudeDesktopInOne')}
       action={
         info?.claudeDesktop.supported ? (
           <Button
@@ -51,10 +52,10 @@ export function ClaudeDesktopCard({ mcp }: { mcp: McpConnection }) {
             }}
           >
             {mcp.connecting === 'desktop'
-              ? '連接中…'
+              ? t('settings.connecting')
               : info.claudeDesktop.connected
-                ? '重新連接'
-                : '連接'}
+                ? t('settings.reconnect')
+                : t('settings.connect')}
           </Button>
         ) : undefined
       }
@@ -62,16 +63,14 @@ export function ClaudeDesktopCard({ mcp }: { mcp: McpConnection }) {
       details={
         info ? (
           <div className="space-y-2 text-sm text-fg-muted">
-            <p>
-              按「連接」會自動打開「允許 AI 工具連線」，並把這個 App 加進 Claude Desktop
-              的設定檔（只加我們這一項，改之前先備份）。不需要另外安裝任何東西；寫好之後要完全關掉
-              Claude Desktop 再打開。
-            </p>
+            <p>{t('settings.connectTurnsOnAllowAi')}</p>
             {info.claudeDesktop.supported && !info.claudeDesktop.installed ? (
-              <p>這台電腦好像還沒裝 Claude Desktop。</p>
+              <p>{t('settings.claudeDesktopDoesnTSeem')}</p>
             ) : null}
             {info.claudeDesktop.configPath ? (
-              <p className="break-all text-xs">設定檔：{info.claudeDesktop.configPath}</p>
+              <p className="break-all text-xs">
+                {t('settings.configFile', { configPath: info.claudeDesktop.configPath })}
+              </p>
             ) : null}
           </div>
         ) : undefined
@@ -93,7 +92,7 @@ export function ClaudeCodeCard({ mcp }: { mcp: McpConnection }) {
       icon={Terminal}
       title="Claude Code"
       status={{ ...codeLight(info), testId: 'connect-code-status' }}
-      summary="用終端機裡的 Claude Code 連上這個 App；按一下就設定好（按「連接」會一併打開「允許 AI 工具連線」），不用自己打指令。"
+      summary={t('settings.connectThisAppToClaude')}
       action={
         <Button
           data-testid="mcp-connect-code"
@@ -103,19 +102,24 @@ export function ClaudeCodeCard({ mcp }: { mcp: McpConnection }) {
             mcp.connect('code')
           }}
         >
-          {mcp.connecting === 'code' ? '連接中…' : info?.claudeCode.connected ? '重新連接' : '連接'}
+          {mcp.connecting === 'code'
+            ? t('settings.connecting')
+            : info?.claudeCode.connected
+              ? t('settings.reconnect')
+              : t('settings.connect')}
         </Button>
       }
       body={<Note mcp={mcp} kind="code" />}
       details={
         <div className="space-y-2 text-sm text-fg-muted">
           <p>
-            連好之後，開一個新的 Claude Code，輸入 /mcp 就看得到 slima-video-studio。
-            {info && !info.claudeCode.installed ? '這台電腦好像還沒裝 Claude Code。' : ''}
+            {t('settings.onceConnectedOpenANew', {
+              value: info && !info.claudeCode.installed ? t('settings.claudeCodeDoesnTSeemTo') : '',
+            })}
           </p>
           {status?.enabled && status.running && command ? (
             <div data-testid="mcp-connect">
-              <p className="font-medium text-fg">手動連線：在 Claude Code 貼上這一行</p>
+              <p className="font-medium text-fg">{t('settings.manualSetupPasteThisLine')}</p>
               <pre
                 data-testid="mcp-command"
                 className="mt-1 overflow-x-auto rounded-md border border-border bg-surface p-3 text-xs"
@@ -130,7 +134,7 @@ export function ClaudeCodeCard({ mcp }: { mcp: McpConnection }) {
                     setReveal((v) => !v)
                   }}
                 >
-                  {reveal ? '隱藏 token' : '顯示 token'}
+                  {reveal ? t('settings.hideToken') : t('settings.showToken')}
                 </Button>
                 <Button
                   variant="secondary"
@@ -141,7 +145,7 @@ export function ClaudeCodeCard({ mcp }: { mcp: McpConnection }) {
                     })
                   }}
                 >
-                  複製指令
+                  {t('settings.copyCommand')}
                 </Button>
                 <Button
                   variant="secondary"
@@ -151,15 +155,15 @@ export function ClaudeCodeCard({ mcp }: { mcp: McpConnection }) {
                     mcp.regenerateToken()
                   }}
                 >
-                  換一組新的 token
+                  {t('settings.makeANewToken')}
                 </Button>
                 {copied ? (
                   <span role="status" className="self-center text-success">
-                    已複製。
+                    {t('settings.copied')}
                   </span>
                 ) : null}
               </div>
-              <p className="mt-1">token 只在這台電腦上有效；換一組之後，舊的指令立刻失效。</p>
+              <p className="mt-1">{t('settings.theTokenOnlyWorksOn')}</p>
             </div>
           ) : null}
         </div>

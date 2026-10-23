@@ -1,4 +1,4 @@
-import { AppError, type KeyStatus, type KeyStorageInfo } from '@svs/schema'
+import { AppError, type KeyStatus, type KeyStorageInfo, t, msg } from '@svs/schema'
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { z } from 'zod'
@@ -42,7 +42,7 @@ export function normalizeKey(raw: string): string {
   if (!/^[\x21-\x7e]{8,512}$/.test(key)) {
     throw new AppError({
       code: 'key_invalid',
-      userMessage: '服務金鑰格式不正確：請確認已完整複製，且沒有多餘的空白或換行。',
+      userMessage: t('settings.theApiKeyDoesnT'),
     })
   }
   return key
@@ -134,8 +134,7 @@ const FileSchema = z.object({
 })
 type KeyFile = z.infer<typeof FileSchema>
 
-const LOADING_MESSAGE =
-  '服務金鑰正在從系統金鑰圈讀取，請稍等幾秒再試一次。如果螢幕上有「要允許存取鑰匙圈」的提示，請按「允許」。'
+const LOADING_MESSAGE = msg('settings.theApiKeyIsStill')
 /** 讀取失敗之後，這麼久之內不再自動重試（避免一直跳提示）。 */
 const RETRY_AFTER_MS = 15_000
 
@@ -179,7 +178,7 @@ export class SafeStorageVault implements KeyVault {
     if (!info.available) {
       throw new AppError({
         code: 'key_storage_unavailable',
-        userMessage: info.reason ?? '無法儲存服務金鑰。',
+        userMessage: info.reason ?? t('settings.couldnTSaveTheApi'),
       })
     }
     const normalized = normalizeKey(key)
@@ -228,11 +227,11 @@ export class SafeStorageVault implements KeyVault {
             ? error
             : new AppError({
                 code: 'key_storage_unavailable',
-                userMessage: '無法讀取已儲存的服務金鑰，請重新開啟 App 再試一次。',
+                userMessage: t('settings.couldnTReadTheSaved'),
                 cause: error,
               })
         this.failure = { error: failure, at: this.now() }
-        this.warn(`讀取服務金鑰失敗：${failure.userMessage}`)
+        this.warn(t('settings.couldnTReadTheApi2', { userMessage: failure.userMessage }))
         throw failure
       })
       .finally(() => {
@@ -249,7 +248,7 @@ export class SafeStorageVault implements KeyVault {
     if (this.broken.has(provider)) {
       throw new AppError({
         code: 'key_storage_unavailable',
-        userMessage: '無法解開已儲存的服務金鑰（可能換了電腦或系統帳號），請重新輸入。',
+        userMessage: t('settings.couldnTUnlockTheSaved'),
       })
     }
     // 還沒讀進來：剛失敗過就直接說原因，不要一直重試；否則在背景開始讀，這次請使用者稍後再試
@@ -258,7 +257,7 @@ export class SafeStorageVault implements KeyVault {
     this.load().catch(() => undefined)
     throw new AppError({
       code: 'key_storage_unavailable',
-      userMessage: LOADING_MESSAGE,
+      userMessage: t(LOADING_MESSAGE),
       retryable: true,
     })
   }

@@ -13,6 +13,7 @@ import {
   toolLinkActive,
   type Light,
 } from './connection-state'
+import { t } from '@svs/schema'
 
 function Node({
   icon: Icon,
@@ -108,14 +109,14 @@ export function ConnectionDiagram({ status, info, slima }: ConnectionDiagramProp
   const codeOn = toolLinkActive(app, code)
   const lastSeen = status?.lastSeen
   const appHint = !status?.enabled
-    ? '還沒打開：按下面的「連接」（會一併打開），或自己打開「允許 AI 工具連線」'
+    ? t('settings.notOnYetClickConnect')
     : lastSeen
-      ? `最近有 AI 工具連進來：${timeAgo(lastSeen.at)}`
-      : '這次開著 App，還沒有 AI 工具連進來'
+      ? t('settings.anAiToolConnectedRecently', { value: timeAgo(lastSeen.at) })
+      : t('settings.noAiToolHasConnected')
   return (
     <div
       role="group"
-      aria-label="連線示意圖"
+      aria-label={t('settings.connectionDiagram')}
       data-testid="connection-diagram"
       className="rounded-lg border border-border bg-surface p-4 md:col-span-2"
     >
@@ -132,7 +133,7 @@ export function ConnectionDiagram({ status, info, slima }: ConnectionDiagramProp
         <div className="md:col-start-3 md:row-span-2 md:row-start-1">
           <Node
             icon={Clapperboard}
-            name="Slima Video Studio（這個 App）"
+            name={t('settings.slimaVideoStudioThisApp')}
             light={app}
             hint={appHint}
             testId="diagram-app"
@@ -145,12 +146,15 @@ export function ConnectionDiagram({ status, info, slima }: ConnectionDiagramProp
           className="md:col-start-4 md:row-span-2 md:row-start-1"
         />
         <div className="md:col-start-5 md:row-span-2 md:row-start-1">
-          <Node icon={BookOpen} name="Slima 帳號" light={slimaState} testId="diagram-slima" />
+          <Node
+            icon={BookOpen}
+            name={t('settings.slimaAccount')}
+            light={slimaState}
+            testId="diagram-slima"
+          />
         </div>
       </div>
-      <p className="mt-3 text-xs text-fg-muted">
-        實線是已經連上，虛線是還沒連上。AI 工具叫這個 App 做事；這個 App 向 Slima 讀你的小說或劇本。
-      </p>
+      <p className="mt-3 text-xs text-fg-muted">{t('settings.solidLinesAreConnectedDashed')}</p>
     </div>
   )
 }

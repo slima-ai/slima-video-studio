@@ -1,5 +1,5 @@
 import { FalClient, OpenRouterClient, type FetchLike } from '@svs/providers'
-import { AppError, isAppError, type KeyTestResult } from '@svs/schema'
+import { AppError, isAppError, type KeyTestResult, t } from '@svs/schema'
 
 import type { KeyVault } from './key-vault'
 
@@ -31,7 +31,7 @@ export function createKeyTester(deps: {
     if (keys.get(provider) === undefined) {
       throw new AppError({
         code: 'key_invalid',
-        userMessage: '還沒有填這個供應商的服務金鑰。',
+        userMessage: t('settings.noApiKeyHasBeen'),
       })
     }
     if (provider === 'openrouter') {
@@ -61,7 +61,7 @@ export function createKeyTester(deps: {
     }
     throw new AppError({
       code: 'invalid_request',
-      userMessage: '不支援測試這個供應商的連線。',
+      userMessage: t('settings.testingTheConnectionIsnT'),
     })
   }
 }

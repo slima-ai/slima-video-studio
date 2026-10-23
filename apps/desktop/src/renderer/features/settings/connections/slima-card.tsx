@@ -1,4 +1,4 @@
-import type { SlimaBook, SlimaStatus } from '@svs/schema'
+import type { MessageRef, SlimaBook, SlimaStatus } from '@svs/schema'
 import { BookOpen } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -6,11 +6,12 @@ import { Button } from '../../../components/button'
 import { SettingCard } from '../../../components/setting-card'
 import { call, errorText } from '../../../lib/svs'
 import { slimaLight } from './connection-state'
+import { t, msg } from '@svs/schema'
 
-const KIND_LABELS: Record<SlimaBook['kind'], string> = {
-  writing: '小說',
-  script: '劇本',
-  knowledge: '團隊資料庫',
+const KIND_LABELS: Record<SlimaBook['kind'], MessageRef> = {
+  writing: msg('settings.novel'),
+  script: msg('settings.script'),
+  knowledge: msg('settings.teamKnowledgeBase'),
 }
 
 /** 已連線時列出 Slima 裡的書，讓使用者確認連對了帳號。 */
@@ -39,23 +40,26 @@ function BookList() {
       </p>
     )
   }
-  if (!books) return <p className="mt-2 text-sm text-fg-muted">讀取你的書…</p>
+  if (!books) return <p className="mt-2 text-sm text-fg-muted">{t('settings.readingYourBooks')}</p>
   if (books.length === 0) {
     return (
       <p className="mt-2 text-sm text-fg-muted" data-testid="slima-books-empty">
-        你的 Slima 裡還沒有書。
+        {t('settings.thereAreNoBooksIn')}
       </p>
     )
   }
   return (
     <div className="mt-2" data-testid="slima-books">
-      <p className="text-sm text-fg-muted">找到 {books.length} 本書：</p>
+      <p className="text-sm text-fg-muted">{t('settings.foundBooks', { count: books.length })}</p>
       <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto text-sm">
         {books.map((book) => (
           <li key={book.token} data-testid="slima-book">
             {book.title}
             <span className="ml-2 text-fg-muted">
-              {KIND_LABELS[book.kind]}・{book.words.toLocaleString()} 字
+              {t('settings.words', {
+                value: t(KIND_LABELS[book.kind]),
+                value2: book.words.toLocaleString(),
+              })}
             </span>
           </li>
         ))}
@@ -94,9 +98,9 @@ export function SlimaCard({
     <SettingCard
       testId="slima-section"
       icon={BookOpen}
-      title="Slima 帳號（選用）"
+      title={t('settings.slimaAccountOptional')}
       status={{ ...slimaLight(status), testId: 'slima-status' }}
-      summary="連上你的 Slima 帳號，就能把小說或劇本匯入成大綱、角色和場景；只讀取，不會改你的書。"
+      summary={t('settings.connectYourSlimaAccountTo')}
       body={
         <div>
           <form
@@ -117,7 +121,9 @@ export function SlimaCard({
               spellCheck={false}
               aria-label="Slima API Token"
               data-testid="slima-token"
-              placeholder={connected ? '貼上新的 Token 可以替換' : '貼上你的 Slima API Token'}
+              placeholder={
+                connected ? t('settings.pasteANewTokenTo') : t('settings.pasteYourSlimaApiToken')
+              }
               value={token}
               disabled={!storageAvailable || busy}
               onChange={(event) => {
@@ -131,7 +137,7 @@ export function SlimaCard({
               data-testid="slima-connect"
               disabled={!storageAvailable || busy || token.trim() === ''}
             >
-              {busy ? '連線中…' : '連線'}
+              {busy ? t('settings.connecting3') : t('settings.connect2')}
             </Button>
           </form>
           {status &&
@@ -155,10 +161,7 @@ export function SlimaCard({
       }
       details={
         <div className="space-y-2 text-sm text-fg-muted">
-          <p>
-            Token 到 Slima 網站（app.slima.ai）的 API Token
-            設定頁產生。它會用系統的加密功能保存在這台電腦。
-          </p>
+          <p>{t('settings.createTheTokenOnThe')}</p>
           {connected ? (
             <Button
               variant="ghost"
@@ -169,7 +172,7 @@ export function SlimaCard({
                 run(() => call('slima.disconnect', {}))
               }}
             >
-              中斷連線並清除 Token
+              {t('settings.disconnectAndRemoveToken')}
             </Button>
           ) : null}
         </div>

@@ -1,4 +1,4 @@
-import { type McpConnectInfo, type McpStatus } from '@svs/schema'
+import { type McpConnectInfo, type McpStatus, t } from '@svs/schema'
 import { useCallback, useEffect, useState } from 'react'
 
 import { call, errorText } from '../../../lib/svs'
@@ -91,16 +91,16 @@ export function useMcpConnection(onChanged: () => void): McpConnection {
         setNote({
           kind,
           ok: true,
-          text: `已寫進 Claude Desktop 的設定檔。請完全關掉 Claude Desktop 再重新打開（Mac：⌘Q）。${
-            result.backupPath ? '原本的設定檔已備份在同一個資料夾。' : ''
-          }`,
+          text: t('settings.writtenToClaudeDesktopS', {
+            value: result.backupPath ? t('settings.theOriginalConfigFileWas') : '',
+          }),
         })
       } else {
         await call('mcp.connectClaudeCode', {})
         setNote({
           kind,
           ok: true,
-          text: '已連接 Claude Code。開一個新的 Claude Code，輸入 /mcp 就看得到 slima-video-studio。',
+          text: t('settings.connectedToClaudeCodeOpen'),
         })
       }
       loadInfo()

@@ -3,6 +3,7 @@ import {
   PRODUCTION_GUIDE_MAX_CHARS,
   resolveProductionGuide,
   type AppSettings,
+  t,
 } from '@svs/schema'
 import { Clapperboard } from 'lucide-react'
 
@@ -23,9 +24,9 @@ export function ProductionGuideSection({ settings, onChanged }: ProductionGuideS
       maxChars={PRODUCTION_GUIDE_MAX_CHARS}
       resolve={resolveProductionGuide}
       idPrefix="production-guide"
-      title="製片與一致性指南"
-      summary="用 AI 工具（例如 Claude Code）接上這個 App 時，AI 在建立角色與場景、挑參考圖、檢查畫面一不一致時會讀這份做法（英文，因為 AI 工具讀英文最準）；可以照你的習慣改，留成預設也沒問題。"
-      savedMessage="已儲存，AI 工具下次讀這份指南就會用到。"
+      title={t('settings.productionConsistencyGuide')}
+      summary={t('settings.whenAnAiToolSuch')}
+      savedMessage={t('settings.savedAiToolsWillUse')}
       icon={Clapperboard}
       rows={18}
       onChanged={onChanged}

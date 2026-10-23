@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { AppError } from '../errors'
 import { UsdSchema } from './common'
+import { t } from '../i18n'
 
 /** 模型能提供的能力。一個模型可以有多個（例如 Kling 同時有文生影片與圖生影片）。 */
 export const CapabilitySchema = z.enum([
@@ -435,7 +436,7 @@ export interface UsageEstimate {
 const MISSING = (field: string, card: ModelCard): AppError =>
   new AppError({
     code: 'invalid_request',
-    userMessage: `無法估算「${card.displayName}」的花費：缺少 ${field}。`,
+    userMessage: t('settings.canTEstimateTheCost', { displayName: card.displayName, field }),
   })
 
 /** 全形字（漢字、假名、韓文、全形標點）；有些旁白模型把它們算成兩個字元。 */
@@ -458,29 +459,29 @@ export function estimateCostUsd(card: ModelCard, usage: UsageEstimate): number {
   const p = card.pricing
   switch (p.unit) {
     case 'second': {
-      if (usage.seconds === undefined) throw MISSING('秒數', card)
+      if (usage.seconds === undefined) throw MISSING(t('settings.theNumberOfSeconds'), card)
       const rate = usage.audio === true ? (p.usdWithAudio ?? p.usd) : p.usd
       return Math.max(usage.seconds, card.minBillableSec ?? 0) * rate
     }
     case 'image': {
-      if (usage.images === undefined) throw MISSING('張數', card)
+      if (usage.images === undefined) throw MISSING(t('settings.theNumberOfImages'), card)
       return usage.images * p.usd
     }
     case 'track': {
-      if (usage.tracks === undefined) throw MISSING('首數', card)
+      if (usage.tracks === undefined) throw MISSING(t('settings.theNumberOfTracks'), card)
       return usage.tracks * p.usd
     }
     case 'minute': {
-      if (usage.minutes === undefined) throw MISSING('分鐘數', card)
+      if (usage.minutes === undefined) throw MISSING(t('settings.theNumberOfMinutes'), card)
       return usage.minutes * p.usd
     }
     case 'million_chars': {
-      if (usage.chars === undefined) throw MISSING('字數', card)
+      if (usage.chars === undefined) throw MISSING(t('settings.theNumberOfCharacters'), card)
       return (usage.chars / 1_000_000) * p.usd
     }
     case 'million_tokens': {
       if (usage.inputTokens === undefined || usage.outputTokens === undefined) {
-        throw MISSING('輸入與輸出 token 數', card)
+        throw MISSING(t('settings.theInputAndOutputToken'), card)
       }
       return (usage.inputTokens * p.inputUsd + usage.outputTokens * p.outputUsd) / 1_000_000
     }

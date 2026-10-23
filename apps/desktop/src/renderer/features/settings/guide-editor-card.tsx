@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '../../components/button'
 import { SettingCard } from '../../components/setting-card'
 import { call, errorText } from '../../lib/svs'
+import { t } from '@svs/schema'
 
 export interface GuideEditorCardProps {
   /** 設定裡存這份指南的欄位。 */
@@ -74,7 +75,11 @@ export function GuideEditorCard({
         icon={icon}
         title={title}
         className="md:col-span-2"
-        status={customized ? { tone: 'ok', label: '已改過' } : { tone: 'off', label: '用預設' }}
+        status={
+          customized
+            ? { tone: 'ok', label: t('settings.edited') }
+            : { tone: 'off', label: t('settings.default') }
+        }
         summary={summary}
         details={
           <div>
@@ -93,7 +98,15 @@ export function GuideEditorCard({
               className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm leading-relaxed"
             />
             <p className={`mt-1 text-sm ${tooLong ? 'text-danger' : 'text-fg-muted'}`}>
-              {String(text.length)} / {String(maxChars)} 字{tooLong ? '：太長了，請刪減。' : ''}
+              {tooLong
+                ? t('settings.charactersTooLongPleaseShorten', {
+                    value: String(text.length),
+                    value2: String(maxChars),
+                  })
+                : t('settings.characters', {
+                    value: String(text.length),
+                    value2: String(maxChars),
+                  })}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button
@@ -105,17 +118,17 @@ export function GuideEditorCard({
                   save(guide, savedMessage)
                 }}
               >
-                儲存
+                {t('settings.save')}
               </Button>
               <Button
                 variant="secondary"
                 disabled={!customized && !dirty}
                 onClick={() => {
                   setText(defaultText)
-                  save('', '已恢復預設。')
+                  save('', t('settings.defaultRestored'))
                 }}
               >
-                恢復預設
+                {t('settings.restoreDefault')}
               </Button>
               {done ? (
                 <span role="status" className="text-sm text-success">
