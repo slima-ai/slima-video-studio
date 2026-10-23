@@ -32,7 +32,7 @@ export function compare(current, baseline) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const current = countByFile(ROOT)
   if (process.argv.includes('--update')) {
-    writeFileSync(BASELINE_FILE, JSON.stringify(current, null, 1) + '\n')
+    writeFileSync(BASELINE_FILE, JSON.stringify(current, null, 2) + '\n')
     const total = Object.values(current).reduce((a, b) => a + b, 0)
     console.log(`基準已更新：${String(Object.keys(current).length)} 個檔案、${String(total)} 條。`)
   } else {
