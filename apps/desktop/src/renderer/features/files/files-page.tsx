@@ -1,11 +1,11 @@
 import type { FilesFilter } from '@svs/schema'
 import { useState } from 'react'
 
-import { Button } from '../../components/button'
 import { FilterChips, Page } from '../../components/page'
 import { formatBytes } from '../../lib/bytes'
 import { call, errorText } from '../../lib/svs'
-import { FileRow, timeText } from './file-row'
+import { ExportRow } from './export-row'
+import { FileRow } from './file-row'
 import { useFiles } from './use-files'
 import { t, msg, type MessageRef } from '@svs/schema'
 
@@ -96,26 +96,7 @@ export function FilesPage() {
             <h2 className="text-sm font-medium">{t('files.exportedFilms')}</h2>
             <ul className="flex flex-col gap-1.5">
               {snapshot.exports.map((e) => (
-                <li
-                  key={e.name}
-                  data-testid="export"
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-raised shadow-card px-3 py-2 text-sm"
-                >
-                  <span className="font-medium">{e.name}</span>
-                  <span className="text-xs text-fg-muted">
-                    {`${formatBytes(e.bytes)}${t('list.dot')}${timeText(e.modifiedAt)}`}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    data-testid="export-reveal"
-                    onClick={() => {
-                      revealExport(e.name)
-                    }}
-                  >
-                    {t('files.showInFolder')}
-                  </Button>
-                </li>
+                <ExportRow key={e.name} entry={e} onReveal={revealExport} />
               ))}
             </ul>
           </div>

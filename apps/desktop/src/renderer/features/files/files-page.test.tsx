@@ -113,4 +113,46 @@ describe('FilesPage', () => {
     fireEvent.click(screen.getByTestId('export-reveal'))
     expect((await screen.findByTestId('files-problem')).textContent).toContain('搬走')
   })
+
+  it('影片檔案列和「匯出的成品」都能在原地播：有 ▶ 鈕；成品用 export 網址（中文檔名要編碼）；不是影片的成品沒有播放鈕', async () => {
+    installFakeSvs({
+      'files.list': () =>
+        snapshot(
+          [file({ hash: 'b'.repeat(64), kind: 'video', mime: 'video/mp4', usedBy: [] }), file()],
+          {
+            exports: [
+              {
+                name: '最終成品（中文旁白）.mp4',
+                path: '/tmp/p/exports/最終成品（中文旁白）.mp4',
+                bytes: 6_400_000,
+                modifiedAt: '2026-10-23T10:01:01.000Z',
+              },
+              {
+                name: 'notes.txt',
+                path: '/tmp/p/exports/notes.txt',
+                bytes: 12,
+                modifiedAt: '2026-10-23T10:01:01.000Z',
+              },
+            ],
+          },
+        ),
+    })
+    render(<FilesPage />)
+    const exports = await screen.findAllByTestId('export')
+    const [film, notes] = exports
+    if (!film || !notes) throw new Error('應該有兩筆成品')
+    const player = within(film).getByTestId('inline-video')
+    expect(player.getAttribute('src')).toBe(
+      `svs-asset://export/${encodeURIComponent('最終成品（中文旁白）.mp4')}`,
+    )
+    expect(within(film).getByRole('button', { name: '播放影片' })).toBeTruthy()
+    expect(within(notes).queryByTestId('inline-video')).toBeNull()
+    const rows = screen.getAllByTestId('file')
+    const [videoRow, imageRow] = rows
+    if (!videoRow || !imageRow) throw new Error('應該有兩筆檔案')
+    expect(within(videoRow).getByTestId('inline-video').getAttribute('src')).toBe(
+      `svs-asset://asset/${'b'.repeat(64)}`,
+    )
+    expect(within(imageRow).queryByTestId('inline-video')).toBeNull()
+  })
 })

@@ -3,6 +3,8 @@ import type { FileEntry } from '@svs/schema'
 import { useState } from 'react'
 
 import { Button } from '../../components/button'
+import { InlineVideo } from '../../components/inline-video'
+import { cn } from '../../lib/cn'
 import { assetUrl } from '../../lib/asset'
 import { formatBytes } from '../../lib/bytes'
 import { call, errorText } from '../../lib/svs'
@@ -17,6 +19,8 @@ export interface FileRowProps {
 /** 檔案紀錄的一筆：縮圖、大小、時間、用在哪裡、檔案在電腦上的位置。 */
 export function FileRow({ file, onError }: FileRowProps) {
   const [copied, setCopied] = useState(false)
+  // 播放時縮圖放大一些，控制列才按得到
+  const [playing, setPlaying] = useState(false)
   const size =
     file.width && file.height ? `${String(file.width)}×${String(file.height)}` : undefined
   const duration =
@@ -45,23 +49,25 @@ export function FileRow({ file, onError }: FileRowProps) {
       data-kind={file.kind}
       className="flex gap-3 rounded-lg border border-border bg-surface-raised shadow-card p-3"
     >
-      <div className="flex aspect-video w-32 shrink-0 items-center justify-center overflow-hidden rounded bg-black text-xs text-fg-muted">
-        {file.kind === 'image' ? (
+      {file.kind === 'image' ? (
+        <div className="flex aspect-video w-32 shrink-0 items-center justify-center overflow-hidden rounded bg-black text-xs text-fg-muted">
           <img
             src={assetUrl(file.hash)}
             alt={t('files.image', { value: file.hash.slice(0, 8) })}
             className="size-full object-cover"
           />
-        ) : (
-          <video
-            src={assetUrl(file.hash)}
-            muted
-            preload="metadata"
-            className="size-full object-cover"
-            aria-label={t('files.video', { value: file.hash.slice(0, 8) })}
-          />
-        )}
-      </div>
+        </div>
+      ) : (
+        <InlineVideo
+          src={assetUrl(file.hash)}
+          label={t('files.video', { value: file.hash.slice(0, 8) })}
+          className={cn(
+            'shrink-0 self-start rounded transition-[width]',
+            playing ? 'w-96' : 'w-32',
+          )}
+          onPlayingChange={setPlaying}
+        />
+      )}
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-medium">

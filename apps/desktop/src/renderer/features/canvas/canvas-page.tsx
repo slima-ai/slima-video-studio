@@ -1780,7 +1780,8 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       const el = event.target
       if (
         el instanceof HTMLElement &&
-        (el.matches('input, textarea, select, button, [role="menuitem"]') || el.isContentEditable)
+        (el.matches('input, textarea, select, button, video, [role="menuitem"]') ||
+          el.isContentEditable)
       )
         return
       // 刪除選取的節點
