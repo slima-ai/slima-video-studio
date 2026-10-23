@@ -8,6 +8,7 @@ import { endFrame } from './endFrame'
 import { shots } from './shots'
 import { settings } from './settings'
 import { chat } from './chat'
+import { claude } from './claude'
 // <i18n:imports>
 
 export const en = {
@@ -20,5 +21,6 @@ export const en = {
   ...shots,
   ...settings,
   ...chat,
+  ...claude,
   // <i18n:spread>
 } as const

@@ -1,5 +1,5 @@
-import type { ChatPanelMessage } from '@svs/schema'
-import { describe, expect, it } from 'vitest'
+import { LOCALES, setLocale, type ChatPanelMessage, type Locale } from '@svs/schema'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { continueText } from './continue-text'
 
@@ -71,4 +71,35 @@ describe('continueText：「繼續」只續做被打斷的那一句', () => {
     expect(text).toContain('不要做那件事以外的事')
     expect(text).not.toContain('「')
   })
+})
+
+describe('continueText：每種介面語言各一種寫法，而且每一種都認得自己、也認得別的語言的', () => {
+  afterEach(() => {
+    setLocale('zh-TW')
+  })
+
+  it('英文介面：送出英文的一句（引用原話），不是中文', () => {
+    setLocale('en')
+    expect(continueText([user('u1', 'Make shot 2 a close-up'), claude('a1')], 1)).toBe(
+      'My last message “Make shot 2 a close-up” was cut off by the usage limit. Check the project’s current state and finish what’s left of that message. Don’t do anything beyond it.',
+    )
+    expect(continueText([claude('a1')], 0)).toBe(
+      'My last request was cut off by the usage limit. Check the project’s current state and finish what’s left of it. Don’t do anything beyond it.',
+    )
+  })
+
+  const checked: Locale[] = LOCALES.filter((locale) => locale !== 'en-XA')
+  for (const first of checked) {
+    for (const second of checked) {
+      it(`${first} 按了「繼續」又被打斷、${second} 再按一次：引用的還是最早的原話`, () => {
+        const original = user('u1', '第 2 鏡改成近景')
+        setLocale(first)
+        const once = continueText([original, claude('a1')], 1)
+        setLocale(second)
+        const twice = continueText([original, claude('a1'), user('u2', once), claude('a2')], 3)
+        setLocale(second)
+        expect(twice).toBe(continueText([original, claude('a1')], 1))
+      })
+    }
+  }
 })

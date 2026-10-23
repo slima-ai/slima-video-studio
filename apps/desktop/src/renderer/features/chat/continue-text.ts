@@ -1,12 +1,17 @@
-import type { ChatPanelMessage } from '@svs/schema'
+import { t, type ChatPanelMessage } from '@svs/schema'
 
 /** 引用的原話最多這麼長（太長的話只留開頭，Claude 看專案現在的狀態就知道做到哪）。 */
 const QUOTE_MAX_CHARS = 300
 
-const PREFIX = '剛才那句「'
-const SUFFIX = '」被用量上限打斷。'
-/** 上一次按「繼續」送出的話又被打斷：要引用的是使用者最早的原話，不要一層包一層。 */
-const OWN_FORM = /^剛才那句「([\s\S]*)」被用量上限打斷。先看專案現在的狀態/u
+/**
+ * 上一次按「繼續」送出的話又被打斷：要引用的是使用者最早的原話，不要一層包一層。
+ * 每種介面語言各有一種寫法（`claude.continueQuoted`）；使用者中途換過語言、或舊對話裡存的是另一種語言的寫法，也要認得。
+ * 新增語言時要補一條（`continue-text.test.ts` 會逐一對每種語言檢查）。
+ */
+const OWN_FORMS: readonly RegExp[] = [
+  /^剛才那句「([\s\S]*)」被用量上限打斷。先看專案現在的狀態/u,
+  /^My last message “([\s\S]*)” was cut off by the usage limit\. Check the project’s current state/u,
+]
 
 /**
  * 按「繼續」時送出的話：只續做**被打斷的那一句**，不是「接著剛才的做下去」。
@@ -22,10 +27,13 @@ export function continueText(messages: readonly ChatPanelMessage[], index: numbe
       break
     }
   }
-  const original = said === undefined ? undefined : (OWN_FORM.exec(said)?.[1] ?? said)
+  const own =
+    said === undefined
+      ? undefined
+      : OWN_FORMS.map((form) => form.exec(said)?.[1]).find((q) => q !== undefined)
+  const original = said === undefined ? undefined : (own ?? said)
   const quote = (original ?? '').trim().replace(/\s+/gu, ' ')
   const shown = quote.length > QUOTE_MAX_CHARS ? `${quote.slice(0, QUOTE_MAX_CHARS)}…` : quote
-  const rest = '先看專案現在的狀態，把那句還沒做完的部分做完；不要做那句以外的事。'
-  if (shown === '') return `剛才的事被用量上限打斷了。${rest.replaceAll('那句', '那件事')}`
-  return `${PREFIX}${shown}${SUFFIX}${rest}`
+  if (shown === '') return t('claude.continueNoQuote')
+  return t('claude.continueQuoted', { quote: shown })
 }
