@@ -106,6 +106,8 @@ export interface ShotWorkflowOptions {
   pinned?: readonly { ref: AssetRef; name: string }[]
   /** 鏡頭接了一張上傳的圖：不生圖，直接用它生影片（「image」節點換成固定的圖）。 */
   firstFrame?: AssetRef
+  /** 尾幀（影片最後一格要長成這張圖）：只有接受尾幀的影片模型才傳；沒傳就和以前完全一樣。 */
+  endFrame?: AssetRef
   now?: string
 }
 
@@ -166,13 +168,22 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
           variation: options.videoVariation ?? 0,
           // 沒改過就不放進參數，舊專案的節點參數（與快取）完全不變
           ...(options.negativePrompt ? { negativePrompt: options.negativePrompt } : {}),
-          ...(options.characterAvoids && options.characterAvoids.length > 0
-            ? { characterAvoids: options.characterAvoids }
-            : {}),
         },
         options.models.video,
         videoNode.version,
       ),
+      // 尾幀：固定的一張圖接到影片節點的 endImage（沒有尾幀就沒有這個節點，流程與以前完全一樣）
+      ...(options.endFrame
+        ? [
+            node(
+              'endImage',
+              NODE_TYPES.fixedImage,
+              { image: options.endFrame },
+              undefined,
+              fixedImageNode.version,
+            ),
+          ]
+        : []),
       node('out', '$output'),
     ],
     edges: [
@@ -184,6 +195,7 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
       edge('b3', ['image', 'image'], ['video', 'image']),
       edge('b4', ['prompt', 'videoPrompt'], ['video', 'prompt']),
       edge('b6', ['prompt', 'cameraMove'], ['video', 'cameraMove']),
+      ...(options.endFrame ? [edge('b9', ['endImage', 'image'], ['video', 'endImage'])] : []),
       // 有角色寫了「不要出現的特徵」才接這條線；沒有的話流程與以前完全一樣
       ...(options.characterAvoids && options.characterAvoids.length > 0
         ? [edge('b8', ['prompt', 'negativeExtra'], ['video', 'negativeExtra'])]
@@ -211,6 +223,9 @@ export function buildQuickStart(options: QuickStartOptions): Workflow {
     ...(options.editModel ? { editModel: options.editModel } : {}),
     ...(options.audio === undefined ? {} : { audio: options.audio }),
     ...(options.negativePrompt ? { negativePrompt: options.negativePrompt } : {}),
+    ...(options.characterAvoids && options.characterAvoids.length > 0
+      ? { characterAvoids: options.characterAvoids }
+      : {}),
     now: stamp,
   })
 

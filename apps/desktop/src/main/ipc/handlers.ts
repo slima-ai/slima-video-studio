@@ -613,6 +613,11 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('characters.lock', ({ characterId }) => characters.lock(characterId))
 
   registry.registerHandler('shots.references', ({ shotId }) => shots.references(shotId))
+  registry.registerHandler('shots.setEndFrame', ({ shotId, assetHash }) =>
+    history.record(assetHash === null ? '拿掉尾幀' : '指定尾幀', () =>
+      shots.setEndFrame(shotId, assetHash ?? undefined),
+    ),
+  )
   registry.registerHandler('shots.setReferences', ({ shotId, assetHashes }) =>
     history.record('指定參考圖', () => shots.setReferences(shotId, assetHashes)),
   )

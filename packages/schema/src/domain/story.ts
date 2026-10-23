@@ -154,7 +154,7 @@ export const ShotSchema = z.object({
 })
 export type Shot = z.infer<typeof ShotSchema>
 
-export const TakeKindSchema = z.enum(['first_frame', 'video'])
+export const TakeKindSchema = z.enum(['first_frame', 'last_frame', 'video'])
 export type TakeKind = z.infer<typeof TakeKindSchema>
 
 /** 一次生成的結果版本。同一鏡頭、同一種類可以有多個版本，標記其中一個為採用。 */

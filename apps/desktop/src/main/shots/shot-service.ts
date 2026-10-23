@@ -167,6 +167,8 @@ export interface ShotService {
   references: (shotId: string) => ShotReferencesState
   /** 手動指定這一鏡要帶哪幾張參考圖（依序）；空陣列＝恢復自動挑。第一張畫面會變成需要重新生成。 */
   setReferences: (shotId: string, assetHashes: readonly string[]) => ShotReferencesState
+  /** 指定尾幀（影片最後一格要長成這張圖；只能是專案裡已有的圖）；undefined＝拿掉。影片會變成需要重新生成。 */
+  setEndFrame: (shotId: string, assetHash: string | undefined) => ShotView
   /** 新增一個空的鏡頭；有指定 afterShotId 就放在它後面，否則放最後。 */
   create: (input: { sceneId?: string | undefined; afterShotId?: string | undefined }) => ShotView
   /**
@@ -355,6 +357,11 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   const registry: NodeRegistry = createRegistry()
   registerQuickStartNodes(registry)
   const rejoinListeners = new Set<(videoHash: string) => void>()
+  /** 現在用的影片模型接不接受尾幀（沒選模型就當不接受）。 */
+  const endFrameSupported = (): boolean => {
+    const id = settingsService.resolveModel('i2v')
+    return id !== undefined && models.get(id)?.endFrame === true
+  }
   /** 等所有重新生成結束的人（畫布「剪輯 ▶」生成完要接片）。 */
   let idleWaiters: (() => void)[] = []
   const releaseIdle = (s: Session): void => {
@@ -399,6 +406,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const usage = s.handle.repos.jobs.usageByAsset(takes.map((t) => t.assetHash))
     const withUsage = (take: Take): TakeView => toTakeView(take, usage.get(take.assetHash))
     const names = shot.characters.flatMap((c) => (c.name ? [c.name] : []))
+    const endTake = takes.find((t) => t.kind === 'last_frame' && t.adopted)
     const lockedCharacters = anchors.flatMap((a) =>
       a.version !== undefined && names.includes(a.name)
         ? [{ name: a.name, version: a.version }]
@@ -429,6 +437,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(error ? { error } : {}),
       firstFrames: takes.filter((t) => t.kind === 'first_frame').map(withUsage),
       videos: takes.filter((t) => t.kind === 'video').map(withUsage),
+      ...(endTake ? { endFrame: withUsage(endTake), endFrameSupported: endFrameSupported() } : {}),
     }
   }
 
@@ -541,10 +550,19 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           // 手動指定了參考圖：換了圖、順序或張數，第一張畫面都要重新生成（沒指定就不加這個欄位，指紋跟以前一樣）
           ...(context.pins.has(shot.id) ? { pins: context.pins.get(shot.id) } : {}),
         })
-    // 動作只影響影片；沒有動作時指紋與加這個欄位之前完全一樣（舊專案的影片不會變成「需要重跑」）
+    // 動作與尾幀只影響影片；沒有動作、沒有尾幀時指紋與加這些欄位之前完全一樣（舊專案的影片不會變成「需要重跑」）
+    const endFrame = handle.repos.shots
+      .listTakes(shot.id, 'last_frame')
+      .find((t) => t.adopted)?.assetHash
     return {
       image,
-      video: hashValue({ image, cameraMove, durationSec, ...(action ? { action } : {}) }),
+      video: hashValue({
+        image,
+        cameraMove,
+        durationSec,
+        ...(action ? { action } : {}),
+        ...(endFrame ? { endFrame } : {}),
+      }),
     }
   }
 
@@ -864,6 +882,12 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         : referenceEditModel(anchors, settingsService, models, scenes)
     const uploaded = uploadedFrameOf(handle, shot.id)
     const firstFrame = uploaded ? assetRefOf(handle, uploaded.assetHash) : undefined
+    // 尾幀：有指定、而且這次用的影片模型接受尾幀才送（不接受就照舊只用首幀）
+    const endTake = handle.repos.shots.listTakes(shot.id, 'last_frame').find((t) => t.adopted)
+    const endFrame =
+      endTake && models.get(picked.video)?.endFrame === true
+        ? assetRefOf(handle, endTake.assetHash)
+        : undefined
     const full = buildShotWorkflow({
       style: toStyle(project.defaultStyleId),
       durationSec: shot.durationSec,
@@ -880,6 +904,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(editModel ? { editModel } : {}),
       ...(pinned.length > 0 && editModel ? { pinned } : {}),
       ...(firstFrame ? { firstFrame } : {}),
+      ...(endFrame ? { endFrame } : {}),
       ...variations,
     })
     // 只生成首幀圖：拿掉影片節點，輸出改成首幀圖（花費預估與執行都不含影片）
@@ -1304,6 +1329,35 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       shots.setPins(shotId, assetHashes)
       changed(s)
       return planOf(s.handle, shot)
+    },
+
+    setEndFrame(shotId, assetHash) {
+      const s = need()
+      const { shots } = s.handle.repos
+      const shot = shots.get(shotId)
+      if (!shot) throw invalid('找不到這個鏡頭，可能已經被刪掉了。')
+      if (assetHash !== undefined && !s.handle.assets.getMeta(assetHash)) {
+        throw invalid('專案裡找不到這張圖（只能用專案裡已有的圖）。')
+      }
+      if (assetHash !== undefined && s.handle.assets.getMeta(assetHash)?.kind !== 'image') {
+        throw invalid('尾幀要是一張圖片。')
+      }
+      // 同一鏡只有一張尾幀：先拿掉舊的
+      for (const take of shots.listTakes(shotId, 'last_frame')) shots.deleteTake(take.id)
+      if (assetHash !== undefined) {
+        const take = shots.addTake({
+          shotId,
+          kind: 'last_frame',
+          assetHash,
+          modelId: UPLOAD_MODEL,
+          inputHash: uploadFingerprint(assetHash),
+        })
+        shots.adoptTake(take.id)
+      }
+      changed(s)
+      const fresh = shots.get(shotId)
+      if (!fresh) throw invalid('找不到這個鏡頭，可能已經被刪掉了。')
+      return view(s, fresh)
     },
 
     update(shotId, edit) {

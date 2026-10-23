@@ -315,6 +315,89 @@ describe('shots.regenerate', { timeout: 30_000 }, () => {
     for (const input of inputs) expect(input).not.toHaveProperty('negativeExtra')
   })
 
+  describe('尾幀', () => {
+    const videoInputs = (projects: ReturnType<typeof setup>['projects']) =>
+      (projects.current()?.repos.jobs.list() ?? [])
+        .filter((job) => job.kind === 'video')
+        .map((job) => job.input as { startFrameAsset?: string; endFrameAsset?: string })
+
+    it('指定尾幀 → 這支影片模型接受尾幀：送出的請求帶著 endFrameAsset；影片需要重跑，首幀不動；拿掉就回到只用首幀', async () => {
+      const { shots, runQuickStart, idle, projects } = setup({ mockVideoEndFrame: true })
+      await runQuickStart()
+      const [first, second] = shots.list().shots
+      if (!first || !second) throw new Error('鏡頭不夠')
+      const endHash = second.firstFrames[0]?.assetHash
+      if (!endHash) throw new Error('沒有圖')
+
+      const view = shots.setEndFrame(first.id, endHash)
+      expect(view.endFrame).toMatchObject({ kind: 'last_frame', assetHash: endHash, adopted: true })
+      expect(view.endFrameSupported).toBe(true)
+      // 尾幀不算首幀版本
+      expect(view.firstFrames).toHaveLength(1)
+
+      await shots.regenerate(first.id, 'apply')
+      await idle(first.id)
+      const sent = videoInputs(projects).filter((input) => input.endFrameAsset !== undefined)
+      expect(sent).toHaveLength(1)
+      expect(sent[0]?.endFrameAsset).toBe(endHash)
+      expect(sent[0]?.startFrameAsset).toBe(first.firstFrames[0]?.assetHash)
+      expect(shots.list().shots[0]?.firstFrames).toHaveLength(1)
+      // 示範影片只看 Prompt 和種子，尾幀不同也會產出同一支檔，所以這裡看請求，不看版本數
+
+      // 拿掉尾幀：影片需要重跑，再生成的請求不帶尾幀
+      const cleared = shots.setEndFrame(first.id, undefined)
+      expect(cleared.endFrame).toBeUndefined()
+      await shots.regenerate(first.id, 'apply')
+      await idle(first.id)
+      expect(
+        videoInputs(projects).filter((input) => input.endFrameAsset !== undefined),
+      ).toHaveLength(1)
+      expect(shots.list().shots[0]?.status).toBe('done')
+    })
+
+    it('這支影片模型不接受尾幀：尾幀存著、畫面上看得到並說明「不會送」，請求不帶 endFrameAsset', async () => {
+      const { shots, runQuickStart, idle, projects } = setup()
+      await runQuickStart()
+      const [first, second] = shots.list().shots
+      if (!first || !second) throw new Error('鏡頭不夠')
+      const endHash = second.firstFrames[0]?.assetHash ?? ''
+      const view = shots.setEndFrame(first.id, endHash)
+      expect(view.endFrame?.assetHash).toBe(endHash)
+      expect(view.endFrameSupported).toBe(false)
+      await shots.regenerate(first.id, 'video')
+      await idle(first.id)
+      expect(videoInputs(projects).every((input) => input.endFrameAsset === undefined)).toBe(true)
+    })
+
+    it('只能用專案裡已有的圖片：找不到的圖、影片檔、找不到的鏡頭都說明原因', async () => {
+      const { shots, runQuickStart } = setup()
+      await runQuickStart()
+      const [first] = shots.list().shots
+      if (!first) throw new Error('沒有鏡頭')
+      expect(() => shots.setEndFrame(first.id, 'f'.repeat(64))).toThrow(/專案裡找不到這張圖/)
+      const video = first.videos[0]?.assetHash ?? ''
+      expect(() => shots.setEndFrame(first.id, video)).toThrow(/要是一張圖片/)
+      expect(() => shots.setEndFrame('nope', first.firstFrames[0]?.assetHash)).toThrow(
+        /找不到這個鏡頭/,
+      )
+    })
+
+    it('換一張尾幀：只留新的那張（不累積舊版本）；複製鏡頭不帶尾幀', async () => {
+      const { shots, runQuickStart, projects } = setup()
+      await runQuickStart()
+      const [first, second] = shots.list().shots
+      if (!first || !second) throw new Error('鏡頭不夠')
+      const third = shots.list().shots[2]
+      const other = third?.firstFrames[0]?.assetHash ?? ''
+      shots.setEndFrame(first.id, second.firstFrames[0]?.assetHash)
+      expect(shots.setEndFrame(first.id, other).endFrame?.assetHash).toBe(other)
+      expect(projects.current()?.repos.shots.listTakes(first.id, 'last_frame')).toHaveLength(1)
+      shots.setEndFrame(first.id, second.firstFrames[0]?.assetHash)
+      shots.duplicate(first.id)
+      expect(shots.list().shots.filter((s) => s.endFrame !== undefined)).toHaveLength(1)
+    })
+  })
+
   it('整個重做：首幀圖和影片都多一個新版本', async () => {
     const { shots, runQuickStart, idle } = setup()
     await runQuickStart()

@@ -39,6 +39,7 @@ export const MCP_CHANNELS = [
   'shots.update',
   'shots.references',
   'shots.setReferences',
+  'shots.setEndFrame',
   'shots.create',
   'shots.delete',
   'shots.reorder',

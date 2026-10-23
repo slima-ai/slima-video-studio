@@ -72,6 +72,10 @@ export const ShotViewSchema = z.object({
   error: z.string().optional(),
   firstFrames: z.array(TakeViewSchema),
   videos: z.array(TakeViewSchema),
+  /** 另外指定的尾幀（影片最後一格要長成這張圖）；沒指定就沒有這個欄位。 */
+  endFrame: TakeViewSchema.optional(),
+  /** 有尾幀時：現在用的影片模型接不接受尾幀（不接受就不會送，影片照舊只用首幀）。 */
+  endFrameSupported: z.boolean().optional(),
 })
 export type ShotView = z.infer<typeof ShotViewSchema>
 

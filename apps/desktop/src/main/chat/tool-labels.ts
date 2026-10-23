@@ -30,6 +30,8 @@ const LABELS: Readonly<Record<string, string>> = {
   get_shot: '查看鏡頭',
   get_shot_references: '查看鏡頭用哪些參考圖',
   set_shot_references: '指定鏡頭的參考圖',
+  set_shot_end_frame: '指定鏡頭的尾幀',
+  clear_shot_end_frame: '拿掉鏡頭的尾幀',
   create_shot: '建立鏡頭',
   update_shot: '修改鏡頭',
   delete_shots: '刪除鏡頭',

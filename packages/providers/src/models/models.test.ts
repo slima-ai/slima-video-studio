@@ -218,6 +218,19 @@ describe('內建 ModelCard', () => {
     expect(registry.get('fal/kling-3.0-pro')?.negativePrompt).toBeUndefined()
   })
 
+  it('尾幀：只有查過文件的 Kling 3.0 Standard（兩個管道）標為接受；Pro、其他影片模型、圖片模型都不接受', () => {
+    expect(registry.get('fal/kling-3.0-standard')?.endFrame).toBe(true)
+    expect(registry.get('openrouter/kling-3.0-standard')?.endFrame).toBe(true)
+    expect(registry.get('fal/kling-3.0-pro')?.endFrame).toBe(false)
+    expect(registry.get('openrouter/kling-3.0-pro')?.endFrame).toBe(false)
+    const accepting = registry
+      .all()
+      .filter((card) => card.endFrame)
+      .map((card) => card.id)
+      .sort()
+    expect(accepting).toEqual(['fal/kling-3.0-standard', 'openrouter/kling-3.0-standard'])
+  })
+
   it('新增 GPT Image 2 不改變既有的預設圖片模型，使用者要自己切換', () => {
     const only = { configuredProviders: new Set(['openrouter']) }
     for (const capability of ['t2i', 'edit'] as const) {

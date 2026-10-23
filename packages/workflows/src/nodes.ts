@@ -459,7 +459,8 @@ export function composeShotPrompts(
     (place ? `。場景（${place.name}）——${place.text}` : '')
   // 運鏡不寫在這裡：送出影片請求時才依模型決定是用原生參數還是加進 Prompt（見 resolveCameraMove）
   const imagePrompt = `${base}。${style}`
-  const action = shot.action?.trim() ?? ''
+  // 動作句尾的標點拿掉：後面會接「。」，不要變成「.。」
+  const action = (shot.action ?? '').trim().replace(/[.。!！?？…\s]+$/u, '')
   if (action === '') return { imagePrompt, videoPrompt: imagePrompt }
   // 有動作：影片 Prompt 以動作開頭，接角色的「不要有…」限制，再接畫風；
   // 首幀圖已經定了畫面，不再重講一次（重講的外觀與場景描述會讓模型重畫、長出不存在的五官）
@@ -934,6 +935,8 @@ export const videoNode = defineNode({
     prompt: { type: 'text' },
     cameraMove: { type: 'text', optional: true },
     negativeExtra: { type: 'text', optional: true },
+    /** 尾幀（影片最後一格要長成這張圖）；只有接受尾幀的模型才會接這條線。 */
+    endImage: { type: 'image', optional: true },
   },
   outputs: { video: 'video' },
   params: z.object({
@@ -960,6 +963,9 @@ export const videoNode = defineNode({
         audio: params.audio,
         seed: params.variation,
         startFrameAsset: frame.hash,
+        ...(inputs.endImage === undefined
+          ? {}
+          : { endFrameAsset: AssetRefSchema.parse(inputs.endImage).hash }),
         referenceAssets: [],
         ...(typeof inputs.cameraMove === 'string' && inputs.cameraMove !== ''
           ? { cameraMove: inputs.cameraMove }

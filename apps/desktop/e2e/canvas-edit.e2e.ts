@@ -146,6 +146,48 @@ test.describe('畫布：雙擊就地改名、改鏡頭描述', () => {
     await update('')
     await expect(card.getByTestId('shot-action')).toHaveCount(0)
   })
+
+  test('指定尾幀：圖片格並排「首」「尾」兩張，影片格「吃：」多一個「尾幀」；沒有尾幀就沒有這些', async ({
+    page,
+  }) => {
+    await generateAndOpenCanvas(page)
+    const image = await nodeByKind(page, 'image')
+    const video = await nodeByKind(page, 'video')
+    await centerOn(page, image.id)
+    const imageCard = page.locator(`.react-flow__node[data-id="${image.id}"]`)
+    const videoCard = page.locator(`.react-flow__node[data-id="${video.id}"]`)
+    // 沒有尾幀：只有一張圖，「吃：」只有動作（沒寫動作＝不亮），沒有「尾幀」
+    await expect(imageCard.getByTestId('frame-pair')).toHaveCount(0)
+    await expect(videoCard.getByTestId('io-吃')).toContainText('動作')
+    await expect(videoCard.getByTestId('io-吃')).not.toContainText('尾幀')
+    await page.screenshot({ path: test.info().outputPath('end-frame-without.png') })
+
+    const listed = await page.evaluate(() => window.svs.invoke('shots.list', {}))
+    if (!listed.ok) throw new Error(listed.error.userMessage)
+    const first = listed.data.shots[0]
+    const hash = first?.firstFrames[0]?.assetHash
+    if (!first || !hash) throw new Error('沒有首幀圖')
+    const set = await page.evaluate(
+      ({ shotId, assetHash }) => window.svs.invoke('shots.setEndFrame', { shotId, assetHash }),
+      { shotId: first.id, assetHash: hash },
+    )
+    if (!set.ok) throw new Error(set.error.userMessage)
+
+    await expect(imageCard.getByTestId('frame-pair')).toBeVisible()
+    await expect(imageCard.getByTestId('first-frame-thumb')).toContainText('首')
+    await expect(imageCard.getByTestId('end-frame-thumb')).toContainText('尾')
+    await expect(videoCard.getByTestId('io-吃')).toContainText('尾幀')
+    await page.screenshot({ path: test.info().outputPath('end-frame-with.png') })
+
+    // 拿掉尾幀：回到只有一張圖
+    const cleared = await page.evaluate(
+      ({ shotId }) => window.svs.invoke('shots.setEndFrame', { shotId, assetHash: null }),
+      { shotId: first.id },
+    )
+    if (!cleared.ok) throw new Error(cleared.error.userMessage)
+    await expect(imageCard.getByTestId('frame-pair')).toHaveCount(0)
+    await expect(videoCard.getByTestId('io-吃')).not.toContainText('尾幀')
+  })
 })
 
 /** 這個節點的標題列（拖它的地方）：場框與群組是各自的標題抓手，其他是卡片頂端。 */

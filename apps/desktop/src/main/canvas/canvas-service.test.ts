@@ -110,6 +110,23 @@ describe('createCanvasService', () => {
       version: 1,
     })
     expect(node(graph, `shot:${a.id}:video`)).toMatchObject({ status: 'done', inCut: true })
+    // 尾幀：沒有就沒有這幾個欄位；有了，圖片節點帶尾幀的圖、影片節點標記有動作與尾幀
+    expect(node(graph, `shot:${a.id}:image`)).not.toHaveProperty('endAssetHash')
+    expect(node(graph, `shot:${a.id}:video`)).not.toHaveProperty('hasEndFrame')
+    expect(node(graph, `shot:${a.id}:video`)).not.toHaveProperty('hasAction')
+    expect(node(graph, `shot:${b.id}:video`)).toMatchObject({ hasAction: true })
+    repos.shots.addTake({
+      shotId: a.id,
+      kind: 'last_frame',
+      assetHash: HASH('e'),
+      modelId: 'upload',
+    })
+    const withEnd = canvas.get()
+    expect(node(withEnd, `shot:${a.id}:image`)).toMatchObject({
+      assetHash: HASH('a'),
+      endAssetHash: HASH('e'),
+    })
+    expect(node(withEnd, `shot:${a.id}:video`)).toMatchObject({ hasEndFrame: true })
     expect(node(graph, `shot:${b.id}:video`)).toMatchObject({ status: 'idle', inCut: false })
     expect(node(graph, `scene:${s1.id}`)).toMatchObject({ title: '第 1 場・街角', sceneNo: 1 })
     expect(node(graph, 'cut')?.slots).toEqual([
