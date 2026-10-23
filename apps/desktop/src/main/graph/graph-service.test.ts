@@ -135,6 +135,8 @@ describe('GraphService.shot', () => {
       { name: 'image', type: 'image', connected: true },
       { name: 'prompt', type: 'text', connected: true },
       { name: 'cameraMove', type: 'text', connected: true, optional: true },
+      // 沒有角色寫「不要出現的特徵」時，這個選填的輸入沒有接線
+      { name: 'negativeExtra', type: 'text', connected: false, optional: true },
     ])
     expect(byTitle['圖生影片']?.outputs).toEqual([{ name: 'video', type: 'video' }])
     expect(graph.edges.every((e) => e.kind === 'data')).toBe(true)
@@ -152,6 +154,19 @@ describe('GraphService.shot', () => {
     const references = graph.edges.filter((e) => e.kind === 'reference')
     // 只有裝了「帶參考圖的圖片模型」才會有這條線；示範模式沒有的話就不該憑空出現
     expect(references.every((e) => e.to.port === 'references')).toBe(true)
+  })
+
+  it('有角色寫了「不要出現的特徵」：出場那一鏡的圖生影片多接一條 negativeExtra 的線（資料線）', async () => {
+    const h = setup()
+    const hero = h.characters.create('阿鐵')
+    h.characters.update(hero.id, { avoid: 'mouth, arms' })
+    await h.runQuickStart({ shotCount: 2 })
+    const graph = h.graph.shot(h.shots.list().shots[0]?.id ?? '')
+    const video = graph.nodes.find((n) => n.title === '圖生影片')
+    expect(video?.inputs.find((p) => p.name === 'negativeExtra')).toMatchObject({
+      connected: true,
+    })
+    expect(graph.edges).toHaveLength(7)
   })
 
   it('找不到的鏡頭、沒有專案：說明原因', () => {
