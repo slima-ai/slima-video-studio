@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 import { canvasNodes, centerOn, kindCount } from './canvas-helpers'
 import { expect, test } from './fixtures'
@@ -84,23 +84,65 @@ async function badText(page: Page): Promise<string | undefined> {
   )
 }
 
+/** 畫面上看得到的字有多長（掃描有沒有掃到東西）。 */
+const pageTextLength = (page: Page): Promise<number> =>
+  page.evaluate(() => document.body.innerText.trim().length)
+
+/**
+ * 先等「這一頁一定有的標記元素」出現（頁頭的頁名），再掃中文；掃到的字太少就紅：
+ * 頁面還沒載好時掃到的是空的，會被當成「沒有中文」而空過。
+ */
+async function expectPageClean(
+  page: Page,
+  label: string,
+  marker: Locator,
+  markerText: string,
+  minLength = MIN_PAGE_TEXT,
+): Promise<void> {
+  await expect(marker, `${label}：頁面沒有載入`).toContainText(markerText)
+  const length = await pageTextLength(page)
+  expect(length, `${label}：掃到的字只有 ${String(length)} 個，頁面沒載好？`).toBeGreaterThan(
+    minLength,
+  )
+  expect(await badText(page), label).toBeUndefined()
+}
+
+/** 一頁（連側邊欄）至少該有的字數：沒有專案時最短的一頁（Locations）也有 380 多個字，空頁（只剩側邊欄）不到 150。 */
+const MIN_PAGE_TEXT = 250
+
+const PAGES: readonly { nav: string; header: string }[] = [
+  { nav: 'Outline', header: 'Outline' },
+  { nav: 'Storyboard', header: 'Storyboard' },
+  { nav: 'Characters', header: 'Characters' },
+  { nav: 'Locations', header: 'Locations' },
+  { nav: 'Records', header: 'Generation records' },
+  { nav: 'Files', header: 'Files' },
+]
+
 test.describe('英文介面的各頁', () => {
   test.use({ appEnv: { SVS_LOCALE: 'en' } })
 
   test('沒有專案：每一頁都沒有中文', async ({ page }) => {
-    for (const name of [
-      'Outline',
-      'Storyboard',
-      'Characters',
-      'Locations',
-      'Records',
-      'Files',
-      'Settings',
-    ]) {
-      await page.getByRole('button', { name, exact: true }).click()
-      await page.waitForTimeout(400)
-      expect(await badText(page), `${name}（沒有專案）`).toBeUndefined()
+    for (const { nav, header } of [...PAGES, { nav: 'Settings', header: 'Settings' }]) {
+      await page.getByRole('button', { name: nav, exact: true }).click()
+      await expectPageClean(page, `${nav}（沒有專案）`, page.getByTestId('page-header'), header)
     }
+  })
+
+  test('掃描守門：頁面是空的就紅（不會把「沒掃到」當成「沒有中文」）', async ({ page }) => {
+    await page.getByRole('button', { name: 'Records', exact: true }).click()
+    await expect(page.getByTestId('page-header')).toContainText('Generation records')
+    await page.evaluate(() => {
+      document.body.replaceChildren()
+    })
+    await expect(expectPageClean(page, '空頁', page.locator('body'), '')).rejects.toThrow(
+      '掃到的字只有',
+    )
+    // 頁頭不是這一頁的（標記不對）也紅
+    await page.reload()
+    await expect(
+      expectPageClean(page, '錯的頁', page.getByTestId('page-header'), 'No such page', 0),
+    ).rejects.toThrow('頁面沒有載入')
   })
 
   test('有專案與內容：大綱、分鏡表（表格與故事板）、紀錄、檔案、佇列、鏡頭面板沒有中文', async ({
@@ -120,31 +162,28 @@ test.describe('英文介面的各頁', () => {
       timeout: 60_000,
     })
 
-    for (const name of ['Outline', 'Storyboard', 'Characters', 'Locations', 'Records', 'Files']) {
-      await page.getByRole('button', { name, exact: true }).click()
-      await page.waitForTimeout(600)
-      expect(await badText(page), name).toBeUndefined()
+    for (const { nav, header } of PAGES) {
+      await page.getByRole('button', { name: nav, exact: true }).click()
+      await expectPageClean(page, nav, page.getByTestId('page-header'), header)
     }
     // 分鏡表：景別、角度、運鏡的名稱每一個都要放得下欄寬（英文比中文長）
     await page.getByRole('button', { name: 'Storyboard', exact: true }).click()
-    await page.waitForTimeout(400)
     await expect(page.getByTestId('cell-size').first()).toBeVisible()
     for (const testId of ['cell-size', 'cell-angle', 'cell-camera']) {
       expect(await selectTextTooWide(page, testId, true), `分鏡表 ${testId}`).toEqual([])
     }
     // 分鏡表的故事板檢視
     await page.getByTestId('storyboard-view-board').click()
-    await page.waitForTimeout(400)
-    expect(await badText(page), '故事板').toBeUndefined()
-    // 分鏡卡的景別、角度（現在選的那個）放得下，不是「Eye l…」
     await expect(page.getByTestId('cell-board-size').first()).toBeVisible()
+    await expectPageClean(page, '故事板', page.getByTestId('page-header'), 'Storyboard')
+    // 分鏡卡的景別、角度（現在選的那個）放得下，不是「Eye l…」
     for (const testId of ['cell-board-size', 'cell-board-angle']) {
       expect(await selectTextTooWide(page, testId, false), `分鏡卡 ${testId}`).toEqual([])
     }
     // 佇列面板展開
     await page.getByTestId('queue-panel').getByRole('button').first().click()
-    await page.waitForTimeout(300)
-    expect(await badText(page), '佇列面板').toBeUndefined()
+    await expect(page.getByTestId('queue-toggle')).toHaveAttribute('aria-expanded', 'true')
+    await expectPageClean(page, '佇列面板', page.getByTestId('queue-panel'), 'Done')
     // 鏡頭面板（畫布上選一個鏡頭、按 Enter 開）
     await page.getByRole('button', { name: 'Canvas', exact: true }).click()
     // 畫布節點是切回畫布之後才載入的：等到有鏡頭節點再找（CI 的機器慢，立刻找會是空的）
@@ -159,7 +198,11 @@ test.describe('英文介面的各頁', () => {
       .click({ button: 'right', position: { x: 60, y: 16 } })
     await page.getByRole('menuitem', { name: 'Open panel' }).click()
     await expect(page.getByTestId('canvas-panel')).toBeVisible()
-    await page.waitForTimeout(600)
-    expect(await badText(page), '鏡頭面板').toBeUndefined()
+    await expectPageClean(
+      page,
+      '鏡頭面板',
+      page.getByTestId('canvas-panel'),
+      'What happens in this shot',
+    )
   })
 })
