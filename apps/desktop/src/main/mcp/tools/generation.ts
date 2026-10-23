@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
 import { defineTool, type ToolContext } from './define'
+import { ACTIVE_JOB_STATUSES } from './settle'
 
-const ACTIVE = new Set(['queued', 'running', 'submitted', 'polling'])
 /** 查詢間隔從 POLL_MIN_MS 起、每次加倍，最長 POLL_MS：很快就好的生成馬上回報，長的生成不會一直查。 */
 const POLL_MIN_MS = 100
 const POLL_MS = 1500
@@ -12,7 +12,7 @@ export const MAX_WAIT_SEC = 45
 /** 目前專案最近的生成任務摘要。 */
 async function status(ctx: ToolContext) {
   const { jobs } = await ctx.caller.call('queue.list', {})
-  const active = jobs.filter((j) => ACTIVE.has(j.status))
+  const active = jobs.filter((j) => ACTIVE_JOB_STATUSES.has(j.status))
   const recent = jobs.slice(-12).map((j) => ({
     kind: j.kind,
     model: j.modelId,

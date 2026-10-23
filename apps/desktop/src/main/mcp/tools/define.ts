@@ -8,6 +8,7 @@ import type { Allowance } from '../allowance'
 import { McpToolError, type McpCaller } from '../bridge'
 import type { Redactor } from '../redact'
 import type { AssetViewer, ViewImage } from '../viewer'
+import { settleAllowance } from './settle'
 
 /** 工具共用的東西：只有白名單呼叫器，沒有任何拿得到服務金鑰的路。 */
 export interface ToolContext {
@@ -68,6 +69,9 @@ export function defineTool<Shape extends z.ZodRawShape>(
     // SDK 的泛型對不上 Shape（zod 3／4 相容層）；輸入已經由 SDK 依 inputSchema 驗證過才會進來
     (async (args: unknown): Promise<CallToolResult> => {
       try {
+        // 先把上一批做完的預留改成實際花費，這次的額度檢查才看得到退回的錢。
+        // 只在呼叫前結算，不在呼叫後：剛啟動的背景生成可能還沒進佇列，那時結算會把還沒花的錢當成沒花而退掉
+        await settleAllowance(ctx)
         const out = await spec.run(args as z.infer<z.ZodObject<Shape>>)
         const data = out instanceof WithImages ? out.data : out
         const result = textResult(ctx.redactor.redact(JSON.stringify(data ?? null, null, 2)))
