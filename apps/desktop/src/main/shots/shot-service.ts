@@ -898,7 +898,14 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         ? pickEditModel(settingsService, models)
         : referenceEditModel(anchors, settingsService, models, scenes)
     const uploaded = uploadedFrameOf(handle, shot.id)
-    const firstFrame = uploaded ? assetRefOf(handle, uploaded.assetHash) : undefined
+    // 只做影片：一律用採用中的首幀當固定輸入，不重生圖。首幀的描述改過、已經「過期」也一樣——
+    // 不然 Prompt 變了就沒有快取，會悄悄多生（並採用）一張沒人看過的新首幀、還多花一張圖的錢
+    const adopted =
+      mode === 'video'
+        ? handle.repos.shots.listTakes(shot.id, 'first_frame').find((t) => t.adopted)
+        : undefined
+    const frameTake = uploaded ?? adopted
+    const firstFrame = frameTake ? assetRefOf(handle, frameTake.assetHash) : undefined
     // 尾幀：有指定、而且這次用的影片模型接受尾幀才送（不接受就照舊只用首幀）
     const endTake = handle.repos.shots.listTakes(shot.id, 'last_frame').find((t) => t.adopted)
     const endFrame =
@@ -1178,7 +1185,10 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   ): RegenerateMode => {
     if (stage === 'frame') return 'frame'
     if (stage === 'video') {
-      return handle.repos.shots.listTakes(shot.id, 'video').length > 0 ? 'video' : 'apply'
+      // 有採用中的首幀就只做影片（不重生首幀）；還沒有首幀的鏡頭不會走到這裡（批次檢查會略過）
+      const { shots } = handle.repos
+      const hasFrame = shots.listTakes(shot.id, 'first_frame').some((t) => t.adopted)
+      return hasFrame || shots.listTakes(shot.id, 'video').length > 0 ? 'video' : 'apply'
     }
     return 'all'
   }
@@ -1291,6 +1301,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     if (s.quick) throw invalid('整支影片正在生成，等它完成再重新生成單一鏡頭。')
     if (s.regens.has(shotId)) throw invalid('這個鏡頭正在重新生成。')
 
+    // 只做影片要有採用中的首幀（不會替你重生）：沒有就說明，不偷偷生一張
+    if (
+      mode === 'video' &&
+      !handle.repos.shots.listTakes(shotId, 'first_frame').some((take) => take.adopted)
+    ) {
+      throw invalid(t('shots.error.videoNeedsFrame'))
+    }
     const image = settingsService.resolveModel('t2i', quality)
     // 只生首幀圖不需要影片模型
     const video = mode === 'frame' ? image : settingsService.resolveModel('i2v', quality)
@@ -1860,8 +1877,14 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         }
       }
       log.info(`批次生成：開始 ${String(started)} 個，沒辦法開始 ${String(failed.length)} 個`)
+      // 只做影片的鏡頭，首幀如果是用舊的描述畫的：照用，但告訴呼叫端（不擋）
+      const stale = request.stage === 'video' ? staleOf(s) : undefined
+      const staleFrameShots = toRun
+        .filter((shot) => stale?.get(shot.id)?.image === true)
+        .map((shot) => shot.number)
       return {
         started,
+        ...(staleFrameShots.length > 0 ? { staleFrameShots } : {}),
         skippedGenerated: check.skippedGenerated,
         skippedBusy: check.skippedBusy,
         failed,

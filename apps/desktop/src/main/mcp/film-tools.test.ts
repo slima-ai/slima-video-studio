@@ -404,6 +404,37 @@ describe('影片線的花錢步驟（真實模式、假的 OpenRouter）', () =>
     expect(imageBlocks(seen)).toHaveLength(1)
   })
 
+  it('generate_videos 只做影片：首幀過期也不發圖片請求（錢只花在影片），回應說明首幀是舊描述畫的', async () => {
+    const { r, fake } = await startReal()
+    r.h.settings.update({ mcp: { allowanceUsd: 5 } })
+    const ids = await withShots(r)
+    const shotId = ids[0] ?? ''
+    await r.call('generate_first_frames', { shotIds: [shotId] })
+    await waitDone(r)
+    await r.call('update_shot', { shotId, description: '改過的畫面描述，首幀就過期了' })
+    // 這個假的服務裡，文字與圖片都走 /chat/completions，影片走 /videos
+    const pictureRequests = () => noJobs(fake).filter((q) => q.path === '/chat/completions').length
+    const before = pictureRequests()
+
+    const out = dataOf(
+      z.looseObject({
+        started: z.number(),
+        staleFirstFrames: z.looseObject({ shots: z.array(z.number()), note: z.string() }),
+      }),
+      await r.call('generate_videos', { shotIds: [shotId] }),
+    )
+    await waitDone(r)
+    expect(out.started).toBe(1)
+    expect(out.staleFirstFrames.shots).toHaveLength(1)
+    expect(out.staleFirstFrames.note).toContain('OLDER description')
+    // 沒有新的圖片請求；只有影片請求
+    expect(pictureRequests()).toBe(before)
+    expect(noJobs(fake).some((q) => q.path === '/videos')).toBe(true)
+    const detail1 = await detail(r, shotId)
+    expect(detail1.firstFrame.versions).toBe(1)
+    expect(detail1.video.versions).toBe(1)
+  })
+
   const Estimate = z.looseObject({
     possible: z.boolean(),
     issue: z.string().optional(),

@@ -5,6 +5,7 @@ import { onboarding } from './onboarding'
 import { projects } from './projects'
 import { shell } from './shell'
 import { endFrame } from './endFrame'
+import { shots } from './shots'
 // <i18n:imports>
 
 export const en = {
@@ -14,5 +15,6 @@ export const en = {
   ...projects,
   ...shell,
   ...endFrame,
+  ...shots,
   // <i18n:spread>
 } as const

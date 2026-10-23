@@ -1048,6 +1048,112 @@ describe('shots.batchCheck / generateBatch', { timeout: 30_000 }, () => {
   })
 })
 
+describe('只做影片：不重生首幀', { timeout: 30_000 }, () => {
+  const imageJobs = (h: ReturnType<typeof setup>) =>
+    (h.projects.current()?.repos.jobs.list() ?? []).filter((job) => job.kind === 'image')
+  const videoInputs = (h: ReturnType<typeof setup>) =>
+    (h.projects.current()?.repos.jobs.list() ?? [])
+      .filter((job) => job.kind === 'video')
+      .map((job) => job.input as { startFrameAsset?: string; prompt?: string })
+
+  it('描述改過、首幀已經過期：只做影片＝0 個圖片請求、影片用採用中的首幀、預估只有影片的錢；結果說明首幀是舊描述畫的', async () => {
+    const h = setup()
+    await h.runQuickStart()
+    const [first] = h.shots.list().shots
+    if (!first) throw new Error('沒有鏡頭')
+    const frame = first.firstFrames[0]
+    const request = { shotIds: [first.id], skipGenerated: false, stage: 'video' as const }
+    const estimateBefore = h.shots.batchCheck(request).estimatedUsd
+    const imagesBefore = imageJobs(h).length
+
+    // 首幀畫完之後才改描述 → 首幀過期（畫布上圖片格標「需要重跑」）
+    h.shots.update(first.id, { description: '貓縮在紙箱裡，雨打在屋簷上，鏡頭換了新的畫面' })
+    expect(h.shots.staleness().get(first.id)?.image).toBe(true)
+
+    // 預估和實際一致：只有影片，不含重生首幀的錢
+    const check = h.shots.batchCheck(request)
+    expect(check.ok).toBe(true)
+    expect(check.estimatedUsd).toBe(estimateBefore)
+
+    const result = await h.shots.generateBatch(request)
+    await h.idle(first.id)
+    expect(result.staleFrameShots).toEqual([first.number])
+    // 一個圖片請求都沒有；首幀還是同一張、同一個版本；影片多一版
+    expect(imageJobs(h)).toHaveLength(imagesBefore)
+    const after = h.shots.list().shots[0]
+    expect(after?.firstFrames).toEqual(first.firstFrames)
+    expect(after?.videos).toHaveLength(2)
+    expect(videoInputs(h).at(-1)?.startFrameAsset).toBe(frame?.assetHash)
+    // 影片 Prompt 還是用現在的描述重組
+    expect(videoInputs(h).at(-1)?.prompt).toContain('貓縮在紙箱裡')
+    // 首幀照舊是過期的（沒有因為只做影片就被標成「對得上」）
+    expect(h.shots.staleness().get(first.id)?.image).toBe(true)
+  })
+
+  it('shots.regenerate(video) 也一樣：不發圖片請求、用採用中的首幀', async () => {
+    const h = setup()
+    await h.runQuickStart()
+    const [first] = h.shots.list().shots
+    if (!first) throw new Error('沒有鏡頭')
+    const imagesBefore = imageJobs(h).length
+    h.shots.update(first.id, { description: '換了描述，首幀過期' })
+    await h.shots.regenerate(first.id, 'video')
+    await h.idle(first.id)
+    expect(imageJobs(h)).toHaveLength(imagesBefore)
+    expect(h.shots.list().shots[0]?.firstFrames).toEqual(first.firstFrames)
+    expect(videoInputs(h).at(-1)?.startFrameAsset).toBe(first.firstFrames[0]?.assetHash)
+  })
+
+  it('還沒有影片、只有首幀的鏡頭（以前走「補跑」會連首幀一起重生）：只做影片也不發圖片請求', async () => {
+    const h = setup()
+    await h.runQuickStart()
+    const created = h.shots.create({})
+    h.shots.update(created.id, { description: '一隻貓走過窗台' })
+    await h.shots.generateBatch({ shotIds: [created.id], skipGenerated: false, stage: 'frame' })
+    await h.idle(created.id)
+    const frame = h.shots.list().shots.find((s) => s.id === created.id)?.firstFrames[0]
+    expect(frame).toBeDefined()
+    h.shots.update(created.id, { description: '一隻貓走過窗台，換了寫法' })
+    const imagesBefore = imageJobs(h).length
+    await h.shots.generateBatch({ shotIds: [created.id], skipGenerated: false, stage: 'video' })
+    await h.idle(created.id)
+    expect(imageJobs(h)).toHaveLength(imagesBefore)
+    const done = h.shots.list().shots.find((s) => s.id === created.id)
+    expect(done?.firstFrames).toEqual([frame])
+    expect(done?.videos).toHaveLength(1)
+    expect(videoInputs(h).at(-1)?.startFrameAsset).toBe(frame?.assetHash)
+  })
+
+  it('這一鏡沒有採用中的首幀：只做影片用白話說明（先生成首幀圖），不偷偷生一張', async () => {
+    const h = setup()
+    await h.runQuickStart()
+    const created = h.shots.create({})
+    h.shots.update(created.id, { description: '一隻貓' })
+    const imagesBefore = imageJobs(h).length
+    await expect(h.shots.regenerate(created.id, 'video')).rejects.toThrow(/還沒有首幀圖/)
+    const check = h.shots.batchCheck({
+      shotIds: [created.id],
+      skipGenerated: false,
+      stage: 'video',
+    })
+    expect(check.ok).toBe(false)
+    expect(check.issue).toMatch(/還沒有首幀圖/)
+    expect(imageJobs(h)).toHaveLength(imagesBefore)
+  })
+
+  it('整條重做（all）還是會重生首幀：只有「只做影片」不重生', async () => {
+    const h = setup()
+    await h.runQuickStart()
+    const [first] = h.shots.list().shots
+    if (!first) throw new Error('沒有鏡頭')
+    const imagesBefore = imageJobs(h).length
+    await h.shots.regenerate(first.id, 'all')
+    await h.idle(first.id)
+    expect(imageJobs(h)).toHaveLength(imagesBefore + 1)
+    expect(h.shots.list().shots[0]?.firstFrames).toHaveLength(2)
+  })
+})
+
 describe('shots.batchCheck 先出草稿', { timeout: 30_000 }, () => {
   it('打勾就整批用經濟組的模型估價；沒打勾照設定的', async () => {
     const h = setup()
