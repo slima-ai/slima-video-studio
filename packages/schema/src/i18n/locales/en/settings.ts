@@ -53,6 +53,7 @@ export const settings = {
     'The most AI tools like Claude can spend in total when they generate through this app (it comes out of your API key accounts). Default is US$0; once it’s used up, they can’t generate any more.',
   'settings.enter0OrALarger': 'Enter 0 or a larger number.',
   'settings.reservedLeftToSpend': '{value} reserved, {value2} left to spend.',
+  'settings.notSavedYet': 'Not saved yet',
   'settings.projectSpentSoFar': 'Actual charges in this project so far: {value}.',
   'settings.reservationRefundNote':
     'A reservation is a cautious estimate (estimate × 1.25; text × 2). After a generation finishes, it is settled to the actual charge the next time an AI tool is used, and the unused part is returned.',

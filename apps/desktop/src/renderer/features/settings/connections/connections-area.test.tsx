@@ -331,6 +331,70 @@ describe('Claude Desktop 卡', () => {
   })
 })
 
+describe('AI 工具的總額度：輸入不能被吞掉', () => {
+  const input = () => screen.getByTestId<HTMLInputElement>('mcp-allowance')
+
+  it('儲存失敗：打的數字留著、錯誤顯示在輸入框旁邊；再改一下提示就收掉', async () => {
+    installFakeSvs({
+      'mcp.status': () => ON,
+      'settings.update': () => {
+        throw appError('存不起來')
+      },
+    })
+    area()
+    await waitFor(() => {
+      expect(input().value).toBe('2')
+    })
+    fireEvent.change(input(), { target: { value: '12.5' } })
+    fireEvent.submit(input())
+    const card = screen.getByTestId('mcp-allowance-card')
+    expect((await within(card).findByTestId('mcp-allowance-error')).textContent).toContain(
+      '存不起來',
+    )
+    expect(input().value).toBe('12.5')
+    expect(screen.getByTestId('mcp-allowance-unsaved')).toBeTruthy()
+    fireEvent.change(input(), { target: { value: '12.6' } })
+    expect(screen.queryByTestId('mcp-allowance-error')).toBeNull()
+  })
+
+  it('跟已存的數字不一樣就顯示「還沒儲存」；改回一樣、或儲存成功就消失', async () => {
+    installFakeSvs({ 'mcp.status': () => ON })
+    area()
+    await waitFor(() => {
+      expect(input().value).toBe('2')
+    })
+    expect(screen.queryByTestId('mcp-allowance-unsaved')).toBeNull()
+    fireEvent.change(input(), { target: { value: '3' } })
+    expect(screen.getByTestId('mcp-allowance-unsaved').textContent).toBe('還沒儲存')
+    fireEvent.change(input(), { target: { value: '2.0' } })
+    expect(screen.queryByTestId('mcp-allowance-unsaved')).toBeNull()
+    // 不合法的數字已經有自己的錯誤文字，不再多顯示「還沒儲存」
+    fireEvent.change(input(), { target: { value: '-1' } })
+    expect(screen.queryByTestId('mcp-allowance-unsaved')).toBeNull()
+    fireEvent.change(input(), { target: { value: '3' } })
+    fireEvent.submit(input())
+    await waitFor(() => {
+      expect(screen.queryByTestId('mcp-allowance-unsaved')).toBeNull()
+    })
+  })
+
+  it('按 Enter 就是儲存（沒有確認框）；不合法的數字按 Enter 不會送出', async () => {
+    const svs = installFakeSvs({ 'mcp.status': () => ON })
+    area()
+    await waitFor(() => {
+      expect(input().value).toBe('2')
+    })
+    fireEvent.change(input(), { target: { value: '13' } })
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => {
+      expect(svs.payloadsOf('settings.update')).toEqual([{ mcp: { allowanceUsd: 13 } }])
+    })
+    fireEvent.change(input(), { target: { value: 'abc' } })
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    expect(svs.payloadsOf('settings.update')).toHaveLength(1)
+  })
+})
+
 describe('AI 工具的總額度（沒開專案）', () => {
   it('沒有專案就沒有實收這一行，說明仍然在', async () => {
     installFakeSvs({ 'mcp.status': () => ({ ...ON, spentUsd: undefined }) })
