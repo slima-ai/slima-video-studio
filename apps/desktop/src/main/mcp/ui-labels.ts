@@ -14,6 +14,8 @@ export const settingsAiTools = (): string => `${t('shell.settings')} → ${t('se
 export const settingsGeneral = (): string => `${t('shell.settings')} → ${t('settings.general')}`
 /** 「AI 工具的總額度」那張卡。 */
 export const allowanceCard = (): string => quoted(t('mcp.allowanceCard'))
+/** 「單次花費上限」那張卡（設定 → 一般）：只管單次生成，跟「AI 工具的總額度」是兩回事。 */
+export const perRunLimitCard = (): string => quoted(t('settings.perRunSpendingLimit'))
 /** 「已用的歸零」鈕。 */
 export const resetUsedButton = (): string => quoted(t('settings.resetUsedAmount'))
 /** 「示範模式」開關的名字。 */

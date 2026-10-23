@@ -7,6 +7,8 @@ import { allowanceLight } from './connection-state'
 import type { McpConnection } from './use-mcp'
 import { t } from '@svs/schema'
 
+import { AreaPointer, areaPath } from '../area-pointer'
+
 const usd = (value: number): string => `US$${value.toFixed(2)}`
 
 /**
@@ -17,6 +19,8 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
   const { status } = mcp
   const [typed, setTyped] = useState<string | undefined>()
   const [failed, setFailed] = useState(false)
+  /** 最近一次存成功的額度（提示寫「存到哪一張、存了多少」）。 */
+  const [savedAs, setSavedAs] = useState<number | undefined>()
   const stored = status?.allowanceUsd ?? 0
   const text = typed ?? String(stored)
   const number = Number(text)
@@ -28,8 +32,10 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
     if (!valid) return
     setFailed(false)
     void mcp.update({ allowanceUsd: number }).then((ok) => {
-      if (ok) setTyped(undefined)
-      else setFailed(true)
+      if (ok) {
+        setTyped(undefined)
+        setSavedAs(number)
+      } else setFailed(true)
     })
   }
   return (
@@ -55,6 +61,7 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
               onChange={(event) => {
                 setTyped(event.target.value)
                 setFailed(false)
+                setSavedAs(undefined)
               }}
               onKeyDown={(event) => {
                 // Enter 就是「儲存」（不跳確認框）
@@ -84,6 +91,15 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
           {valid ? null : (
             <p className="mt-1 text-sm text-danger">{t('settings.enter0OrALarger')}</p>
           )}
+          {savedAs !== undefined && !unsaved && !failed ? (
+            <p
+              role="status"
+              data-testid="mcp-allowance-saved"
+              className="mt-1 text-sm text-success"
+            >
+              {t('settings.cardSavedAs', { card: t('mcp.allowanceCard'), value: String(savedAs) })}
+            </p>
+          ) : null}
           {status ? (
             <div className="mt-2 space-y-1 text-sm text-fg-muted">
               <p data-testid="mcp-committed">
@@ -100,6 +116,14 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
               <p data-testid="mcp-refund-note">{t('settings.reservationRefundNote')}</p>
             </div>
           ) : null}
+          <AreaPointer
+            testId="allowance-pointer"
+            targetId="general"
+            text={t('settings.allowancePointer', {
+              where: areaPath('general'),
+              card: t('settings.perRunSpendingLimit'),
+            })}
+          />
         </form>
       }
       details={

@@ -183,7 +183,7 @@ test.describe('第一次使用的引導與設定頁', () => {
     await page.getByRole('button', { name: '設定' }).click()
     await page.getByTestId('per-run-limit').fill('8')
     await page.getByTestId('general-section').getByRole('button', { name: '儲存' }).click()
-    await expect(page.getByRole('status')).toHaveText('已儲存。')
+    await expect(page.getByRole('status')).toHaveText('單次花費上限已存為 US$8')
     const settings = await page.evaluate(() => window.svs.invoke('settings.get', {}))
     expect(settings).toMatchObject({ ok: true, data: { budget: { perRunLimitUsd: 8 } } })
   })

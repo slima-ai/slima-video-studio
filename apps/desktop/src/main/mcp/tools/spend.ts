@@ -1,5 +1,5 @@
 import { McpToolError } from '../bridge'
-import { allowanceCard, settingsAiTools } from '../ui-labels'
+import { allowanceCard, perRunLimitCard, settingsAiTools, settingsGeneral } from '../ui-labels'
 import type { ToolContext } from './define'
 
 /**
@@ -28,7 +28,7 @@ export function reserveSpending(
   if (!result.ok) {
     throw new McpToolError(
       `“${what}” is estimated to cost ${usd(estimatedUsd)} (${usd(reservedUsd)} reserved), but only ${usd(result.remainingUsd)} is left of the AI tools allowance (total ${usd(result.allowanceUsd)}). ` +
-        `To continue, ask the user to raise ${allowanceCard()} under ${settingsAiTools()} in the app. Only a person can change that allowance: you cannot, and must not try to work around it.`,
+        `To continue, ask the user to raise the card ${allowanceCard()} under ${settingsAiTools()} in the app (it limits everything AI tools like you spend in total). It is not the card ${perRunLimitCard()} under ${settingsGeneral()}: that one only limits a single generation. Only a person can change that allowance: you cannot, and must not try to work around it.`,
       'allowance_exceeded',
     )
   }

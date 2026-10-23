@@ -20,7 +20,9 @@ test.describe('設定頁：分鏡準則', () => {
     // 先把花費上限改成 12.5，等一下存準則時它不能被蓋回預設的 5
     await page.getByTestId('per-run-limit').fill('12.5')
     await page.getByTestId('general-section').getByRole('button', { name: '儲存' }).click()
-    await expect(page.getByTestId('general-section').getByRole('status')).toHaveText('已儲存。')
+    await expect(page.getByTestId('general-section').getByRole('status')).toHaveText(
+      '單次花費上限已存為 US$12.5',
+    )
 
     await box.fill('每個場一定要有一個遠景。')
     await page.getByTestId('storyboard-guide-section').getByRole('button', { name: '儲存' }).click()

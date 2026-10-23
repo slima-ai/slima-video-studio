@@ -1,4 +1,10 @@
-import type { McpConnectInfo, McpStatus, SlimaStatus } from '@svs/schema'
+import {
+  DEFAULT_LOCALE,
+  setLocale,
+  type McpConnectInfo,
+  type McpStatus,
+  type SlimaStatus,
+} from '@svs/schema'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -435,6 +441,52 @@ describe('AI 工具的總額度', () => {
     await waitFor(() => {
       expect(svs.payloadsOf('mcp.resetCommitted')).toHaveLength(1)
     })
+  })
+
+  it('存好之後寫明存到哪一張、存了多少；再改輸入就收掉', async () => {
+    installFakeSvs({ 'mcp.status': () => ON })
+    area()
+    await waitFor(() => {
+      expect(screen.getByTestId('mcp-committed')).toBeTruthy()
+    })
+    fireEvent.change(screen.getByTestId('mcp-allowance'), { target: { value: '30' } })
+    fireEvent.submit(screen.getByTestId('mcp-allowance'))
+    await waitFor(() => {
+      expect(screen.getByTestId('mcp-allowance-saved').textContent).toBe(
+        'AI 工具的總額度已存為 US$30',
+      )
+    })
+    fireEvent.change(screen.getByTestId('mcp-allowance'), { target: { value: '31' } })
+    expect(screen.queryByTestId('mcp-allowance-saved')).toBeNull()
+  })
+
+  it('開頭一句講「AI 工具一共能花多少」，並指到另一張卡（頁籤＋卡名），旁邊有「前往」；英文介面也是', async () => {
+    installFakeSvs({ 'mcp.status': () => ON })
+    area()
+    await waitFor(() => {
+      expect(screen.getByTestId('mcp-committed')).toBeTruthy()
+    })
+    expect(document.body.textContent).toContain('AI 工具（Claude 等）一共能花多少')
+    expect(screen.getByTestId('allowance-pointer').textContent).toBe(
+      '想調「每按一次生成最多花多少」？那是另一張卡：設定 → 一般的「單次花費上限」。 前往',
+    )
+    cleanup()
+    setLocale('en')
+    try {
+      installFakeSvs({ 'mcp.status': () => ON })
+      area()
+      await waitFor(() => {
+        expect(screen.getByTestId('mcp-committed')).toBeTruthy()
+      })
+      expect(document.body.textContent).toContain(
+        'How much AI tools (Claude and others) can spend in total',
+      )
+      expect(screen.getByTestId('allowance-pointer').textContent).toBe(
+        'Looking for the most a single generation can cost? That’s a different card: “Per-run spending limit” in Settings → General. Go there',
+      )
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
   })
 
   it('用字：說清楚是累計、花服務金鑰帳戶的錢、也受單次花費上限管', async () => {

@@ -50,7 +50,13 @@ export const settings = {
   'settings.enterAWholeNumberFrom': 'Enter a whole number from 1024 to 65535.',
   'settings.totalAllowanceForAiTools': 'Total allowance for AI tools (US$)',
   'settings.theMostAiToolsLike':
-    'The most AI tools like Claude can spend in total when they generate through this app (it comes out of your API key accounts). Default is US$0; once it’s used up, they can’t generate any more.',
+    'How much AI tools (Claude and others) can spend in total: the most they can spend when they generate through this app (it comes out of your API key accounts). Default is US$0; once it’s used up, they can’t generate any more.',
+  'settings.allowancePointer':
+    'Looking for the most a single generation can cost? That’s a different card: “{card}” in {where}.',
+  'settings.perRunPointer':
+    'Looking for how much AI tools can spend in total? That’s a different card: “{card}” in {where}.',
+  'settings.goThere': 'Go there',
+  'settings.cardSavedAs': '{card} saved as US${value}',
   'settings.enter0OrALarger': 'Enter 0 or a larger number.',
   'settings.reservedLeftToSpend': '{value} reserved, {value2} left to spend.',
   'settings.notSavedYet': 'Not saved yet',
@@ -156,7 +162,7 @@ export const settings = {
   'settings.lightDarkOrFollowThe': 'Light, dark, or follow the system.',
   'settings.perRunSpendingLimit': 'Per-run spending limit',
   'settings.eachTimeYouGenerateOr':
-    'Each time you generate (or an AI tool asks to), a run whose estimated cost goes over this amount won’t start. The cost comes out of your accounts with OpenRouter, fal.ai and others.',
+    'The most a single generation can cost: each time you generate (or an AI tool asks to), a run whose estimated cost goes over this amount won’t start. The cost comes out of your accounts with OpenRouter, fal.ai and others.',
   'settings.perRunSpendingLimitUs': 'Per-run spending limit (US$)',
   'settings.ifItSOverYou':
     'If it’s over, you’ll see the estimate instead of the run starting. To do something bigger, raise it here and run it again. Default US${value}. Demo mode costs nothing.',
