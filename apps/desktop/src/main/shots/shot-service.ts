@@ -38,6 +38,7 @@ import {
   type Workflow,
   t,
   displayNameOf,
+  retranslate,
 } from '@svs/schema'
 import {
   STUDIO_SERVICE_KEY,
@@ -625,7 +626,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const shot = s.handle.repos.shots.get(shotId)
     if (!shot) return
     s.errors.set(shotId, {
-      message: run.error?.userMessage ?? t('services.thisStepDidnTSucceed'),
+      message: run.error ? retranslate(run.error.userMessage) : t('services.thisStepDidnTSucceed'),
       step: failedStepOf(s, shotId),
     })
     s.handle.repos.shots.update(shotId, { status: shot.activeTakeId ? 'done' : 'failed' })

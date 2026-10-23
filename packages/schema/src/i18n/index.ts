@@ -8,6 +8,7 @@ export {
   messageVariants,
   msg,
   pseudoLocalize,
+  retranslate,
   t,
   type DateStyle,
   type MessageKey,

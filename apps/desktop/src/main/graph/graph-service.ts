@@ -12,6 +12,7 @@ import {
   type Workflow,
   t,
   displayNameOf,
+  retranslate,
 } from '@svs/schema'
 import { NODE_INFO, NODE_TYPES, registerQuickStartNodes } from '@svs/workflows'
 
@@ -247,7 +248,7 @@ export function createGraphService(deps: GraphServiceDeps): GraphService {
           ...(durationMs === undefined ? {} : { durationMs }),
           ...(cost === undefined ? {} : { costUsd: cost }),
           ...(preview ? { preview } : {}),
-          ...(run?.error ? { error: run.error.userMessage } : {}),
+          ...(run?.error ? { error: retranslate(run.error.userMessage) } : {}),
         }
       })
 

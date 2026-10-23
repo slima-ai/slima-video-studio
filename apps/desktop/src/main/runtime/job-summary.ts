@@ -1,4 +1,4 @@
-import { humanPart, type Job, type JobSummary } from '@svs/schema'
+import { humanPart, retranslate, type Job, type JobSummary } from '@svs/schema'
 
 export { humanPart }
 
@@ -36,7 +36,13 @@ export function toJobSummary(job: Job, stepLabel?: string): JobSummary {
     ...(job.nextRunAt ? { nextRunAt: job.nextRunAt } : {}),
     ...(job.costUsd === undefined ? {} : { costUsd: job.costUsd }),
     ...(job.error
-      ? { error: { userMessage: job.error.userMessage, retryable: job.error.retryable } }
+      ? {
+          // 失敗原因是錄的當下翻好的字，顯示時換成現在的語言（見 retranslate）
+          error: {
+            userMessage: retranslate(job.error.userMessage),
+            retryable: job.error.retryable,
+          },
+        }
       : {}),
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
