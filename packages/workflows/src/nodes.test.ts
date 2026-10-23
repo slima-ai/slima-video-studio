@@ -565,6 +565,18 @@ describe('節點：組 Prompt', () => {
       )
     })
 
+    it('動作結尾已經有句號（半形、全形、「.。」）→ 不會變成兩個標點', async () => {
+      for (const ending of ['。', '.', '.。', '！', '…', ' 。 ']) {
+        const { out } = await runNode(shotPromptNode, {
+          params: { anchors },
+          inputs: { shot: { ...acting, action: `小花向左跳一下${ending}` } },
+        })
+        expect(out.videoPrompt).toBe(
+          `小花向左跳一下。角色限制——小花：NO mouth, NO arms, NO legs。${style}`,
+        )
+      }
+    })
+
     it('沒有動作（沒填、空字串、只有空白）→ 逐字和加這個欄位之前一樣', async () => {
       const before = await runNode(shotPromptNode, { params: { anchors }, inputs: { shot } })
       for (const action of [undefined, '', '   ']) {
@@ -742,35 +754,39 @@ describe('節點：首幀圖、圖生影片、接片', () => {
     expect(await run({})).not.toHaveProperty('negativeExtra')
   })
 
-  it('單鏡流程：沒有角色寫「不要出現的特徵」→ 節點參數與連線和以前完全一樣；有人寫了才多參數與一條線', () => {
-    const plain = buildShotWorkflow(shotWorkflowOptions)
-    const prompt = (flow: ReturnType<typeof buildShotWorkflow>): unknown =>
-      flow.nodes.find((n) => n.id === 'prompt')?.params
-    const edgeIds = (flow: ReturnType<typeof buildShotWorkflow>): string[] =>
-      flow.edges.map((e) => e.id)
-    expect(prompt(plain)).not.toHaveProperty('avoids')
-    expect(edgeIds(plain)).not.toContain('b8')
-    expect(edgeIds(buildShotWorkflow({ ...shotWorkflowOptions, characterAvoids: [] }))).toEqual(
-      edgeIds(plain),
-    )
-    const custom = buildShotWorkflow({
-      ...shotWorkflowOptions,
-      characterAvoids: [{ name: '小花', avoid: 'mouth' }],
-    })
-    expect(prompt(custom)).toMatchObject({ avoids: [{ name: '小花', avoid: 'mouth' }] })
-    expect(edgeIds(custom)).toContain('b8')
+  it('圖生影片：有尾幀圖才帶 endFrameAsset，沒接就沒有這個欄位', async () => {
+    const endImage = { ...image, hash: 'e'.repeat(64) }
+    const run = async (inputs: Record<string, unknown>) => {
+      const { studio, requests } = fakeStudio([assets(video)])
+      await runNode(videoNode, {
+        params: {},
+        inputs: { image, prompt: 'p', ...inputs },
+        modelId: 'm',
+        studio,
+      })
+      return requests[0] as { startFrameAsset?: string; endFrameAsset?: string }
+    }
+    const withEnd = await run({ endImage })
+    expect(withEnd.endFrameAsset).toBe(endImage.hash)
+    expect(withEnd.startFrameAsset).toBe(image.hash)
+    expect(await run({})).not.toHaveProperty('endFrameAsset')
   })
 
-  it('單鏡流程：設定頁改過負面提示才會出現在影片節點的參數裡（改了清單，快取就會失效）；沒改的流程與以前完全一樣', () => {
-    const options = shotWorkflowOptions
-    const video = (flow: ReturnType<typeof buildShotWorkflow>): unknown =>
-      flow.nodes.find((n) => n.id === 'video')?.params
-    const plain = buildShotWorkflow(options)
-    expect(video(plain)).not.toHaveProperty('negativePrompt')
-    expect(video(buildShotWorkflow({ ...options, negativePrompt: '' }))).toEqual(video(plain))
-    const custom = buildShotWorkflow({ ...options, negativePrompt: 'extra mouth' })
-    expect(video(custom)).toMatchObject({ negativePrompt: 'extra mouth' })
-    expect(video(custom)).not.toEqual(video(plain))
+  it('單鏡流程：有尾幀才多一個固定圖節點與一條線；沒有尾幀的流程與以前完全一樣', () => {
+    const plain = buildShotWorkflow(shotWorkflowOptions)
+    expect(plain.nodes.map((n) => n.id)).not.toContain('endImage')
+    expect(plain.edges.map((e) => e.id)).not.toContain('b9')
+    const endFrame = { ...image, hash: 'e'.repeat(64) }
+    const withEnd = buildShotWorkflow({ ...shotWorkflowOptions, endFrame })
+    expect(withEnd.nodes.find((n) => n.id === 'endImage')?.params).toEqual({ image: endFrame })
+    expect(withEnd.edges.find((e) => e.id === 'b9')).toMatchObject({
+      from: { nodeId: 'endImage', port: 'image' },
+      to: { nodeId: 'video', port: 'endImage' },
+    })
+    // 影片節點的參數不因為尾幀而變（尾幀走連線，快取由輸入決定）
+    expect(withEnd.nodes.find((n) => n.id === 'video')?.params).toEqual(
+      plain.nodes.find((n) => n.id === 'video')?.params,
+    )
   })
 
   it('圖生影片：用上一步的圖當首幀；回傳的不是影片時回報錯誤', async () => {
@@ -913,6 +929,50 @@ describe('快速開始模板', () => {
     expect(plain.nodes[2]?.params).toMatchObject({ variation: 0 })
     const body = (buildQuickStart(options).nodes[1]?.params as { body: typeof plain }).body
     expect(body).toEqual(plain)
+  })
+
+  it('快速開始：角色的「不要出現的特徵」要帶進每一鏡的子流程（組 Prompt 節點的 avoids 與連線）', () => {
+    const avoids = [{ name: '小花', avoid: 'mouth' }]
+    const body = (flow: ReturnType<typeof buildQuickStart>): ReturnType<typeof buildShotWorkflow> =>
+      (flow.nodes[1]?.params as { body: ReturnType<typeof buildShotWorkflow> }).body
+    const withAvoid = body(buildQuickStart({ ...options, characterAvoids: avoids }))
+    expect(withAvoid.nodes.find((n) => n.id === 'prompt')?.params).toMatchObject({ avoids })
+    expect(withAvoid.edges.map((e) => e.id)).toContain('b8')
+    expect(withAvoid.nodes.find((n) => n.id === 'video')?.params).not.toHaveProperty(
+      'characterAvoids',
+    )
+    expect(body(buildQuickStart(options))).toEqual(buildShotWorkflow(options))
+  })
+
+  it('單鏡流程：沒有角色寫「不要出現的特徵」→ 節點參數與連線和以前完全一樣；有人寫了才多參數與一條線', () => {
+    const plain = buildShotWorkflow(shotWorkflowOptions)
+    const prompt = (flow: ReturnType<typeof buildShotWorkflow>): unknown =>
+      flow.nodes.find((n) => n.id === 'prompt')?.params
+    const edgeIds = (flow: ReturnType<typeof buildShotWorkflow>): string[] =>
+      flow.edges.map((e) => e.id)
+    expect(prompt(plain)).not.toHaveProperty('avoids')
+    expect(edgeIds(plain)).not.toContain('b8')
+    expect(edgeIds(buildShotWorkflow({ ...shotWorkflowOptions, characterAvoids: [] }))).toEqual(
+      edgeIds(plain),
+    )
+    const custom = buildShotWorkflow({
+      ...shotWorkflowOptions,
+      characterAvoids: [{ name: '小花', avoid: 'mouth' }],
+    })
+    expect(prompt(custom)).toMatchObject({ avoids: [{ name: '小花', avoid: 'mouth' }] })
+    expect(edgeIds(custom)).toContain('b8')
+  })
+
+  it('單鏡流程：設定頁改過負面提示才會出現在影片節點的參數裡（改了清單，快取就會失效）；沒改的流程與以前完全一樣', () => {
+    const options = shotWorkflowOptions
+    const video = (flow: ReturnType<typeof buildShotWorkflow>): unknown =>
+      flow.nodes.find((n) => n.id === 'video')?.params
+    const plain = buildShotWorkflow(options)
+    expect(video(plain)).not.toHaveProperty('negativePrompt')
+    expect(video(buildShotWorkflow({ ...options, negativePrompt: '' }))).toEqual(video(plain))
+    const custom = buildShotWorkflow({ ...options, negativePrompt: 'extra mouth' })
+    expect(video(custom)).toMatchObject({ negativePrompt: 'extra mouth' })
+    expect(video(custom)).not.toEqual(video(plain))
   })
 
   it('換一批（variation）會改到拆鏡、首幀、影片的參數；項目數供預估使用', () => {

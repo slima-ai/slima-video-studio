@@ -137,6 +137,8 @@ describe('GraphService.shot', () => {
       { name: 'cameraMove', type: 'text', connected: true, optional: true },
       // 沒有角色寫「不要出現的特徵」時，這個選填的輸入沒有接線
       { name: 'negativeExtra', type: 'text', connected: false, optional: true },
+      // 沒有指定尾幀時，這個選填的輸入沒有接線
+      { name: 'endImage', type: 'image', connected: false, optional: true },
     ])
     expect(byTitle['圖生影片']?.outputs).toEqual([{ name: 'video', type: 'video' }])
     expect(graph.edges.every((e) => e.kind === 'data')).toBe(true)

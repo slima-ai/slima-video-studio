@@ -727,6 +727,14 @@ export const ipcContract = {
     }),
     response: ShotReferencesStateSchema,
   },
+  /**
+   * 指定這一鏡的尾幀（影片最後一格要長成這張圖；只能是專案裡已有的圖）。assetHash 傳 null＝拿掉尾幀。
+   * 只有接受尾幀的影片模型才會送；影片會變成需要重新生成。可以復原。
+   */
+  'shots.setEndFrame': {
+    request: z.object({ shotId: IdSchema, assetHash: ContentHashSchema.nullable() }),
+    response: ShotViewSchema,
+  },
   /** 重新生成一個鏡頭（在背景執行，進度用 shots.changed 事件推送）。 */
   'shots.regenerate': {
     request: z.object({ shotId: IdSchema, mode: RegenerateModeSchema }),

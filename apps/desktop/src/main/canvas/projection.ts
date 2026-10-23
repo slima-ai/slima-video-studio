@@ -246,6 +246,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
       const at = savedShot ?? slot
       const takeImage = takeOf.get(`${shot.id}:first_frame`)
       const takeVideo = takeOf.get(`${shot.id}:video`)
+      const takeEnd = takeOf.get(`${shot.id}:last_frame`)
       const parent = scene ? sceneKey(scene.id) : undefined
       const base = {
         ...(parent === undefined ? {} : { sceneKey: parent }),
@@ -319,6 +320,10 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
               }
             : {}),
           ...(kind === 'video' ? { inCut: shot.inCut } : {}),
+          // 尾幀：第一張畫面的格子多一張標「尾」的縮圖；影片的格子在「吃：」那一行列出動作與尾幀（沒有就都不帶）
+          ...(kind === 'image' && takeEnd ? { endAssetHash: takeEnd.assetHash } : {}),
+          ...(kind === 'video' && shot.action.trim() !== '' ? { hasAction: true } : {}),
+          ...(kind === 'video' && takeEnd ? { hasEndFrame: true } : {}),
         }
       }
       // 圖和影片的標題帶鏡頭號（「第 1 鏡・第一張畫面」）：一次長出十幾個節點時才分得出誰是誰

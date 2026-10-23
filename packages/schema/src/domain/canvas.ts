@@ -164,6 +164,11 @@ export const CanvasNodeSchema = z.object({
   summary: z.string().optional(),
   /** 鏡頭的動作（這幾秒裡發生什麼；沒有就不帶）：卡片上寫「動作：…」。 */
   action: z.string().optional(),
+  /** 第一張畫面的格子：這一鏡指定的尾幀（沒有就不帶）；卡片上在首幀旁邊多一張標「尾」的縮圖。 */
+  endAssetHash: ContentHashSchema.optional(),
+  /** 影片的格子：這一鏡有寫動作／有指定尾幀（卡片上「吃：」那一行才列出來）。 */
+  hasAction: z.boolean().optional(),
+  hasEndFrame: z.boolean().optional(),
   /** 鏡頭的旁白台詞（沒有就不帶）：卡片上寫「旁白：…」，雙擊可以改。 */
   dialogue: z.string().optional(),
   /** 卡片上的一行小字，例如「中景・平視・5 秒」。 */

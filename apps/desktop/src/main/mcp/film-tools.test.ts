@@ -249,6 +249,48 @@ describe('影片線：首幀圖 → 看 → 影片 → 接片 → 匯出（示�
     expect((await detail(r, shotId ?? '')).action).toBe('')
   })
 
+  it('尾幀：說明講清楚何時會送；指定、讀得到、拿掉；不是圖片或找不到的圖會說明原因', async () => {
+    const r = await start()
+    const { tools } = await r.client.listTools()
+    const setDescription = tools.find((t) => t.name === 'set_shot_end_frame')?.description ?? ''
+    expect(setDescription).toContain('LAST frame')
+    expect(setDescription).toContain('usedByCurrentVideoModel')
+    expect(setDescription).toContain('costs money')
+    const clearDescription = tools.find((t) => t.name === 'clear_shot_end_frame')?.description ?? ''
+    expect(clearDescription).toContain('set_shot_end_frame')
+
+    const [shotId, otherId] = await withShots(r)
+    await r.call('generate_first_frames')
+    await waitDone(r)
+    const images = dataOf(
+      z.looseObject({ images: z.array(z.looseObject({ assetHash: z.string() })) }),
+      await r.call('list_project_images'),
+    ).images
+    const hash = images[0]?.assetHash ?? ''
+    expect(hash).not.toBe('')
+    expect((await detail(r, shotId ?? '')).endFrame).toBeNull()
+
+    const set = await r.call('set_shot_end_frame', { shotId: shotId ?? '', assetHash: hash })
+    expect(set.isError).not.toBe(true)
+    const after = await detail(r, shotId ?? '')
+    expect(after.endFrame).toMatchObject({ assetHash: hash, usedByCurrentVideoModel: false })
+    const listed = dataOf(ShotList, await r.call('list_shots'))
+    expect(listed.shots.find((s) => s.id === shotId)?.hasEndFrame).toBe(true)
+    expect(listed.shots.find((s) => s.id === otherId)?.hasEndFrame).toBe(false)
+    // 尾幀不算首幀版本
+    expect(after.firstFrame.versions).toBe(1)
+
+    const missing = await r.call('set_shot_end_frame', {
+      shotId: shotId ?? '',
+      assetHash: 'f'.repeat(64),
+    })
+    expect(missing.isError).toBe(true)
+    expect(textOf(missing)).toContain('專案裡找不到這張圖')
+
+    await r.call('clear_shot_end_frame', { shotId: shotId ?? '' })
+    expect((await detail(r, shotId ?? '')).endFrame).toBeNull()
+  })
+
   it('沒有鏡頭、沒有影片、找不到鏡頭：白話錯誤，不是例外', async () => {
     const r = await start()
     await r.call('create_project', { name: 'x' })

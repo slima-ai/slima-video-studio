@@ -1,4 +1,4 @@
-import type { ShotReferencesState } from '@svs/schema'
+import { t, type ShotReferencesState } from '@svs/schema'
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import { ChevronDown, ChevronRight, Lock, Sparkles, Trash2 } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
@@ -302,6 +302,36 @@ function IoLine({ id, data, bottom }: { id: string; data: CanvasNodeData; bottom
   const connected = useConnectedPorts()
   const ports = portsOf(data)
   const eat = ports.filter((port) => port.side === 'in')
+  // 影片有指定尾幀時「吃：」多了一項，同一行放不下：首幀那一項改用短名字（卡片大小是固定的，不能換行）
+  if (data.kind === 'video' && data.hasEndFrame === true) {
+    const first = eat.findIndex((port) => port.id === 'vid-in')
+    const port = eat[first]
+    if (port) eat[first] = { ...port, short: t('endFrame.card.firstShort') }
+  }
+  // 影片還吃「動作」（有寫才亮）與「尾幀」（有指定才列出）：它們不是連接點，只是這一格吃的東西
+  const pseudo = new Set<string>()
+  if (data.kind === 'video') {
+    eat.push({
+      id: 'vid-action',
+      side: 'in',
+      tone: 'main',
+      type: 'shot',
+      label: t('endFrame.card.action'),
+      top: 0,
+    })
+    pseudo.add('vid-action')
+    if (data.hasEndFrame === true) {
+      eat.push({
+        id: 'vid-end',
+        side: 'in',
+        tone: 'main',
+        type: 'image',
+        label: t('endFrame.card.endFrame'),
+        top: 0,
+      })
+      pseudo.add('vid-end')
+    }
+  }
   const out = ports.filter((port) => port.side === 'out')
   // 影片節點沒有輸出連接點（成品由「放進成品」開關接），但它做出的就是影片
   if (data.kind === 'video' && out.length === 0) {
@@ -313,7 +343,9 @@ function IoLine({ id, data, bottom }: { id: string; data: CanvasNodeData; bottom
       <span className="flex min-w-0 shrink-0 items-center gap-1" data-testid={`io-${name}`}>
         <b className="font-semibold">{name}：</b>
         {list.map((port) => {
-          const linked = connected.has(`${id}|${port.id}`)
+          const linked = pseudo.has(port.id)
+            ? port.id === 'vid-end' || data.hasAction === true
+            : connected.has(`${id}|${port.id}`)
           return (
             <span
               key={port.id}
@@ -422,6 +454,32 @@ function Thumb({ data, ghost }: { data: CanvasNodeData; ghost: boolean }) {
     )
   }
   if (!data.thumb) return null
+  // 有指定尾幀：首幀與尾幀並排（各標「首」「尾」）；沒有尾幀就和以前完全一樣，不留空位
+  if (data.endThumb) {
+    const tag = (text: string) => (
+      <span className="absolute left-1 top-1 rounded bg-black/60 px-1 text-[10px] leading-[14px] text-white">
+        {text}
+      </span>
+    )
+    return (
+      <div className="lod-mid flex w-full shrink-0 gap-1" data-testid="frame-pair">
+        <div
+          data-testid="first-frame-thumb"
+          className="relative aspect-video min-w-0 flex-1 rounded-md bg-surface-overlay"
+          style={{ background: data.thumb }}
+        >
+          {tag(t('endFrame.card.first'))}
+        </div>
+        <div
+          data-testid="end-frame-thumb"
+          className="relative aspect-video min-w-0 flex-1 rounded-md bg-surface-overlay"
+          style={{ background: data.endThumb }}
+        >
+          {tag(t('endFrame.card.end'))}
+        </div>
+      </div>
+    )
+  }
   return (
     <div
       className="lod-mid aspect-video w-full shrink-0 rounded-md bg-surface-overlay"

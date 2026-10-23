@@ -89,6 +89,20 @@ describe('需要重跑（stale）', () => {
     expect(h.shots.staleness().size).toBe(0)
   })
 
+  it('指定尾幀：圖不變，只有影片需要重跑；拿掉尾幀又是完成（沒有尾幀的舊影片指紋不變，見上一條）', async () => {
+    const h = await setup()
+    const second = h.shots.list().shots[1]
+    const endHash = second?.firstFrames[0]?.assetHash
+    if (!endHash) throw new Error('沒有圖')
+    h.shots.setEndFrame(h.first.id, endHash)
+    expect(status(h, h.first.id, 'image')).toBe('done')
+    expect(status(h, h.first.id, 'video')).toBe('stale')
+    expect(status(h, second.id, 'video')).toBe('done')
+    h.shots.setEndFrame(h.first.id, undefined)
+    expect(status(h, h.first.id, 'video')).toBe('done')
+    expect(h.shots.staleness().size).toBe(0)
+  })
+
   it('改回原來的樣子就不需要重跑了；不影響畫面的修改（放不放進成品）也不算', async () => {
     const h = await setup()
     const original = h.first.description

@@ -136,6 +136,9 @@ export function testSettingsDeps(
       live: () => new Map(),
       staleness: () => new Map(),
       references: (shotId) => ({ shotId, limit: 0, auto: true, picked: [], candidates: [] }),
+      setEndFrame: () => {
+        throw new Error('not used')
+      },
       setReferences: () => {
         throw new Error('測試用的鏡頭服務不能指定參考圖')
       },

@@ -172,6 +172,8 @@ export const ModelCardSchema = z
     /** 依秒計價的模型有最低計費秒數時才填（例如 OpenRouter 的 Kling 3.0 Std 3 秒也收 5 秒）；預估花費按它算。 */
     minBillableSec: z.number().positive().optional(),
     resolutions: z.array(z.string().min(1)).default([]),
+    /** 影片可以另外指定「尾幀」（圖生影片時，影片最後一格要長成這張圖）。供應商文件核對過的才填。 */
+    endFrame: z.boolean().default(false),
     nativeAudio: z.boolean().default(false),
     /** 脈絡長度（LLM，單位 token）。 */
     contextTokens: z.number().int().positive().optional(),
@@ -280,6 +282,7 @@ export const ModelChannelSchema = z.object({
   durationSec: DurationRangeSchema.optional(),
   minBillableSec: z.number().positive().optional(),
   resolutions: z.array(z.string().min(1)).optional(),
+  endFrame: z.boolean().optional(),
   referenceLimits: ReferenceLimitsSchema.optional(),
   characterMechanism: CharacterMechanismSchema.optional(),
   imageApi: ImageApiSchema.optional(),
@@ -386,6 +389,7 @@ export function expandModelSpec(spec: ModelSpec): ModelCard[] {
       ...(durationSec === undefined ? {} : { durationSec }),
       ...(channel.minBillableSec === undefined ? {} : { minBillableSec: channel.minBillableSec }),
       resolutions: channel.resolutions ?? [],
+      endFrame: channel.endFrame ?? false,
       nativeAudio: spec.features.nativeAudio,
       ...(spec.features.contextTokens === undefined
         ? {}

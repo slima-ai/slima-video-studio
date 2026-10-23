@@ -29,6 +29,7 @@ export function shotSummary(shot: ShotView) {
       adoptedVersion: adoptedVersion(shot.firstFrames),
     },
     video: { versions: shot.videos.length, adoptedVersion: adoptedVersion(shot.videos) },
+    hasEndFrame: shot.endFrame !== undefined,
     ...(shot.error === undefined ? {} : { error: shot.error }),
   }
 }
@@ -54,6 +55,14 @@ export function shotDetail(shot: ShotView) {
     autoPrompt: shot.autoPrompt,
     lockedCharacters: shot.lockedCharacters ?? [],
     takes: { firstFrames: shot.firstFrames.map(takeView), videos: shot.videos.map(takeView) },
+    endFrame:
+      shot.endFrame === undefined
+        ? null
+        : {
+            assetHash: shot.endFrame.assetHash,
+            /** false = the current video model does not take an end frame, so it is NOT sent. */
+            usedByCurrentVideoModel: shot.endFrameSupported === true,
+          },
   }
 }
 
@@ -137,6 +146,31 @@ export function registerShotTools(ctx: ToolContext): void {
           : 'Pinned. The first-frame picture is now out of date: regenerate it to use these pictures.',
       }
     },
+  })
+
+  defineTool(ctx, {
+    name: 'set_shot_end_frame',
+    title: 'Set the end frame of a shot',
+    description:
+      "Tell the video model what the LAST frame of this shot's video should look like: pass the assetHash of a picture already in the project (list_project_images). The video is then drawn from the first frame towards that picture — use it when the shot ends on something specific, e.g. the character landing on the far side with its face intact. It is only sent when the current video model accepts an end frame (get_shot: endFrame.usedByCurrentVideoModel; Kling 3.0 Standard does). Free, but the shot's video then needs regenerating (regenerate_shot what=\"video\"), which costs money: tell the user the price first (estimate_cost). Undo works like the app's own. clear_shot_end_frame removes it.",
+    input: {
+      shotId: z.string().min(1),
+      assetHash: z.string().min(1).describe('An image assetHash from list_project_images'),
+    },
+    hints: { readOnly: false, idempotent: true },
+    run: async ({ shotId, assetHash }) =>
+      shotSummary(await ctx.caller.call('shots.setEndFrame', { shotId, assetHash })),
+  })
+
+  defineTool(ctx, {
+    name: 'clear_shot_end_frame',
+    title: 'Remove the end frame of a shot',
+    description:
+      "Remove the end frame set with set_shot_end_frame; the video goes back to being drawn from the first frame alone. Free, but the shot's video then needs regenerating (costs money, see estimate_cost). Undo works like the app's own.",
+    input: { shotId: z.string().min(1) },
+    hints: { readOnly: false, idempotent: true },
+    run: async ({ shotId }) =>
+      shotSummary(await ctx.caller.call('shots.setEndFrame', { shotId, assetHash: null })),
   })
 
   defineTool(ctx, {
