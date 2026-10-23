@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { t } from '@svs/schema'
 
 /** 載入中的骨架：一條淡色的長條，會慢慢明暗閃動。 */
 export function Skeleton({ className = '' }: { className?: string }) {
@@ -14,7 +15,7 @@ export function SkeletonCards({
   testId?: string
 }) {
   return (
-    <div role="status" aria-label="載入中" data-testid={testId} className="space-y-4">
+    <div role="status" aria-label={t('shell.loading')} data-testid={testId} className="space-y-4">
       {Array.from({ length: count }, (_, index) => (
         <div
           key={index}
@@ -30,7 +31,7 @@ export function SkeletonCards({
 }
 
 /** 小小的轉圈圈，放在按鈕或一行文字旁邊表示「進行中」。 */
-export function Spinner({ label = '處理中' }: { label?: string }) {
+export function Spinner({ label = t('shell.working') }: { label?: string }) {
   return (
     <span role="status" aria-label={label} className="inline-flex">
       <Loader2 aria-hidden className="size-4 animate-spin" />

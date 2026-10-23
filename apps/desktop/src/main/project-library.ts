@@ -1,5 +1,5 @@
 import { projectModifiedAt, readProjectFile } from '@svs/db'
-import { AppError, type ProjectInfo, type ProjectSummary, type RecentProject } from '@svs/schema'
+import { AppError, type ProjectInfo, type ProjectSummary, type RecentProject, t } from '@svs/schema'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
 import { basename, isAbsolute, join, resolve } from 'node:path'
 
@@ -60,7 +60,7 @@ export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
       mkdirSync(projectsDir, { recursive: true })
     } else if (!isAbsolute(parentDir) || !isDirectory(parentDir)) {
       // 指定的位置一定要是已經存在的資料夾（選資料夾的視窗選出來的），不替人建一串不存在的路徑
-      throw invalid('找不到這個資料夾，請重新選一個存放的位置。')
+      throw invalid(t('projects.canTFindThatFolder'))
     }
     const at = deps.now?.() ?? new Date()
     return join(parentDir ?? projectsDir, `${safeFileName(title, '我的短片')}-${stamp(at)}.svsproj`)
@@ -140,13 +140,13 @@ export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
 
     createNew(name, parentDir) {
       const trimmed = name?.trim() ?? ''
-      const title = trimmed === '' ? '我的短片' : trimmed
+      const title = trimmed === '' ? t('projects.myShortFilm') : trimmed
       return projects.create(newProjectDir(title, parentDir), title)
     },
 
     async saveAs(name, parentDir) {
       const title = name.trim()
-      if (title === '') throw invalid('請給這一份一個名字。')
+      if (title === '') throw invalid(t('projects.giveThisProjectAName'))
       return projects.saveAs(newProjectDir(title, parentDir), title)
     },
 
@@ -156,8 +156,8 @@ export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
 
     openRecent(dir) {
       const entry = recent().find((p) => resolve(p.dir) === resolve(dir))
-      if (!entry) throw invalid('找不到這個專案。')
-      if (entry.missing) throw invalid('這個專案找不到了，可能被移走或刪掉了。')
+      if (!entry) throw invalid(t('projects.canTFindThisProject'))
+      if (entry.missing) throw invalid(t('projects.thisProjectIsMissingIt'))
       return projects.open(entry.dir)
     },
 
@@ -171,19 +171,17 @@ export function createProjectLibrary(deps: ProjectLibraryDeps): ProjectLibrary {
       try {
         readProjectFile(dir)
       } catch {
-        throw invalid(
-          '這個資料夾不是 Slima Video Studio 的專案（裡面沒有 project.json）。要選專案本身的資料夾（名字以 .svsproj 結尾）。',
-        )
+        throw invalid(t('projects.thisFolderIsNotA'))
       }
       return projects.open(dir)
     },
 
     reveal(dir) {
       const target = dir ?? projects.current()?.dir
-      if (target === undefined) throw invalid('還沒有開著的專案。')
+      if (target === undefined) throw invalid(t('projects.noProjectIsOpen'))
       // 只接受清單裡的專案，不接受任意路徑
       if (!list().projects.some((p) => resolve(p.dir) === resolve(target))) {
-        throw invalid('找不到這個專案。')
+        throw invalid(t('projects.canTFindThisProject'))
       }
       deps.reveal(target)
     },

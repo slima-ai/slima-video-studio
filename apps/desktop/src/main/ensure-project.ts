@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { ProjectManager } from './project-manager'
+import { t } from '@svs/schema'
 
 /** 檔名不能有的字元與空白換成「-」，並限制長度。 */
 export function safeFileName(text: string, fallback: string): string {
@@ -29,6 +30,6 @@ export function ensureProject(
 ): void {
   if (projects.current()) return
   mkdirSync(projectsDir, { recursive: true })
-  const name = safeFileName(title, '我的短片')
+  const name = safeFileName(title, t('projects.myShortFilm'))
   projects.create(join(projectsDir, `${name}-${stamp(at)}.svsproj`), name)
 }

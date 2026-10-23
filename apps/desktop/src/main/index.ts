@@ -1,4 +1,4 @@
-import { onLocaleChange } from '@svs/schema'
+import { onLocaleChange, t } from '@svs/schema'
 import { app, BrowserWindow, dialog, Menu, safeStorage, shell } from 'electron'
 import { join } from 'node:path'
 
@@ -248,9 +248,12 @@ void app.whenReady().then(() => {
     pickFolder: async (purpose) => {
       const options: Electron.OpenDialogOptions =
         purpose === 'save'
-          ? { title: '選擇要存放專案的資料夾', properties: ['openDirectory', 'createDirectory'] }
+          ? {
+              title: t('projects.chooseWhereToKeepProjects'),
+              properties: ['openDirectory', 'createDirectory'],
+            }
           : {
-              title: '選擇要打開的專案（名字以 .svsproj 結尾的資料夾）',
+              title: t('projects.chooseAProjectToOpen'),
               properties: ['openDirectory'],
             }
       const owner = BrowserWindow.getFocusedWindow()
@@ -262,10 +265,13 @@ void app.whenReady().then(() => {
     // 畫布「上傳」：選圖片或影片（可以一次選好幾個）
     pickFiles: async () => {
       const options: Electron.OpenDialogOptions = {
-        title: '選擇要放到畫布上的圖片或影片',
+        title: t('projects.chooseAnImageOrVideo'),
         properties: ['openFile', 'multiSelections'],
         filters: [
-          { name: '圖片或影片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'webm', 'mov'] },
+          {
+            name: t('projects.imageOrVideo'),
+            extensions: ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'webm', 'mov'],
+          },
         ],
       }
       const owner = BrowserWindow.getFocusedWindow()

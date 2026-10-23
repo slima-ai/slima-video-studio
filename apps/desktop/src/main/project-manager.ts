@@ -7,7 +7,7 @@ import {
   writeProjectFile,
   type ProjectHandle,
 } from '@svs/db'
-import { AppError, type ProjectInfo, type ProjectStatus } from '@svs/schema'
+import { AppError, type ProjectInfo, type ProjectStatus, t } from '@svs/schema'
 
 /** 目前開啟的專案。一次只開一個；開新的會先關掉舊的。 */
 export class ProjectManager {
@@ -34,7 +34,10 @@ export class ProjectManager {
   async saveAs(destDir: string, name: string): Promise<ProjectInfo> {
     const { handle } = this
     if (!handle) {
-      throw new AppError({ code: 'project_not_found', userMessage: '請先開啟或建立一個專案。' })
+      throw new AppError({
+        code: 'project_not_found',
+        userMessage: t('projects.openOrCreateAProject'),
+      })
     }
     await copyProject(handle, destDir, { name, env: { appVersion: this.appVersion } })
     return this.open(destDir)
@@ -52,7 +55,10 @@ export class ProjectManager {
   rename(name: string): ProjectInfo {
     const { handle } = this
     if (!handle) {
-      throw new AppError({ code: 'project_not_found', userMessage: '請先開啟或建立一個專案。' })
+      throw new AppError({
+        code: 'project_not_found',
+        userMessage: t('projects.openOrCreateAProject'),
+      })
     }
     handle.repos.projects.update({ name })
     writeProjectFile(handle.dir, { ...readProjectFile(handle.dir), name })

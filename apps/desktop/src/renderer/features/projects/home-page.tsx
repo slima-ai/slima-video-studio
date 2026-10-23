@@ -8,6 +8,7 @@ import { Page } from '../../components/page'
 import { call, errorText } from '../../lib/svs'
 import { timeAgo } from '../../lib/usage'
 import { NewProjectDialog } from './new-project-dialog'
+import { t } from '@svs/schema'
 
 /** 選一個舊專案的資料夾打開；回傳有沒有打開（取消是 false）。錯誤丟給呼叫的人顯示。 */
 export async function pickAndOpenProject(): Promise<boolean> {
@@ -59,7 +60,12 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
   const hasProjects = recent?.some((p) => !p.missing) ?? false
 
   return (
-    <Page title="首頁" hint="新專案、開啟舊專案、最近的專案。" width="narrow" testId="home-page">
+    <Page
+      title={t('projects.home')}
+      hint={t('projects.newProjectOpenAProject')}
+      width="narrow"
+      testId="home-page"
+    >
       <div className="space-y-6">
         {creating ? (
           <NewProjectDialog
@@ -85,8 +91,8 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
           >
             <FolderPlus className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden />
             <span>
-              <span className="block font-medium">新專案</span>
-              <span className="block text-sm text-fg-muted">取個名字，就開始做一支新的短片。</span>
+              <span className="block font-medium">{t('projects.newProject')}</span>
+              <span className="block text-sm text-fg-muted">{t('projects.nameItAndStartA')}</span>
             </span>
           </button>
           <button
@@ -100,9 +106,9 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
           >
             <FolderOpen className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden />
             <span>
-              <span className="block font-medium">開啟舊專案…</span>
+              <span className="block font-medium">{t('projects.openProject')}</span>
               <span className="block text-sm text-fg-muted">
-                選專案的資料夾（名字以 .svsproj 結尾）。
+                {t('projects.pickTheProjectFolderIts')}
               </span>
             </span>
           </button>
@@ -116,7 +122,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
 
         {current ? (
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-fg-muted">現在開著的</h2>
+            <h2 className="text-sm font-semibold text-fg-muted">{t('projects.openNow')}</h2>
             <div
               data-testid="home-current"
               className="flex items-center gap-3 rounded-lg border border-accent/60 bg-surface-raised p-3 shadow-card"
@@ -130,17 +136,17 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
                   onNavigate('canvas')
                 }}
               >
-                回到畫布
+                {t('projects.backToTheCanvas')}
               </Button>
             </div>
           </section>
         ) : null}
 
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-fg-muted">最近的專案</h2>
+          <h2 className="text-sm font-semibold text-fg-muted">{t('projects.recentProjects')}</h2>
           {recent && others.length === 0 ? (
             <p className="text-sm text-fg-muted" data-testid="home-recent-empty">
-              還沒有。建好第一個專案，它就會出現在這裡。
+              {t('projects.noneYetYourFirstProject')}
             </p>
           ) : null}
           <ul className="space-y-2">
@@ -155,8 +161,10 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
                   <p className="truncate text-sm font-medium">{project.name}</p>
                   <p className="truncate text-xs text-fg-muted" title={project.dir}>
                     {project.missing
-                      ? '找不到：它可能被移走或刪掉了'
-                      : `上次修改：${timeAgo(project.updatedAt ?? project.lastOpenedAt ?? '')}`}
+                      ? t('projects.missingItMayHaveBeen')
+                      : t('projects.lastEdited', {
+                          value: timeAgo(project.updatedAt ?? project.lastOpenedAt ?? ''),
+                        })}
                   </p>
                 </div>
                 {project.missing ? (
@@ -164,7 +172,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
                     size="sm"
                     variant="ghost"
                     data-testid="home-forget"
-                    aria-label={`從清單移除「${project.name}」`}
+                    aria-label={t('projects.removeFromTheList', { name: project.name })}
                     disabled={busy}
                     onClick={() => {
                       setError(undefined)
@@ -176,7 +184,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
                     }}
                   >
                     <X className="size-4" />
-                    從清單移除
+                    {t('projects.removeFromList')}
                   </Button>
                 ) : (
                   <Button
@@ -188,7 +196,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
                       run(call('project.openRecent', { dir: project.dir }).then(() => true))
                     }}
                   >
-                    打開
+                    {t('projects.open')}
                   </Button>
                 )}
               </li>
@@ -202,13 +210,13 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
             <button
               type="button"
               data-testid="home-skip"
-              title="之後新增任何東西時，會自動建一個專案。"
+              title={t('projects.addingAnythingLaterCreatesA')}
               className="text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
               onClick={() => {
                 onNavigate('canvas')
               }}
             >
-              先不建專案，直接進畫布
+              {t('projects.skipForNowAndGo')}
             </button>
           </div>
         ) : (
@@ -221,9 +229,11 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
                 onNavigate('canvas')
               }}
             >
-              先不建專案，直接進畫布
+              {t('projects.skipForNowAndGo')}
             </Button>
-            <p className="mt-1 text-xs text-fg-muted">之後新增任何東西時，會自動建一個專案。</p>
+            <p className="mt-1 text-xs text-fg-muted">
+              {t('projects.addingAnythingLaterCreatesA')}
+            </p>
           </div>
         )}
       </div>

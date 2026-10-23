@@ -33,7 +33,11 @@ const flag = (name) => {
 }
 const outFile = flag('--out')
 const translationsFile = flag('--translations')
-const files = args.map((f) => resolve(f))
+const filesFrom = flag('--files-from')
+const files = [
+  ...args,
+  ...(filesFrom ? readFileSync(filesFrom, 'utf8').split('\n').filter(Boolean) : []),
+].map((f) => resolve(f))
 
 const isFunctionLike = (n) =>
   ts.isFunctionDeclaration(n) ||
@@ -63,6 +67,13 @@ function skipReason(node) {
     ts.isEnumMember(p)
   )
     return '型別、case 或匯入'
+  if (
+    ts.isCallExpression(p) &&
+    /(^|\.)(log|mainLog|logger|console)\??\.(info|warn|error|debug|log)$/.test(
+      p.expression.getText(),
+    )
+  )
+    return 'log（開發者看的，最後統一改英文）'
   if (ts.isPropertyAssignment(p) && p.name === node) return '物件的鍵'
   if (ts.isElementAccessExpression(p)) return '當索引用'
   if (ts.isBinaryExpression(p)) {
@@ -169,6 +180,11 @@ function scan(file) {
     } else if (ts.isTemplateExpression(node)) {
       const { text: zh, params } = templateParts(node, sf)
       if (HAN.test(zh)) {
+        const logCall =
+          ts.isCallExpression(node.parent) &&
+          /(^|\.)(log|mainLog|logger|console)\??\.(info|warn|error|debug|log)$/.test(
+            node.parent.expression.getText(),
+          )
         const module = !inFunction(node)
         add({
           line: line(node),
@@ -177,7 +193,11 @@ function scan(file) {
           params,
           range: [node.getStart(), node.getEnd()],
           form: module ? 'msg' : 'call',
-          reason: module && params.length > 0 ? '模組層級有參數（要改成函式）' : undefined,
+          reason: logCall
+            ? 'log（開發者看的，最後統一改英文）'
+            : module && params.length > 0
+              ? '模組層級有參數（要改成函式）'
+              : undefined,
         })
       }
       return // 內層的片段已經併進去了
@@ -213,6 +233,15 @@ if (mode === 'extract') {
 if (mode !== 'apply') throw new Error('用法：extract|apply <namespace> <檔案…>')
 if (!translationsFile) throw new Error('apply 要 --translations <檔>')
 const translations = JSON.parse(readFileSync(translationsFile, 'utf8'))
+// 翻譯檔裡值是 null 的字串：不換（留給手改，或是 log 之類不翻的）
+for (const f of found)
+  if (!f.reason && translations[f.zh] === null) f.reason = '翻譯檔標成不換（null）'
+// 先檢查每一句要換的都有翻譯，沒有就在動任何檔案之前停下來（不會改到一半）
+const missing = [
+  ...new Set(found.filter((f) => !f.reason && translations[f.zh] === undefined).map((f) => f.zh)),
+]
+if (missing.length > 0)
+  throw new Error(`沒有英文翻譯（${String(missing.length)} 句）：\n${missing.join('\n')}`)
 
 // --- key：由英文翻譯產生，同一句中文共用同一個 key ---
 const slug = (en) => {

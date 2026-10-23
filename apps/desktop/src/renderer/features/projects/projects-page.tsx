@@ -10,6 +10,7 @@ import { call, errorText } from '../../lib/svs'
 import { pickAndOpenProject } from './home-page'
 import { NewProjectDialog } from './new-project-dialog'
 import { timeAgo } from '../../lib/usage'
+import { t } from '@svs/schema'
 
 interface Library {
   folder: string
@@ -65,8 +66,8 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
 
   return (
     <Page
-      title="專案"
-      hint="每個專案是一個資料夾，裡面放這支短片的故事、鏡頭、圖、影片和成品。"
+      title={t('projects.project')}
+      hint={t('projects.eachProjectIsAFolder')}
       width="narrow"
       testId="projects-page"
       actions={
@@ -92,7 +93,7 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
             }}
           >
             <FolderOpen className="size-4" />
-            開啟舊專案…
+            {t('projects.openProject')}
           </Button>
           <Button
             variant="primary"
@@ -104,7 +105,7 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
             }}
           >
             <Plus className="size-4" />
-            開新專案
+            {t('projects.newProject2')}
           </Button>
         </>
       }
@@ -128,7 +129,7 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
         ) : null}
 
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-fg-muted">現在開著的</h2>
+          <h2 className="text-sm font-semibold text-fg-muted">{t('projects.openNow')}</h2>
           {current ? (
             <div
               data-testid="project-current"
@@ -137,7 +138,9 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
               <Clapperboard className="size-5 shrink-0 text-accent" aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{current.name}</p>
-                <p className="text-xs text-fg-muted">上次修改：{timeAgo(current.updatedAt)}</p>
+                <p className="text-xs text-fg-muted">
+                  {t('projects.lastEdited', { value: timeAgo(current.updatedAt) })}
+                </p>
               </div>
               <Button
                 size="sm"
@@ -147,7 +150,7 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
                 }}
               >
                 <FolderOpen className="size-4" />
-                在資料夾中顯示
+                {t('projects.showInFolder')}
               </Button>
               <Button
                 size="sm"
@@ -156,23 +159,23 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
                   onNavigate('canvas')
                 }}
               >
-                回到畫布
+                {t('projects.backToTheCanvas')}
               </Button>
             </div>
           ) : library ? (
             <p className="text-sm text-fg-muted" data-testid="project-none">
-              還沒有開著的專案。在畫布上新增一句話，或按右上角「開新專案」就會建立一個。
+              {t('projects.noProjectIsOpenAdd')}
             </p>
           ) : null}
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-fg-muted">其他專案</h2>
+          <h2 className="text-sm font-semibold text-fg-muted">{t('projects.otherProjects')}</h2>
           {library && others.length === 0 ? (
             <EmptyState
               testId="project-others-empty"
               icon={FolderOpen}
-              message="資料夾裡還沒有其他專案。"
+              message={t('projects.noOtherProjectsInThis')}
             />
           ) : null}
           <ul className="space-y-2">
@@ -184,7 +187,9 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{project.name}</p>
-                  <p className="text-xs text-fg-muted">上次修改：{timeAgo(project.updatedAt)}</p>
+                  <p className="text-xs text-fg-muted">
+                    {t('projects.lastEdited', { value: timeAgo(project.updatedAt) })}
+                  </p>
                 </div>
                 <Button
                   size="sm"
@@ -193,7 +198,7 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
                     reveal(project.dir)
                   }}
                 >
-                  在資料夾中顯示
+                  {t('projects.showInFolder')}
                 </Button>
                 <Button
                   size="sm"
@@ -204,7 +209,7 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
                     open(project.dir)
                   }}
                 >
-                  打開
+                  {t('projects.open')}
                 </Button>
               </li>
             ))}
@@ -213,7 +218,7 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
 
         {library ? (
           <p className="truncate text-xs text-fg-subtle" title={library.folder}>
-            專案放在：{library.folder}
+            {t('projects.keptInFolder', { folder: library.folder })}
           </p>
         ) : null}
       </div>

@@ -16,6 +16,7 @@ import { pickAndOpenProject } from './home-page'
 import { NewProjectDialog } from './new-project-dialog'
 import { useToast } from '../../components/toast'
 import { clockTime, useProjectStatus } from './use-project-status'
+import { t } from '@svs/schema'
 
 const RECENT_COUNT = 5
 
@@ -24,8 +25,8 @@ const usd = (n: number): string => `US$${n.toFixed(2)}`
 /** 「儲存」的提示：專案是自動儲存的，告訴使用者最後一次是幾點。⌘S 與（之後）檔案選單的「儲存」都用它。 */
 export function saveHint(status: ProjectStatus | null | undefined): string {
   return status
-    ? `專案會自動儲存，最後一次 ${clockTime(status.savedAt)}`
-    : '還沒有專案。新增任何東西時會自動建立，之後都會自動儲存。'
+    ? t('projects.projectsSaveThemselvesLastSaved', { value: clockTime(status.savedAt) })
+    : t('projects.noProjectYetAddingAnything')
 }
 
 const IS_MAC = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac')
@@ -71,8 +72,13 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
   const onMenuAction = useRef<(menu: MenuAction) => void>(() => undefined)
   onMenuAction.current = (menu) => {
     if (creating || savingAs) return
-    const noProject = (what: string): void => {
-      toast.show({ message: `還沒有專案可以${what}。新增任何東西時會自動建立。` })
+    const noProject = (what: 'saveAs' | 'rename' | 'reveal'): void => {
+      const message = {
+        saveAs: t('projects.noProjectToSaveAs'),
+        rename: t('projects.noProjectToRename'),
+        reveal: t('projects.noProjectToReveal'),
+      }[what]
+      toast.show({ message })
     }
     switch (menu.action) {
       case 'new':
@@ -89,15 +95,15 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
         break
       case 'saveAs':
         if (hasProject) setSavingAs(true)
-        else noProject('另存')
+        else noProject('saveAs')
         break
       case 'rename':
         if (hasProject) setRenaming(true)
-        else noProject('改名')
+        else noProject('rename')
         break
       case 'reveal':
         if (hasProject) finishWith(call('project.reveal', {}), false)
-        else noProject('在資料夾中顯示')
+        else noProject('reveal')
         break
       case 'home':
         onNavigate('home')
@@ -173,13 +179,17 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
           type="button"
           data-testid="project-name"
           disabled={!hasProject}
-          title={hasProject ? '點一下改名' : '新增內容時會自動建立專案'}
+          title={hasProject ? t('projects.clickToRename') : t('projects.aProjectIsCreatedWhen')}
           className="max-w-[24rem] truncate rounded-md px-2 py-0.5 text-sm font-semibold hover:bg-surface-overlay disabled:cursor-default disabled:hover:bg-transparent"
           onClick={() => {
             setRenaming(true)
           }}
         >
-          {!hasProject ? '還沒有專案' : name !== '' ? name : '未命名專案'}
+          {!hasProject
+            ? t('projects.noProjectYet')
+            : name !== ''
+              ? name
+              : t('projects.untitledProject')}
         </button>
       )}
 
@@ -187,7 +197,7 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
         <button
           type="button"
           data-testid="project-menu-button"
-          aria-label="專案選單"
+          aria-label={t('projects.projectMenu')}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           className={barButton}
@@ -263,14 +273,14 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
       {savingAs ? (
         <NewProjectDialog
           mode="saveAs"
-          initialName={`${name} 副本`}
+          initialName={t('projects.copy', { name })}
           onClose={() => {
             setSavingAs(false)
           }}
           onCreated={(saved) => {
             setSavingAs(false)
             refresh()
-            toast.show({ message: `已另存為「${saved.name}」，現在開著的是這一份。` })
+            toast.show({ message: t('projects.savedAsThisIsThe', { name: saved.name }) })
           }}
         />
       ) : null}
@@ -287,9 +297,9 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
         <span
           data-testid="save-status"
           className="text-xs text-fg-muted"
-          title="專案會自動儲存，不需要按儲存"
+          title={t('projects.projectsSaveThemselvesNoNeed')}
         >
-          已自動儲存・{clockTime(status.savedAt)}
+          {t('projects.autoSavedAt', { time: clockTime(status.savedAt) })}
         </span>
       ) : null}
 
@@ -300,10 +310,10 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
           data-mode={demoMode ? 'demo' : 'real'}
           title={
             demoMode
-              ? '用假的結果跑完整個流程，不會花錢。到設定可以改成真的 AI。'
+              ? t('projects.runsTheWholeProcessWith')
               : hasKey === false
-                ? '用真的 AI 生成，會花錢。你還沒填服務金鑰，到設定填。'
-                : '用真的 AI 生成，會花錢。'
+                ? t('projects.usesRealAiAndCosts')
+                : t('projects.usesRealAiAndCosts2')
           }
           className={`ml-2 rounded-full border px-3 py-0.5 text-xs ${
             demoMode
@@ -316,17 +326,21 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
             onNavigate('settings')
           }}
         >
-          {demoMode ? '示範模式・不花錢' : hasKey === false ? '真的 AI・還沒填金鑰' : '真的 AI'}
+          {demoMode
+            ? t('projects.demoModeFree')
+            : hasKey === false
+              ? t('projects.realAiNoKeyYet')
+              : t('projects.realAi')}
         </button>
       )}
 
       {hasProject ? (
         <span
           data-testid="spent"
-          title="這個專案到目前為止花的錢（示範模式不花錢）"
+          title={t('projects.whatThisProjectHasCost')}
           className="ml-2 rounded-full border border-border bg-surface-raised px-3 py-0.5 text-xs text-success"
         >
-          已花 {usd(status.spentUsd)}
+          {t('projects.spent')} {usd(status.spentUsd)}
         </span>
       ) : null}
     </div>
@@ -361,7 +375,7 @@ function RenameField({
     <input
       ref={ref}
       data-testid="project-rename"
-      aria-label="專案的新名字"
+      aria-label={t('projects.newProjectName')}
       value={value}
       maxLength={60}
       className="h-7 w-64 rounded-md border border-accent bg-surface px-2 text-sm font-semibold outline-none"
@@ -427,7 +441,7 @@ function ProjectMenu({
     <div
       ref={ref}
       role="menu"
-      aria-label="專案"
+      aria-label={t('projects.project')}
       data-testid="project-menu"
       className="absolute left-0 top-full z-50 mt-1 w-72 rounded-lg border border-border bg-surface-raised p-1 shadow-lg"
       onKeyDown={(event) => {
@@ -446,7 +460,7 @@ function ProjectMenu({
         onClick={onNew}
       >
         <FolderPlus className="size-4" aria-hidden />
-        新專案
+        {t('projects.newProject')}
         <Shortcut keys="⌘N" />
       </button>
       <button
@@ -458,12 +472,12 @@ function ProjectMenu({
         onClick={onOpenOld}
       >
         <FolderOpen className="size-4" aria-hidden />
-        開啟舊專案…
+        {t('projects.openProject')}
         <Shortcut keys="⌘O" />
       </button>
       {recent.length > 0 ? (
         <>
-          <p className="px-2.5 pb-0.5 pt-2 text-xs text-fg-muted">最近的專案</p>
+          <p className="px-2.5 pb-0.5 pt-2 text-xs text-fg-muted">{t('projects.recentProjects')}</p>
           {recent.map((project) => (
             <button
               key={project.dir}
@@ -490,7 +504,7 @@ function ProjectMenu({
         onClick={onHome}
       >
         <House className="size-4" aria-hidden />
-        首頁
+        {t('projects.home')}
       </button>
       <button
         type="button"
@@ -500,7 +514,7 @@ function ProjectMenu({
         onClick={onAll}
       >
         <Clapperboard className="size-4" aria-hidden />
-        全部專案
+        {t('projects.allProjects')}
       </button>
       {hasProject ? (
         <>
@@ -513,7 +527,7 @@ function ProjectMenu({
             onClick={onSaveAs}
           >
             <Copy className="size-4" aria-hidden />
-            另存為…
+            {t('projects.saveAs2')}
             <Shortcut keys="⇧⌘S" />
           </button>
           <button
@@ -524,7 +538,7 @@ function ProjectMenu({
             onClick={onRename}
           >
             <Pencil className="size-4" aria-hidden />
-            改名
+            {t('projects.rename')}
           </button>
           <button
             type="button"
@@ -535,7 +549,7 @@ function ProjectMenu({
             onClick={onReveal}
           >
             <FolderOpen className="size-4" aria-hidden />
-            在資料夾中顯示
+            {t('projects.showInFolder')}
           </button>
         </>
       ) : null}

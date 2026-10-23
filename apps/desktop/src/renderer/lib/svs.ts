@@ -1,4 +1,5 @@
 import type { AppErrorShape, IpcChannel, IpcRequest, IpcResponse } from '@svs/schema'
+import { t } from '@svs/schema'
 
 /** 主行程回報的錯誤（訊息已經整理成給使用者看的白話）。 */
 export class IpcCallError extends Error {
@@ -20,5 +21,5 @@ export async function call<C extends IpcChannel>(
 
 /** 給畫面顯示的錯誤訊息。 */
 export function errorText(error: unknown): string {
-  return error instanceof IpcCallError ? error.message : '發生未預期的錯誤，請再試一次。'
+  return error instanceof IpcCallError ? error.message : t('shell.somethingWentWrongPleaseTry')
 }
