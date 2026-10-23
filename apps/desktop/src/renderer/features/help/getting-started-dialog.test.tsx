@@ -1,9 +1,13 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { DEFAULT_LOCALE, setLocale } from '@svs/schema'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { GettingStartedDialog } from './getting-started-dialog'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  setLocale(DEFAULT_LOCALE)
+})
 
 describe('GettingStartedDialog：怎麼開始', () => {
   it('三個步驟：建專案 → 在畫布選一種開始方式 → 生成與匯出', () => {
@@ -37,5 +41,20 @@ describe('GettingStartedDialog：怎麼開始', () => {
     render(<GettingStartedDialog onClose={onClose} />)
     fireEvent.click(screen.getByRole('button', { name: '知道了' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('GettingStartedDialog：英文', () => {
+  it('語言是英文就整個對話框都是英文，步驟與按鈕一樣', () => {
+    setLocale('en')
+    render(<GettingStartedDialog onClose={vi.fn()} />)
+    const steps = screen.getAllByTestId('getting-started-step')
+    expect(steps.map((step) => within(step).getByRole('heading').textContent)).toEqual([
+      'Create a project',
+      'Pick a way to start on the canvas',
+      'Generate and export',
+    ])
+    expect(screen.getByRole('button', { name: 'Got it' })).toBeTruthy()
+    expect(screen.getByTestId('getting-started-dialog').textContent).not.toMatch(/[\u3400-\u9fff]/)
   })
 })

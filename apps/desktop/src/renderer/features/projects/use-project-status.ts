@@ -1,3 +1,4 @@
+import { formatDate } from '@svs/schema'
 import type { IpcEventName, ProjectStatus } from '@svs/schema'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -68,5 +69,5 @@ export function useProjectStatus(): {
 export function clockTime(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return formatDate(date, 'time')
 }

@@ -1,4 +1,10 @@
-import { humanPart, type GenerationRecord, type JobKind, type JobStatus } from '@svs/schema'
+import {
+  humanPart,
+  type GenerationRecord,
+  type JobKind,
+  type JobStatus,
+  formatDate,
+} from '@svs/schema'
 import { useState } from 'react'
 
 import { Button } from '../../components/button'
@@ -37,8 +43,7 @@ const STATUS_TONE: Readonly<Record<JobStatus, string>> = {
   cancelled: 'text-fg-muted',
 }
 
-const timeText = (iso: string): string =>
-  new Date(iso).toLocaleString('zh-TW', { hour12: false, dateStyle: 'short', timeStyle: 'medium' })
+const timeText = (iso: string): string => formatDate(iso, 'dateTime')
 
 function Thumb({ record }: { record: GenerationRecord }) {
   const { result } = record

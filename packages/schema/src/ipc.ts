@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { LocaleSchema } from './i18n/locale'
 import {
   CHARACTER_REFERENCE_LABEL_MAX,
   CharacterEditSchema,
@@ -266,6 +267,11 @@ export const ipcContract = {
   'app.ping': {
     request: z.object({ message: z.string().max(200) }),
     response: z.object({ pong: z.string(), receivedAt: z.number().int() }),
+  },
+  /** 現在的介面語言（畫面啟動時先問一次；之後語言變了會收到 `locale.changed`）。 */
+  'app.locale': {
+    request: z.object({}),
+    response: z.object({ locale: LocaleSchema }),
   },
   'app.getInfo': {
     request: z.object({}),
@@ -1127,6 +1133,8 @@ export type MenuAction = z.infer<typeof MenuActionSchema>
 /** 主行程主動推給 renderer 的事件。 */
 export const ipcEvents = {
   'app.pinged': z.object({ message: z.string(), receivedAt: z.number().int() }),
+  /** 介面語言變了（設定改了、或跟著系統的結果變了）：畫面換語言並重畫。 */
+  'locale.changed': z.object({ locale: LocaleSchema }),
   /** 某個任務的狀態改變了（新增、進度、完成、失敗…）。 */
   'queue.changed': JobSummarySchema,
   /** 換了專案（或關閉專案）：任務清單要重新載入。 */

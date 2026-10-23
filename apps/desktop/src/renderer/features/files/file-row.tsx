@@ -1,3 +1,4 @@
+import { formatDate } from '@svs/schema'
 import type { FileEntry } from '@svs/schema'
 import { useState } from 'react'
 
@@ -6,8 +7,7 @@ import { assetUrl } from '../../lib/asset'
 import { formatBytes } from '../../lib/bytes'
 import { call, errorText } from '../../lib/svs'
 
-export const timeText = (iso: string): string =>
-  new Date(iso).toLocaleString('zh-TW', { hour12: false, dateStyle: 'short', timeStyle: 'medium' })
+export const timeText = (iso: string): string => formatDate(iso, 'dateTime')
 
 export interface FileRowProps {
   file: FileEntry

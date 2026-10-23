@@ -24,6 +24,7 @@ describe('createSettingsStore', () => {
       demoMode: false,
       advancedMode: false,
       theme: 'system',
+      language: 'system',
       models: {},
       budget: { perRunLimitUsd: 5 },
       modelNotices: [],
@@ -87,6 +88,30 @@ describe('applyPatch', () => {
   it('沒提到的欄位維持原樣', () => {
     expect(applyPatch(base, {})).toEqual(base)
     expect(applyPatch(base, { demoMode: true }).models).toEqual(base.models)
+  })
+
+  it('介面語言：預設跟著系統；可以改成指定語言，改別的設定不會動到它', () => {
+    expect(base.language).toBe('system')
+    const en = applyPatch(base, { language: 'en' })
+    expect(en.language).toBe('en')
+    expect(applyPatch(en, { demoMode: true }).language).toBe('en')
+    expect(applyPatch(en, { language: 'zh-TW' }).language).toBe('zh-TW')
+  })
+
+  it('舊的設定檔沒有 language 欄位，讀進來是「跟著系統」', () => {
+    writeFileSync(file, JSON.stringify({ onboardingDone: true }), 'utf8')
+    expect(createSettingsStore({ file }).get().language).toBe('system')
+  })
+
+  it('設定有變就通知訂閱的人（update 與 setNotices 都算）；取消訂閱之後不再通知', () => {
+    const store = createMemorySettingsStore()
+    const seen: string[] = []
+    const off = store.subscribe((settings) => seen.push(settings.language))
+    store.update({ language: 'en' })
+    store.setNotices(['x'])
+    off()
+    store.update({ language: 'zh-TW' })
+    expect(seen).toEqual(['en', 'en'])
   })
 
   it('AI 工具連線：預設關閉、額度 0；更新逐項合併，只改給的欄位', () => {

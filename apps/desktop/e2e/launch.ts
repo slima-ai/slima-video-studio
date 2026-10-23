@@ -56,6 +56,9 @@ export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedAp
       SVS_PROVIDER_MODE: 'mock',
       SVS_USER_DATA: userDataDir,
       SVS_DISABLE_ONBOARDING: '1',
+      // 介面語言固定繁體中文：預設是「跟著作業系統」，CI（Linux）的系統語言多半是英文，不固定的話整套 e2e 會一起變英文。
+      // 要拍英文截圖或測英文介面，在執行時設 SVS_LOCALE=en（或 test.use({ appEnv: { SVS_LOCALE: 'en' } })）。
+      SVS_LOCALE: process.env.SVS_LOCALE ?? 'zh-TW',
       // 開 App 沒有專案可以接時，正式使用會先到「首頁」；測試預設跳過它，一開 App 就是空畫布
       // （不必每支 e2e 都先點過首頁）。只有非打包版才吃這個變數，打包版就算設了也無效。
       // 要測首頁的測試用 `test.use({ appEnv: { SVS_DISABLE_HOME: '' } })` 關掉它。

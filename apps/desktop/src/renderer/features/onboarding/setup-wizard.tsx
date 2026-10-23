@@ -4,6 +4,7 @@ import { Button } from '../../components/button'
 import { call, errorText } from '../../lib/svs'
 import { KeysSection } from '../settings/keys-section'
 import type { AppData } from '../settings/use-app-data'
+import { t } from '@svs/schema'
 
 export interface SetupWizardProps {
   data: AppData
@@ -35,16 +36,13 @@ export function SetupWizard({ data, reload, onDone }: SetupWizardProps) {
     <div className="flex h-full items-center justify-center p-6" data-testid="setup-wizard">
       <div className="w-full max-w-xl space-y-5">
         <header>
-          <h1 className="text-2xl font-semibold">歡迎使用 Slima Video Studio</h1>
-          <p className="mt-2 text-fg-muted">
-            把你的故事做成 AI
-            影片：先自動分成一個個畫面，再逐一生成畫面和影片，最後接成一支完整的片。
-          </p>
+          <h1 className="text-2xl font-semibold">{t('onboarding.welcome')}</h1>
+          <p className="mt-2 text-fg-muted">{t('onboarding.intro')}</p>
         </header>
 
         {step === 'welcome' ? (
           <div className="space-y-3">
-            <p className="text-sm font-medium">想怎麼開始？</p>
+            <p className="text-sm font-medium">{t('onboarding.question')}</p>
             <button
               type="button"
               data-testid="wizard-demo"
@@ -54,10 +52,8 @@ export function SetupWizard({ data, reload, onDone }: SetupWizardProps) {
               }}
               className="w-full rounded-lg border border-border bg-surface-raised shadow-card p-4 text-left hover:border-accent disabled:opacity-50"
             >
-              <span className="block font-medium">先試玩看看</span>
-              <span className="block text-sm text-fg-muted">
-                用假的結果走完整個流程，不需要金鑰、不會花錢。之後隨時可以到設定改成真的。
-              </span>
+              <span className="block font-medium">{t('onboarding.demo.title')}</span>
+              <span className="block text-sm text-fg-muted">{t('onboarding.demo.body')}</span>
             </button>
             <button
               type="button"
@@ -68,10 +64,8 @@ export function SetupWizard({ data, reload, onDone }: SetupWizardProps) {
               }}
               className="w-full rounded-lg border border-border bg-surface-raised shadow-card p-4 text-left hover:border-accent disabled:opacity-50"
             >
-              <span className="block font-medium">我有服務金鑰（API Key）</span>
-              <span className="block text-sm text-fg-muted">
-                填一把 OpenRouter 的金鑰，就能生成真正的文字、圖片和影片。
-              </span>
+              <span className="block font-medium">{t('onboarding.keys.title')}</span>
+              <span className="block text-sm text-fg-muted">{t('onboarding.keys.body')}</span>
             </button>
           </div>
         ) : (
@@ -83,8 +77,7 @@ export function SetupWizard({ data, reload, onDone }: SetupWizardProps) {
               only={['openrouter']}
             />
             <p className="mt-3 text-sm text-fg-muted" data-testid="wizard-more-keys">
-              只要這一把就能做出完整的影片。之後想用角色鎖定或更多模型，再到「設定」填 fal.ai
-              的金鑰。
+              {t('onboarding.keys.more')}
             </p>
             <div className="flex items-center justify-between">
               <Button
@@ -94,7 +87,7 @@ export function SetupWizard({ data, reload, onDone }: SetupWizardProps) {
                   setStep('welcome')
                 }}
               >
-                返回
+                {t('onboarding.back')}
               </Button>
               <div className="flex gap-2">
                 <Button
@@ -105,7 +98,7 @@ export function SetupWizard({ data, reload, onDone }: SetupWizardProps) {
                     finish({ demoMode: false })
                   }}
                 >
-                  稍後再填
+                  {t('onboarding.later')}
                 </Button>
                 <Button
                   variant="primary"
@@ -115,7 +108,7 @@ export function SetupWizard({ data, reload, onDone }: SetupWizardProps) {
                     finish({ demoMode: false })
                   }}
                 >
-                  完成
+                  {t('onboarding.done')}
                 </Button>
               </div>
             </div>

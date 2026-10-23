@@ -5,6 +5,7 @@ import {
   type ShotEdit,
   type ShotView,
   type TakeView,
+  formatDate,
 } from '@svs/schema'
 import { useEffect, useState } from 'react'
 
@@ -41,8 +42,7 @@ export function useModelNames(): (id: string) => string {
   return (id) => names.get(id) ?? id
 }
 
-const timeText = (iso: string): string =>
-  new Date(iso).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
+const timeText = (iso: string): string => formatDate(iso, 'timeShort')
 
 interface EditorProps {
   shot: ShotView

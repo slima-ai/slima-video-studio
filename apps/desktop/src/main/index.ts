@@ -1,3 +1,4 @@
+import { onLocaleChange } from '@svs/schema'
 import { app, BrowserWindow, dialog, Menu, safeStorage, shell } from 'electron'
 import { join } from 'node:path'
 
@@ -32,6 +33,7 @@ import { createSettingsStore } from './settings/settings-store'
 import { createSlimaImportService } from './slima/import-service'
 import { createSlimaService, slimaLaunchFor, type SlimaService } from './slima/slima-service'
 import { appMenuTemplate } from './app-menu'
+import { startLocaleService } from './locale-service'
 import { createMockFrameRenderer } from './mock-frame'
 import { renderCardWithElectron } from './credits/render-card-electron'
 import { createStudioApp } from './studio-app'
@@ -146,6 +148,10 @@ void app.whenReady().then(() => {
     Menu.setApplicationMenu(menu ? Menu.buildFromTemplate(menu) : null)
   }
   installMenu()
+  // 專案服務準備好之前的語言變更（啟動時那一次）只要換掉沒有「最近專案」的那份選單
+  let refreshMenuLater = (): void => {
+    installMenu()
+  }
   const log = createLogger(join(app.getPath('userData'), 'logs'))
   mainLog = log
   installCrashGuards(process, log)
@@ -194,6 +200,16 @@ void app.whenReady().then(() => {
     warn: (message) => {
       log.warn(message)
     },
+  })
+  // 介面語言：環境變數（測試、截圖）> 設定 > 作業系統；有變就重建選單、通知畫面（refreshMenu 在專案服務準備好之後才有）
+  startLocaleService({
+    settings,
+    override: app.isPackaged ? undefined : process.env.SVS_LOCALE,
+    systemLanguages: () => app.getPreferredSystemLanguages(),
+  })
+  onLocaleChange((locale) => {
+    refreshMenuLater()
+    broadcast('locale.changed', { locale })
   })
   // 真實模式：啟動時就開始（非同步）把存好的金鑰從鑰匙圈讀進來——鑰匙圈的提示會在這時候出現，
   // 而不是卡在第一次生成的途中；示範模式與沒存金鑰的人完全不會碰鑰匙圈
@@ -312,6 +328,7 @@ void app.whenReady().then(() => {
     )
   }
   refreshMenu()
+  refreshMenuLater = refreshMenu
   projects.onChange(refreshMenu)
   const mcp = createMcpController({
     registry,
