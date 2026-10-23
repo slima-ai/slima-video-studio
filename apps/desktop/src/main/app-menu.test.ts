@@ -1,7 +1,27 @@
 import type { MenuItemConstructorOptions } from 'electron'
-import { describe, expect, it } from 'vitest'
+import { DEFAULT_LOCALE, setLocale } from '@svs/schema'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { appMenuTemplate } from './app-menu'
+
+afterEach(() => {
+  setLocale(DEFAULT_LOCALE)
+})
+
+describe('視窗上方的選單：英文', () => {
+  it('語言是英文就整份選單都是英文，結構和中文一樣（同樣四個選單、同樣的快捷鍵）', () => {
+    setLocale('en')
+    const menu = appMenuTemplate('darwin') ?? []
+    expect(menu.map((m) => m.label)).toEqual(['Slima Video Studio', 'File', 'Edit', 'Window'])
+    const file = (menu[1]?.submenu ?? []) as MenuItemConstructorOptions[]
+    expect(file.find((item) => item.label === 'New Project…')?.accelerator).toBe('CmdOrCtrl+N')
+    expect(file.find((item) => item.label === 'Save As…')?.accelerator).toBe('Shift+CmdOrCtrl+S')
+    expect(JSON.stringify(menu)).not.toMatch(/[\u3400-\u9fff]/)
+    // 切回中文，下次建的選單就是中文
+    setLocale('zh-TW')
+    expect((appMenuTemplate('darwin') ?? []).map((m) => m.label)[1]).toBe('檔案')
+  })
+})
 
 describe('視窗上方的選單', () => {
   it('Windows 與 Linux 不放選單列（不會出現英文的 File、Edit、View、Window）', () => {

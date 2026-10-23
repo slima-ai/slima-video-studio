@@ -12,6 +12,27 @@ export interface SettingsStore {
   update: (patch: AppSettingsPatch) => AppSettings
   /** 改 renderer 改不到的欄位（例如模型通知）；主行程內部用。 */
   setNotices: (notices: readonly string[]) => AppSettings
+  /** 設定有變（update、setNotices）就通知；回傳取消訂閱的函式。 */
+  subscribe: (listener: (settings: AppSettings) => void) => () => void
+}
+
+/** 設定變更的訂閱表（檔案版與記憶體版共用）。 */
+function createNotifier(): {
+  subscribe: SettingsStore['subscribe']
+  notify: (settings: AppSettings) => void
+} {
+  const listeners = new Set<(settings: AppSettings) => void>()
+  return {
+    subscribe: (listener) => {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    notify: (settings) => {
+      for (const listener of [...listeners]) listener(settings)
+    },
+  }
 }
 
 export interface SettingsStoreOptions {
@@ -69,6 +90,7 @@ export function applyPatch(current: AppSettings, patch: AppSettingsPatch): AppSe
     ...(patch.demoMode === undefined ? {} : { demoMode: patch.demoMode }),
     ...(patch.advancedMode === undefined ? {} : { advancedMode: patch.advancedMode }),
     ...(patch.theme === undefined ? {} : { theme: patch.theme }),
+    ...(patch.language === undefined ? {} : { language: patch.language }),
     ...(patch.budget === undefined ? {} : { budget: patch.budget }),
     ...(patch.videoNegativePrompt === undefined
       ? {}
@@ -114,6 +136,7 @@ export function createSettingsStore(options: SettingsStoreOptions): SettingsStor
   }
 
   let current = load()
+  const { subscribe, notify } = createNotifier()
 
   const save = (next: AppSettings): void => {
     const tmp = `${file}.tmp`
@@ -127,29 +150,36 @@ export function createSettingsStore(options: SettingsStoreOptions): SettingsStor
       const next = applyPatch(current, patch)
       save(next)
       current = next
+      notify(current)
       return current
     },
     setNotices: (notices) => {
       const next = AppSettingsSchema.parse({ ...current, modelNotices: notices })
       save(next)
       current = next
+      notify(current)
       return current
     },
+    subscribe,
   }
 }
 
 /** 不寫檔的版本（測試與 E2E 以外的情境不該用）。 */
 export function createMemorySettingsStore(initial: Partial<AppSettings> = {}): SettingsStore {
   let current = AppSettingsSchema.parse(initial)
+  const { subscribe, notify } = createNotifier()
   return {
     get: () => current,
     update: (patch) => {
       current = applyPatch(current, patch)
+      notify(current)
       return current
     },
     setNotices: (notices) => {
       current = AppSettingsSchema.parse({ ...current, modelNotices: notices })
+      notify(current)
       return current
     },
+    subscribe,
   }
 }

@@ -1,5 +1,5 @@
 import type { ProjectLibrary } from '../project-library'
-import { AppError, KEY_PROVIDERS, QUICK_STYLE_IDS, type McpStatus } from '@svs/schema'
+import { AppError, KEY_PROVIDERS, QUICK_STYLE_IDS, getLocale, type McpStatus } from '@svs/schema'
 
 import type { HistoryService } from '../history/history-service'
 import { addLabel, outlineLabel, shotEditLabel } from '../history/history-service'
@@ -123,6 +123,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   })
 
   registry.registerHandler('app.getInfo', () => info)
+  registry.registerHandler('app.locale', () => ({ locale: getLocale() }))
 
   registry.registerHandler('project.create', ({ dir, name }) => projects.create(dir, name))
   registry.registerHandler('project.open', ({ dir }) => projects.open(dir))

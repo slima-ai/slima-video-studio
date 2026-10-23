@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r --parallel typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
+    "i18n:baseline": "node tools/i18n/ratchet.mjs --update",
     "test:e2e": "pnpm --filter @svs/desktop test:e2e",
     "smoke:real": "pnpm --filter @svs/desktop smoke:real",
     "smoke:slima": "pnpm --filter @svs/desktop smoke:slima"

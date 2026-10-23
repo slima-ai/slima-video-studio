@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { UsdSchema } from './common'
+import { LanguagePreferenceSchema } from '../i18n/locale'
 import { CHARACTER_PROMPT_KINDS, CHARACTER_PROMPT_MAX_CHARS } from './character-prompts'
 import { CapabilitySchema, ModelTierSchema, NEGATIVE_PROMPT_MAX_CHARS, VoiceSchema } from './models'
 import { PRODUCTION_GUIDE_MAX_CHARS } from './production-guide'
@@ -72,6 +73,8 @@ export const AppSettingsSchema = z.object({
   advancedMode: z.boolean().default(false),
   /** 外觀：預設跟隨系統。 */
   theme: ThemePreferenceSchema.default('system'),
+  /** 介面語言：預設跟著作業系統（英文介面完成之前，跟著系統一律是繁體中文，見 ENGLISH_UI_READY）。 */
+  language: LanguagePreferenceSchema.default('system'),
   /** 每種用途選用的模型（ModelCard id）；沒選就用推薦的。 */
   models: z.partialRecord(PickableCapabilitySchema, z.string().min(1)).default({}),
   budget: BudgetSettingsSchema.default({ perRunLimitUsd: DEFAULT_PER_RUN_LIMIT_USD }),
@@ -102,6 +105,7 @@ export const AppSettingsPatchSchema = z.object({
   demoMode: z.boolean().optional(),
   advancedMode: z.boolean().optional(),
   theme: ThemePreferenceSchema.optional(),
+  language: LanguagePreferenceSchema.optional(),
   models: z.partialRecord(PickableCapabilitySchema, z.string().min(1).nullable()).optional(),
   // 不能直接用 AppSettingsSchema.shape.budget：它帶預設值，只改別的欄位的更新也會被補上預設上限，把使用者設的上限蓋掉
   budget: BudgetSettingsSchema.optional(),

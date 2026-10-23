@@ -2,6 +2,7 @@ import type { MenuAction } from '@svs/schema'
 import type { MenuItemConstructorOptions } from 'electron'
 
 import { APP_TITLE } from './window'
+import { t } from '@svs/schema'
 
 /** 「開啟最近的專案」子選單最多列幾個。 */
 const RECENT_IN_MENU = 5
@@ -31,22 +32,22 @@ export function appMenuTemplate(
     {
       label: APP_TITLE,
       submenu: [
-        { role: 'about', label: `關於 ${APP_TITLE}` },
+        { role: 'about', label: t('menu.about', { appTitle: APP_TITLE }) },
         { type: 'separator' },
-        { role: 'hide', label: `隱藏 ${APP_TITLE}` },
-        { role: 'hideOthers', label: '隱藏其他' },
-        { role: 'unhide', label: '全部顯示' },
+        { role: 'hide', label: t('menu.hide', { appTitle: APP_TITLE }) },
+        { role: 'hideOthers', label: t('menu.hideOthers') },
+        { role: 'unhide', label: t('menu.showAll') },
         { type: 'separator' },
-        { role: 'quit', label: `結束 ${APP_TITLE}` },
+        { role: 'quit', label: t('menu.quit', { appTitle: APP_TITLE }) },
       ],
     },
     {
-      label: '檔案',
+      label: t('menu.file'),
       submenu: [
-        { label: '新專案…', accelerator: 'CmdOrCtrl+N', click: act('new') },
-        { label: '開啟舊專案…', accelerator: 'CmdOrCtrl+O', click: act('open') },
+        { label: t('menu.newProject'), accelerator: 'CmdOrCtrl+N', click: act('new') },
+        { label: t('menu.openProject'), accelerator: 'CmdOrCtrl+O', click: act('open') },
         {
-          label: '開啟最近的專案',
+          label: t('menu.openRecent'),
           enabled: recent.length > 0,
           submenu: recent.map((project) => ({
             label: project.name,
@@ -55,34 +56,34 @@ export function appMenuTemplate(
         },
         { type: 'separator' },
         // 專案是自動儲存的：「儲存」只是告訴你最後一次存在幾點（跟專案列的 ⌘S 同一句）
-        { label: '儲存', accelerator: 'CmdOrCtrl+S', click: act('save') },
-        { label: '另存為…', accelerator: 'Shift+CmdOrCtrl+S', click: act('saveAs') },
-        { label: '改名…', click: act('rename') },
-        { label: '在 Finder 顯示', click: act('reveal') },
+        { label: t('menu.save'), accelerator: 'CmdOrCtrl+S', click: act('save') },
+        { label: t('menu.saveAs'), accelerator: 'Shift+CmdOrCtrl+S', click: act('saveAs') },
+        { label: t('menu.rename'), click: act('rename') },
+        { label: t('menu.showInFinder'), click: act('reveal') },
         { type: 'separator' },
-        { label: '首頁', click: act('home') },
+        { label: t('menu.home'), click: act('home') },
       ],
     },
     {
-      label: '編輯',
+      label: t('menu.edit'),
       submenu: [
-        { role: 'undo', label: '復原' },
-        { role: 'redo', label: '重做' },
+        { role: 'undo', label: t('menu.undo') },
+        { role: 'redo', label: t('menu.redo') },
         { type: 'separator' },
-        { role: 'cut', label: '剪下' },
-        { role: 'copy', label: '拷貝' },
-        { role: 'paste', label: '貼上' },
-        { role: 'selectAll', label: '全選' },
+        { role: 'cut', label: t('menu.cut') },
+        { role: 'copy', label: t('menu.copy') },
+        { role: 'paste', label: t('menu.paste') },
+        { role: 'selectAll', label: t('menu.selectAll') },
       ],
     },
     {
-      label: '視窗',
+      label: t('menu.window'),
       submenu: [
-        { role: 'minimize', label: '縮到 Dock' },
-        { role: 'zoom', label: '縮放' },
-        { role: 'togglefullscreen', label: '全螢幕' },
+        { role: 'minimize', label: t('menu.minimize') },
+        { role: 'zoom', label: t('menu.zoom') },
+        { role: 'togglefullscreen', label: t('menu.enterFullScreen') },
         { type: 'separator' },
-        { role: 'close', label: '關閉視窗' },
+        { role: 'close', label: t('menu.closeWindow') },
       ],
     },
   ]

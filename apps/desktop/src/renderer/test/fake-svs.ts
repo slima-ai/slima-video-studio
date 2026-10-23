@@ -23,6 +23,7 @@ export const SETTINGS: AppSettings = {
   videoNegativePrompt: '',
   mcp: { enabled: false, port: 47821, allowanceUsd: 0 },
   theme: 'system',
+  language: 'system',
   models: {},
   budget: { perRunLimitUsd: 5 },
   modelNotices: [],

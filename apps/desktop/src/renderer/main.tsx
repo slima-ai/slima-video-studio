@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import './zod-config'
 import { CSP_VIOLATION_PREFIX } from '../shared/csp'
 import { App } from './app'
+import { I18nRoot, loadLocale } from './lib/i18n'
 import { restoreTheme } from './lib/theme'
 import './styles.css'
 
@@ -18,8 +19,13 @@ restoreTheme()
 const root = document.getElementById('root')
 if (!root) throw new Error('找不到 #root')
 
-createRoot(root).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// 先問主行程現在的介面語言再畫第一次，才不會先閃一下別的語言
+void loadLocale().then(() => {
+  createRoot(root).render(
+    <StrictMode>
+      <I18nRoot>
+        <App />
+      </I18nRoot>
+    </StrictMode>,
+  )
+})
