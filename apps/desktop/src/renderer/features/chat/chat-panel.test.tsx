@@ -320,6 +320,53 @@ describe('Claude 對話面板：講話與串流', () => {
     expect(screen.getByText('建好了第 1 鏡。')).toBeTruthy()
   })
 
+  it('步驟標籤在顯示的當下才翻：存的是中文標籤（用中文錄的舊對話），英文介面照樣顯示英文；換回繁中又是中文', async () => {
+    const fake = setup({ conversations: [conversation()] })
+    await openPanel()
+    await screen.findByTestId('chat-input')
+    const push = (m: ChatPanelMessage): void => {
+      act(() => {
+        fake.emit('chat.event', { type: 'message', conversationId: ID, message: m })
+      })
+    }
+    const steps: ChatPanelMessage['steps'] = [
+      { id: 'a', tool: 'create_shot', label: '建立鏡頭', status: 'done', summary: '第 1 鏡' },
+      { id: 'b', tool: 'generate_videos', label: '正在生成影片…', status: 'running' },
+      {
+        id: 'c',
+        tool: 'wait_for_generation',
+        label: '等待生成完成',
+        status: 'error',
+        interrupted: true,
+      },
+      { id: 'd', tool: 'brand_new_tool', label: '做了一個步驟', status: 'done' },
+    ]
+    push(message({ id: 'x', state: 'done', steps }))
+    const texts = (): string[] => screen.getAllByTestId('chat-step').map((el) => el.textContent)
+    expect(texts()).toEqual(['建立鏡頭', '正在生成影片…', '等待生成完成', '做了一個步驟'])
+    try {
+      act(() => {
+        setLocale('en')
+      })
+      // 換語言會整棵重畫、訊息要重新送進來（面板的訊息是事件推進去的）
+      push(message({ id: 'x', state: 'done', steps }))
+      expect(texts()).toEqual([
+        'Create a shot',
+        'Generate videos…',
+        'Wait for generation to finish',
+        'Did a step',
+      ])
+      // 沒做完的那一步，滑過的說明也是現在的語言（不是存下來的字）
+      expect(screen.getAllByTestId('chat-step')[2]?.getAttribute('title')).toBe('Didn’t finish')
+      expect(screen.getAllByTestId('chat-step')[0]?.getAttribute('title')).toBe('第 1 鏡')
+      for (const text of texts()) expect(text).not.toMatch(/[㐀-鿿]/)
+    } finally {
+      act(() => {
+        setLocale(DEFAULT_LOCALE)
+      })
+    }
+  })
+
   it('Claude 做事時送出鈕變成停止鈕；按停止或 Esc 都送 chat.stop；做完換回送出', async () => {
     const fake = setup({ conversations: [conversation()] })
     await openPanel()

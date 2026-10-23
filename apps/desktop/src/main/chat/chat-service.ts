@@ -344,7 +344,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     }
     message.steps = message.steps.map((step) =>
       step.status === 'running'
-        ? { ...step, status: 'error', label: toolLabel(step.tool), summary: t('chat.didnTFinish') }
+        ? { ...step, status: 'error', label: toolLabel(step.tool), interrupted: true }
         : step,
     )
     message.state = outcome.state

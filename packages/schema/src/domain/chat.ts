@@ -36,11 +36,16 @@ export const ChatStepSchema = z.object({
   id: z.string(),
   /** 去掉 `mcp__slima-video-studio__` 前綴的工具名，例如 `create_shot`。 */
   tool: z.string(),
-  /** 白話，例如「正在建立鏡頭…」；做完是「建立鏡頭」。 */
+  /**
+   * 錄下來當下的白話（例如「正在建立鏡頭…」；做完是「建立鏡頭」）。**畫面不用它**：顯示的當下用 `chatStepLabel(step)` 依工具名與狀態重新翻，
+   * 這樣換介面語言、或打開用別種語言錄的舊對話，標籤都是現在的語言。只留給舊版讀。
+   */
   label: z.string(),
   status: z.enum(['running', 'done', 'error']),
   /** 工具結果的短摘要（最多 200 字，不含完整內容）。 */
   summary: z.string().optional(),
+  /** 這一步在對話中斷、App 關閉時還沒做完：滑過時的說明在顯示的當下才翻（不存翻好的字）。 */
+  interrupted: z.boolean().optional(),
 })
 export type ChatStep = z.infer<typeof ChatStepSchema>
 

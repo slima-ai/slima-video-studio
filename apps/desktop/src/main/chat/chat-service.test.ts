@@ -373,7 +373,7 @@ describe('ChatService：停止', () => {
     })
     expect(last(conv.id, 'assistant')).toMatchObject({
       state: 'stopped',
-      steps: [{ id: 't1', status: 'error', label: '建立鏡頭', summary: '沒有做完' }],
+      steps: [{ id: 't1', status: 'error', label: '建立鏡頭', interrupted: true }],
     })
     expect(service.list().conversations[0]).toMatchObject({ running: false })
     // 行程還活著：下一則直接送進同一個行程
