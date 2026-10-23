@@ -417,7 +417,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const usage = s.handle.repos.jobs.usageByAsset(takes.map((t) => t.assetHash))
     const withUsage = (take: Take): TakeView => toTakeView(take, usage.get(take.assetHash))
     const names = shot.characters.flatMap((c) => (c.name ? [c.name] : []))
-    const endTake = takes.find((t) => t.kind === 'last_frame' && t.adopted)
+    const endTakes = takes.filter((t) => t.kind === 'last_frame')
+    const endTake = endTakes.find((t) => t.adopted)
     const lockedCharacters = anchors.flatMap((a) =>
       a.version !== undefined && names.includes(a.name)
         ? [{ name: a.name, version: a.version }]
@@ -450,8 +451,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       firstFrames: takes.filter((t) => t.kind === 'first_frame').map(withUsage),
       videos: takes.filter((t) => t.kind === 'video').map(withUsage),
       ...(endTake ? { endFrame: withUsage(endTake), endFrameSupported: endFrameSupported() } : {}),
-      ...(takes.filter((t) => t.kind === 'last_frame').length > 1
-        ? { endFrames: takes.filter((t) => t.kind === 'last_frame').map(withUsage) }
+      // 有舊版可以換、或現在沒有採用任何一版（拿掉了）時才列出來
+      ...(endTakes.length > 1 || (endTakes.length === 1 && !endTake)
+        ? { endFrames: endTakes.map(withUsage) }
         : {}),
     }
   }
@@ -1431,16 +1433,23 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       if (assetHash !== undefined && s.handle.assets.getMeta(assetHash)?.kind !== 'image') {
         throw invalid(t('endFrame.error.notImage'))
       }
-      // 同一鏡只有一張尾幀：先拿掉舊的
-      for (const take of shots.listTakes(shotId, 'last_frame')) shots.deleteTake(take.id)
-      if (assetHash !== undefined) {
-        const take = shots.addTake({
-          shotId,
-          kind: 'last_frame',
-          assetHash,
-          modelId: UPLOAD_MODEL,
-          inputHash: uploadFingerprint(assetHash),
-        })
+      // 舊的尾幀版本（包括花錢生成的）都留著：換一張或拿掉，只是不再採用，用 adopt 可以換回來
+      if (assetHash === undefined) {
+        shots.unadopt(shotId, 'last_frame')
+      } else {
+        // 這張圖已經是這一鏡的某一版尾幀：直接換回它，不重複存
+        const existing = shots
+          .listTakes(shotId, 'last_frame')
+          .find((t) => t.assetHash === assetHash)
+        const take =
+          existing ??
+          shots.addTake({
+            shotId,
+            kind: 'last_frame',
+            assetHash,
+            modelId: UPLOAD_MODEL,
+            inputHash: uploadFingerprint(assetHash),
+          })
         shots.adoptTake(take.id)
       }
       changed(s)

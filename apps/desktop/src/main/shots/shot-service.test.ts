@@ -518,17 +518,40 @@ describe('shots.regenerate', { timeout: 30_000 }, () => {
       }
     })
 
-    it('換一張尾幀：只留新的那張（不累積舊版本）；複製鏡頭不帶尾幀', async () => {
-      const { shots, runQuickStart, projects } = setup()
+    it('換一張、拿掉尾幀都不刪舊版（包括花錢生成的）：採用的換掉，舊的還在，adopt 換得回來；同一張圖不重複存；複製鏡頭不帶尾幀', async () => {
+      const { shots, runQuickStart, idle, projects } = setup()
       await runQuickStart()
       const [first, second] = shots.list().shots
-      if (!first || !second) throw new Error('鏡頭不夠')
-      const third = shots.list().shots[2]
-      const other = third?.firstFrames[0]?.assetHash ?? ''
-      shots.setEndFrame(first.id, second.firstFrames[0]?.assetHash)
-      expect(shots.setEndFrame(first.id, other).endFrame?.assetHash).toBe(other)
-      expect(projects.current()?.repos.shots.listTakes(first.id, 'last_frame')).toHaveLength(1)
-      shots.setEndFrame(first.id, second.firstFrames[0]?.assetHash)
+      const uploaded = second?.firstFrames[0]?.assetHash
+      if (!first || !uploaded) throw new Error('沒有鏡頭或圖')
+      const versions = () =>
+        projects
+          .current()
+          ?.repos.shots.listTakes(first.id, 'last_frame')
+          .map((t) => t.modelId)
+
+      shots.setEndFrame(first.id, uploaded)
+      shots.update(first.id, { endDescription: 'the cat sits down' })
+      await shots.generateEndFrame(first.id)
+      await idle(first.id)
+      expect(versions()).toEqual(['upload', 'mock/image'])
+      const generated = shots.list().shots[0]?.endFrame
+      expect(generated?.modelId).toBe('mock/image')
+
+      // 再指定同一張圖：換回那一版，不多存一份
+      expect(shots.setEndFrame(first.id, uploaded).endFrame?.modelId).toBe('upload')
+      expect(versions()).toEqual(['upload', 'mock/image'])
+
+      // 拿掉：現在沒有採用任何一版，但兩版都還在
+      const cleared = shots.setEndFrame(first.id, undefined)
+      expect(cleared.endFrame).toBeUndefined()
+      expect(cleared.endFrames?.map((t) => t.modelId)).toEqual(['upload', 'mock/image'])
+      expect(cleared.endFrames?.some((t) => t.adopted)).toBe(false)
+
+      // 換回花錢生成的那一版
+      const back = shots.adopt(generated?.id ?? '')
+      expect(back.endFrame?.id).toBe(generated?.id)
+
       shots.duplicate(first.id)
       expect(shots.list().shots.filter((s) => s.endFrame !== undefined)).toHaveLength(1)
     })
