@@ -430,7 +430,7 @@ export const canvas = {
   'canvas.uploadPicture': 'Upload picture',
   'canvas.pickAPictureAndConnect': 'Pick a picture and connect it right away',
   'canvas.searchForWhatToAdd': 'Search for what to add',
-  'canvas.typeANameForExample': 'Type a name, for example “Shot”',
+  'canvas.typeANameForExample': 'Type a name, e.g. “Shot”',
   'canvas.thingsYouCanAdd': 'Things you can add',
   'canvas.nothingMatches': 'Nothing matches',
   'canvas.reference': 'Reference',
