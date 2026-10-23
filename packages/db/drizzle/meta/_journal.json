@@ -127,6 +127,13 @@
       "when": 1792729402547,
       "tag": "0017_shot_end_description",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1792770359755,
+      "tag": "0018_take_trim",
+      "breakpoints": true
     }
   ]
 }

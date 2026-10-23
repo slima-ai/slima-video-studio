@@ -139,7 +139,7 @@ claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
 | 鏡頭       | `list_shots`、`get_shot`、`update_shot`、`create_shot`、`delete_shots`、`reorder_shots`                                                                                                                                                                         |
 | 角色       | `list_characters`、`create_character`、`update_character`、`suggest_character_anchor`、`set_character_anchor`、`list_project_images`、`add_character_reference`、`generate_character_images`、`view_character_images`、`pick_character_image`、`lock_character` |
 | 圖片與影片 | `generate_first_frames`、`view_first_frames`、`generate_videos`、`view_video_stills`、`regenerate_shot`、`adopt_version`、`cancel_generation`、`wait_for_generation`、`get_generation_status`                                                                   |
-| 成品       | `assemble_film`、`export_film`（有 `credits`：片尾字卡，預設開）                                                                                                                                                                                                |
+| 成品       | `trim_shot`（剪每一鏡的頭尾）、`assemble_film`、`export_film`（有 `credits`：片尾字卡，預設開）                                                                                                                                                                 |
 | 聲音       | `get_sound`、`plan_sound`、`generate_narration`、`generate_music`、`adjust_sound_clip`、`adopt_sound_clip`、`remove_sound_clip`、`set_sound_settings`、`mix_sound`、`analyze_sound`                                                                             |
 
 會看圖的工具回傳真的（縮小過的）圖片，所以助理可以在你花更多錢之前，先檢查第一張畫面與影片截圖有沒有出錯。

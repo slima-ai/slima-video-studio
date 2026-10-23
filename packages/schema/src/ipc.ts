@@ -101,6 +101,8 @@ import {
   PickableCapabilitySchema,
 } from './domain/settings'
 import { SHOT_PIN_MAX, ShotReferencesStateSchema } from './domain/shot-references'
+import { TrimEditSchema } from './domain/trim'
+import { TrimOutcomeSchema } from './domain/trim-outcome'
 import {
   RegenerateModeSchema,
   EndFrameCheckSchema,
@@ -821,6 +823,11 @@ export const ipcContract = {
   'shots.rejoin': {
     request: z.object({}),
     response: z.object({ videoHash: z.string() }),
+  },
+  /** 設這一鏡採用中的影片在成品裡用哪一段（入點／出點）；對齊格線或夾到影片長度而改了數字，會寫在 adjustments。 */
+  'shots.trim': {
+    request: z.object({ shotId: IdSchema, edit: TrimEditSchema }),
+    response: TrimOutcomeSchema,
   },
   // ---- 聲音（sound.*）：studio 2 負責，新增的通道都加在這一段 ----
   /** 目前專案的聲音：每鏡的時間位置、旁白、配樂、設定與警示。 */

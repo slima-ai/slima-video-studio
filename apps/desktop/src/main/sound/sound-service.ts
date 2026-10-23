@@ -31,9 +31,11 @@ import {
   type SoundState,
   type SoundWarning,
   t,
+  trimmedLengthSec,
 } from '@svs/schema'
 
 import { currentFinal } from '../shots/current-final'
+import { trimOfTake } from '../shots/trim'
 import type { ShotService } from '../shots/shot-service'
 import type { Logger } from '../logger'
 import type { ProjectManager } from '../project-manager'
@@ -52,7 +54,7 @@ export interface SoundServiceDeps {
   log: Pick<Logger, 'info' | 'warn' | 'error'>
   tools?: () => MediaTools | undefined
   /** 混音後成品有變動時，叫鏡頭服務推送最新的快照（成品面板跟著更新）。 */
-  shots?: Pick<ShotService, 'list'>
+  shots?: Pick<ShotService, 'list' | 'whenMeasured'>
 }
 
 export interface SoundService {
@@ -145,7 +147,11 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     return handle
   }
 
-  /** 會接進成品的鏡頭（照鏡號），各自採用中的影片長度；還沒有影片的用鏡頭設定的秒數。 */
+  /**
+   * 會接進成品的鏡頭（照鏡號），各自在成品裡佔的長度：採用中的影片長度（照那一版的裁切剪過）；
+   * 還沒有影片的用鏡頭設定的秒數。旁白位置、原聲靜音區間、配樂長度、警示、聲音指紋、畫面上的時間軸
+   * 全都讀這一份，所以裁切只要在這裡算進來，混音就跟著走。
+   */
   const timeline = (handle: ProjectHandle): SoundShotView[] => {
     const { sound, shots } = handle.repos
     const clips = sound.listClips({ adoptedOnly: true })
@@ -157,7 +163,10 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       .map((shot) => {
         const take = shots.listTakes(shot.id, 'video').find((t) => t.adopted)
         const meta = take ? handle.assets.getMeta(take.assetHash) : undefined
-        const durationSec = meta?.durationSec ?? shot.durationSec
+        const durationSec = trimmedLengthSec(
+          trimOfTake(take),
+          meta?.durationSec ?? shot.durationSec,
+        )
         const view: SoundShotView = {
           shotId: shot.id,
           number: shot.number,
@@ -743,6 +752,8 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
 
     async mix() {
       const handle = need()
+      // 旁白放在鏡頭起點上，起點靠影片的實際長度：舊專案還沒量完就先等它量完
+      await deps.shots?.whenMeasured()
       const current = currentFinal(handle, () => soundKeyOf(handle))
       if (!current) throw invalid(t('services.thereSNoJoinedFilm'))
       // 目前的版本已經跟現在的聲音對得上（例如剛復原，自動重混的計時還沒到）：不用混，也不加新的版本號

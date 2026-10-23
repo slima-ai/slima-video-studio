@@ -178,6 +178,10 @@ export const services = {
   'services.thereAreNoShotsTo2': '還沒有鏡頭可以接。',
   'services.noShotsAreIncludedIn': '沒有放進成品的鏡頭，先打開幾個鏡頭的「放進成品」。',
   'services.shotHasNoUsableVideo': '第 {value} 鏡還沒有可用的影片，先生成或重新生成它。',
+  'services.trimShot': '剪裁鏡頭',
+  'services.shotHasNoVideoToTrim': '第 {value} 鏡還沒有可用的影片，沒有東西可以剪。',
+  'services.theTrimLeavesNothing':
+    '這樣剪完不剩任何畫面（從 {value} 秒到 {value2} 秒）：入點要比出點早，而且至少要留一格。',
   'services.canTFindTheVideo2': '找不到影片處理工具（FFmpeg），沒辦法接成成品。',
   'services.theFileIsEmpty': '檔案是空的',
   'services.canTReadThisFile': '讀不到這個檔案',

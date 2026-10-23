@@ -8,7 +8,7 @@ import {
   type EngineEvent,
   type NodeRegistry,
 } from '@svs/engine'
-import type { MediaTools } from '@svs/media'
+import { probe, type MediaTools } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
@@ -35,7 +35,12 @@ import {
   type Take,
   type TakeKind,
   type TakeView,
+  type Trim,
+  type TrimEdit,
+  type TrimResult,
   type Workflow,
+  resolveTrim,
+  trimmedLengthSec,
   t,
   displayNameOf,
   retranslate,
@@ -69,7 +74,9 @@ import type { ProjectManager } from '../project-manager'
 import { SHOT_NODE } from '../quickstart/progress-tracker'
 import { createDraftCharacters } from '../quickstart/draft-characters'
 import { sceneKey, shotKey } from '../canvas/projection'
-import { currentFinal } from './current-final'
+import { currentFinal, cutTrimKeyOf } from './current-final'
+import { measureVideoAssets } from './measure-videos'
+import { trimOfTake } from './trim'
 import { isAiCall } from '../history/ai-origin'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
@@ -236,6 +243,19 @@ export interface ShotService {
   flowOf: (shotId: string) => Workflow
   /** 用各鏡頭採用中的影片重新接成一支。 */
   rejoin: () => Promise<{ videoHash: string }>
+  /** 舊專案的影片長度量完才回來（混音放旁白的依據是這個長度；量過的馬上回來）。 */
+  whenMeasured: () => Promise<void>
+  /**
+   * 設這一鏡採用中的影片在成品裡用哪一段（入點／出點，秒；沒給的那端不動，clear 回整支）。
+   * 對齊到輸出幀率的格線、出點超過影片長度就夾到影片長度，改了使用者給的數字就寫在回傳的 adjustments。
+   * 不是生成輸入：不會讓任何鏡頭變成「需要重跑」，也不花錢。
+   *
+   * 拆成兩半：planTrim 量影片、整理數字、檢查（可能要等 FFmpeg，不寫任何東西），
+   * applyTrim 把結果寫進去（同步、很快）。IPC 在中間包一層復原歷史（歷史的一步必須是同步的，
+   * Claude 一輪的多個編輯才併得成一步）。
+   */
+  planTrim: (shotId: string, edit: TrimEdit) => Promise<TrimPlan>
+  applyTrim: (plan: TrimPlan) => TrimOutcome
 
   // ── 給快速開始用 ──
   /** 回傳「結束」函式：只會結束這一次（換專案後舊的收尾不會影響新專案）。 */
@@ -301,6 +321,25 @@ function toShotItem(shot: Shot, withOverride = true): ShotItem {
   })
 }
 
+/** planTrim 的結果：已經檢查過、對齊過的裁切，等著寫進去。 */
+export interface TrimPlan {
+  shotId: string
+  takeId: string
+  result: Extract<TrimResult, { ok: true }>
+  videoSec: number
+  fps: number
+}
+
+/** 設完裁切之後的結果：這一鏡現在在成品裡用哪一段、佔幾秒，以及哪些數字被改了。 */
+export type TrimOutcome = Omit<Extract<TrimResult, { ok: true }>, 'ok' | 'trim'> & {
+  /** 剪完留下的裁切；整支（沒有裁）就沒有這個欄位。 */
+  trim?: Trim
+  shot: ShotView
+  /** 影片實際長度（秒）。 */
+  videoSec: number
+  fps: number
+}
+
 const toTakeView = (take: Take, usage?: AssetUsage): TakeView => ({
   id: take.id,
   kind: take.kind,
@@ -310,6 +349,7 @@ const toTakeView = (take: Take, usage?: AssetUsage): TakeView => ({
   modelId: take.modelId,
   ...(take.seed === undefined ? {} : { seed: take.seed }),
   createdAt: take.createdAt,
+  ...(trimOfTake(take) === undefined ? {} : { trim: trimOfTake(take) }),
   ...(usage
     ? {
         durationMs: usage.durationMs,
@@ -399,7 +439,20 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ? { handle, regens: new Map(), activity: new Map(), errors: new Map(), quickShotIds: [] }
       : undefined
   }
+
+  /**
+   * 舊專案的影片長度記的是要求的秒數（5 秒），實際檔案是 5.0417 秒：量過一次更正，
+   * 聲音時間軸與旁白位置才對得上畫面。開專案時背景量；接片、剪裁之前也確認一次（量過的馬上略過）。
+   */
+  const ensureMeasured = async (handle: ProjectHandle): Promise<void> => {
+    const tool = tools()
+    if (!tool || handle.closed) return
+    if ((await measureVideoAssets(handle, tool)) > 0 && session?.handle === handle) {
+      broadcast('shots.changed', snapshot())
+    }
+  }
   open(projects.current())
+  if (session) void ensureMeasured(session.handle)
 
   const need = (): Session => {
     const current = session
@@ -425,6 +478,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const usage = s.handle.repos.jobs.usageByAsset(takes.map((t) => t.assetHash))
     const withUsage = (take: Take): TakeView => toTakeView(take, usage.get(take.assetHash))
     const names = shot.characters.flatMap((c) => (c.name ? [c.name] : []))
+    const adoptedVideo = takes.find((t) => t.kind === 'video' && t.adopted)
+    const filmSeconds = adoptedVideo
+      ? trimmedLengthSec(
+          trimOfTake(adoptedVideo),
+          s.handle.assets.getMeta(adoptedVideo.assetHash)?.durationSec ?? shot.durationSec,
+        )
+      : undefined
     const endTakes = takes.filter((t) => t.kind === 'last_frame')
     const endTake = endTakes.find((t) => t.adopted)
     const lockedCharacters = anchors.flatMap((a) =>
@@ -452,6 +512,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(lockedCharacters.length > 0 ? { lockedCharacters } : {}),
       ...(shot.prompt ? { prompt: shot.prompt } : {}),
       ...(shot.inCut ? {} : { inCut: false }),
+      ...(filmSeconds === undefined ? {} : { filmSeconds }),
       autoPrompt: auto,
       status: step ? 'generating' : shot.status,
       ...(step ? { activity: { step } } : {}),
@@ -464,6 +525,15 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         ? { endFrames: endTakes.map(withUsage) }
         : {}),
     }
+  }
+
+  /** 成品的輸出幀率：接片時取第一段（放進成品的）影片的幀率，量不到就 24。 */
+  const filmFps = async (handle: ProjectHandle, tool: MediaTools): Promise<number> => {
+    const first = cutTakes(handle).find(({ take }) => take)?.take
+    const found = first ? handle.assets.find(first.assetHash) : undefined
+    if (!found) return 24
+    const info = await probe(tool, found.path)
+    return info.fps ? Math.round(info.fps) : 24
   }
 
   /** 會接進成品的鏡頭（放進成品的，照鏡號）與它們目前採用的影片版本；還沒有影片的是 undefined。 */
@@ -482,11 +552,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     hash: string,
     takeIds: readonly string[],
     sound?: { baseAssetHash: string; soundKey: string },
+    trimKey?: string,
   ): void => {
     handle.repos.finalCuts.record({
       assetHash: hash,
       durationSec: handle.assets.getMeta(hash)?.durationSec,
       takeIds,
+      trimKey,
       baseAssetHash: sound?.baseAssetHash,
       soundKey: sound?.soundKey,
     })
@@ -527,6 +599,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   projects.onChange((handle) => {
     open(handle)
     broadcast('shots.changed', snapshot())
+    if (handle) void ensureMeasured(handle)
   })
 
   /**
@@ -2002,11 +2075,66 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       return view(s, shot)
     },
 
+    async whenMeasured() {
+      if (session && !session.handle.closed) await ensureMeasured(session.handle)
+    },
+
+    async planTrim(shotId, edit) {
+      const s = need()
+      await ensureMeasured(s.handle)
+      const { shots } = s.handle.repos
+      const shot = shots.get(shotId)
+      if (!shot) throw invalid(t('services.canTFindTheShot'))
+      const take = shots.listTakes(shotId, 'video').find((x) => x.adopted)
+      const found = take ? s.handle.assets.find(take.assetHash) : undefined
+      if (!take || !found) {
+        throw invalid(t('services.shotHasNoVideoToTrim', { value: String(shot.number) }))
+      }
+      const tool = tools()
+      const videoSec =
+        s.handle.assets.getMeta(take.assetHash)?.durationSec ??
+        (tool ? (await probe(tool, found.path)).durationSec : shot.durationSec)
+      // 對齊用成品的輸出幀率＝接片時第一段影片的幀率（沒有 FFmpeg 或量不到就是 24）
+      const fps = tool ? await filmFps(s.handle, tool) : 24
+      const result = resolveTrim({ current: trimOfTake(take), edit, durationSec: videoSec, fps })
+      if (!result.ok) {
+        throw invalid(
+          t('services.theTrimLeavesNothing', {
+            value: result.startSec.toFixed(3),
+            value2: result.endSec.toFixed(3),
+          }),
+        )
+      }
+      return { shotId, takeId: take.id, result, videoSec, fps }
+    },
+
+    applyTrim(plan) {
+      const s = need()
+      const { shots } = s.handle.repos
+      shots.setTakeTrim(plan.takeId, plan.result.trim)
+      changed(s)
+      const updated = shots.get(plan.shotId)
+      if (!updated) throw invalid(t('services.canTFindTheShot'))
+      const { trim: kept, startSec, endSec, lengthSec, frames, adjustments } = plan.result
+      return {
+        startSec,
+        endSec,
+        lengthSec,
+        frames,
+        adjustments,
+        ...(kept ? { trim: kept } : {}),
+        shot: view(s, updated),
+        videoSec: plan.videoSec,
+        fps: plan.fps,
+      }
+    },
+
     async rejoin() {
       const s = need()
       if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated11'))
       const { handle } = s
       if (handle.repos.shots.list().length === 0) throw invalid(t('services.thereAreNoShotsTo2'))
+      await ensureMeasured(handle)
       // 只接「放進成品」的鏡頭
       const list = cutTakes(handle)
       if (list.length === 0) throw invalid(t('services.noShotsAreIncludedIn'))
@@ -2038,10 +2166,14 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         handle,
         tools: tool,
         models,
-      }).concatVideos(refs, {
-        signal: new AbortController().signal,
-      })
+      }).concatVideos(
+        refs,
+        { signal: new AbortController().signal },
+        list.map(({ take }) => trimOfTake(take)),
+      )
       const takeIds = list.flatMap(({ take }) => (take ? [take.id] : []))
+      // 接片當下各鏡的裁切：之後裁切改了，成品就對不上（要重新接）
+      const trimKey = cutTrimKeyOf(handle)
       // 有聲音要處理就混進去：成品是混好的，接片的結果另外記著（之後只改聲音時不用重新接片）
       const mixed = await deps.mixSound?.(handle, joined, new AbortController().signal)
       const finalHash = mixed?.asset.hash ?? joined.hash
@@ -2050,6 +2182,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         finalHash,
         takeIds,
         mixed ? { baseAssetHash: joined.hash, soundKey: mixed.soundKey } : undefined,
+        trimKey,
       )
       changed(s)
       for (const listener of rejoinListeners) listener(finalHash)

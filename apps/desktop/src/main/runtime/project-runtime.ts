@@ -87,8 +87,8 @@ export function createProjectRuntime(deps: ProjectRuntimeDeps): ProjectRuntime {
   }
 
   const buildDrivers = (handle: ProjectHandle): Record<string, JobDriver> => {
-    const services = createProviderServices(handle)
     const tools = (deps.tools ?? findTools)()
+    const services = createProviderServices(handle, tools)
     // 首幀圖生完、存進素材庫之前，自動裁掉模型畫的黑邊（請求帶 trimLetterbox 才會）
     const drivers: Record<string, JobDriver> = {
       mock: createMockDriver(services, {

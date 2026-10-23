@@ -15,6 +15,8 @@ export interface FinalCut {
   baseAssetHash?: string
   /** 混音用了哪一組聲音的指紋；沒有聲音就沒有。 */
   soundKey?: string
+  /** 接片當下各鏡裁切的指紋；一鏡都沒裁（舊的成品也是）就沒有。 */
+  trimKey?: string
   createdAt: string
 }
 
@@ -24,6 +26,7 @@ export interface NewFinalCut {
   takeIds: readonly string[]
   baseAssetHash?: string | undefined
   soundKey?: string | undefined
+  trimKey?: string | undefined
 }
 
 /** 接好的成品：每接一次一個版本。 */
@@ -50,6 +53,7 @@ export class FinalCutRepository {
       takeIds: [...input.takeIds],
       ...(input.baseAssetHash === undefined ? {} : { baseAssetHash: input.baseAssetHash }),
       ...(input.soundKey === undefined ? {} : { soundKey: input.soundKey }),
+      ...(input.trimKey === undefined ? {} : { trimKey: input.trimKey }),
       createdAt: this.now().toISOString(),
     }
     this.db
@@ -63,6 +67,7 @@ export class FinalCutRepository {
         takeIds: cut.takeIds,
         baseAssetHash: cut.baseAssetHash ?? null,
         soundKey: cut.soundKey ?? null,
+        trimKey: cut.trimKey ?? null,
         createdAt: cut.createdAt,
       })
       .run()
@@ -102,6 +107,7 @@ function toFinalCut(row: typeof finalCuts.$inferSelect): FinalCut {
     takeIds: row.takeIds,
     ...(row.baseAssetHash === null ? {} : { baseAssetHash: row.baseAssetHash }),
     ...(row.soundKey === null ? {} : { soundKey: row.soundKey }),
+    ...(row.trimKey === null ? {} : { trimKey: row.trimKey }),
     createdAt: row.createdAt,
   }
 }

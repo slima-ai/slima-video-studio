@@ -64,6 +64,7 @@ export const MCP_CHANNELS = [
   'shots.cancel',
   'shots.adopt',
   'shots.rejoin',
+  'shots.trim',
   'files.list',
   'quickstart.export',
   'sound.get',

@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { ContentHashSchema, IdSchema, IsoDateTimeSchema } from './common'
 import { ShotAngleSchema, ShotSizeSchema, ShotStatusSchema, TakeKindSchema } from './story'
+import { TrimSchema } from './trim'
 
 /** 一個鏡頭的生成結果版本（首幀圖或影片）。 */
 export const TakeViewSchema = z.object({
@@ -25,6 +26,8 @@ export const TakeViewSchema = z.object({
   costEstimated: z.boolean().optional(),
   /** 這張首幀圖被自動裁掉黑邊（模型畫的黑條），畫質可能比較差，可以重新生成。 */
   letterboxTrimmed: z.boolean().optional(),
+  /** 影片版本：成品只用這支的哪一段（秒）；沒有裁就沒有這個欄位。 */
+  trim: TrimSchema.optional(),
 })
 export type TakeView = z.infer<typeof TakeViewSchema>
 
@@ -80,6 +83,8 @@ export const ShotViewSchema = z.object({
   endFrames: z.array(TakeViewSchema).optional(),
   /** 有尾幀時：現在用的影片模型接不接受尾幀（不接受就不會送，影片照舊只用首幀）。 */
   endFrameSupported: z.boolean().optional(),
+  /** 採用中的影片在成品裡佔幾秒（照裁切算）；還沒有影片就沒有這個欄位。 */
+  filmSeconds: z.number().nonnegative().optional(),
 })
 export type ShotView = z.infer<typeof ShotViewSchema>
 

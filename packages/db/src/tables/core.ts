@@ -111,6 +111,9 @@ export const takes = sqliteTable(
     nodeRunId: text('node_run_id'),
     // 生成當下的內容雜湊；舊資料是空的
     inputHash: text('input_hash'),
+    /** 成品裡只用這支影片的哪一段（秒）。空的＝整支；不是生成輸入，改了不用重跑。 */
+    trimInSec: real('trim_in_sec'),
+    trimOutSec: real('trim_out_sec'),
     createdAt: text('created_at').notNull(),
   },
   (t) => [

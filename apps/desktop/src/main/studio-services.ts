@@ -142,8 +142,8 @@ export function createStudioServices({ queue, handle, tools, models }: StudioDep
       }
     },
 
-    async concatVideos(videos, ctx): Promise<AssetRef> {
-      const paths = videos.map((v) => {
+    async concatVideos(videos, ctx, trims): Promise<AssetRef> {
+      const paths = videos.map((v, index) => {
         const found = handle.assets.find(v.hash)
         if (!found) {
           throw new AppError({
@@ -151,7 +151,10 @@ export function createStudioServices({ queue, handle, tools, models }: StudioDep
             userMessage: t('services.canTFindOneOf'),
           })
         }
-        return found.path
+        const trim = trims?.[index]
+        return trim === undefined
+          ? found.path
+          : { path: found.path, inSec: trim.inSec, outSec: trim.outSec }
       })
       const dir = await mkdtemp(join(tmpdir(), 'svs-concat-'))
       try {

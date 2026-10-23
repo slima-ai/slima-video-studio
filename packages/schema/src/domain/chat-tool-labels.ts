@@ -49,6 +49,7 @@ const LABELS: Readonly<Record<string, MessageRef>> = {
   adopt_version: msg('chat.switchToAnotherVersion'),
   view_first_frames: msg('chat.lookAtFirstFrames'),
   view_video_stills: msg('chat.lookAtVideoFrames'),
+  trim_shot: msg('chat.trimAShot'),
   assemble_film: msg('chat.assembleTheFilm'),
   export_film: msg('chat.exportMp4'),
   get_sound: msg('chat.checkTheSound'),

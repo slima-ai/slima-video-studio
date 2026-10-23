@@ -1,6 +1,6 @@
 import { AppError, t } from '@svs/schema'
 
-import { probe } from './probe'
+import { probe, type MediaInfo } from './probe'
 import { runTool, type MediaTools, type RunOptions } from './run'
 
 const BASE = ['-hide_banner', '-loglevel', 'error', '-y'] as const
@@ -58,6 +58,15 @@ export async function cropImage(
   )
 }
 
+/** 接片的一段：整支，或只用 [inSec, outSec]（沒給的那端就是頭／尾）。 */
+export interface ConcatInput {
+  path: string
+  inSec?: number | undefined
+  outSec?: number | undefined
+}
+
+const sec6 = (n: number): string => n.toFixed(6)
+
 export interface ConcatOptions extends RunOptions {
   /** 輸出解析度；沒給就用第一段的。所有片段會等比縮放並補黑邊到這個大小。 */
   width?: number
@@ -66,53 +75,93 @@ export interface ConcatOptions extends RunOptions {
 }
 
 /**
+ * 接片的濾鏡圖（一行一個濾鏡鏈）。沒裁切的片段，字串和加入裁切之前逐字相同（測試釘住，舊專案的行為不變）。
+ * 裁切的片段：畫面與聲音用同一組時間剪（用濾鏡逐格剪，不是切在關鍵格），
+ * 再補滿／截到「整數格」，每段長度＝格數／幀率，接起來不累積誤差。
+ */
+export function buildConcatFilters(
+  inputs: readonly ConcatInput[],
+  infos: readonly MediaInfo[],
+  size: { width: number; height: number; fps: number },
+): string[] {
+  const { width, height, fps } = size
+  const filters: string[] = []
+  const labels: string[] = []
+  for (const [i, input] of inputs.entries()) {
+    const info = infos[i]
+    if (info === undefined) continue
+    const scale =
+      `scale=${String(width)}:${String(height)}:force_original_aspect_ratio=decrease,` +
+      `pad=${String(width)}:${String(height)}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${String(fps)}`
+    const audioFormat = 'aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo'
+    if (input.inSec === undefined && input.outSec === undefined) {
+      filters.push(`[${String(i)}:v]${scale},format=yuv420p[v${String(i)}]`)
+      if (info.hasAudio) {
+        filters.push(`[${String(i)}:a]${audioFormat}[a${String(i)}]`)
+      } else {
+        // 沒有聲音的片段補一段同長度的靜音，concat 濾鏡才接得起來
+        filters.push(
+          `anullsrc=r=44100:cl=stereo,atrim=duration=${info.durationSec.toFixed(3)}[a${String(i)}]`,
+        )
+      }
+    } else {
+      const start = input.inSec ?? 0
+      const end = input.outSec ?? info.durationSec
+      const frames = Math.max(1, Math.round((end - start) * fps))
+      const length = frames / fps
+      filters.push(
+        `[${String(i)}:v]trim=start=${sec6(start)}:end=${sec6(end)},setpts=PTS-STARTPTS,${scale},` +
+          `tpad=stop_mode=clone:stop_duration=0.5,trim=end_frame=${String(frames)},setpts=PTS-STARTPTS,format=yuv420p[v${String(i)}]`,
+      )
+      if (info.hasAudio) {
+        filters.push(
+          `[${String(i)}:a]atrim=start=${sec6(start)}:end=${sec6(end)},asetpts=PTS-STARTPTS,${audioFormat},` +
+            `apad,atrim=duration=${sec6(length)}[a${String(i)}]`,
+        )
+      } else {
+        filters.push(`anullsrc=r=44100:cl=stereo,atrim=duration=${sec6(length)}[a${String(i)}]`)
+      }
+    }
+    labels.push(`[v${String(i)}][a${String(i)}]`)
+  }
+  filters.push(`${labels.join('')}concat=n=${String(inputs.length)}:v=1:a=1[v][a]`)
+  return filters
+}
+
+/**
  * 把多段影片接成一支。先把每段統一解析度與幀率（沒有聲音的補上靜音），
  * 再用 concat 濾鏡接起來，所以不同來源、不同大小的片段都能接。輸出 H.264 + AAC 的 MP4。
  */
 export async function concatVideos(
   tools: MediaTools,
-  inputs: readonly string[],
+  rawInputs: readonly (string | ConcatInput)[],
   output: string,
   options: ConcatOptions = {},
 ): Promise<void> {
+  const inputs = rawInputs.map((i): ConcatInput => (typeof i === 'string' ? { path: i } : i))
   const [first] = inputs
   if (first === undefined) {
     throw new AppError({ code: 'invalid_request', userMessage: t('errors.thereAreNoVideosTo') })
   }
-  const firstInfo = await probe(tools, first, options)
+  const firstInfo = await probe(tools, first.path, options)
   const width = even(options.width ?? firstInfo.width ?? 1280)
   const height = even(options.height ?? firstInfo.height ?? 720)
   const fps = options.fps ?? (firstInfo.fps ? Math.round(firstInfo.fps) : 24)
 
   const args: string[] = [...BASE]
-  const filters: string[] = []
-  const labels: string[] = []
-  for (const [i, file] of inputs.entries()) {
-    const info = await probe(tools, file, options)
+  const infos: MediaInfo[] = []
+  for (const input of inputs) {
+    const info = await probe(tools, input.path, options)
     if (!info.hasVideo) {
       throw new AppError({
         code: 'invalid_request',
         userMessage: t('errors.oneOfTheFilesHas'),
       })
     }
-    args.push('-i', file)
-    filters.push(
-      `[${String(i)}:v]scale=${String(width)}:${String(height)}:force_original_aspect_ratio=decrease,` +
-        `pad=${String(width)}:${String(height)}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${String(fps)},format=yuv420p[v${String(i)}]`,
-    )
-    if (info.hasAudio) {
-      filters.push(
-        `[${String(i)}:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo[a${String(i)}]`,
-      )
-    } else {
-      // 沒有聲音的片段補一段同長度的靜音，concat 濾鏡才接得起來
-      filters.push(
-        `anullsrc=r=44100:cl=stereo,atrim=duration=${info.durationSec.toFixed(3)}[a${String(i)}]`,
-      )
-    }
-    labels.push(`[v${String(i)}][a${String(i)}]`)
+    args.push('-i', input.path)
+    infos.push(info)
   }
-  filters.push(`${labels.join('')}concat=n=${String(inputs.length)}:v=1:a=1[v][a]`)
+  const filters = buildConcatFilters(inputs, infos, { width, height, fps })
   args.push(
     '-filter_complex',
     filters.join(';'),
@@ -120,6 +169,9 @@ export async function concatVideos(
     '[v]',
     '-map',
     '[a]',
+    // 明確指定輸出幀率：concat 濾鏡的輸出沒有幀率資訊時，FFmpeg 7 會退回預設的 25 fps 重新取樣（多出 4% 的格）
+    '-r',
+    String(fps),
     '-c:v',
     'libx264',
     '-preset',

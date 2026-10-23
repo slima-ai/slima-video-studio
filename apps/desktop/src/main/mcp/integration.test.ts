@@ -419,6 +419,7 @@ describe('工具', () => {
       'split_scene_into_shots',
       'split_story_into_scenes',
       'suggest_character_anchor',
+      'trim_shot',
       'undo',
       'update_character',
       'update_shot',
