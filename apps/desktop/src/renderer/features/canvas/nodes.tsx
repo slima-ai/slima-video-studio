@@ -220,7 +220,7 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
       <button
         type="button"
         aria-label={`${status === 'failed' ? '重試' : '執行'}：${data.title}`}
-        data-tip={tipText ? `${runTipOf(data)}・${tipText}` : runTipOf(data)}
+        data-tip={tipText ? `${runTipOf(data)}${t('list.dot')}${tipText}` : runTipOf(data)}
         data-testid={`run-${id}`}
         className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"
         onPointerEnter={() => {
@@ -948,7 +948,7 @@ function RefsStep({
             <li
               key={`${ref.assetHash ?? ref.name}-${String(index)}`}
               className="w-11 shrink-0 text-center text-[10px] leading-3 text-fg-muted"
-              title={`${ref.name}${ref.purpose ? `・${ref.purpose}` : ''}`}
+              title={`${ref.name}${ref.purpose ? `${t('list.dot')}${ref.purpose}` : ''}`}
             >
               <span
                 className="block aspect-square w-full rounded border border-border bg-surface-overlay"

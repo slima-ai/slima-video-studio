@@ -258,3 +258,8 @@ html.theme-changing *::after {
 html[lang='en'] [data-testid='node-io'] {
   font-size: 10px;
 }
+
+/* 一句話卡片的尺寸固定：字比繁中長的語言，故事輸入框不能被下面那排壓扁（繁中的版面維持原樣） */
+html:not([lang='zh-Hant']) .oneliner-story-field {
+  min-height: min-content;
+}

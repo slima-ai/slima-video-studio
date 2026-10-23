@@ -37,6 +37,7 @@ import {
   type TakeView,
   type Workflow,
   t,
+  displayNameOf,
 } from '@svs/schema'
 import {
   STUDIO_SERVICE_KEY,
@@ -1038,7 +1039,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const image = settingsService.resolveModel('t2i', quality)
     const video = settingsService.resolveModel('i2v', quality)
     const nameOf = (id: string | undefined): string | undefined =>
-      id ? (models.get(id)?.displayName ?? id) : undefined
+      id ? displayNameOf(models.get(id), id) : undefined
     const imageName = nameOf(image)
     const videoName = nameOf(video)
     return {

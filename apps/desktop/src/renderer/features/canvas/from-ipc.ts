@@ -91,7 +91,7 @@ function toNode(n: IpcNode): CanvasNode {
     footer:
       n.version === undefined
         ? undefined
-        : `v${String(n.version)}${n.modelId === undefined ? '' : `・${n.modelName ?? n.modelId}`}`,
+        : `v${String(n.version)}${n.modelId === undefined ? '' : `${t('list.dot')}${n.modelName ?? n.modelId}`}`,
   }
   if (kind === 'scene') {
     return {

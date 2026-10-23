@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test'
+import { pseudoLocalize } from '@svs/schema'
 
 import { canvasNodes, centerOn, kindCount } from './canvas-helpers'
 import { expect, test } from './fixtures'
@@ -11,11 +12,6 @@ const NOT_YET = [
   '修改一句話',
   '一句話生成',
   '執行：',
-  '示範文字',
-  '示範圖片',
-  '示範影片',
-  '示範配音',
-  '示範配樂',
   // 示範模式的 AI 拆出來的鏡頭標題（providers 的示範驅動）與景別、角度的名稱（schema 的標籤）
   '開場',
   '結尾',
@@ -106,7 +102,8 @@ test.describe('英文介面的畫布', () => {
         }
       }
       return {
-        storyHeight: story ? Math.round(story.height) : 0,
+        storyHeight:
+          document.querySelector<HTMLElement>('[data-testid="oneliner-story"]')?.offsetHeight ?? 0,
         storyBottom: story?.bottom ?? 0,
         rowTops: rows.map((r) => r?.top ?? 0),
         lastBottom: lowest,
@@ -188,5 +185,33 @@ test.describe('英文介面的畫布', () => {
       'On a Mac, use Cmd instead of Ctrl.',
     )
     expect(await visibleBadText(page), '快捷鍵').toBeUndefined()
+  })
+})
+
+test.describe('假語系（字比英文更長）的畫布', () => {
+  test.use({ appEnv: { SVS_LOCALE: 'en-XA' } })
+
+  test('一句話卡片：字再長，故事輸入框也不被下面那排壓扁、蓋住', async ({ page }) => {
+    await page
+      .getByRole('button', { name: pseudoLocalize('Canvas'), exact: true })
+      .first()
+      .click()
+    await page.getByTestId('empty-add-oneliner').click()
+    await page.getByTestId('oneliner-story').fill('A cat finds a warm home on a rainy night')
+    await page.getByTestId('oneliner-story').blur()
+    const box = async (id: string) => page.getByTestId(id).boundingBox()
+    const story = await box('oneliner-story')
+    expect(story, '故事輸入框').not.toBeNull()
+    // 畫布縮放過的話量到的高度會跟著縮，所以看排版的高度（offsetHeight）
+    const layoutHeight = await page
+      .getByTestId('oneliner-story')
+      .evaluate((el) => (el as HTMLElement).offsetHeight)
+    expect(layoutHeight, '故事輸入框被壓扁').toBeGreaterThanOrEqual(60)
+    for (const id of ['oneliner-style', 'oneliner-shots', 'oneliner-duration', 'oneliner-aspect']) {
+      const row = await box(id)
+      expect(row?.y ?? 0, `故事輸入框和 ${id} 重疊`).toBeGreaterThanOrEqual(
+        (story?.y ?? 0) + (story?.height ?? 0),
+      )
+    }
   })
 })

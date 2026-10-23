@@ -23,6 +23,8 @@ import {
   type CanvasUpdateOneliner,
   type CanvasViewport,
   t,
+  cardNameOf,
+  displayNameOf,
 } from '@svs/schema'
 
 import { createReadStream } from 'node:fs'
@@ -200,7 +202,7 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
         image?.type === NODE_TYPES.fixedImage
           ? t('canvas.useTheConnectedPictureNot')
           : image?.modelId
-            ? (deps.models?.get(image.modelId)?.displayName ?? image.modelId)
+            ? displayNameOf(deps.models?.get(image.modelId), image.modelId)
             : t('canvas.noImageModelChosenYet')
       result.set(view.id, {
         prompt: view.prompt ?? view.autoPrompt,
@@ -309,7 +311,7 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
             const name =
               take.modelId === UPLOAD_MODEL
                 ? t('canvas.connectedPicture')
-                : deps.models?.get(take.modelId)?.displayName
+                : cardNameOf(deps.models?.get(take.modelId))
             return name === undefined ? [] : [[take.modelId, name] as const]
           }),
         ),

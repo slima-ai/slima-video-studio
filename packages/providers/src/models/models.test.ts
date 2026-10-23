@@ -6,7 +6,9 @@ import {
   DEFAULT_LOCALE,
   ModelSpecSchema,
   billableChars,
+  cardNameOf,
   cardText,
+  displayNameOf,
   setLocale,
   type ModelCard,
 } from '@svs/schema'
@@ -530,6 +532,21 @@ describe('模型卡的英文介面文字', () => {
       expect(cardText(card).userNote).toBe('For demos. No internet, no cost')
       const plain = { ...card, en: undefined }
       expect(cardText(plain).displayName).toBe('示範文字')
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
+  })
+
+  it('displayNameOf／cardNameOf：確認視窗的「用了哪個模型」跟著介面語言；查不到的卡退回 id（或 undefined）', () => {
+    const card = cards.find((c) => c.id === 'mock/llm')
+    if (!card) throw new Error('沒有示範文字模型')
+    try {
+      expect(displayNameOf(card, card.id)).toBe('示範文字')
+      setLocale('en')
+      expect(displayNameOf(card, card.id)).toBe('Demo text')
+      expect(cardNameOf(card)).toBe('Demo text')
+      expect(displayNameOf(undefined, 'gone/model')).toBe('gone/model')
+      expect(cardNameOf(undefined)).toBeUndefined()
     } finally {
       setLocale(DEFAULT_LOCALE)
     }

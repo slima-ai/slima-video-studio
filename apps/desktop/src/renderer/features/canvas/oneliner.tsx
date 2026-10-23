@@ -85,7 +85,7 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
   }
   return (
     <>
-      <label className="lod-full flex flex-1 flex-col gap-0.5">
+      <label className="oneliner-story-field lod-full flex min-h-0 flex-1 flex-col gap-0.5">
         <span className={FIELD_LABEL}>{t('canvas.story')}</span>
         <textarea
           data-testid="oneliner-story"
