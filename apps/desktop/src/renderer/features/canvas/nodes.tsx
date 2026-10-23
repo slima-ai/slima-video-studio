@@ -1,4 +1,4 @@
-import type { ShotReferencesState } from '@svs/schema'
+import { t, type ShotReferencesState } from '@svs/schema'
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import { ChevronDown, ChevronRight, Lock, Sparkles, Trash2 } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
@@ -305,10 +305,24 @@ function IoLine({ id, data, bottom }: { id: string; data: CanvasNodeData; bottom
   // 影片還吃「動作」（有寫才亮）與「尾幀」（有指定才列出）：它們不是連接點，只是這一格吃的東西
   const pseudo = new Set<string>()
   if (data.kind === 'video') {
-    eat.push({ id: 'vid-action', side: 'in', tone: 'main', type: 'shot', label: '動作', top: 0 })
+    eat.push({
+      id: 'vid-action',
+      side: 'in',
+      tone: 'main',
+      type: 'shot',
+      label: t('endFrame.card.action'),
+      top: 0,
+    })
     pseudo.add('vid-action')
     if (data.hasEndFrame === true) {
-      eat.push({ id: 'vid-end', side: 'in', tone: 'main', type: 'image', label: '尾幀', top: 0 })
+      eat.push({
+        id: 'vid-end',
+        side: 'in',
+        tone: 'main',
+        type: 'image',
+        label: t('endFrame.card.endFrame'),
+        top: 0,
+      })
       pseudo.add('vid-end')
     }
   }
@@ -448,14 +462,14 @@ function Thumb({ data, ghost }: { data: CanvasNodeData; ghost: boolean }) {
           className="relative aspect-video min-w-0 flex-1 rounded-md bg-surface-overlay"
           style={{ background: data.thumb }}
         >
-          {tag('首')}
+          {tag(t('endFrame.card.first'))}
         </div>
         <div
           data-testid="end-frame-thumb"
           className="relative aspect-video min-w-0 flex-1 rounded-md bg-surface-overlay"
           style={{ background: data.endThumb }}
         >
-          {tag('尾')}
+          {tag(t('endFrame.card.end'))}
         </div>
       </div>
     )

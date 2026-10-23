@@ -35,6 +35,7 @@ import {
   type TakeKind,
   type TakeView,
   type Workflow,
+  t,
 } from '@svs/schema'
 import {
   STUDIO_SERVICE_KEY,
@@ -1335,12 +1336,12 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       const s = need()
       const { shots } = s.handle.repos
       const shot = shots.get(shotId)
-      if (!shot) throw invalid('找不到這個鏡頭，可能已經被刪掉了。')
+      if (!shot) throw invalid(t('endFrame.error.noShot'))
       if (assetHash !== undefined && !s.handle.assets.getMeta(assetHash)) {
-        throw invalid('專案裡找不到這張圖（只能用專案裡已有的圖）。')
+        throw invalid(t('endFrame.error.noImage'))
       }
       if (assetHash !== undefined && s.handle.assets.getMeta(assetHash)?.kind !== 'image') {
-        throw invalid('尾幀要是一張圖片。')
+        throw invalid(t('endFrame.error.notImage'))
       }
       // 同一鏡只有一張尾幀：先拿掉舊的
       for (const take of shots.listTakes(shotId, 'last_frame')) shots.deleteTake(take.id)
@@ -1356,7 +1357,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       }
       changed(s)
       const fresh = shots.get(shotId)
-      if (!fresh) throw invalid('找不到這個鏡頭，可能已經被刪掉了。')
+      if (!fresh) throw invalid(t('endFrame.error.noShot'))
       return view(s, fresh)
     },
 

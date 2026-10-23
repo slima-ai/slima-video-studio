@@ -1,4 +1,4 @@
-import { cameraMoveById, type Take } from '@svs/schema'
+import { cameraMoveById, setLocale, type Take } from '@svs/schema'
 import { QUICK_STYLES } from '@svs/workflows'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -380,6 +380,20 @@ describe('shots.regenerate', { timeout: 30_000 }, () => {
       expect(() => shots.setEndFrame('nope', first.firstFrames[0]?.assetHash)).toThrow(
         /找不到這個鏡頭/,
       )
+    })
+
+    it('英文介面：錯誤說明是英文，不會露出中文', async () => {
+      const { shots, runQuickStart } = setup()
+      await runQuickStart()
+      const [first] = shots.list().shots
+      if (!first) throw new Error('沒有鏡頭')
+      setLocale('en')
+      try {
+        expect(() => shots.setEndFrame(first.id, 'f'.repeat(64))).toThrow(/Can't find that picture/)
+        expect(() => shots.setEndFrame('nope', undefined)).toThrow(/Can't find this shot/)
+      } finally {
+        setLocale('zh-TW')
+      }
     })
 
     it('換一張尾幀：只留新的那張（不累積舊版本）；複製鏡頭不帶尾幀', async () => {

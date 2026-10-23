@@ -1,0 +1,15 @@
+export const endFrame = {
+  'endFrame.card.first': '首',
+  'endFrame.card.end': '尾',
+  'endFrame.card.action': '動作',
+  'endFrame.card.endFrame': '尾幀',
+  'endFrame.history.set': '指定尾幀',
+  'endFrame.history.clear': '拿掉尾幀',
+  'endFrame.error.noShot': '找不到這個鏡頭，可能已經被刪掉了。',
+  'endFrame.error.noImage': '專案裡找不到這張圖（只能用專案裡已有的圖）。',
+  'endFrame.error.notImage': '尾幀要是一張圖片。',
+  'endFrame.tool.set.done': '指定鏡頭的尾幀',
+  'endFrame.tool.set.doing': '正在指定鏡頭的尾幀…',
+  'endFrame.tool.clear.done': '拿掉鏡頭的尾幀',
+  'endFrame.tool.clear.doing': '正在拿掉鏡頭的尾幀…',
+} as const

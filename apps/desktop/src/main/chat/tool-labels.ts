@@ -1,3 +1,5 @@
+import { msg, t, type MessageRef } from '@svs/schema'
+
 import { SERVER_NAME } from '../mcp/connect'
 
 /** Claude 看到的工具名前綴：`mcp__<伺服器名>__<工具名>`。 */
@@ -30,8 +32,6 @@ const LABELS: Readonly<Record<string, string>> = {
   get_shot: '查看鏡頭',
   get_shot_references: '查看鏡頭用哪些參考圖',
   set_shot_references: '指定鏡頭的參考圖',
-  set_shot_end_frame: '指定鏡頭的尾幀',
-  clear_shot_end_frame: '拿掉鏡頭的尾幀',
   create_shot: '建立鏡頭',
   update_shot: '修改鏡頭',
   delete_shots: '刪除鏡頭',
@@ -73,16 +73,32 @@ const LABELS: Readonly<Record<string, string>> = {
   redo: '重做（取消剛才的復原）',
 }
 
+/** 已經換成 t() 的工具（做完與進行中各一句；英文語序不同，不能用「正在」＋名稱拼）。 */
+const TRANSLATED_LABELS: Record<string, { done: MessageRef; doing: MessageRef }> = {
+  set_shot_end_frame: {
+    done: msg('endFrame.tool.set.done'),
+    doing: msg('endFrame.tool.set.doing'),
+  },
+  clear_shot_end_frame: {
+    done: msg('endFrame.tool.clear.done'),
+    doing: msg('endFrame.tool.clear.doing'),
+  },
+}
+
 /** 有沒有白話對照（測試用：每個 MCP 工具都要有）。 */
-export const hasToolLabel = (tool: string): boolean => tool in LABELS
+export const hasToolLabel = (tool: string): boolean => tool in LABELS || tool in TRANSLATED_LABELS
 
 /** 做完或要列在清單上的樣子：「建立鏡頭」。 */
 export function toolLabel(tool: string): string {
+  const translated = TRANSLATED_LABELS[tool]
+  if (translated) return t(translated.done)
   return LABELS[tool] ?? '做了一個步驟'
 }
 
 /** 進行中的樣子：「正在建立鏡頭…」。 */
 export function toolDoingLabel(tool: string): string {
+  const translated = TRANSLATED_LABELS[tool]
+  if (translated) return t(translated.doing)
   const known = LABELS[tool]
   return known === undefined ? '正在做一個步驟…' : `正在${known}…`
 }

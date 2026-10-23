@@ -1,5 +1,5 @@
 import type { ProjectLibrary } from '../project-library'
-import { AppError, KEY_PROVIDERS, QUICK_STYLE_IDS, getLocale, type McpStatus } from '@svs/schema'
+import { AppError, KEY_PROVIDERS, QUICK_STYLE_IDS, getLocale, t, type McpStatus } from '@svs/schema'
 
 import type { HistoryService } from '../history/history-service'
 import { addLabel, outlineLabel, shotEditLabel } from '../history/history-service'
@@ -614,7 +614,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
 
   registry.registerHandler('shots.references', ({ shotId }) => shots.references(shotId))
   registry.registerHandler('shots.setEndFrame', ({ shotId, assetHash }) =>
-    history.record(assetHash === null ? '拿掉尾幀' : '指定尾幀', () =>
+    history.record(t(assetHash === null ? 'endFrame.history.clear' : 'endFrame.history.set'), () =>
       shots.setEndFrame(shotId, assetHash ?? undefined),
     ),
   )
