@@ -73,15 +73,26 @@ function dictionaryFor(locale: Locale): Readonly<Record<string, string>> {
   return locale === 'zh-TW' ? zhTW : en
 }
 
-function lookup(locale: Locale, key: string, count: number | undefined): string {
-  const dict = dictionaryFor(locale)
+type Dictionary = Readonly<Partial<Record<string, string>>>
+
+/**
+ * 在一份字串檔裡找訊息：有 `count` 就依該語言的單複數規則挑 `key_one`／`key_other`；
+ * 找不到就退回 `fallback`（中文原文），最後才是 key 本身——畫面上不會出現 key。
+ * （匯出只是為了單元測試；平常用 `t()`。）
+ */
+export function lookupMessage(
+  dict: Dictionary,
+  tag: string,
+  key: string,
+  count: number | undefined,
+  fallback: Dictionary = {},
+): string {
   if (count !== undefined) {
-    const form = new Intl.PluralRules(intlTag(locale)).select(count)
+    const form = new Intl.PluralRules(tag).select(count)
     const plural = dict[`${key}_${form}`] ?? dict[`${key}_other`]
     if (plural !== undefined) return plural
   }
-  // 找不到就退回中文原文，畫面上不會出現 key 本身
-  return dict[key] ?? (zhTW as Readonly<Partial<Record<string, string>>>)[key] ?? key
+  return dict[key] ?? fallback[key] ?? key
 }
 
 function interpolate(template: string, params: Readonly<Record<string, string | number>>): string {
@@ -99,7 +110,8 @@ export function t(keyOrRef: MessageKey | MessageRef, ...args: unknown[]): string
   const locale = getLocale()
   const params = (args[0] ?? {}) as Readonly<Record<string, string | number>>
   const count = typeof params.count === 'number' ? params.count : undefined
-  const raw = lookup(locale === 'en-XA' ? 'en' : locale, key, count)
+  const lookupLocale = locale === 'en-XA' ? 'en' : locale
+  const raw = lookupMessage(dictionaryFor(lookupLocale), intlTag(lookupLocale), key, count, zhTW)
   // 假語系先換字再插值：{參數} 與傳進來的值（專案名、數字）都原樣保留
   return interpolate(locale === 'en-XA' ? pseudoLocalize(raw) : raw, params)
 }

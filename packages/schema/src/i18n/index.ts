@@ -2,6 +2,7 @@ export * from './locale'
 export {
   formatDate,
   formatNumber,
+  lookupMessage,
   msg,
   pseudoLocalize,
   t,

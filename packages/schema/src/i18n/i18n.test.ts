@@ -11,7 +11,7 @@ import {
 } from './locale'
 import { en } from './locales/en'
 import { zhTW } from './locales/zh-TW'
-import { formatDate, formatNumber, msg, pseudoLocalize, t } from './t'
+import { formatDate, formatNumber, lookupMessage, msg, pseudoLocalize, t } from './t'
 
 afterEach(() => {
   setLocale(DEFAULT_LOCALE)
@@ -30,11 +30,23 @@ describe('t()：換語言、插值、單複數', () => {
     expect(t('menu.save')).toBe('Save')
   })
 
-  it('單複數：英文用 _one／_other（Intl.PluralRules），中文只有 _other', () => {
-    // 測試用的字串檔沒有單複數的訊息，這裡直接驗 PluralRules 的行為，單複數的 key 之後第一次出現時再補實際訊息
-    expect(new Intl.PluralRules('en-US').select(1)).toBe('one')
-    expect(new Intl.PluralRules('en-US').select(2)).toBe('other')
-    expect(new Intl.PluralRules('zh-TW').select(1)).toBe('other')
+  it('單複數：英文用 _one／_other 挑字尾，中文只有 _other；沒有那個字尾就退回 _other', () => {
+    const dict = { items_one: '{count} item', items_other: '{count} items', plain: 'Plain' }
+    expect(lookupMessage(dict, 'en-US', 'items', 1)).toBe('{count} item')
+    expect(lookupMessage(dict, 'en-US', 'items', 2)).toBe('{count} items')
+    expect(lookupMessage(dict, 'en-US', 'items', 0)).toBe('{count} items')
+    // 中文的單複數規則只有 other
+    expect(lookupMessage({ items_other: '{count} 個' }, 'zh-TW', 'items', 1)).toBe('{count} 個')
+    // 只有 _other 時，英文的 1 也退回 _other
+    expect(lookupMessage({ items_other: '{count} items' }, 'en-US', 'items', 1)).toBe(
+      '{count} items',
+    )
+  })
+
+  it('找不到的 key：先退回中文原文，再不行才是 key 本身（畫面上不會出現 key）', () => {
+    expect(lookupMessage({}, 'en-US', 'a', undefined, { a: '中文' })).toBe('中文')
+    expect(lookupMessage({}, 'en-US', 'a', undefined)).toBe('a')
+    expect(lookupMessage({ a: 'x' }, 'en-US', 'a', undefined, { a: '中文' })).toBe('x')
   })
 
   it('假語系：英文拉長、加括號、{參數}原樣保留', () => {
