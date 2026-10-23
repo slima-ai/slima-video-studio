@@ -2,6 +2,9 @@
   "key": "claude-opus-5.5",
   "displayName": "Claude Opus 5.5",
   "userNote": "文字模型，價格較高的一檔",
+  "en": {
+    "userNote": "A text model at a higher price"
+  },
   "attribution": "Story and prompts assisted by Claude (Anthropic)",
   "tasks": ["llm"],
   "tier": "premium",

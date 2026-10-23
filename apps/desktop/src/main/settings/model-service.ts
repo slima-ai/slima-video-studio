@@ -1,6 +1,7 @@
 import {
   AppError,
   PICKABLE_CAPABILITIES,
+  cardText,
   type AppSettings,
   type AppSettingsPatch,
   type ModelCard,
@@ -130,9 +131,9 @@ export function createSettingsService(deps: {
       deps.project?.set({ ...project.models, [capability]: next.id })
       notify(
         t('settings.wasRetiredInThisProject', {
-          displayName: gone.displayName,
+          displayName: cardText(gone).displayName,
           value: t(USE_LABEL[capability]),
-          displayName2: next.displayName,
+          displayName2: cardText(next).displayName,
         }),
       )
     })
@@ -144,9 +145,9 @@ export function createSettingsService(deps: {
       store.update({ models: { [capability]: next.id } })
       notify(
         t('settings.wasRetiredNowUsesYou', {
-          displayName: gone.displayName,
+          displayName: cardText(gone).displayName,
           value: t(USE_LABEL[capability]),
-          displayName2: next.displayName,
+          displayName2: cardText(next).displayName,
         }),
       )
     })

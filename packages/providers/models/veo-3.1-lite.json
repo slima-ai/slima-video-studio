@@ -2,6 +2,10 @@
   "key": "veo-3.1-lite",
   "displayName": "Veo 3.1 Lite",
   "userNote": "草稿與預覽用，價格低",
+  "en": {
+    "userNote": "For drafts and previews; low price",
+    "badges": ["Sound", "Draft"]
+  },
   "attribution": "Video generated with Google Veo",
   "tasks": ["t2v", "i2v"],
   "tier": "budget",

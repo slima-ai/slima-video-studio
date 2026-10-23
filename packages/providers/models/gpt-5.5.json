@@ -2,6 +2,9 @@
   "key": "gpt-5.5",
   "displayName": "GPT-5.5",
   "userNote": "想讓 GPT 主導分鏡時選它",
+  "en": {
+    "userNote": "Pick it when you want GPT to lead the storyboard"
+  },
   "attribution": "Story and prompts assisted by GPT (OpenAI)",
   "tasks": ["llm"],
   "tier": "premium",

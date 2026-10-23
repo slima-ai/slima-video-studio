@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { AppError } from '../errors'
 import { UsdSchema } from './common'
-import { t } from '../i18n'
+import { getLocale, t } from '../i18n'
 
 /** 模型能提供的能力。一個模型可以有多個（例如 Kling 同時有文生影片與圖生影片）。 */
 export const CapabilitySchema = z.enum([
@@ -124,6 +124,8 @@ export type ImageApi = z.infer<typeof ImageApiSchema>
 export const VoiceSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
+  /** 英文介面顯示的名稱；沒填就用 `label`。 */
+  labelEn: z.string().min(1).optional(),
   language: z.enum(['zh', 'en', 'any']).default('any'),
 })
 export type Voice = z.infer<typeof VoiceSchema>
@@ -133,6 +135,17 @@ const PromptHintSchema = z.object({
   language: z.enum(['en', 'zh', 'any']).default('any'),
   hint: z.string().optional(),
 })
+
+/**
+ * 給英文介面看的版本（顯示名稱、一句白話說明、選單小標籤）。檔案裡的主要欄位是繁體中文，
+ * 切到英文時用這一份；沒填的欄位就用原本的。
+ */
+export const ModelTextEnSchema = z.object({
+  displayName: z.string().min(1).optional(),
+  userNote: z.string().optional(),
+  badges: z.array(z.string().min(1)).optional(),
+})
+export type ModelTextEn = z.infer<typeof ModelTextEnSchema>
 
 /**
  * 執行用的 ModelCard：一個模型在**一家供應商**上的樣子（一個管道）。
@@ -151,6 +164,8 @@ export const ModelCardSchema = z
     badges: z.array(z.string().min(1)).default([]),
     /** 給使用者看的一句白話說明（設定頁顯示）；工程備註（實測日期、查無的條款）寫在 notes，不給使用者看。 */
     userNote: z.string().optional(),
+    /** 英文介面用的顯示名稱、說明與小標籤（見 `ModelTextEnSchema`）。 */
+    en: ModelTextEnSchema.optional(),
     /** 匯出時片尾字卡上的標註（英文一行），例如「Video generated with Kling AI」；示範模型沒有。 */
     attribution: z.string().optional(),
     /** 授權說明，例如「可商用」。 */
@@ -317,6 +332,8 @@ export const ModelSpecSchema = z
     badges: z.array(z.string().min(1)).default([]),
     /** 給使用者看的一句白話說明（設定頁顯示）；工程備註寫在 notes。 */
     userNote: z.string().optional(),
+    /** 英文介面用的顯示名稱、說明與小標籤（見 `ModelTextEnSchema`）。 */
+    en: ModelTextEnSchema.optional(),
     /** 匯出時片尾字卡上的標註（英文一行）；沒有就不列。 */
     attribution: z.string().optional(),
     status: ModelStatusSchema.default('active'),
@@ -373,6 +390,7 @@ export function expandModelSpec(spec: ModelSpec): ModelCard[] {
       provider: channel.provider,
       model: spec.key,
       badges: spec.badges,
+      ...(spec.en === undefined ? {} : { en: spec.en }),
       ...(spec.attribution === undefined ? {} : { attribution: spec.attribution }),
       ...((channel.userNote ?? spec.userNote) === undefined
         ? {}
@@ -493,3 +511,26 @@ export const KEY_PROVIDERS = [
   { id: 'fal', name: 'fal.ai', keyUrl: 'https://fal.ai/dashboard/keys' },
   { id: 'openrouter', name: 'OpenRouter', keyUrl: 'https://openrouter.ai/keys' },
 ] as const
+
+/** 目前介面語言要顯示的名稱、說明、小標籤與聲音名稱（英文介面優先用 `en`，沒填的欄位退回主要欄位）。 */
+export function cardText(card: ModelCard): {
+  displayName: string
+  userNote: string | undefined
+  badges: string[]
+  voices: Voice[]
+} {
+  if (getLocale() === 'zh-TW') {
+    return {
+      displayName: card.displayName,
+      userNote: card.userNote,
+      badges: card.badges,
+      voices: card.voices,
+    }
+  }
+  return {
+    displayName: card.en?.displayName ?? card.displayName,
+    userNote: card.en?.userNote ?? card.userNote,
+    badges: card.en?.badges ?? card.badges,
+    voices: card.voices.map((v) => (v.labelEn === undefined ? v : { ...v, label: v.labelEn })),
+  }
+}

@@ -2,6 +2,10 @@
   "key": "kling-3.0-pro",
   "displayName": "Kling 3.0 Pro",
   "userNote": "寫實風格的影片，有聲音",
+  "en": {
+    "userNote": "Realistic-style video with sound",
+    "badges": ["Sound"]
+  },
   "attribution": "Video generated with Kling AI",
   "tasks": ["t2v", "i2v"],
   "tier": "premium",

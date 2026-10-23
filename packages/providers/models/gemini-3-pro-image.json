@@ -2,6 +2,10 @@
   "key": "gemini-3-pro-image",
   "displayName": "Gemini 3 Pro Image",
   "userNote": "能參考多張圖的圖片模型",
+  "en": {
+    "userNote": "An image model that can use several reference pictures",
+    "badges": ["Many references"]
+  },
   "attribution": "Images generated with Google Gemini",
   "tasks": ["t2i", "edit"],
   "tier": "premium",

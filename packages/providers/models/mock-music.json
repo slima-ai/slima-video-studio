@@ -2,6 +2,10 @@
   "key": "mock-music",
   "displayName": "示範配樂",
   "userNote": "示範用，不連網、不花錢",
+  "en": {
+    "displayName": "Demo music",
+    "userNote": "For demos. No internet, no cost"
+  },
   "tasks": ["music"],
   "tier": "balanced",
   "recommended": true,

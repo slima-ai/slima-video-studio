@@ -2,6 +2,10 @@
   "key": "seedream-5.0",
   "displayName": "Seedream 5.0 Lite",
   "userNote": "價格低，適合大量出圖",
+  "en": {
+    "userNote": "Low price, good for lots of pictures",
+    "badges": ["Low cost"]
+  },
   "attribution": "Images generated with Seedream (ByteDance)",
   "tasks": ["t2i", "edit"],
   "tier": "budget",

@@ -2,6 +2,10 @@
   "key": "nano-banana-2",
   "displayName": "Nano Banana 2",
   "userNote": "畫角色與分鏡的預設圖片模型",
+  "en": {
+    "userNote": "The default image model for characters and storyboards",
+    "badges": ["Many references"]
+  },
   "attribution": "Images generated with Nano Banana (Google)",
   "tasks": ["t2i", "edit"],
   "tier": "balanced",

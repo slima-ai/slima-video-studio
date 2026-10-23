@@ -2,6 +2,10 @@
   "key": "eleven-v3",
   "displayName": "ElevenLabs Eleven v3",
   "userNote": "備案旁白，支援很多語言",
+  "en": {
+    "userNote": "A backup narration model that supports many languages",
+    "badges": ["Multilingual narration"]
+  },
   "attribution": "Voice by ElevenLabs",
   "tasks": ["tts"],
   "tier": "premium",
@@ -20,7 +24,14 @@
         "unit": "million_chars",
         "usd": 40
       },
-      "voices": [{ "id": "Adam", "label": "Adam（男聲）", "language": "any" }],
+      "voices": [
+        {
+          "id": "Adam",
+          "label": "Adam（男聲）",
+          "language": "any",
+          "labelEn": "Adam (male)"
+        }
+      ],
       "verification": {
         "endpoint": true,
         "pricing": false,

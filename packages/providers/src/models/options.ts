@@ -1,4 +1,11 @@
-import { KEY_PROVIDERS, type ModelCard, type ModelOption, type Pricing, t } from '@svs/schema'
+import {
+  KEY_PROVIDERS,
+  cardText,
+  type ModelCard,
+  type ModelOption,
+  type Pricing,
+  t,
+} from '@svs/schema'
 
 const usd = (n: number): string => `US$${String(Number(n.toFixed(4)))}`
 
@@ -92,6 +99,7 @@ export function toModelOption(
   card: ModelCard,
   channels: readonly ModelCard[] = [card],
 ): ModelOption {
+  const text = cardText(card)
   // 依字元計價、而且漢字算多個單位的模型（MiniMax 是 2）：顯示中文旁白實際的價格，不要低估
   const pricing: Pricing =
     card.pricing.unit === 'million_chars' && card.cjkCharWeight !== undefined
@@ -99,7 +107,7 @@ export function toModelOption(
       : card.pricing
   return {
     id: card.id,
-    displayName: card.displayName,
+    displayName: text.displayName,
     provider: card.provider,
     providerName: providerName(card.provider),
     capabilities: card.capabilities,
@@ -109,13 +117,13 @@ export function toModelOption(
       card.provider === 'mock' ? t('settings.freeDemoNothingIsCharged') : priceLabel(pricing),
     priceShort: card.provider === 'mock' ? t('settings.freeDemo') : priceShort(pricing),
     priceVerified: card.verification.pricing || card.provider === 'mock',
-    badges: card.badges,
-    voices: card.voices,
+    badges: text.badges,
+    voices: text.voices,
     otherChannels: channels
       .filter((c) => c.provider !== card.provider)
       .map((c) => providerName(c.provider)),
     ...(card.notes ? { notes: card.notes } : {}),
-    ...(card.userNote ? { userNote: card.userNote } : {}),
+    ...(text.userNote ? { userNote: text.userNote } : {}),
     ...(card.negativePrompt ? { negativePromptDefault: card.negativePrompt.default } : {}),
   }
 }

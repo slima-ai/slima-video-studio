@@ -2,6 +2,10 @@
   "key": "mock-tts",
   "displayName": "示範配音",
   "userNote": "示範用，不連網、不花錢",
+  "en": {
+    "displayName": "Demo narration",
+    "userNote": "For demos. No internet, no cost"
+  },
   "tasks": ["tts"],
   "tier": "balanced",
   "recommended": true,
