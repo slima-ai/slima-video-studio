@@ -1,5 +1,6 @@
 export const endFrame = {
   'endFrame.card.first': 'First',
+  'endFrame.card.firstShort': 'First',
   'endFrame.card.end': 'End',
   'endFrame.card.action': 'Action',
   'endFrame.card.endFrame': 'End frame',

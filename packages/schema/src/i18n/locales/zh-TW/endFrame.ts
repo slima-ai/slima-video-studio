@@ -1,5 +1,6 @@
 export const endFrame = {
   'endFrame.card.first': '首',
+  'endFrame.card.firstShort': '首幀',
   'endFrame.card.end': '尾',
   'endFrame.card.action': '動作',
   'endFrame.card.endFrame': '尾幀',

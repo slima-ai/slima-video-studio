@@ -302,6 +302,12 @@ function IoLine({ id, data, bottom }: { id: string; data: CanvasNodeData; bottom
   const connected = useConnectedPorts()
   const ports = portsOf(data)
   const eat = ports.filter((port) => port.side === 'in')
+  // 影片有指定尾幀時「吃：」多了一項，同一行放不下：首幀那一項改用短名字（卡片大小是固定的，不能換行）
+  if (data.kind === 'video' && data.hasEndFrame === true) {
+    const first = eat.findIndex((port) => port.id === 'vid-in')
+    const port = eat[first]
+    if (port) eat[first] = { ...port, short: t('endFrame.card.firstShort') }
+  }
   // 影片還吃「動作」（有寫才亮）與「尾幀」（有指定才列出）：它們不是連接點，只是這一格吃的東西
   const pseudo = new Set<string>()
   if (data.kind === 'video') {
