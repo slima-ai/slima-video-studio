@@ -275,7 +275,7 @@ export const settings = {
   'settings.theInputAndOutputToken': 'the input and output token counts',
   'settings.language': 'Language',
   'settings.languageSummary':
-    'Choose the language of the app. The English version isn’t finished yet, so some text will still be in Chinese.',
+    'Choose the language of the app. The prompts sent to AI models aren’t translated, so you may still see some Chinese in the generation queue and records.',
   'settings.listSeparator': ', ',
   'settings.listSeparator2': '; ',
   'settings.optionRecommended': ' (Recommended)',
