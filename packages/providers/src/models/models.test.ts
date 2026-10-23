@@ -272,6 +272,12 @@ describe('內建 ModelCard', () => {
     expect(registry.get('mock/video')?.model).toBe('mock-video')
   })
 
+  it('Kling 3.0 Standard 的選單標籤沒有「角色一致」：那是廠商宣稱，App 沒用 Elements，實測參考圖反而走樣', () => {
+    for (const id of ['fal/kling-3.0-standard', 'openrouter/kling-3.0-standard']) {
+      expect(registry.get(id)?.badges, id).toEqual(['有聲'])
+    }
+  })
+
   it('Kling 3.0 在 OpenRouter 的參考生影片（r2v）實測不建議：沒有 r2v 端點、沒有參考圖上限，並留著實測紀錄與日期', () => {
     for (const id of ['openrouter/kling-3.0-standard', 'openrouter/kling-3.0-pro']) {
       const card = registry.get(id)
