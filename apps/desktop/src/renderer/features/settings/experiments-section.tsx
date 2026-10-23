@@ -3,6 +3,7 @@ import {
   CHAT_BUDGET_MAX_USD,
   CHAT_BUDGET_MIN_USD,
   type AppSettings,
+  t,
 } from '@svs/schema'
 import { MessagesSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -10,6 +11,7 @@ import { useEffect, useState } from 'react'
 import { SettingCard } from '../../components/setting-card'
 import { Switch } from '../../components/switch'
 import { call, errorText } from '../../lib/svs'
+import { LanguageCard } from './language-card'
 
 export interface ExperimentsSectionProps {
   settings: AppSettings
@@ -43,12 +45,14 @@ export function ExperimentsSection({ settings, onChanged }: ExperimentsSectionPr
     <div className="contents" data-testid="experiments-section">
       <SettingCard
         icon={MessagesSquare}
-        title="畫布右下角的 Claude 對話"
-        status={on ? { tone: 'ok', label: '開著' } : { tone: 'off', label: '關著' }}
-        summary="在畫布右邊開一個對話面板，用你自己登入的 Claude Code 直接幫你改專案。"
+        title={t('settings.claudeChatOnTheCanvas')}
+        status={
+          on ? { tone: 'ok', label: t('settings.on') } : { tone: 'off', label: t('settings.off2') }
+        }
+        summary={t('settings.opensAChatPanelBeside')}
         action={
           <Switch
-            aria-label="畫布右下角的 Claude 對話"
+            aria-label={t('settings.claudeChatOnTheCanvas')}
             data-testid="experiment-claude-chat"
             checked={on}
             onChange={(event) => {
@@ -66,11 +70,7 @@ export function ExperimentsSection({ settings, onChanged }: ExperimentsSectionPr
         }
         details={
           <div className="space-y-3">
-            <p className="text-sm text-fg-muted">
-              需要先裝好並登入 Claude Code，也要打開「AI 工具連線」。對話會用到你自己的 Claude
-              用量；要花服務金鑰的生成（圖片、影片…）受「AI 工具的總額度」和「單次花費上限」限制。
-              這是實驗功能，可能隨時改變。
-            </p>
+            <p className="text-sm text-fg-muted">{t('settings.claudeCodeMustBeInstalled')}</p>
             <BudgetField
               value={settings.experiments.claudeBudgetUsd}
               onChanged={onChanged}
@@ -79,6 +79,7 @@ export function ExperimentsSection({ settings, onChanged }: ExperimentsSectionPr
           </div>
         }
       />
+      <LanguageCard value={settings.language} onChanged={onChanged} />
       {error ? (
         <p role="alert" className="text-sm text-danger md:col-span-2">
           {error}
@@ -112,7 +113,10 @@ function BudgetField({
       (!Number.isFinite(next) || next < CHAT_BUDGET_MIN_USD || next > CHAT_BUDGET_MAX_USD)
     ) {
       onError(
-        `每一段的用量上限要在 US$${String(CHAT_BUDGET_MIN_USD)} 到 US$${String(CHAT_BUDGET_MAX_USD)} 之間。`,
+        t('settings.theLimitPerSessionMust', {
+          value: String(CHAT_BUDGET_MIN_USD),
+          value2: String(CHAT_BUDGET_MAX_USD),
+        }),
       )
       return
     }
@@ -129,7 +133,7 @@ function BudgetField({
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <label htmlFor="experiment-claude-budget" className="text-fg-muted">
-        Claude 對話每一段的用量上限（約 US$）
+        {t('settings.usageLimitPerClaudeChat')}
       </label>
       <input
         id="experiment-claude-budget"
@@ -150,14 +154,11 @@ function BudgetField({
       />
       {saved ? (
         <span role="status" data-testid="experiment-claude-budget-saved" className="text-success">
-          已儲存
+          {t('settings.saved')}
         </span>
       ) : null}
       <span className="text-xs text-fg-muted">
-        花的是你自己的 Claude 用量，跟「單次花費上限」「AI 工具的總額度」不同。一段＝連續使用，閒置
-        10
-        分鐘或按「繼續」就算新的一段；到上限時對話會停下並出現「繼續」，按了再用同樣的量。留空用預設（約
-        US${String(CHAT_BUDGET_DEFAULT_USD)}）。
+        {t('settings.thisIsYourOwnClaude', { value: String(CHAT_BUDGET_DEFAULT_USD) })}
       </span>
     </div>
   )

@@ -2,7 +2,14 @@ import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { ModelSpecSchema, billableChars, type ModelCard } from '@svs/schema'
+import {
+  DEFAULT_LOCALE,
+  ModelSpecSchema,
+  billableChars,
+  cardText,
+  setLocale,
+  type ModelCard,
+} from '@svs/schema'
 
 import {
   BUILTIN_MODEL_FILES,
@@ -491,5 +498,40 @@ describe('ModelRegistry', () => {
     expect(registry.estimate('fal/kling-3.0-pro', { seconds: 5, audio: true })).toBeCloseTo(0.84)
     expect(registry.estimate('fal/nano-banana-2', { images: 4 })).toBeCloseTo(0.32)
     expect(() => registry.estimate('fal/ghost', { seconds: 1 })).toThrow(/找不到模型/)
+  })
+})
+
+describe('模型卡的英文介面文字', () => {
+  const HAN = /[㐀-鿿]/
+
+  it('每張內建卡：有英文說明；英文沒有中文字；小標籤的數量跟中文一樣；有中文名的聲音有英文名', () => {
+    for (const card of cards) {
+      const en = card.en
+      expect(en?.userNote, `${card.id} userNote`).toBeTruthy()
+      const text = JSON.stringify(en) + JSON.stringify(card.voices.map((v) => v.labelEn ?? ''))
+      expect(HAN.test(text), `${card.id} 的英文有中文字`).toBe(false)
+      expect(en?.badges?.length ?? card.badges.length, `${card.id} badges`).toBe(card.badges.length)
+      // 中文名字的卡一定要有英文名字（示範模型、「GPT Image 2（高畫質）」）
+      if (HAN.test(card.displayName)) expect(en?.displayName, `${card.id} displayName`).toBeTruthy()
+      for (const voice of card.voices) {
+        if (HAN.test(voice.label)) expect(voice.labelEn, `${card.id} ${voice.id}`).toBeTruthy()
+      }
+    }
+  })
+
+  it('cardText：繁中給原文；英文給英文，沒填的欄位退回原文', () => {
+    const card = cards.find((c) => c.id === 'mock/llm')
+    if (!card) throw new Error('沒有示範文字模型')
+    try {
+      expect(cardText(card).displayName).toBe('示範文字')
+      expect(cardText(card).userNote).toBe('示範用，不連網、不花錢')
+      setLocale('en')
+      expect(cardText(card).displayName).toBe('Demo text')
+      expect(cardText(card).userNote).toBe('For demos. No internet, no cost')
+      const plain = { ...card, en: undefined }
+      expect(cardText(plain).displayName).toBe('示範文字')
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
   })
 })

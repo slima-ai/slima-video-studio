@@ -1,4 +1,4 @@
-import { AppError, type KeyStorageInfo } from '@svs/schema'
+import { AppError, type KeyStorageInfo, t, msg } from '@svs/schema'
 import { z } from 'zod'
 
 /**
@@ -32,21 +32,19 @@ const unavailable = (reason: string, cause?: unknown): AppError =>
     ...(cause === undefined ? {} : { cause }),
   })
 
-export const KEYCHAIN_UNAVAILABLE =
-  '這台電腦的系統金鑰圈目前無法使用，所以不能安全地儲存服務金鑰。請先登入系統金鑰圈後重新開啟 App。'
+export const KEYCHAIN_UNAVAILABLE = msg('settings.theSystemKeychainIsnT')
 
 /** 直接呼叫 safeStorage（Windows、Linux，以及測試）。 */
 export function directKeyCrypto(safeStorage: SafeStorageLike): KeyCrypto {
   const info = (): KeyStorageInfo => {
     if (!safeStorage.isEncryptionAvailable()) {
-      return { available: false, kind: 'os', reason: KEYCHAIN_UNAVAILABLE }
+      return { available: false, kind: 'os', reason: t(KEYCHAIN_UNAVAILABLE) }
     }
     if (safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
       return {
         available: false,
         kind: 'os',
-        reason:
-          '找不到系統金鑰圈（例如 GNOME Keyring 或 KWallet），所以不能安全地儲存服務金鑰。請安裝其中一個並登入後重新開啟 App。',
+        reason: t('settings.noSystemKeychainFoundFor'),
       }
     }
     return { available: true, kind: 'os' }
@@ -55,7 +53,8 @@ export function directKeyCrypto(safeStorage: SafeStorageLike): KeyCrypto {
     storageInfo: info,
     encrypt: (plain) => {
       const state = info()
-      if (!state.available) return Promise.reject(unavailable(state.reason ?? KEYCHAIN_UNAVAILABLE))
+      if (!state.available)
+        return Promise.reject(unavailable(state.reason ?? t(KEYCHAIN_UNAVAILABLE)))
       return Promise.resolve(safeStorage.encryptString(plain).toString('base64'))
     },
     decryptMany: (ciphers) =>
@@ -91,23 +90,19 @@ export type HelperRunner = (request: HelperRequest) => Promise<HelperResponse>
 export class HelperTimeoutError extends Error {}
 export class HelperCrashedError extends Error {}
 
-export const KEYCHAIN_WAITING =
-  '系統鑰匙圈還沒有回應。如果螢幕上有「要允許存取鑰匙圈」的提示，請按「允許」，然後再試一次。'
+export const KEYCHAIN_WAITING = msg('settings.theSystemKeychainHasnT')
 
 function mapHelperError(error: unknown): AppError {
   if (error instanceof AppError) return error
   if (error instanceof HelperTimeoutError) {
     return new AppError({
       code: 'key_storage_unavailable',
-      userMessage: KEYCHAIN_WAITING,
+      userMessage: t(KEYCHAIN_WAITING),
       retryable: true,
       cause: error,
     })
   }
-  return unavailable(
-    '沒辦法向系統金鑰圈讀取服務金鑰（可能是你按了「拒絕」，或鑰匙圈目前無法使用）。要再試的話，請重新開啟 App 並在提示出現時按「允許」。',
-    error,
-  )
+  return unavailable(t('settings.couldnTReadTheApi'), error)
 }
 
 /** macOS：把鑰匙圈的存取交給另一個行程（見 KeyCrypto 的說明）。 */
@@ -122,8 +117,8 @@ export function helperKeyCrypto(run: HelperRunner): KeyCrypto {
     if (!response.ok) {
       throw unavailable(
         response.reason === 'unavailable'
-          ? KEYCHAIN_UNAVAILABLE
-          : '無法向系統金鑰圈加密服務金鑰，請再試一次。',
+          ? t(KEYCHAIN_UNAVAILABLE)
+          : t('settings.couldnTEncryptTheApi'),
       )
     }
     return response
@@ -132,14 +127,15 @@ export function helperKeyCrypto(run: HelperRunner): KeyCrypto {
     storageInfo: () => ({ available: true, kind: 'os' }),
     encrypt: async (plain) => {
       const response = await call({ op: 'encrypt', plain })
-      if (!('cipher' in response)) throw unavailable('系統金鑰圈回傳的內容不對，請再試一次。')
+      if (!('cipher' in response))
+        throw unavailable(t('settings.theSystemKeychainReturnedSomething'))
       return response.cipher
     },
     decryptMany: async (ciphers) => {
       if (ciphers.length === 0) return []
       const response = await call({ op: 'decrypt', ciphers })
       if (!('plains' in response) || response.plains.length !== ciphers.length) {
-        throw unavailable('系統金鑰圈回傳的內容不對，請再試一次。')
+        throw unavailable(t('settings.theSystemKeychainReturnedSomething'))
       }
       return response.plains
     },

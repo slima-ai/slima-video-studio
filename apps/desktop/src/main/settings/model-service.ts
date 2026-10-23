@@ -1,12 +1,16 @@
 import {
   AppError,
   PICKABLE_CAPABILITIES,
+  cardText,
   type AppSettings,
   type AppSettingsPatch,
   type ModelCard,
   type ModelOption,
+  type MessageRef,
   type ModelTier,
   type PickableCapability,
+  t,
+  msg,
 } from '@svs/schema'
 import { providerName, toModelOption, type ModelRegistry } from '@svs/providers'
 
@@ -54,12 +58,12 @@ export interface SettingsService {
   takeNotices: () => string[]
 }
 
-const USE_LABEL: Record<PickableCapability, string> = {
-  llm: '文字',
-  t2i: '圖片',
-  i2v: '影片',
-  tts: '旁白',
-  music: '配樂',
+const USE_LABEL: Record<PickableCapability, MessageRef> = {
+  llm: msg('settings.text'),
+  t2i: msg('settings.images'),
+  i2v: msg('settings.video'),
+  tts: msg('settings.narration'),
+  music: msg('settings.music'),
 }
 
 /**
@@ -126,7 +130,11 @@ export function createSettingsService(deps: {
     return usable(capability, project.models[capability], (gone, next) => {
       deps.project?.set({ ...project.models, [capability]: next.id })
       notify(
-        `「${gone.displayName}」已經下架，這個專案的${USE_LABEL[capability]}改用「${next.displayName}」。可以到設定換別的。`,
+        t('settings.wasRetiredInThisProject', {
+          displayName: cardText(gone).displayName,
+          value: t(USE_LABEL[capability]),
+          displayName2: cardText(next).displayName,
+        }),
       )
     })
   }
@@ -136,7 +144,11 @@ export function createSettingsService(deps: {
     const chosen = usable(capability, store.get().models[capability], (gone, next) => {
       store.update({ models: { [capability]: next.id } })
       notify(
-        `「${gone.displayName}」已經下架，${USE_LABEL[capability]}改用「${next.displayName}」。可以到設定換別的。`,
+        t('settings.wasRetiredNowUsesYou', {
+          displayName: cardText(gone).displayName,
+          value: t(USE_LABEL[capability]),
+          displayName2: cardText(next).displayName,
+        }),
       )
     })
     if (chosen) return chosen
@@ -158,7 +170,7 @@ export function createSettingsService(deps: {
       if (!card?.capabilities.includes(capability)) {
         throw new AppError({
           code: 'invalid_request',
-          userMessage: '這個模型沒辦法用在這個用途，請重新選擇。',
+          userMessage: t('settings.thisModelCanTBe'),
         })
       }
     }
@@ -190,7 +202,7 @@ export function createSettingsService(deps: {
       if (!registry.get(modelId)?.voices.some((v) => v.id === voice)) {
         throw new AppError({
           code: 'invalid_request',
-          userMessage: '這個聲音沒辦法用在這個旁白模型，請重新選擇。',
+          userMessage: t('settings.thisVoiceCanTBe'),
         })
       }
     }
@@ -219,7 +231,7 @@ export function createSettingsService(deps: {
         ? []
         : registry.lockedModels(queryFor()).map(({ card, providers }) => ({
             ...toModelOption(card, registry.channelsOf(card)),
-            needsKey: providers.map(providerName).join(' 或 '),
+            needsKey: providers.map(providerName).join(` ${t('settings.or')} `),
           }))
       const voices: Record<string, string> = {}
       for (const card of models) {
@@ -240,7 +252,7 @@ export function createSettingsService(deps: {
       if (patch.budget && patch.budget.perRunLimitUsd <= 0) {
         throw new AppError({
           code: 'invalid_request',
-          userMessage: '單次花費上限要大於 0。',
+          userMessage: t('settings.thePerRunSpendingLimit'),
         })
       }
       return store.update(patch)
@@ -250,7 +262,7 @@ export function createSettingsService(deps: {
       if (!project) {
         throw new AppError({
           code: 'project_not_found',
-          userMessage: '請先開啟或建立一個專案。',
+          userMessage: t('settings.openOrCreateAProject'),
         })
       }
       checkChoice(patch)

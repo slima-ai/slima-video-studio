@@ -1,4 +1,12 @@
-import { KEY_PROVIDERS, type KeyStatus, type KeyStorageInfo, type KeyTestResult } from '@svs/schema'
+import {
+  KEY_PROVIDERS,
+  type KeyStatus,
+  type KeyStorageInfo,
+  type KeyTestResult,
+  t,
+  msg,
+  type MessageRef,
+} from '@svs/schema'
 import { KeyRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -21,21 +29,21 @@ interface Feedback {
 }
 
 /** 每家服務在這個 App 裡負責什麼（用白話）。 */
-const PURPOSE: Record<string, string> = {
-  fal: '角色鎖定、更多圖片與影片模型。',
-  openrouter: '文字、圖片、影片都能做，只填這一把就夠。',
+const PURPOSE: Record<string, MessageRef> = {
+  fal: msg('settings.lockedCharactersPlusMoreImage'),
+  openrouter: msg('settings.textImagesAndVideoAll'),
 }
 
 const usd = (n: number): string => `US$${n.toFixed(2)}`
 
 function describeTest(result: KeyTestResult): Feedback {
-  if (!result.valid) return { tone: 'error', text: '金鑰無效或已被停用，請重新複製一次。' }
+  if (!result.valid) return { tone: 'error', text: t('settings.theKeyIsInvalidOr') }
   return {
     tone: 'ok',
     text:
       result.balanceUsd === undefined
-        ? '連線成功，金鑰有效。'
-        : `連線成功，金鑰有效。帳戶剩餘約 ${usd(result.balanceUsd)}。`,
+        ? t('settings.connectedTheKeyWorks')
+        : t('settings.connectedTheKeyWorksAbout', { value: usd(result.balanceUsd) }),
   }
 }
 
@@ -91,12 +99,14 @@ function KeyRow({
         configured
           ? {
               tone: 'ok',
-              label: `已設定${status.last4 ? `（結尾 ${status.last4}）` : ''}`,
+              label: status.last4
+                ? t('settings.setUpEndingIn', { last4: status.last4 })
+                : t('settings.setUp2'),
               testId: `key-${id}-status`,
             }
-          : { tone: 'off', label: '尚未設定', testId: `key-${id}-status` }
+          : { tone: 'off', label: t('settings.notSetUp'), testId: `key-${id}-status` }
       }
-      summary={PURPOSE[id] ?? '用你自己的帳號呼叫這家服務。'}
+      summary={t(PURPOSE[id] ?? msg('settings.useYourOwnAccountTo'))}
       body={
         <div>
           <form
@@ -107,7 +117,7 @@ function KeyRow({
                 await call('keys.set', { provider: id, key: value })
                 setValue('')
                 onChanged()
-                return { tone: 'ok', text: '已儲存。' }
+                return { tone: 'ok', text: t('settings.saved2') }
               })
             }}
           >
@@ -115,8 +125,10 @@ function KeyRow({
               type="password"
               autoComplete="off"
               spellCheck={false}
-              aria-label={`${name} 的服務金鑰`}
-              placeholder={configured ? '貼上新的金鑰可以替換' : '貼上你的服務金鑰'}
+              aria-label={t('settings.apiKey', { name })}
+              placeholder={
+                configured ? t('settings.pasteANewKeyTo') : t('settings.pasteYourApiKey')
+              }
               value={value}
               disabled={disabled || busy}
               onChange={(event) => {
@@ -129,7 +141,7 @@ function KeyRow({
               variant="primary"
               disabled={disabled || busy || value.trim() === ''}
             >
-              儲存
+              {t('settings.save')}
             </Button>
           </form>
           {feedback ? (
@@ -151,7 +163,7 @@ function KeyRow({
             rel="noreferrer"
             className="text-sm text-accent hover:underline"
           >
-            到 {name} 取得金鑰
+            {t('settings.getAKeyAt', { name })}
           </a>
           {configured ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -163,7 +175,7 @@ function KeyRow({
                   void run(async () => describeTest(await call('keys.test', { provider: id })))
                 }}
               >
-                測試連線
+                {t('settings.testConnection')}
               </Button>
               <Button
                 variant="ghost"
@@ -176,11 +188,11 @@ function KeyRow({
                   void run(async () => {
                     await call('keys.delete', { provider: id })
                     onChanged()
-                    return { tone: 'ok', text: '已移除。要用時再貼上。' }
+                    return { tone: 'ok', text: t('settings.removedPasteItAgainWhen') }
                   })
                 }}
               >
-                移除金鑰
+                {t('settings.removeKey')}
               </Button>
             </div>
           ) : null}
@@ -196,7 +208,7 @@ export function KeysSection({ keys, storage, onChanged, only }: KeysSectionProps
     <div className="contents" data-testid="keys-section">
       {storage.available ? null : (
         <p role="alert" className="rounded-md bg-danger-soft p-3 text-sm text-danger md:col-span-2">
-          {storage.reason ?? '這台電腦目前無法安全保存金鑰。'}
+          {storage.reason ?? t('settings.thisComputerCanTStore')}
         </p>
       )}
       {KEY_PROVIDERS.filter((p) => only === undefined || only.includes(p.id)).map((provider) => (

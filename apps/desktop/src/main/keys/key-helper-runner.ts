@@ -9,6 +9,7 @@ import {
   type HelperRunner,
 } from './key-crypto'
 import { KEY_HELPER_FLAG } from './key-helper-flag'
+import { t } from '@svs/schema'
 
 export interface HelperRunnerOptions {
   /** App 自己的執行檔（打包版是 .app 裡的執行檔，開發時是 electron）。 */
@@ -46,7 +47,7 @@ export function createHelperRunner(options: HelperRunnerOptions): HelperRunner {
       const timer = setTimeout(() => {
         child.kill('SIGKILL')
         finish(() => {
-          reject(new HelperTimeoutError('金鑰小幫手逾時'))
+          reject(new HelperTimeoutError(t('settings.theKeyHelperTimedOut')))
         })
       }, timeoutMs)
       child.stdout.on('data', (chunk: Buffer) => {
@@ -55,7 +56,9 @@ export function createHelperRunner(options: HelperRunnerOptions): HelperRunner {
       })
       child.on('error', (error) => {
         finish(() => {
-          reject(new HelperCrashedError(`金鑰小幫手啟動失敗：${error.message}`))
+          reject(
+            new HelperCrashedError(t('settings.theKeyHelperFailedTo', { message: error.message })),
+          )
         })
       })
       child.on('close', () => {
@@ -63,7 +66,7 @@ export function createHelperRunner(options: HelperRunnerOptions): HelperRunner {
           try {
             resolve(HelperResponseSchema.parse(JSON.parse(output)))
           } catch {
-            reject(new HelperCrashedError('金鑰小幫手沒有回傳正確的內容'))
+            reject(new HelperCrashedError(t('settings.theKeyHelperReturnedAn')))
           }
         })
       })

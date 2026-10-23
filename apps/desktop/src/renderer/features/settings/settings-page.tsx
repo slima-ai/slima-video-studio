@@ -15,14 +15,15 @@ import { StoryboardGuideSection } from './storyboard-guide-section'
 import { VideoNegativeSection } from './video-negative-section'
 import type { AppDataState } from './use-app-data'
 import { Page } from '../../components/page'
+import { t, msg } from '@svs/schema'
 
 /** 頂端的小標籤（順序＝頁面上區的順序）。 */
 const TAGS: readonly SettingsTag[] = [
-  { id: 'general', label: '一般' },
-  { id: 'connections', label: 'AI 工具連線' },
-  { id: 'keys', label: '服務金鑰' },
-  { id: 'models', label: '模型' },
-  { id: 'experiments', label: '實驗功能' },
+  { id: 'general', label: msg('settings.general') },
+  { id: 'connections', label: msg('settings.aiTools') },
+  { id: 'keys', label: msg('settings.apiKeys') },
+  { id: 'models', label: msg('settings.models') },
+  { id: 'experiments', label: msg('settings.experiments') },
 ]
 
 export interface SettingsPageProps {
@@ -45,7 +46,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
   }
   return (
     <Page
-      title="設定"
+      title={t('settings.settings')}
       width="narrow"
       testId="settings-page"
       actions={<SettingsTags tags={TAGS} />}
@@ -57,30 +58,38 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
           <div role="alert" className="text-danger">
             <p>{state.message}</p>
             <Button className="mt-2" onClick={reload}>
-              重試
+              {t('settings.retry')}
             </Button>
           </div>
         ) : null}
         {state.status === 'ready' ? (
           <>
-            <SettingGroup id="general" title="一般" hint="示範模式、外觀與單次花費上限。">
+            <SettingGroup
+              id="general"
+              title={t('settings.general')}
+              hint={t('settings.demoModeAppearanceAndThe')}
+            >
               <GeneralSection settings={state.data.settings} onChanged={reload} />
             </SettingGroup>
             <SettingGroup
               id="connections"
-              title="AI 工具連線"
-              hint="讓你自己的 Claude 等 AI 工具連到這個 App；用示範模式不需要金鑰就能玩；AI 工具花多少由你設定，預設不能花。"
+              title={t('settings.aiTools')}
+              hint={t('settings.letYourOwnClaudeOr')}
             >
               <ConnectionsArea onChanged={reload} storageAvailable={state.data.storage.available} />
             </SettingGroup>
             <SettingGroup
               id="keys"
-              title="服務金鑰"
-              hint="用你自己的帳號呼叫 AI 服務，費用由服務商直接向你收；金鑰只存在這台電腦、不會上傳。"
+              title={t('settings.apiKeys')}
+              hint={t('settings.callAiServicesWithYour')}
             >
               <KeysSection keys={state.data.keys} storage={state.data.storage} onChanged={reload} />
             </SettingGroup>
-            <SettingGroup id="models" title="使用的模型" hint="不確定的話保持預設就好。">
+            <SettingGroup
+              id="models"
+              title={t('settings.modelsToUse')}
+              hint={t('settings.ifYouReNotSure')}
+            >
               <>
                 <ModelsSection
                   models={state.data.models}
@@ -108,7 +117,11 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
                 />
               </>
             </SettingGroup>
-            <SettingGroup id="experiments" title="實驗功能" hint="還在試的功能，可能隨時改變。">
+            <SettingGroup
+              id="experiments"
+              title={t('settings.experiments')}
+              hint={t('settings.featuresStillBeingTriedThey')}
+            >
               <ExperimentsSection settings={state.data.settings} onChanged={reload} />
             </SettingGroup>
           </>

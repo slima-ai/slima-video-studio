@@ -1,4 +1,4 @@
-import { PICKABLE_CAPABILITIES, type ModelOption, type PickableCapability } from '@svs/schema'
+import { PICKABLE_CAPABILITIES, type ModelOption, type PickableCapability, t } from '@svs/schema'
 import { FolderCog } from 'lucide-react'
 import { useState } from 'react'
 
@@ -46,9 +46,9 @@ export function ProjectModelsSection({
     <div className="contents" data-testid="project-models-section">
       <SettingCard
         icon={FolderCog}
-        title="這個專案預設用什麼"
+        title={t('settings.defaultsForThisProject')}
         className="md:col-span-2"
-        summary={`只套用在「${project.name}」；沒改的用途跟著上面選的模型。`}
+        summary={t('settings.appliesOnlyToJobsYou', { name: project.name })}
         body={
           <div className="divide-y divide-border">
             {PICKABLE_CAPABILITIES.map((capability) => {
@@ -56,11 +56,17 @@ export function ProjectModelsSection({
               const appName = candidates.find((m) => m.id === selected[capability])?.displayName
               const follow: ListOption = {
                 value: FOLLOW,
-                label: `跟著預設（${appName ?? '沒有可用的模型'}）`,
+                label: t('settings.useDefault', {
+                  value: appName ?? t('settings.noModelAvailable'),
+                }),
                 content: (
                   <span className="min-w-0 truncate">
-                    跟著預設
-                    <span className="text-fg-muted">（{appName ?? '沒有可用的模型'}）</span>
+                    {t('settings.useDefault2')}
+                    <span className="text-fg-muted">
+                      {t('settings.inParentheses', {
+                        value: appName ?? t('settings.noModelAvailable'),
+                      })}
+                    </span>
                   </span>
                 ),
               }
@@ -71,7 +77,7 @@ export function ProjectModelsSection({
                   className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3 py-2 first:pt-0 last:pb-0"
                 >
                   <label className="text-sm font-medium" htmlFor={`project-model-${capability}`}>
-                    {LABELS[capability].title}
+                    {t(LABELS[capability].title)}
                   </label>
                   <ListSelect
                     id={`project-model-${capability}`}

@@ -2,6 +2,10 @@
   "key": "gpt-image-2",
   "displayName": "GPT Image 2",
   "userNote": "標準檔位，適合試構圖與角色",
+  "en": {
+    "userNote": "Standard tier, good for trying out composition and characters",
+    "badges": ["Many references", "Clear text"]
+  },
   "attribution": "Images generated with GPT Image (OpenAI)",
   "tasks": ["t2i", "edit"],
   "tier": "budget",
@@ -21,7 +25,9 @@
         "t2i": "openai/gpt-image-2",
         "edit": "openai/gpt-image-2"
       },
-      "imageApi": { "quality": "medium" },
+      "imageApi": {
+        "quality": "medium"
+      },
       "pricing": {
         "unit": "image",
         "usd": 0.042

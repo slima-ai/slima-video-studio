@@ -2,9 +2,14 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { App } from './app'
+import { viewMemory } from './lib/view-memory'
 import { SETTINGS, appError, installFakeSvs, installFlowEnv } from './test/fake-svs'
 
-beforeEach(installFlowEnv)
+beforeEach(() => {
+  installFlowEnv()
+  // 目前的頁記在樹外面（換語言時用）；每個測試都從頭開始
+  viewMemory.view = undefined
+})
 afterEach(cleanup)
 
 describe('App', () => {
@@ -132,5 +137,15 @@ describe('App', () => {
     })
     render(<App />)
     expect(await screen.findByTestId('canvas-root')).toBeTruthy()
+  })
+
+  it('換介面語言整棵樹重新掛上之後，還在同一頁（設定頁不會被丟回畫布）', async () => {
+    const first = render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: '設定' }))
+    await screen.findByTestId('settings-tags')
+    first.unmount()
+    render(<App />)
+    expect(await screen.findByTestId('settings-tags')).toBeTruthy()
+    expect(screen.queryByTestId('canvas-root')).toBeNull()
   })
 })

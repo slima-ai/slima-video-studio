@@ -1,4 +1,4 @@
-import { NEGATIVE_PROMPT_MAX_CHARS, type AppSettings, type ModelOption } from '@svs/schema'
+import { NEGATIVE_PROMPT_MAX_CHARS, type AppSettings, type ModelOption, t } from '@svs/schema'
 import { Ban } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -50,18 +50,22 @@ export function VideoNegativeSection({
     <div className="contents" data-testid="video-negative-section">
       <SettingCard
         icon={Ban}
-        title="影片的負面提示"
+        title={t('settings.negativePromptForVideo')}
         className="md:col-span-2"
-        status={customized ? { tone: 'ok', label: '已改過' } : { tone: 'off', label: '用預設' }}
+        status={
+          customized
+            ? { tone: 'ok', label: t('settings.edited') }
+            : { tone: 'off', label: t('settings.default') }
+        }
         summary={
           builtIn === undefined
-            ? '目前的影片模型不接受負面提示，這份清單不會送出；換成支援的模型（例如 Kling 3.0 Standard）才有用。'
-            : '告訴影片模型不要出現什麼，例如變形、多出來的臉或手。角色自己不該有的特徵（例如沒有嘴巴），到角色頁設定。英文逗號分隔。'
+            ? t('settings.theCurrentVideoModelDoesn')
+            : t('settings.tellTheVideoModelWhat')
         }
         details={
           <div>
             <label className="sr-only" htmlFor="video-negative">
-              影片的負面提示
+              {t('settings.negativePromptForVideo')}
             </label>
             <textarea
               id="video-negative"
@@ -76,8 +80,15 @@ export function VideoNegativeSection({
               className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm leading-relaxed"
             />
             <p className={`mt-1 text-sm ${tooLong ? 'text-danger' : 'text-fg-muted'}`}>
-              {String(text.length)} / {String(NEGATIVE_PROMPT_MAX_CHARS)} 字
-              {tooLong ? '：太長了，請刪減。' : ''}
+              {tooLong
+                ? t('settings.charactersTooLongPleaseShorten', {
+                    value: String(text.length),
+                    value2: String(NEGATIVE_PROMPT_MAX_CHARS),
+                  })
+                : t('settings.characters', {
+                    value: String(text.length),
+                    value2: String(NEGATIVE_PROMPT_MAX_CHARS),
+                  })}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button
@@ -86,20 +97,20 @@ export function VideoNegativeSection({
                 onClick={() => {
                   // 改回跟預設一模一樣就存成「用預設」，之後預設更新時才會跟著更新
                   const value = text.trim() === (builtIn ?? '').trim() ? '' : text.trim()
-                  save(value, '已儲存，下次生成影片就會用這份清單。')
+                  save(value, t('settings.savedTheNextVideoGeneration'))
                 }}
               >
-                儲存
+                {t('settings.save')}
               </Button>
               <Button
                 variant="secondary"
                 disabled={!customized && !dirty}
                 onClick={() => {
                   setText(builtIn ?? '')
-                  save('', '已恢復預設。')
+                  save('', t('settings.defaultRestored'))
                 }}
               >
-                恢復預設
+                {t('settings.restoreDefault')}
               </Button>
               {status ? (
                 <span role="status" className="text-sm text-success">

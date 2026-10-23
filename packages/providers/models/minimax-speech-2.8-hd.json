@@ -2,6 +2,10 @@
   "key": "minimax-speech-2.8-hd",
   "displayName": "MiniMax Speech 2.8 HD",
   "userNote": "把台詞念出來，以中文為主",
+  "en": {
+    "userNote": "Reads the lines aloud, mainly in Chinese",
+    "badges": ["Chinese narration"]
+  },
   "attribution": "Voice by MiniMax",
   "tasks": ["tts"],
   "tier": "balanced",
@@ -21,7 +25,14 @@
         "usd": 100
       },
       "cjkCharWeight": 2,
-      "voices": [{ "id": "male-qn-qingse", "label": "青澀青年男聲", "language": "zh" }],
+      "voices": [
+        {
+          "id": "male-qn-qingse",
+          "label": "青澀青年男聲",
+          "language": "zh",
+          "labelEn": "Young male voice (youthful)"
+        }
+      ],
       "verification": {
         "endpoint": true,
         "pricing": true,

@@ -6,6 +6,7 @@ import { SettingCard } from '../../../components/setting-card'
 import { Switch } from '../../../components/switch'
 import { appLight } from './connection-state'
 import type { McpConnection } from './use-mcp'
+import { t } from '@svs/schema'
 
 /** 總開關：允許 AI 工具連線（預設關）。連線埠是進階設定，收在「更多」裡。 */
 export function AccessCard({ mcp }: { mcp: McpConnection }) {
@@ -23,13 +24,13 @@ export function AccessCard({ mcp }: { mcp: McpConnection }) {
       testId="mcp-section"
       className="md:col-span-2"
       icon={Plug}
-      title="允許 AI 工具連線"
+      title={t('settings.allowAiToolsToConnect')}
       status={{ ...appLight(status), testId: 'mcp-status' }}
-      summary="預設是關的，關掉之後連線立刻中斷。只能從這台電腦連進來，AI 工具看不到你的服務金鑰；App 要開著才連得上。"
+      summary={t('settings.offByDefaultTurningIt')}
       action={
         <Switch
           data-testid="mcp-enabled"
-          aria-label="允許 AI 工具連線"
+          aria-label={t('settings.allowAiToolsToConnect')}
           checked={enabled}
           disabled={status === undefined}
           onChange={(event) => {
@@ -60,9 +61,9 @@ export function AccessCard({ mcp }: { mcp: McpConnection }) {
           }}
         >
           <label className="block text-sm font-medium" htmlFor="mcp-port">
-            連線埠
+            {t('settings.port')}
           </label>
-          <p className="text-xs text-fg-muted">一般不用改；被別的程式佔住了才換一個。</p>
+          <p className="text-xs text-fg-muted">{t('settings.youUsuallyDonTNeed')}</p>
           <div className="mt-1 flex gap-2">
             <input
               id="mcp-port"
@@ -75,11 +76,11 @@ export function AccessCard({ mcp }: { mcp: McpConnection }) {
               className="h-9 w-32 rounded-md border border-border bg-surface px-3 text-sm"
             />
             <Button type="submit" variant="secondary" disabled={!portValid}>
-              儲存
+              {t('settings.save')}
             </Button>
           </div>
           {portValid ? null : (
-            <p className="mt-1 text-sm text-danger">請輸入 1024 到 65535 之間的整數。</p>
+            <p className="mt-1 text-sm text-danger">{t('settings.enterAWholeNumberFrom')}</p>
           )}
         </form>
       }

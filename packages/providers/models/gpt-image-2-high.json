@@ -2,6 +2,11 @@
   "key": "gpt-image-2-high",
   "displayName": "GPT Image 2（高畫質）",
   "userNote": "高畫質檔位，適合定稿的畫面，較貴也較慢",
+  "en": {
+    "displayName": "GPT Image 2 (high quality)",
+    "userNote": "High-quality tier, good for final pictures; costs more and is slower",
+    "badges": ["Many references", "Clear text", "High quality"]
+  },
   "attribution": "Images generated with GPT Image (OpenAI)",
   "tasks": ["t2i", "edit"],
   "tier": "premium",
@@ -21,7 +26,9 @@
         "t2i": "openai/gpt-image-2",
         "edit": "openai/gpt-image-2"
       },
-      "imageApi": { "quality": "high" },
+      "imageApi": {
+        "quality": "high"
+      },
       "pricing": {
         "unit": "image",
         "usd": 0.145

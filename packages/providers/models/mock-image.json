@@ -2,6 +2,10 @@
   "key": "mock-image",
   "displayName": "示範圖片",
   "userNote": "示範用，不連網、不花錢",
+  "en": {
+    "displayName": "Demo image",
+    "userNote": "For demos. No internet, no cost"
+  },
   "tasks": ["t2i", "edit"],
   "tier": "balanced",
   "recommended": true,

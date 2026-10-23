@@ -3,6 +3,9 @@ import {
   type ModelOption,
   type ModelTier,
   type PickableCapability,
+  t,
+  msg,
+  type MessageRef,
 } from '@svs/schema'
 import {
   Clapperboard,
@@ -35,12 +38,12 @@ export interface ModelsSectionProps {
   onGoToKeys: () => void
 }
 
-export const LABELS: Record<PickableCapability, { title: string; hint: string }> = {
-  llm: { title: '文字', hint: '把故事分成幾個畫面、寫畫面描述' },
-  t2i: { title: '圖片', hint: '每個鏡頭的第一張畫面' },
-  i2v: { title: '影片', hint: '讓畫面動起來' },
-  tts: { title: '旁白', hint: '把每個鏡頭的台詞念出來' },
-  music: { title: '配樂', hint: '整支片子的背景音樂' },
+export const LABELS: Record<PickableCapability, { title: MessageRef; hint: MessageRef }> = {
+  llm: { title: msg('settings.text'), hint: msg('settings.splitTheStoryIntoPictures') },
+  t2i: { title: msg('settings.images'), hint: msg('settings.theFirstPictureOfEach') },
+  i2v: { title: msg('settings.video'), hint: msg('settings.makeThePicturesMove') },
+  tts: { title: msg('settings.narration'), hint: msg('settings.readEachShotSLines') },
+  music: { title: msg('settings.music'), hint: msg('settings.backgroundMusicForTheWhole') },
 }
 
 const ICONS: Record<PickableCapability, LucideIcon> = {
@@ -52,10 +55,10 @@ const ICONS: Record<PickableCapability, LucideIcon> = {
 }
 
 /** 由貴到便宜排；同一等級照原本的順序。 */
-const TIERS: { tier: ModelTier; label: string; tone: BadgeTone }[] = [
-  { tier: 'premium', label: '高品質', tone: 'premium' },
-  { tier: 'balanced', label: '平衡', tone: 'info' },
-  { tier: 'budget', label: '經濟', tone: 'success' },
+const TIERS: { tier: ModelTier; label: MessageRef; tone: BadgeTone }[] = [
+  { tier: 'premium', label: msg('settings.highQuality'), tone: 'premium' },
+  { tier: 'balanced', label: msg('settings.balanced'), tone: 'info' },
+  { tier: 'budget', label: msg('settings.economy'), tone: 'success' },
 ]
 
 /**
@@ -64,17 +67,19 @@ const TIERS: { tier: ModelTier; label: string; tone: BadgeTone }[] = [
  * 名稱是這張卡最重要的資訊，窄的時候也不能被標籤和價格擠掉。
  */
 function OptionContent({ model, recommended }: { model: ModelOption; recommended: boolean }) {
-  const tier = TIERS.find((t) => t.tier === model.tier)
+  const tier = TIERS.find((entry) => entry.tier === model.tier)
   return (
     <span className="flex flex-col gap-0.5">
       <span data-testid="model-name" className="min-w-0 [overflow-wrap:anywhere]">
         {model.displayName}
       </span>
       <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-        {tier ? <Badge tone={tier.tone}>{tier.label}</Badge> : null}
-        {recommended ? <Badge tone="warning">推薦</Badge> : null}
+        {tier ? <Badge tone={tier.tone}>{t(tier.label)}</Badge> : null}
+        {recommended ? <Badge tone="warning">{t('settings.recommended')}</Badge> : null}
         {model.needsKey ? (
-          <span className="shrink-0 text-xs text-fg-muted">需要 {model.needsKey} 金鑰</span>
+          <span className="shrink-0 text-xs text-fg-muted">
+            {t('settings.needsKey', { needsKey: model.needsKey })}
+          </span>
         ) : null}
         {model.badges.map((badge) => (
           <Badge key={badge} tone="neutral">
@@ -82,7 +87,7 @@ function OptionContent({ model, recommended }: { model: ModelOption; recommended
           </Badge>
         ))}
         <span className="ml-auto flex shrink-0 items-center gap-2">
-          {model.priceVerified ? null : <Badge tone="neutral">估算</Badge>}
+          {model.priceVerified ? null : <Badge tone="neutral">{t('settings.estimated')}</Badge>}
           <span className="text-xs text-fg-muted" title={model.priceLabel}>
             {model.priceShort}
           </span>
@@ -96,10 +101,13 @@ function OptionContent({ model, recommended }: { model: ModelOption; recommended
 export function channelText(model: ModelOption): string {
   // 英文名字（OpenRouter、fal.ai）跟中文之間留一個空格；中文名字（示範）直接接，不然「透過 示範」中間多一格
   const via = /^[A-Za-z0-9]/u.test(model.providerName)
-    ? `透過 ${model.providerName}`
-    : `透過${model.providerName}`
+    ? t('settings.via', { providerName: model.providerName })
+    : t('settings.via2', { providerName: model.providerName })
   if (model.otherChannels.length === 0) return via
-  return `${via}（${model.otherChannels.join('、')} 也有，會自動走比較便宜的那家）`
+  return t('settings.alsoWorksAndTheCheaper', {
+    via,
+    value: model.otherChannels.join(t('settings.listSeparator')),
+  })
 }
 
 /** 沒選時挑預設的順序（跟主行程 SettingsService.resolveModel 一樣）：平衡、高品質、經濟。 */
@@ -118,8 +126,8 @@ export function toOptions(models: ModelOption[], locked: ModelOption[] = []): Li
       const recommended = model.id === recommendedId
       return {
         value: model.id,
-        label: `${model.displayName}${recommended ? '（推薦）' : ''}・${model.priceShort}${
-          model.priceVerified ? '' : '（估算）'
+        label: `${model.displayName}${recommended ? t('settings.optionRecommended') : ''}${t('settings.optionSeparator')}${model.priceShort}${
+          model.priceVerified ? '' : t('settings.optionEstimated')
         }`,
         content: <OptionContent model={model} recommended={recommended} />,
       }
@@ -129,7 +137,10 @@ export function toOptions(models: ModelOption[], locked: ModelOption[] = []): Li
   const grey = TIERS.flatMap(({ tier }) => locked.filter((m) => m.tier === tier)).map(
     (model): ListOption => ({
       value: model.id,
-      label: `${model.displayName}・需要 ${model.needsKey ?? ''} 金鑰`,
+      label: t('settings.needsKey2', {
+        displayName: model.displayName,
+        value: model.needsKey ?? '',
+      }),
       content: <OptionContent model={model} recommended={false} />,
       disabled: true,
     }),
@@ -145,7 +156,11 @@ export function unlockText(locked: readonly ModelOption[]): string | undefined {
     const key = model.needsKey ?? ''
     byKey.set(key, [...(byKey.get(key) ?? []), model.displayName])
   }
-  return [...byKey].map(([key, names]) => `填 ${key} 的金鑰還能用：${names.join('、')}`).join('；')
+  return [...byKey]
+    .map(([key, names]) =>
+      t('settings.addAKeyToUnlock', { key, value: names.join(t('settings.listSeparator')) }),
+    )
+    .join(t('settings.listSeparator2'))
 }
 
 /** 每種用途選一個模型。沒選就用推薦的；選單裡只有「已填金鑰」的服務（或示範模式）。 */
@@ -180,19 +195,17 @@ export function ModelsSection({
   return (
     <div className="contents" data-testid="models-section">
       <p data-testid="tier-legend" className="text-xs leading-snug text-fg-muted md:col-span-2">
-        等級：高品質＝畫面最好、比較貴比較慢；平衡＝畫面、價錢、速度都中等（沒特別選就用這一級）；
-        經濟＝便宜、快，適合先出草稿，滿意的鏡頭再用高品質重做。標「估算」的價格還沒有跟官方核對過，
-        實際以服務商帳單為準。
+        {t('settings.tiersHighQualityBestPicture')}
       </p>
       {models.length === 0 ? (
         <div className="md:col-span-2">
           <EmptyState
             testId="models-empty"
             icon={KeyRound}
-            message="還沒有可以選的模型。填入 OpenRouter 的金鑰就能開始（只填這一把就夠），或打開上面的「示範模式」先試玩。"
+            message={t('settings.noModelsToChooseFrom')}
             action={
               <Button variant="primary" onClick={onGoToKeys}>
-                去填金鑰
+                {t('settings.addAKey')}
               </Button>
             }
           />
@@ -208,26 +221,28 @@ export function ModelsSection({
             <SettingCard
               key={capability}
               icon={ICONS[capability]}
-              title={LABELS[capability].title}
+              title={t(LABELS[capability].title)}
               testId={`model-card-${capability}`}
               {...(candidates.length === 0
-                ? { status: { tone: 'warn' as const, label: '要先填金鑰' } }
+                ? { status: { tone: 'warn' as const, label: t('settings.addAKeyFirst') } }
                 : {})}
-              summary={`${LABELS[capability].hint}。`}
+              summary={t(LABELS[capability].hint)}
               body={
                 candidates.length === 0 ? (
                   <div className="flex flex-wrap items-center gap-3 text-sm text-fg-muted">
                     <span>
-                      目前沒有可用的{LABELS[capability].title}模型，請先填入對應服務的金鑰。
+                      {t('settings.noModelsForAreAvailable', {
+                        value: t(LABELS[capability].title),
+                      })}
                     </span>
                     <Button size="sm" variant="secondary" onClick={onGoToKeys}>
-                      去填金鑰
+                      {t('settings.addAKey')}
                     </Button>
                   </div>
                 ) : (
                   <div>
                     <label className="sr-only" htmlFor={`model-${capability}`}>
-                      {LABELS[capability].title}
+                      {t(LABELS[capability].title)}
                     </label>
                     <ListSelect
                       id={`model-${capability}`}
@@ -249,7 +264,7 @@ export function ModelsSection({
                     {capability === 'tts' && detail && detail.voices.length > 0 ? (
                       <div className="mt-2 flex items-center gap-3">
                         <label className="text-sm" htmlFor="voice-tts">
-                          聲音
+                          {t('settings.voice')}
                         </label>
                         <div className="min-w-0 flex-1">
                           <ListSelect
@@ -287,7 +302,7 @@ export function ModelsSection({
                           className="shrink-0 text-accent hover:underline"
                           onClick={onGoToKeys}
                         >
-                          去填金鑰
+                          {t('settings.addAKey')}
                         </button>
                       </p>
                     ) : null}

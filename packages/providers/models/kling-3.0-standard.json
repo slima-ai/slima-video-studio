@@ -2,6 +2,10 @@
   "key": "kling-3.0-standard",
   "displayName": "Kling 3.0 Standard",
   "userNote": "有聲音的影片，價格適中",
+  "en": {
+    "userNote": "Video with sound at a middle price",
+    "badges": ["Sound"]
+  },
   "attribution": "Video generated with Kling AI",
   "tasks": ["t2v", "i2v"],
   "tier": "balanced",

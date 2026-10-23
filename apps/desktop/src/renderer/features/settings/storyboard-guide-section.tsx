@@ -3,6 +3,7 @@ import {
   STORYBOARD_GUIDE_MAX_CHARS,
   resolveStoryboardGuide,
   type AppSettings,
+  t,
 } from '@svs/schema'
 
 import { GuideEditorCard } from './guide-editor-card'
@@ -22,9 +23,9 @@ export function StoryboardGuideSection({ settings, onChanged }: StoryboardGuideS
       maxChars={STORYBOARD_GUIDE_MAX_CHARS}
       resolve={resolveStoryboardGuide}
       idPrefix="storyboard-guide"
-      title="分鏡準則"
-      summary="AI 把故事拆成鏡頭時會參考這份做法；可以照你的習慣改，留成預設也沒問題。"
-      savedMessage="已儲存，下次拆鏡就會用這份準則。"
+      title={t('settings.storyboardGuide')}
+      summary={t('settings.theAiFollowsThisGuide')}
+      savedMessage={t('settings.savedTheNextSplitWill')}
       onChanged={onChanged}
     />
   )
