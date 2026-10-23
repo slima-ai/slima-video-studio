@@ -239,7 +239,7 @@ export class Engine {
       let task = tasks.get(id)
       if (!task) {
         const node = nodes.get(id)
-        if (!node) throw new Error(`找不到節點 ${id}`)
+        if (!node) throw new Error(`Step ${id} not found`)
         const ups = (incoming.get(id) ?? []).map((e) => e.from.nodeId)
         task = Promise.all([...new Set(ups)].map(start)).then(async (upstream) => {
           const blocked = upstream.some((u) => u.status === 'failed' || u.status === 'blocked')
@@ -304,7 +304,7 @@ export class Engine {
       skip,
     } = args
     const def = this.registry.get(node.type)
-    if (!def) throw new Error(`找不到節點類型 ${node.type}`)
+    if (!def) throw new Error(`Step type ${node.type} not found`)
     const nodeRunId = this.newId()
     const base = {
       id: nodeRunId,
@@ -545,8 +545,14 @@ export class Engine {
         code: 'invalid_response',
         userMessage: t('errors.theResultOfTheStep', {
           type,
-          value: missing.length > 0 ? `（缺少 ${missing.join('、')}）` : '',
-          value2: extra.length > 0 ? `（多出 ${extra.join('、')}）` : '',
+          value:
+            missing.length > 0
+              ? t('errors.missingOutputs', { names: missing.join(t('list.comma')) })
+              : '',
+          value2:
+            extra.length > 0
+              ? t('errors.extraOutputs', { names: extra.join(t('list.comma')) })
+              : '',
         }),
       })
     }

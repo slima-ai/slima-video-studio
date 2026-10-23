@@ -224,7 +224,7 @@ export function createStoryboardService(deps: StoryboardServiceDeps): Storyboard
       if (handle.closed) throw invalid(t('services.theProjectWasClosedSo4'))
 
       const snapshot = shots.replaceSceneShots(sceneId, result.data.shots)
-      log.info(`「${scene.title}」已拆成 ${String(result.data.shots.length)} 個鏡頭`)
+      log.info(`Split “${scene.title}” into ${String(result.data.shots.length)} shots`)
       return snapshot
     },
   }

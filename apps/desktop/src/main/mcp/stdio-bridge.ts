@@ -25,11 +25,11 @@ interface RpcRequest {
 }
 
 const NOT_RUNNING =
-  'Slima Video Studio 沒有開著，或沒有允許 AI 工具連線。請打開 App，到「設定 → AI 工具連線」打開「允許 AI 工具連線」。'
+  'Slima Video Studio is not running, or AI tool connections are not allowed. Open the app, go to Settings → AI tools (設定 → AI 工具連線) and turn on “Allow AI tools to connect” (允許 AI 工具連線).'
 
 /** 連得上、但等不到回應（App 還在做，或卡住、中途關掉）：不是設定問題，不要叫人去勾設定。 */
 const NO_REPLY =
-  'Slima Video Studio 還在處理這個動作，或沒有回應。請看 App 的畫面；稍後可以用 get_generation_status 之類的工具確認結果，不需要改任何設定。'
+  'Slima Video Studio is still working on this, or did not reply. Look at the app window; later you can check the result with a tool such as get_generation_status. No setting needs to be changed.'
 
 /** 「連不上」的錯誤代碼：App 沒開、埠不對、沒有允許連線。其他的（等太久、中途斷線）都算「沒有回應」。 */
 const UNREACHABLE_CODES = new Set([
@@ -87,7 +87,11 @@ export function makeNodeFetch(timeoutMs: number = REPLY_TIMEOUT_MS): typeof fetc
         })
       })
       req.setTimeout(timeoutMs, () => {
-        req.destroy(Object.assign(new Error('等 App 回應太久'), { code: 'SVS_REPLY_TIMEOUT' }))
+        req.destroy(
+          Object.assign(new Error('Timed out waiting for the app to reply'), {
+            code: 'SVS_REPLY_TIMEOUT',
+          }),
+        )
       })
       req.on('error', reject)
       req.end(typeof init?.body === 'string' ? init.body : undefined)
@@ -123,7 +127,7 @@ export async function forward(line: string, env: BridgeEnv): Promise<void> {
   try {
     message = JSON.parse(line) as RpcRequest | RpcRequest[]
   } catch {
-    env.write(rpcError(null, '收到的不是 JSON。'))
+    env.write(rpcError(null, 'The message received was not JSON.'))
     return
   }
   const first = Array.isArray(message) ? message[0] : message
@@ -154,13 +158,15 @@ export async function forward(line: string, env: BridgeEnv): Promise<void> {
     return
   }
   if (response.status === 401) {
-    fail('連線 token 不對。請在 App 的「設定 → AI 工具連線」確認連線是開著的。')
+    fail(
+      'The connection token is wrong. In the app, check under Settings → AI tools (設定 → AI 工具連線) that the connection is on.',
+    )
     return
   }
   if (response.status === 202 || response.status === 204) return
   const text = await response.text()
   if (!response.ok) {
-    fail(`App 回了錯誤（HTTP ${String(response.status)}）。`)
+    fail(`The app replied with an error (HTTP ${String(response.status)}).`)
     return
   }
   if (text.trim() === '') return
@@ -169,7 +175,7 @@ export async function forward(line: string, env: BridgeEnv): Promise<void> {
     const parsed = JSON.parse(text) as unknown
     for (const item of Array.isArray(parsed) ? parsed : [parsed]) env.write(JSON.stringify(item))
   } catch {
-    fail('App 回的內容讀不懂。')
+    fail('The app’s reply could not be read.')
   }
 }
 
@@ -182,7 +188,7 @@ function userDataFrom(argv: readonly string[]): string | undefined {
 export function main(argv: readonly string[]): void {
   const userDataDir = userDataFrom(argv)
   if (!userDataDir) {
-    process.stderr.write('用法：mcp-stdio-bridge --user-data <App 的使用者資料夾>\n')
+    process.stderr.write('Usage: mcp-stdio-bridge --user-data <the app’s user data folder>\n')
     process.exit(2)
   }
   const env: BridgeEnv = {

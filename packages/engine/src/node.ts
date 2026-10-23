@@ -16,7 +16,8 @@ export class NodeRegistry {
   private readonly nodes = new Map<string, NodeDefinition>()
 
   register(definition: NodeDefinition): this {
-    if (this.nodes.has(definition.type)) throw new Error(`節點類型重複註冊：${definition.type}`)
+    if (this.nodes.has(definition.type))
+      throw new Error(`Step type registered twice: ${definition.type}`)
     this.nodes.set(definition.type, definition)
     return this
   }

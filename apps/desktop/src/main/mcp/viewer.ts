@@ -27,7 +27,7 @@ export const MAX_STILLS = 6
 const unavailable = (what: string): AppError =>
   new AppError({
     code: 'invalid_request',
-    userMessage: `${what}（可能已經被刪掉，或這個專案沒有開著）。`,
+    userMessage: `${what} (it may have been deleted, or the project is not open).`,
   })
 
 export interface AssetViewerDeps {
@@ -40,13 +40,13 @@ export function createAssetViewer(deps: AssetViewerDeps): AssetViewer {
   const need = (hash: string): { path: string; tools: MediaTools } => {
     const handle = deps.projects.current()
     const tools = deps.tools()
-    if (!handle || handle.closed) throw unavailable('找不到這個素材')
+    if (!handle || handle.closed) throw unavailable('That asset was not found')
     const found = handle.assets.find(hash)
-    if (!found) throw unavailable('找不到這個素材')
+    if (!found) throw unavailable('That asset was not found')
     if (!tools) {
       throw new AppError({
         code: 'internal_error',
-        userMessage: '找不到影片處理工具（FFmpeg），沒辦法縮圖。',
+        userMessage: 'The video tool (FFmpeg) was not found, so thumbnails cannot be made.',
       })
     }
     return { path: found.path, tools }

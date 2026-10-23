@@ -1,4 +1,4 @@
-import { AppError, type McpConnectInfo } from '@svs/schema'
+import { AppError, t, type McpConnectInfo } from '@svs/schema'
 import { execFile } from 'node:child_process'
 import {
   copyFileSync,
@@ -107,8 +107,7 @@ function readDesktopConfig(file: string): DesktopConfig {
   }
   throw new AppError({
     code: 'invalid_request',
-    userMessage:
-      'Claude Desktop 的設定檔現在不是正確的 JSON，我沒有動它。請先修好它，或手動貼上設定片段。',
+    userMessage: t('mcp.claudeDesktopConfigInvalid'),
   })
 }
 
@@ -178,7 +177,7 @@ export function createConnector(deps: ConnectorDeps): McpConnector {
       if (configPath === undefined) {
         throw new AppError({
           code: 'invalid_request',
-          userMessage: '這個系統沒有 Claude Desktop。請改用 Claude Code 的指令。',
+          userMessage: t('mcp.noClaudeDesktopHere'),
         })
       }
       const config = readDesktopConfig(configPath)
@@ -205,8 +204,7 @@ export function createConnector(deps: ConnectorDeps): McpConnector {
       const fail = (): never => {
         throw new AppError({
           code: 'invalid_request',
-          userMessage:
-            '沒辦法自己執行 claude 指令（可能還沒安裝 Claude Code，或找不到它）。請把下面的指令貼到終端機。',
+          userMessage: t('mcp.cantRunClaudeCommand'),
         })
       }
       const claude = await deps.findClaude().catch(() => undefined)

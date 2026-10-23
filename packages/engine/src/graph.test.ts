@@ -151,7 +151,7 @@ describe('validateWorkflow', () => {
       const e = error as WorkflowValidationError
       expect(e.code).toBe('workflow_invalid')
       expect(e.issues).toHaveLength(2)
-      expect(e.userMessage).toContain('另外還有 1 個問題')
+      expect(e.userMessage).toContain('and 1 more problem(s)')
     }
   })
 
@@ -195,7 +195,7 @@ describe('validateWorkflow', () => {
         [['s', 'value', 'fe', 'items']],
       )
       const issue = validateWorkflow(w, registry).find((i) => i.code === 'unknown_node_type')
-      expect(issue?.message).toContain('子工作流')
+      expect(issue?.message).toContain('sub-workflow')
     })
   })
 })

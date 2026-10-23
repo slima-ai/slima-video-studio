@@ -12,6 +12,8 @@ export interface GuideEditorCardProps {
   /** 設定裡目前存的自訂內容（空字串＝用預設）。 */
   custom: string
   defaultText: string
+  /** 這段文字算不算「內建預設」（預設有好幾種語言時用；沒給就只跟 defaultText 比）。 */
+  isDefault?: (text: string) => boolean
   maxChars: number
   /** 實際使用的內容：沒自訂就是預設。 */
   resolve: (custom: string) => string
@@ -31,6 +33,7 @@ export function GuideEditorCard({
   field,
   custom,
   defaultText,
+  isDefault,
   maxChars,
   resolve,
   idPrefix,
@@ -51,7 +54,8 @@ export function GuideEditorCard({
     setText(saved)
   }, [saved])
 
-  const customized = custom.trim() !== ''
+  const isDefaultText = isDefault ?? ((value: string) => value.trim() === defaultText.trim())
+  const customized = custom.trim() !== '' && !isDefaultText(custom)
   const dirty = text.trim() !== saved.trim()
   const tooLong = text.length > maxChars
 
@@ -114,7 +118,7 @@ export function GuideEditorCard({
                 disabled={!dirty || tooLong}
                 onClick={() => {
                   // 改回跟預設一模一樣就存成「用預設」，之後預設更新時才會跟著更新
-                  const guide = text.trim() === defaultText.trim() ? '' : text
+                  const guide = isDefaultText(text) ? '' : text
                   save(guide, savedMessage)
                 }}
               >

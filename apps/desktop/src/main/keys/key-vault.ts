@@ -274,7 +274,7 @@ export class SafeStorageVault implements KeyVault {
       // 檔案壞了：留一份備查，從空的開始（使用者重新輸入 Key 即可）
       const backup = `${this.filePath}.corrupt-${String(Date.now())}`
       renameSync(this.filePath, backup)
-      this.warn(`Key 檔案格式錯誤，已移到 ${backup}`)
+      this.warn(`The key file was malformed; moved to ${backup}`)
       return { version: 1, entries: {} }
     }
   }
@@ -326,15 +326,15 @@ export function createKeyVault(options: CreateKeyVaultOptions): KeyVault {
       if (!value) continue
       try {
         vault.seed(provider, value)
-        options.info?.(`已從環境變數載入 ${label} 金鑰`)
+        options.info?.(`Loaded the ${label} key from the environment`)
       } catch {
-        options.warn?.(`環境變數 ${variable} 的格式不正確，已忽略`)
+        options.warn?.(`The environment variable ${variable} is malformed; ignored`)
       }
     }
     return vault
   }
   const crypto =
     options.crypto ?? (options.safeStorage ? directKeyCrypto(options.safeStorage) : undefined)
-  if (!crypto) throw new Error('createKeyVault 需要 crypto 或 safeStorage')
+  if (!crypto) throw new Error('createKeyVault needs crypto or safeStorage')
   return new SafeStorageVault(crypto, join(options.userDataDir, KEY_FILE_NAME), options.warn)
 }

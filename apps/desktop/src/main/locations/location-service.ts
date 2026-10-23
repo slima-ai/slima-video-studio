@@ -314,7 +314,8 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
         const reason = isAppError(first)
           ? first.userMessage
           : t('chat.pictureGenerationFailedPleaseTry')
-        if (!isAppError(first)) log.error(`場景圖片生成發生未預期錯誤：${String(first)}`)
+        if (!isAppError(first))
+          log.error(`Unexpected error generating location pictures: ${String(first)}`)
         lastErrors.set(
           locationId,
           run.done > 0
@@ -329,7 +330,9 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
           changed(handle, locationId)
         }
       })
-    log.info(`開始生成「${card.name}」的場景${kind === 'concepts' ? '概念圖' : '其他角度'}`)
+    log.info(
+      `Started generating ${kind === 'concepts' ? 'concept pictures' : 'other angles'} for “${card.name}”`,
+    )
   }
 
   return {

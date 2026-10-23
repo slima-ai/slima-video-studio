@@ -15,7 +15,9 @@ describe('installCrashGuards', () => {
     expect(log.error).toHaveBeenCalledTimes(2)
     expect(log.error.mock.calls[0]?.[0]).toContain('資料庫已經關了')
     expect(log.error.mock.calls[0]?.[0]).toContain('crash-guard.test.ts')
-    expect(log.error.mock.calls[1]?.[0]).toBe('主行程沒接住的 Promise 錯誤：逾時')
+    expect(log.error.mock.calls[1]?.[0]).toBe(
+      'Unhandled promise rejection in the main process: 逾時',
+    )
   })
 })
 
@@ -26,17 +28,19 @@ describe('runShutdown', () => {
     runShutdown(
       [
         [
-          '停止生成佇列',
+          'stop the job queue',
           () => {
             throw new Error('佇列卡住')
           },
         ],
-        ['關閉專案', later],
+        ['close the project', later],
       ],
       log,
     )
     expect(later).toHaveBeenCalledOnce()
-    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('結束時「停止生成佇列」失敗'))
+    expect(log.error).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to stop the job queue while quitting'),
+    )
   })
 
   it('一步回傳被拒的 Promise：不等它、不往外丟，失敗寫進 log', async () => {
@@ -44,8 +48,8 @@ describe('runShutdown', () => {
     const later = vi.fn()
     runShutdown(
       [
-        ['中斷 Slima 連線', () => Promise.reject(new Error('子行程沒回應'))],
-        ['關閉專案', later],
+        ['disconnect Slima', () => Promise.reject(new Error('子行程沒回應'))],
+        ['close the project', later],
       ],
       log,
     )

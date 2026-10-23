@@ -28,18 +28,18 @@ export class WorkflowValidationError extends AppError {
   readonly issues: readonly WorkflowIssue[]
 
   constructor(issues: readonly WorkflowIssue[]) {
-    const first = issues[0]?.message ?? '工作流不正確'
+    const first = issues[0]?.message ?? 'The workflow is not valid'
     super({
       code: 'workflow_invalid',
       userMessage:
-        issues.length > 1 ? `${first}（另外還有 ${String(issues.length - 1)} 個問題）` : first,
+        issues.length > 1 ? `${first} (and ${String(issues.length - 1)} more problem(s))` : first,
     })
     this.name = 'WorkflowValidationError'
     this.issues = issues
   }
 }
 
-const label = (node: WorkflowNode): string => `節點「${node.type}」(${node.id})`
+const label = (node: WorkflowNode): string => `Step “${node.type}” (${node.id})`
 
 /** 找出圖中的環：回傳環上的節點 ID（沒有環時回傳空陣列）。 */
 export function findCycle(
@@ -103,7 +103,7 @@ export function validateGraph(
       issues.push({
         code: 'duplicate_node_id',
         nodeId: node.id,
-        message: `節點 ID 重複：${node.id}`,
+        message: `Duplicate step ID: ${node.id}`,
       })
       continue
     }
@@ -113,7 +113,7 @@ export function validateGraph(
       issues.push({
         code: 'unknown_node_type',
         nodeId: node.id,
-        message: `${label(node)}：沒有這種節點類型`,
+        message: `${label(node)}: no such step type`,
       })
       continue
     }
@@ -121,7 +121,7 @@ export function validateGraph(
       issues.push({
         code: 'version_mismatch',
         nodeId: node.id,
-        message: `${label(node)}：節點版本是 ${String(node.version)}，但目前支援的是 ${String(def.version)}`,
+        message: `${label(node)}: the step version is ${String(node.version)}, but the supported version is ${String(def.version)}`,
       })
     }
     const params = def.params.safeParse(node.params)
@@ -130,12 +130,12 @@ export function validateGraph(
     }
     if (!params.success) {
       const detail = params.error.issues
-        .map((i) => `${i.path.join('.') || '(根)'}：${i.message}`)
+        .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
         .join('；')
       issues.push({
         code: 'invalid_params',
         nodeId: node.id,
-        message: `${label(node)}：參數不正確（${detail}）`,
+        message: `${label(node)}: invalid parameters (${detail})`,
       })
     }
   }
@@ -147,7 +147,7 @@ export function validateGraph(
         code: 'self_loop',
         edgeId: edge.id,
         nodeId: edge.from.nodeId,
-        message: `連線 ${edge.id}：節點不能連到自己`,
+        message: `Connection ${edge.id}: a step can't connect to itself`,
       })
       continue
     }
@@ -157,7 +157,7 @@ export function validateGraph(
       issues.push({
         code: 'unknown_node',
         edgeId: edge.id,
-        message: `連線 ${edge.id}：指向不存在的節點`,
+        message: `Connection ${edge.id}: points to a step that doesn't exist`,
       })
       continue
     }
@@ -172,7 +172,7 @@ export function validateGraph(
         code: 'unknown_port',
         edgeId: edge.id,
         nodeId: from.id,
-        message: `${label(from)}：沒有輸出埠「${edge.from.port}」`,
+        message: `${label(from)}: no output port “${edge.from.port}”`,
       })
       continue
     }
@@ -181,7 +181,7 @@ export function validateGraph(
         code: 'unknown_port',
         edgeId: edge.id,
         nodeId: to.id,
-        message: `${label(to)}：沒有輸入埠「${edge.to.port}」`,
+        message: `${label(to)}: no input port “${edge.to.port}”`,
       })
       continue
     }
@@ -190,7 +190,7 @@ export function validateGraph(
         code: 'type_mismatch',
         edgeId: edge.id,
         nodeId: to.id,
-        message: `連線 ${edge.id}：「${edge.from.port}」是 ${outType}，不能接到「${edge.to.port}」（需要 ${inSpec.type}）`,
+        message: `Connection ${edge.id}: “${edge.from.port}” is ${outType} and can't connect to “${edge.to.port}” (needs ${inSpec.type})`,
       })
       continue
     }
@@ -200,7 +200,7 @@ export function validateGraph(
         code: 'duplicate_input',
         edgeId: edge.id,
         nodeId: to.id,
-        message: `${label(to)}：輸入埠「${edge.to.port}」被連了不只一條線`,
+        message: `${label(to)}: input port “${edge.to.port}” has more than one connection`,
       })
     }
     connected.add(key)
@@ -214,7 +214,7 @@ export function validateGraph(
         issues.push({
           code: 'missing_input',
           nodeId: node.id,
-          message: `${label(node)}：必填的輸入埠「${port}」沒有連線`,
+          message: `${label(node)}: required input port “${port}” is not connected`,
         })
       }
     }
@@ -225,7 +225,7 @@ export function validateGraph(
     issues.push({
       code: 'cycle',
       ...(cycle[0] ? { nodeId: cycle[0] } : {}),
-      message: `工作流有循環相依，涉及節點：${cycle.join('、')}`,
+      message: `The workflow has a cycle involving: ${cycle.join(', ')}`,
     })
   }
   return issues
@@ -240,7 +240,7 @@ function validateBody(node: WorkflowNode, body: Workflow, registry: NodeRegistry
   const structural = checkBody(body)
   const inner = validateGraph(body.nodes, body.edges, registry).map((issue) => ({
     ...issue,
-    message: `${label(node)} 的子工作流：${issue.message}`,
+    message: `${label(node)} sub-workflow: ${issue.message}`,
   }))
   return structural
     ? [

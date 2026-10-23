@@ -140,4 +140,6 @@ export const errors = {
   'errors.slimaIsGettingTooMany': 'Slima 請求太頻繁，請等幾秒再試。',
   'errors.slimaReportedAnErrorPlease': 'Slima 回報了錯誤，請稍後再試。',
   'errors.theTextIsTooLong': '文字太長了，請控制在 {value} 字以內',
+  'errors.missingOutputs': '（缺少 {names}）',
+  'errors.extraOutputs': '（多出 {names}）',
 } as const

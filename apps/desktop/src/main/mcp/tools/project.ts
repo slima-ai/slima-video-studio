@@ -72,7 +72,7 @@ export function registerProjectTools(ctx: ToolContext): void {
       const found = projects.find((p) => refOf(p.dir) === ref)
       if (!found) {
         throw new McpToolError(
-          `找不到代號為「${ref}」的專案。請先用 list_projects 看有哪些專案。`,
+          `No project has the reference “${ref}”. Call list_projects to see which projects exist.`,
           'project_not_found',
         )
       }

@@ -9,7 +9,7 @@ export function memoryServices(): ProviderServices & { files: Map<string, Uint8A
     assets: {
       read: (hash) => {
         const bytes = files.get(hash)
-        return bytes ? Promise.resolve(bytes) : Promise.reject(new Error(`找不到素材 ${hash}`))
+        return bytes ? Promise.resolve(bytes) : Promise.reject(new Error(`Asset ${hash} not found`))
       },
       put: (bytes, mime, meta = {}) => {
         const hash = createHash('sha256').update(bytes).digest('hex')

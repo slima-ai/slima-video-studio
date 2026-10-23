@@ -1,7 +1,10 @@
+import { getLocale, type Locale } from '../i18n/locale'
+
 /**
  * 分鏡準則：AI 把故事拆成鏡頭時一併參考的做法。
  * 預設內容是一份簡短的拍片基本概念（出處與說明見 docs/storyboard-guide.md）；
  * 使用者可以在設定裡看到、改掉、或恢復預設。設定裡沒有自訂內容（空字串）就用這份預設。
+ * 中文與英文各一份（DEFAULT_STORYBOARD_GUIDE／DEFAULT_STORYBOARD_GUIDE_EN），沒自訂的人跟著介面語言挑。
  */
 export const DEFAULT_STORYBOARD_GUIDE = `1. 一個鏡頭只做一件事
 每個鏡頭只有一個主要動作、一個運鏡，不要寫「然後」「接著」。幾秒的畫面裝不下兩件事，需要兩件事就拆成兩個鏡頭。
@@ -43,13 +46,88 @@ export const DEFAULT_STORYBOARD_GUIDE = `1. 一個鏡頭只做一件事
 - 光線：同一場的光線與時段保持一致；暖柔光是安心，冷暗是孤單，強對比是緊張。
 - 鏡頭之間只有直接切，不要寫溶接、淡出。`
 
-/** 自訂準則的字數上限（會跟著每次拆鏡一起送給文字模型，太長會變貴、也容易蓋過故事）。 */
-export const STORYBOARD_GUIDE_MAX_CHARS = 4000
+/**
+ * 英文介面用的預設準則：內容對照中文版翻成英文（9 條、不增減規則）。
+ * 英文介面、沒有自訂準則的人，拆鏡 system prompt 的準則段用這份；中文介面一字不變。
+ */
+export const DEFAULT_STORYBOARD_GUIDE_EN = `1. One shot does one thing
+Each shot has one main action and one camera move; do not write "then" or "next". A few seconds of picture cannot hold two things: if you need two, split them into two shots.
 
-/** 實際使用的準則：使用者沒有自訂（空白）就用預設。 */
+2. Vary the shot size
+Open or change location with a wide shot that sets the scene, move the story along in medium shots, and keep close-ups for emotion or a small key object. Do not put several shots of the same size in a row. A wide shot is good for making a character feel small or alone.
+
+3. Neighbouring shots must differ clearly
+The next shot's size should differ by at least one step, or the camera should clearly take another angle; moving only slightly closer looks like the picture jumped, not like a cut.
+
+4. Give the pacing highs and lows
+Build up first, then rise, reach one peak, and slow down at the end. Put a quiet or slower shot before or after the peak to set it off; tense passages use short shots with a clear direction of movement. If the whole film runs at one pace it feels flat.
+
+5. Shots must join up
+- Keep direction consistent: if a character runs right, the next shot still goes right, unless the story is about turning back.
+- Match eyelines: if a character looks off screen, the next shot shows what they see.
+- Within one scene, keep the camera on the same side of the line between the characters; do not jump to the other side.
+- Cutting in the middle of an action is smoother than cutting after it is finished.
+- The end of one shot and the start of the next should echo each other (shape, colour, direction).
+
+6. Camera moves need a purpose
+Pushing in focuses or closes in; pulling out reveals the setting or isolates a character; a lateral move follows or shows space; a low angle gives power or pressure, a high angle gives smallness or the full picture; a static shot is for dialogue, pauses and emotional landings. Choose a fitting move for every shot; do not default to not moving.
+
+7. Every picture must be readable
+Say who the subject is and how much of the frame they fill, describe position with foreground, background and distance, and say where the light comes from and what mood it sets. That way the description can be drawn straight into a first frame. Do not describe the picture as split into top and bottom or left and right halves (for example "face in the upper half, net in the lower half" or "on the left put ... on the right put ..."): the image model will really draw a two-panel collage. Describe one composition, for example "close-up of the face, hands holding the net along the bottom edge of the foreground". With no dialogue, tell the story through action, expression, light and composition.
+
+8. Think of the video model
+- Write only what can be seen, and say what you want, not what you do not want.
+- Complicated actions (continuous change, fast swings, several characters making big moves at once) tend to fail: split or simplify them.
+- Characters are usually more stable in larger shot sizes than in close-ups; keep close-ups and big actions for the one or two shots that really need them.
+- The first frame of every shot must be a clearly composed picture that can be drawn directly.
+
+9. Shot language (fields size, angle, cameraMove; these are starting points, not hard rules)
+Decide what the audience should feel in this scene first, then choose the shots.
+- size: extreme_wide sets the scene and loneliness; wide and full put people in their surroundings; medium suits dialogue and action; close_up shows emotion; use extreme_close_up once or twice in the whole film.
+- angle: change with the emotion and do not make every shot eye_level: high makes people feel small, low gives power, over_shoulder suits dialogue, side shows sideways action, back follows a figure from behind, dutch shows unease (use rarely).
+- cameraMove: every scene has at least one move with a purpose: push_in emphasises, pan reveals space, follow tracks the action, pull_out reveals or isolates, handheld adds tension, crane adds grandeur; keep static for dialogue, pauses and emotional landings. Do not use the same move or angle for more than two shots in a row.
+- Pacing: tense shots 2 to 3 seconds, ordinary shots 4 to 6 seconds, reveals and the last shot 5 seconds or more.
+- Light: keep the light and time of day the same within one scene; warm soft light feels safe, cold dark light feels lonely, strong contrast feels tense.
+- Between shots use straight cuts only; do not write dissolves or fades.`
+
+/**
+ * 自訂準則的字數上限（會跟著每次拆鏡一起送給文字模型，太長會變貴、也容易蓋過故事）。
+ * 中文一個字就是一個意思，英文要寫成字母，同樣長度的準則英文約是中文的三倍字元數，所以兩種語言各一個上限。
+ */
+export const STORYBOARD_GUIDE_MAX_CHARS = 4000
+export const STORYBOARD_GUIDE_MAX_CHARS_EN = 10000
+
+/** 設定檔（schema）接受的上限：兩種語言裡比較大的那個；畫面上的上限依介面語言（storyboardGuideMaxChars）。 */
+export const STORYBOARD_GUIDE_SCHEMA_MAX_CHARS = Math.max(
+  STORYBOARD_GUIDE_MAX_CHARS,
+  STORYBOARD_GUIDE_MAX_CHARS_EN,
+)
+
+/** 目前介面語言對應的預設準則：繁體中文用中文版，其他（英文、假語系）用英文版。 */
+export function defaultStoryboardGuide(locale: Locale = getLocale()): string {
+  return locale === 'zh-TW' ? DEFAULT_STORYBOARD_GUIDE : DEFAULT_STORYBOARD_GUIDE_EN
+}
+
+/** 目前介面語言的自訂準則字數上限。 */
+export function storyboardGuideMaxChars(locale: Locale = getLocale()): number {
+  return locale === 'zh-TW' ? STORYBOARD_GUIDE_MAX_CHARS : STORYBOARD_GUIDE_MAX_CHARS_EN
+}
+
+/** 這段文字是不是任何一種語言的內建預設（是的話不算「自訂」，會跟著介面語言換）。 */
+export function isDefaultStoryboardGuide(text: string): boolean {
+  const trimmed = text.trim()
+  return (
+    trimmed === DEFAULT_STORYBOARD_GUIDE.trim() || trimmed === DEFAULT_STORYBOARD_GUIDE_EN.trim()
+  )
+}
+
+/**
+ * 實際使用的準則：使用者沒有自訂（空白，或存的剛好是某一種語言的內建預設）就用目前介面語言的預設；
+ * 自訂的原樣保留，不跟著語言換。
+ */
 export function resolveStoryboardGuide(custom: string | undefined): string {
   const text = custom?.trim() ?? ''
-  return text === '' ? DEFAULT_STORYBOARD_GUIDE : text
+  return text === '' || isDefaultStoryboardGuide(text) ? defaultStoryboardGuide() : text
 }
 
 /** 接在拆鏡 system prompt 後面的段落；沒有準則（空字串）就什麼都不加。 */

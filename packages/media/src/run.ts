@@ -103,6 +103,6 @@ export async function runTool(
   throw new AppError({
     code: 'internal_error',
     userMessage: t('errors.videoProcessingFailedTheFile'),
-    cause: new Error(`${command} 結束碼 ${String(code)}：${stderr}`),
+    cause: new Error(`${command} exited with code ${String(code)}: ${stderr}`),
   })
 }

@@ -23,7 +23,7 @@ export function installIpc(
     async (event: IpcMainInvokeEvent, raw: unknown): Promise<IpcResult<unknown>> => {
       const senderUrl = event.senderFrame?.url ?? ''
       if (!isInternalUrl(senderUrl, getAppUrl())) {
-        log.warn(`已拒絕來自外部頁面的 IPC：${senderUrl}`)
+        log.warn(`Rejected IPC from an external page: ${senderUrl}`)
         return {
           ok: false,
           error: {

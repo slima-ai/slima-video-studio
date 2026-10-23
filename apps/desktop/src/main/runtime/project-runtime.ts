@@ -153,7 +153,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDeps): ProjectRuntime {
         },
         onUnexpectedError: (job, error) => {
           log.error(
-            `任務 ${job.id}（${job.provider}）發生未預期錯誤：${error instanceof Error ? (error.stack ?? error.message) : String(error)}`,
+            `Unexpected error in job ${job.id} (${job.provider}): ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`,
           )
         },
       })
@@ -162,7 +162,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDeps): ProjectRuntime {
       })
       queue.start()
       current = { queue, unsubscribe, handle }
-      log.info('任務佇列已啟動')
+      log.info('Job queue started')
     }
     broadcast('queue.reset', {})
   })

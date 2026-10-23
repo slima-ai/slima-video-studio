@@ -80,7 +80,7 @@ const sanitizeInfo = (info: StoredConversationInfo): StoredConversationInfo => (
 })
 
 const fileOf = (projectDir: string, conversationId: string): string => {
-  if (!ID.test(conversationId)) throw new Error('對話 id 格式不對')
+  if (!ID.test(conversationId)) throw new Error('Invalid conversation id')
   return join(projectDir, CHAT_DIR, `${conversationId}.jsonl`)
 }
 
@@ -193,9 +193,9 @@ export function readConversations(
     try {
       const parsed = parseFile(readFileSync(join(dir, name), 'utf8'), id)
       if (parsed) out.push(parsed)
-      else warn?.(`略過看不懂的對話紀錄：${name}`)
+      else warn?.(`Skipped a chat record that could not be read: ${name}`)
     } catch (error) {
-      warn?.(`讀不了對話紀錄 ${name}：${String(error)}`)
+      warn?.(`Could not read the chat record ${name}: ${String(error)}`)
     }
   }
   return out

@@ -1,4 +1,4 @@
-import { DEFAULT_STORYBOARD_GUIDE } from '@svs/schema'
+import { DEFAULT_STORYBOARD_GUIDE, DEFAULT_STORYBOARD_GUIDE_EN } from '@svs/schema'
 
 import { expect, test } from './fixtures'
 import { launchApp } from './launch'
@@ -48,6 +48,47 @@ test.describe('設定頁：分鏡準則', () => {
         '已恢復預設',
       )
       await expect(page2.getByTestId('per-run-limit')).toHaveValue('12.5')
+    } finally {
+      await second.app.close()
+    }
+  })
+})
+
+test.describe('設定頁：分鏡準則（英文介面）', () => {
+  test.use({ appEnv: { SVS_LOCALE: 'en' } })
+
+  test('沒自訂就顯示英文版預設；自己寫的（中文也一樣）存起來、重開原樣還在；恢復預設換回英文版', async ({
+    app,
+    page,
+    userDataDir,
+  }, testInfo) => {
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByTestId('storyboard-guide-section').getByTestId('setting-card-more').click()
+    const box = page.getByTestId('storyboard-guide')
+    await expect(box).toHaveValue(DEFAULT_STORYBOARD_GUIDE_EN)
+    // 整段文字區裡沒有中文（卡片上的字由 pages-english 掃，這裡看準則本身）
+    expect(DEFAULT_STORYBOARD_GUIDE_EN).not.toMatch(/[\u3400-\u9fff]/)
+    await page.getByTestId('storyboard-guide-section').scrollIntoViewIfNeeded()
+    await page.screenshot({ path: testInfo.outputPath('guide-default-en.png') })
+
+    await box.fill('每個場一定要有一個遠景。')
+    await page.getByTestId('storyboard-guide-section').getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByTestId('storyboard-guide-section').getByRole('status')).toContainText(
+      'Saved',
+    )
+
+    await app.close()
+    const second = await launchApp({ userDataDir, env: { SVS_LOCALE: 'en' } })
+    try {
+      const page2 = await second.app.firstWindow()
+      await page2.getByRole('button', { name: 'Settings', exact: true }).click()
+      await page2.getByTestId('storyboard-guide-section').getByTestId('setting-card-more').click()
+      await expect(page2.getByTestId('storyboard-guide')).toHaveValue('每個場一定要有一個遠景。')
+      await page2
+        .getByTestId('storyboard-guide-section')
+        .getByRole('button', { name: 'Restore default' })
+        .click()
+      await expect(page2.getByTestId('storyboard-guide')).toHaveValue(DEFAULT_STORYBOARD_GUIDE_EN)
     } finally {
       await second.app.close()
     }

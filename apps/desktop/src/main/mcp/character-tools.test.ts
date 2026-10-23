@@ -291,11 +291,11 @@ describe('角色的花錢步驟（真實模式、假的 OpenRouter）', () => {
     )
     const refusedImages = await r.call('generate_character_images', { characterId: made.id })
     expect(refusedImages.isError).toBe(true)
-    expect(textOf(refusedImages)).toContain('額度只剩 US$0.00')
+    expect(textOf(refusedImages)).toContain('only US$0.00 is left')
     expect(textOf(refusedImages)).toContain('設定 → AI 工具連線')
     const refusedSuggest = await r.call('suggest_character_anchor', { characterId: made.id })
     expect(refusedSuggest.isError).toBe(true)
-    expect(textOf(refusedSuggest)).toContain('額度只剩')
+    expect(textOf(refusedSuggest)).toContain('is left of the AI tools allowance')
     expect(fake.requests.filter((q) => q.path !== '/models')).toHaveLength(0)
     expect(r.controller.allowance.status().committedUsd).toBe(0)
     const status = JSON.parse(textOf(await r.call('get_generation_status'))) as {

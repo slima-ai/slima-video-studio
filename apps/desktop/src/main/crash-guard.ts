@@ -19,10 +19,10 @@ export function installCrashGuards(
   log: Pick<Logger, 'error'>,
 ): void {
   target.on('uncaughtException', (error) => {
-    log.error(`主行程沒接住的錯誤：${describeError(error)}`)
+    log.error(`Uncaught error in the main process: ${describeError(error)}`)
   })
   target.on('unhandledRejection', (reason) => {
-    log.error(`主行程沒接住的 Promise 錯誤：${describeError(reason)}`)
+    log.error(`Unhandled promise rejection in the main process: ${describeError(reason)}`)
   })
 }
 
@@ -31,17 +31,17 @@ export function runShutdown(
   steps: readonly (readonly [label: string, run: () => unknown])[],
   log: Pick<Logger, 'info' | 'error'>,
 ): void {
-  log.info('結束：收拾中')
+  log.info('Quitting: cleaning up')
   for (const [label, run] of steps) {
     try {
       const result = run()
       if (result instanceof Promise) {
         result.catch((error: unknown) => {
-          log.error(`結束時「${label}」失敗：${describeError(error)}`)
+          log.error(`Failed to ${label} while quitting: ${describeError(error)}`)
         })
       }
     } catch (error) {
-      log.error(`結束時「${label}」失敗：${describeError(error)}`)
+      log.error(`Failed to ${label} while quitting: ${describeError(error)}`)
     }
   }
 }

@@ -282,12 +282,11 @@ describe('花錢的步驟與額度（真實模式、假的 OpenRouter 伺服器�
     const refused = await r.call('split_story_into_scenes', { story: '一隻貓找到家' })
     expect(refused.isError).toBe(true)
     const text = textOf(refused)
-    expect(text).toContain('AI 工具的總額度只剩 US$0.00')
+    expect(text).toContain('only US$0.00 is left of the AI tools allowance')
     expect(text).toContain('設定 → AI 工具連線')
     // 跟設定頁卡片的名字一致，使用者才找得到要調的那一張
-    expect(text).toContain('把「AI 工具的總額度」調高')
-    expect(text).not.toContain('額度調高')
-    expect(text).toContain('只有人能改')
+    expect(text).toContain('ask the user to raise 「AI 工具的總額度」')
+    expect(text).toContain('Only a person can change that allowance')
     expect(text).not.toMatch(/undefined|NaN|\.ts:|at .*\(/)
     expect(fake.requests.filter((q) => q.path === '/chat/completions')).toHaveLength(0)
     expect(r.controller.allowance.status().committedUsd).toBe(0)
@@ -331,7 +330,7 @@ describe('花錢的步驟與額度（真實模式、假的 OpenRouter 伺服器�
     r.h.settings.update({ mcp: { allowanceUsd: spentUsd + est.wouldReserveUsd / 2 } })
     const second = await r.call('split_story_into_scenes', { story: '一隻貓找到家' })
     expect(second.isError).toBe(true)
-    expect(textOf(second)).toContain('額度只剩')
+    expect(textOf(second)).toContain('is left of the AI tools allowance')
     // AI 沒辦法自己調額度：沒有任何工具、白名單也不給
     const { tools } = await r.client.listTools()
     expect(

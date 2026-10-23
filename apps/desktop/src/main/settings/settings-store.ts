@@ -130,7 +130,9 @@ export function createSettingsStore(options: SettingsStoreOptions): SettingsStor
       } catch {
         // 備份失敗也不影響繼續使用預設值
       }
-      warn(`設定檔無法讀取，已備份為 ${backup} 並改用預設值：${String(error)}`)
+      warn(
+        `The settings file could not be read; backed it up as ${backup} and used the defaults: ${String(error)}`,
+      )
       return defaults
     }
   }

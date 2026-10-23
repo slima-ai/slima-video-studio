@@ -158,7 +158,7 @@ describe('IpcRegistry.registerHandler', () => {
     registry.registerHandler('app.ping', () => ({ pong: '', receivedAt: 0 }))
     expect(() => {
       registry.registerHandler('app.ping', () => ({ pong: '', receivedAt: 0 }))
-    }).toThrow(/重複註冊/)
+    }).toThrow(/registered twice/)
   })
 
   it('missingHandlers 列出尚未實作的 channel；registerAllHandlers 會補齊', () => {

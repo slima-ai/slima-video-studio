@@ -91,7 +91,7 @@ export function defineTool<Shape extends z.ZodRawShape>(
           textResult(ctx.redactor.redact(`Error: ${message}`), true)
         if (error instanceof McpToolError) return fail(error.message)
         if (isAppError(error)) return fail(error.userMessage)
-        return textResult('Error: 發生未預期的錯誤，請稍後再試。', true)
+        return textResult('Error: An unexpected error happened. Please try again later.', true)
       }
     }) as never,
   )

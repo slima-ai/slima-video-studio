@@ -13,7 +13,7 @@ export function createRedactor(secrets: () => readonly (string | undefined)[]): 
     redact: (text) => {
       let out = text
       for (const secret of secrets()) {
-        if (secret && secret.length >= MIN_SECRET_LENGTH) out = out.split(secret).join('[已遮蔽]')
+        if (secret && secret.length >= MIN_SECRET_LENGTH) out = out.split(secret).join('[redacted]')
       }
       return out
     },

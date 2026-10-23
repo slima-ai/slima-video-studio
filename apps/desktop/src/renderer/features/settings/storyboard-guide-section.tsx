@@ -1,7 +1,8 @@
 import {
-  DEFAULT_STORYBOARD_GUIDE,
-  STORYBOARD_GUIDE_MAX_CHARS,
+  defaultStoryboardGuide,
+  isDefaultStoryboardGuide,
   resolveStoryboardGuide,
+  storyboardGuideMaxChars,
   type AppSettings,
   t,
 } from '@svs/schema'
@@ -19,8 +20,9 @@ export function StoryboardGuideSection({ settings, onChanged }: StoryboardGuideS
     <GuideEditorCard
       field="storyboardGuide"
       custom={settings.storyboardGuide}
-      defaultText={DEFAULT_STORYBOARD_GUIDE}
-      maxChars={STORYBOARD_GUIDE_MAX_CHARS}
+      defaultText={defaultStoryboardGuide()}
+      isDefault={isDefaultStoryboardGuide}
+      maxChars={storyboardGuideMaxChars()}
       resolve={resolveStoryboardGuide}
       idPrefix="storyboard-guide"
       title={t('settings.storyboardGuide')}

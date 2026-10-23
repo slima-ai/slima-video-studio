@@ -86,10 +86,18 @@ const DurationRangeSchema = z
     const steps = range.steps
     if (steps === undefined) return
     if (steps.some((s) => s < range.min || s > range.max)) {
-      ctx.addIssue({ code: 'custom', path: ['steps'], message: '允許的秒數必須落在 min～max 之間' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['steps'],
+        message: 'The allowed seconds must fall between min and max',
+      })
     }
     if (steps.some((s, i) => i > 0 && s <= (steps[i - 1] ?? 0))) {
-      ctx.addIssue({ code: 'custom', path: ['steps'], message: '允許的秒數要由小到大、不能重複' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['steps'],
+        message: 'The allowed seconds must be ascending and unique',
+      })
     }
   })
 /** 影片的負面提示（不想要出現的東西）。`default` 是內建的清單，使用者可以在設定頁改。 */
@@ -154,7 +162,9 @@ export type ModelTextEn = z.infer<typeof ModelTextEnSchema>
 export const ModelCardSchema = z
   .object({
     /** 全域唯一，格式 `<供應商>/<模型>`，例如 `fal/kling-3.0-pro`。 */
-    id: z.string().regex(/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._/-]*$/, '格式必須是 供應商/模型'),
+    id: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._/-]*$/, 'The format must be provider/model'),
     displayName: z.string().min(1),
     /** 呼叫哪一家的 API（也是要填哪一把 Key）。`mock` 是示範模式的假供應商。 */
     provider: z.string().min(1),
@@ -221,7 +231,7 @@ export const ModelCardSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['endpoints', capability],
-          message: `能力 ${capability} 沒有對應的 endpoint`,
+          message: `The capability ${capability} has no matching endpoint`,
         })
       }
     }
@@ -230,7 +240,7 @@ export const ModelCardSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['endpoints', key],
-          message: `endpoint ${key} 不在 capabilities 裡`,
+          message: `The endpoint ${key} is not in capabilities`,
         })
       }
     }
@@ -239,14 +249,14 @@ export const ModelCardSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['imageApi'],
-          message: 'imageApi 只有 OpenRouter 的管道用得到',
+          message: 'imageApi only applies to OpenRouter channels',
         })
       }
       if (!card.capabilities.includes('t2i') && !card.capabilities.includes('edit')) {
         ctx.addIssue({
           code: 'custom',
           path: ['imageApi'],
-          message: 'imageApi 只能用在有 t2i 或 edit 能力的模型',
+          message: 'imageApi only applies to models with the t2i or edit capability',
         })
       }
     }
@@ -254,21 +264,29 @@ export const ModelCardSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['voices'],
-        message: 'voices 只能用在有 tts 能力的模型',
+        message: 'voices only apply to models with the tts capability',
       })
     }
     if (new Set(card.voices.map((v) => v.id)).size !== card.voices.length) {
-      ctx.addIssue({ code: 'custom', path: ['voices'], message: '同一張卡的 voice id 不能重複' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['voices'],
+        message: 'Voice ids on one card must be unique',
+      })
     }
     if (card.durationSec && card.durationSec.min > card.durationSec.max) {
-      ctx.addIssue({ code: 'custom', path: ['durationSec'], message: '最短秒數不能大於最長秒數' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['durationSec'],
+        message: 'The minimum seconds cannot be more than the maximum',
+      })
     }
     const v = card.verification
     if ((v.endpoint || v.pricing) && (!v.source || !v.checkedAt)) {
       ctx.addIssue({
         code: 'custom',
         path: ['verification'],
-        message: '已核對的 endpoint 或價格要填 checkedAt 與 source',
+        message: 'A verified endpoint or price needs checkedAt and source',
       })
     }
   })
@@ -315,7 +333,12 @@ export type ModelChannel = z.infer<typeof ModelChannelSchema>
 export const ModelSpecSchema = z
   .object({
     /** 模型的 key，例如 `kling-3.0-pro`；管道的 id 是 `<供應商>/<key>`。 */
-    key: z.string().regex(/^[a-z0-9][a-z0-9._-]*$/, '只能用小寫英數、點、底線、連字號'),
+    key: z
+      .string()
+      .regex(
+        /^[a-z0-9][a-z0-9._-]*$/,
+        'Only lowercase letters, digits, dots, underscores and hyphens are allowed',
+      ),
     displayName: z.string().min(1),
     /** 這個模型做得到的事；每個管道的 endpoints 只能是其中幾項。 */
     tasks: z.array(CapabilitySchema).min(1),
@@ -350,7 +373,7 @@ export const ModelSpecSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['channels', index, 'provider'],
-          message: `同一個供應商（${channel.provider}）只能有一個管道`,
+          message: `A provider (${channel.provider}) can have only one channel`,
         })
       }
       providers.add(channel.provider)
@@ -359,7 +382,7 @@ export const ModelSpecSchema = z
           ctx.addIssue({
             code: 'custom',
             path: ['channels', index, 'endpoints', task],
-            message: `管道的 ${task} 不在模型的 tasks 裡`,
+            message: `The channel’s ${task} is not in the model’s tasks`,
           })
         }
       }
@@ -369,7 +392,7 @@ export const ModelSpecSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['tasks'],
-          message: `沒有任何管道做得到 ${task}`,
+          message: `No channel can do ${task}`,
         })
       }
     }

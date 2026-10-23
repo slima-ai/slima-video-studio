@@ -103,7 +103,9 @@ export function registerShotTools(ctx: ToolContext): void {
       const snapshot = await ctx.caller.call('shots.list', {})
       const shot = snapshot.shots.find((s) => s.id === shotId)
       if (!shot) {
-        return { error: `找不到鏡頭「${shotId}」。請先用 list_shots 看有哪些鏡頭。` }
+        return {
+          error: `The shot “${shotId}” was not found. Call list_shots to see which shots exist.`,
+        }
       }
       return shotDetail(shot)
     },

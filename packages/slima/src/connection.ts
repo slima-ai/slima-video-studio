@@ -124,11 +124,11 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
       if (mine !== generation || client !== nextClient) return
       client = undefined
       transport = undefined
-      note('warn', 'slima-mcp 子行程中斷，準備重新連線')
+      note('warn', 'slima-mcp subprocess stopped; about to reconnect')
       scheduleRetry(t('errors.theConnectionToSlimaWas'), token)
     }
     nextClient.onerror = (error) => {
-      note('warn', 'slima-mcp 連線錯誤', { message: error.message })
+      note('warn', 'slima-mcp connection error', { message: error.message })
     }
     nextTransport.stderr?.on('data', (chunk: Buffer) => {
       note('info', 'slima-mcp stderr', { text: chunk.toString().replaceAll(token, '***').trim() })
@@ -159,7 +159,7 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
       setStatus({ state: 'ready', toolCount: SLIMA_READ_TOOLS.length, ...last4Of(token) })
     } catch (error) {
       if (mine !== generation) return
-      note('warn', '連線 slima-mcp 失敗', {
+      note('warn', 'Failed to connect to slima-mcp', {
         message: error instanceof Error ? error.message.replaceAll(token, '***') : 'unknown',
       })
       await closeClient()
@@ -228,7 +228,7 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
           timeout: callTimeout,
         })
       } catch (error) {
-        note('warn', '呼叫 Slima 工具失敗', {
+        note('warn', 'Calling the Slima tool failed', {
           tool: name,
           message: error instanceof Error ? error.message : 'unknown',
         })
@@ -240,7 +240,7 @@ export function createSlimaConnection(deps: SlimaConnectionDeps): SlimaConnectio
           setStatus({ state: 'error', message: authFailed().userMessage })
           throw authFailed()
         }
-        note('warn', 'Slima 工具回傳錯誤', { tool: name, text: text.slice(0, 300) })
+        note('warn', 'The Slima tool returned an error', { tool: name, text: text.slice(0, 300) })
         throw unavailable(
           RATE_LIMITED.test(text)
             ? t('errors.slimaIsGettingTooMany')

@@ -1,7 +1,7 @@
 import { CAMERA_MOVE_IDS, ShotAngleSchema, ShotSizeSchema } from '@svs/schema'
 import { describe, expect, it } from 'vitest'
 
-import { SERVER_INSTRUCTIONS } from './instructions'
+import { serverInstructions } from './instructions'
 import { ESTIMATE_COST_ACTIONS } from './tools/story'
 import { GUIDE_TOPICS, guideText } from './tools/guides'
 
@@ -10,7 +10,7 @@ const cinematography = guideText('cinematography', '')
 describe('load_guide("cinematography")', () => {
   it('是 get_capabilities 列出的主題之一，伺服器 instructions 與 getting-started 都指到它', () => {
     expect(GUIDE_TOPICS).toContain('cinematography')
-    expect(SERVER_INSTRUCTIONS).toContain('cinematography')
+    expect(serverInstructions()).toContain('cinematography')
     expect(guideText('getting-started', '')).toContain('load_guide("cinematography")')
   })
 
@@ -66,7 +66,7 @@ describe('load_guide("production")', () => {
 
   it('是 get_capabilities 列出的主題之一，伺服器 instructions 與 getting-started 都指到它', () => {
     expect(GUIDE_TOPICS).toContain('production')
-    expect(SERVER_INSTRUCTIONS).toContain('production')
+    expect(serverInstructions()).toContain('production')
     expect(guideText('getting-started', '')).toContain('load_guide("production")')
   })
 

@@ -5,7 +5,7 @@ import { LanguagePreferenceSchema } from '../i18n/locale'
 import { CHARACTER_PROMPT_KINDS, CHARACTER_PROMPT_MAX_CHARS } from './character-prompts'
 import { CapabilitySchema, ModelTierSchema, NEGATIVE_PROMPT_MAX_CHARS, VoiceSchema } from './models'
 import { PRODUCTION_GUIDE_MAX_CHARS } from './production-guide'
-import { STORYBOARD_GUIDE_MAX_CHARS } from './storyboard-guide'
+import { STORYBOARD_GUIDE_SCHEMA_MAX_CHARS } from './storyboard-guide'
 
 /** 設定頁可以挑模型的用途（用白話分成：文字、圖片、影片、旁白、配樂）。 */
 export const PICKABLE_CAPABILITIES = ['llm', 't2i', 'i2v', 'tts', 'music'] as const
@@ -83,8 +83,8 @@ export const AppSettingsSchema = z.object({
    * 關掉 App 再開也只會說一次；renderer 用 `models.notices` 取走。
    */
   modelNotices: z.array(z.string().min(1)).default([]),
-  /** 自訂的分鏡準則；空字串表示用內建預設（DEFAULT_STORYBOARD_GUIDE）。 */
-  storyboardGuide: z.string().max(STORYBOARD_GUIDE_MAX_CHARS).default(''),
+  /** 自訂的分鏡準則；空字串表示用內建預設（依介面語言：DEFAULT_STORYBOARD_GUIDE／_EN）。 */
+  storyboardGuide: z.string().max(STORYBOARD_GUIDE_SCHEMA_MAX_CHARS).default(''),
   /** 自訂的影片負面提示（不想要出現的東西）；空字串表示用各模型內建的清單，模型不接受負面提示就不會送。 */
   videoNegativePrompt: z.string().max(NEGATIVE_PROMPT_MAX_CHARS).default(''),
   /** 自訂的角色提示詞範本（概念圖、有參考圖的概念圖、三視圖）；沒有的項目用內建預設（DEFAULT_CHARACTER_PROMPTS）。 */
@@ -110,7 +110,7 @@ export const AppSettingsPatchSchema = z.object({
   // 不能直接用 AppSettingsSchema.shape.budget：它帶預設值，只改別的欄位的更新也會被補上預設上限，把使用者設的上限蓋掉
   budget: BudgetSettingsSchema.optional(),
   /** 自訂的分鏡準則；傳空字串表示恢復預設。 */
-  storyboardGuide: z.string().max(STORYBOARD_GUIDE_MAX_CHARS).optional(),
+  storyboardGuide: z.string().max(STORYBOARD_GUIDE_SCHEMA_MAX_CHARS).optional(),
   /** 影片的負面提示；傳空字串表示恢復各模型內建的清單。 */
   videoNegativePrompt: z.string().max(NEGATIVE_PROMPT_MAX_CHARS).optional(),
   /** 角色提示詞範本：逐項合併，值為空字串表示那一項恢復預設。 */

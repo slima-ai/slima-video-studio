@@ -1391,7 +1391,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
               : t('services.generatingAgainFailedPleaseTry'),
             step: failedStepOf(s, shotId),
           })
-          if (!isAppError(error)) log.error(`重新生成發生未預期錯誤：${String(error)}`)
+          if (!isAppError(error)) log.error(`Unexpected error while regenerating: ${String(error)}`)
         }
         throw error
       })
@@ -1422,7 +1422,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     }
     // 背景執行：錯誤已經記在鏡頭上（畫面會顯示），這裡不再往外丟
     running.catch(() => undefined)
-    log.info(`重新生成鏡頭 ${String(shot.number)}（${mode}）`)
+    log.info(`Regenerating shot ${String(shot.number)} (${mode})`)
   }
 
   return {
@@ -1907,10 +1907,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
             number: shot.number,
             error: isAppError(error) ? error.userMessage : t('services.thisShotCanTStart'),
           })
-          if (!isAppError(error)) log.error(`批次生成發生未預期錯誤：${String(error)}`)
+          if (!isAppError(error))
+            log.error(`Unexpected error in batch generation: ${String(error)}`)
         }
       }
-      log.info(`批次生成：開始 ${String(started)} 個，沒辦法開始 ${String(failed.length)} 個`)
+      log.info(
+        `Batch generation: started ${String(started)}, could not start ${String(failed.length)}`,
+      )
       // 只做影片的鏡頭，首幀如果是用舊的描述畫的：照用，但告訴呼叫端（不擋）
       const stale = request.stage === 'video' ? staleOf(s) : undefined
       const staleFrameShots = toRun
@@ -1948,10 +1951,10 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
             number: entry.shot.number,
             error: isAppError(error) ? error.userMessage : t('services.thisShotCanTStart'),
           })
-          if (!isAppError(error)) log.error(`畫布執行發生未預期錯誤：${String(error)}`)
+          if (!isAppError(error)) log.error(`Unexpected error in a canvas run: ${String(error)}`)
         }
       }
-      log.info(`畫布執行：開始 ${String(started)} 個，沒辦法開始 ${String(failed.length)} 個`)
+      log.info(`Canvas run: started ${String(started)}, could not start ${String(failed.length)}`)
       return { started, failed }
     },
 

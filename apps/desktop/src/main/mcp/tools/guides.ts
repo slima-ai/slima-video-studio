@@ -1,5 +1,17 @@
 import { resolveProductionGuide, resolveStoryboardGuide } from '@svs/schema'
 
+import {
+  allowanceCard,
+  cutCard,
+  demoModeName,
+  joinIntoFilmButton,
+  resetUsedButton,
+  saveButton,
+  settingsAiTools,
+  settingsApiKeys,
+  settingsGeneral,
+} from '../ui-labels'
+
 /** `load_guide` 的主題。內容寫在這裡（隨 App 版本更新），不寫進伺服器的 instructions（每個工作階段都要付的長度）。 */
 export const GUIDE_TOPICS = [
   'getting-started',
@@ -11,7 +23,8 @@ export const GUIDE_TOPICS = [
 ] as const
 export type GuideTopic = (typeof GUIDE_TOPICS)[number]
 
-const GETTING_STARTED = `# Making a video with Slima Video Studio
+/** 每次取用時才組（裡面有按鈕名字，跟著介面語言）。 */
+const gettingStarted = (): string => `# Making a video with Slima Video Studio
 
 You are connected to the user's own copy of the app, running on their computer. Everything you change appears in the app window in real time.
 
@@ -22,7 +35,7 @@ Order of work (call get_capabilities for the tools that exist right now):
 4. Story: split_story_into_scenes(story) turns the text into acts and scenes (and draft characters and locations). get_outline shows them; edit_outline fixes them.
 5. Characters: load_guide("production") first (how to keep looks the same from shot to shot). list_characters (the story step creates drafts), create_character / update_character, set_character_anchor (the fixed look text; suggest_character_anchor drafts it), if the character already has an original design picture, ask the user to drop it onto the canvas, find it with list_project_images and attach it with add_character_reference (concept pictures are then drawn FROM that picture instead of from the text, so the character stays identical to the original), then generate_character_images → wait_for_generation → view_character_images (you can SEE the pictures) → pick_character_image → lock_character. A locked character's look is sent unchanged with every shot that includes it.
 6. Shots: load_guide("storyboard") and load_guide("cinematography") first, then split_scene_into_shots(sceneId) for each scene. list_shots / get_shot to review, update_shot / create_shot / delete_shots / reorder_shots to improve. undo / redo work like the app's own.
-7. Pictures then video (look before you spend on video): generate_first_frames → wait_for_generation → view_first_frames (you can SEE them; fix a wrong shot with update_shot, then regenerate_shot what="first_frame") → generate_videos → wait_for_generation → view_video_stills (check for extra limbs/faces, a changed character, flicker; redo with regenerate_shot what="video"; adopt_version goes back to an older version) → assemble_film (the app calls it 「接成成品」, on the 「剪輯」 card) → view_video_stills with finalCut=true → export_film.
+7. Pictures then video (look before you spend on video): generate_first_frames → wait_for_generation → view_first_frames (you can SEE them; fix a wrong shot with update_shot, then regenerate_shot what="first_frame") → generate_videos → wait_for_generation → view_video_stills (check for extra limbs/faces, a changed character, flicker; redo with regenerate_shot what="video"; adopt_version goes back to an older version) → assemble_film (the app calls it ${joinIntoFilmButton()}, on the ${cutCard()} card) → view_video_stills with finalCut=true → export_film.
 8. Sound (after the videos exist; load_guide("sound") first): get_sound → plan_sound → generate_narration per shot (it reads the shot's dialogue) and generate_music → adjust_sound_clip / set_sound_settings → mix_sound (REQUIRED after any change made after assemble_film: adjusted clips, new narration or music, settings) → analyze_sound → export_film. Narration uses the voice chosen in Settings unless you pass a voiceId from list_models. You cannot hear it, so check the numbers and warnings in get_sound.
 9. Before a step that costs money, estimate_cost tells you what it would cost and whether the allowance covers it: split_story_into_scenes, split_scene_into_shots, generate_first_frames, generate_videos (the same numbers the app shows in its own "generate all" confirmation). For sound, plan_sound shows the estimate (free). Tell the user the price in one line before you start. The app also checks the cost itself when you start a step and refuses, saying the estimate, if the allowance is too small (load_guide("spending")).
 
@@ -32,12 +45,12 @@ Notes
 - Tool errors are plain-language messages; read them, they usually say what to do next.
 `
 
-const SPENDING = `# Spending
+const spending = (): string => `# Spending
 
 - Demo mode never spends money. In real mode, every tool that calls an AI model (text, image or video) first estimates its cost and reserves it from the spending allowance.
-- The allowance is the card 「AI 工具的總額度」 under 設定 → AI 工具連線 in the app's Settings page; the person sets it and it starts at US$0. You cannot change it. If a tool says the allowance is too small, tell the user the estimate and ask them to raise 「AI 工具的總額度」 there.
-- The reservation is a safety margin (the estimate times 1.25 for pictures and videos, times 2 for text). When everything has finished, the next tool you call turns it into what was really charged and gives the unused part back, so the allowance left grows again; while something is still generating it stays reserved. The user can also reset what has been used with 「已用的歸零」 on that card.
-- Moving from demo to real AI is something only the user can do, in two places: paste a service key (OpenRouter or fal.ai) on the card of that service under 設定 → 服務金鑰 and press 儲存, then switch off 示範模式 under 設定 → 一般. 設定 → AI 工具連線 is NOT where keys go: it only lets AI tools like you connect to the app, and holds 「AI 工具的總額度」. If the user asks how to use real AI, tell them exactly this.
+- The allowance is the card ${allowanceCard()} under ${settingsAiTools()} in the app's Settings page; the person sets it and it starts at US$0. You cannot change it. If a tool says the allowance is too small, tell the user the estimate and ask them to raise ${allowanceCard()} there.
+- The reservation is a safety margin (the estimate times 1.25 for pictures and videos, times 2 for text). When everything has finished, the next tool you call turns it into what was really charged and gives the unused part back, so the allowance left grows again; while something is still generating it stays reserved. The user can also reset what has been used with ${resetUsedButton()} on that card.
+- Moving from demo to real AI is something only the user can do, in two places: paste a service key (OpenRouter or fal.ai) on the card of that service under ${settingsApiKeys()} and press ${saveButton()}, then switch off ${demoModeName()} under ${settingsGeneral()}. ${settingsAiTools()} is NOT where keys go: it only lets AI tools like you connect to the app, and holds ${allowanceCard()}. If the user asks how to use real AI, tell them exactly this.
 - Never try to work around a refusal.
 `
 
@@ -113,9 +126,9 @@ export function guideText(
   customStoryboardGuide: string,
   customProductionGuide = '',
 ): string {
-  if (topic === 'getting-started') return GETTING_STARTED
+  if (topic === 'getting-started') return gettingStarted()
   if (topic === 'cinematography') return CINEMATOGRAPHY
-  if (topic === 'spending') return SPENDING
+  if (topic === 'spending') return spending()
   if (topic === 'sound') return SOUND
   if (topic === 'production') return resolveProductionGuide(customProductionGuide)
   return `# Storyboard guide (set by the user in Settings; this is what the app's own AI storyboard step uses)\n\n${resolveStoryboardGuide(customStoryboardGuide)}\n`

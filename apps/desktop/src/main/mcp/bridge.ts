@@ -102,7 +102,10 @@ export function createMcpCaller(
   return {
     call: async (channel, payload) => {
       if (!allowSet.has(channel)) {
-        throw new McpToolError(`這個功能不開放給 AI 工具（${channel}）。`, 'not_allowed')
+        throw new McpToolError(
+          `This function is not available to AI tools (${channel}).`,
+          'not_allowed',
+        )
       }
       // 走這裡的都是 AI 工具做的：復原紀錄靠這個把 Claude 一輪的改動併成一步（見 history/ai-origin.ts）
       const result = await runAsAi(() => registry.dispatch({ channel, payload }, ctx))

@@ -304,7 +304,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
             notify(soundDoneNotice(await runSound.add(soundWant)))
           })
           .catch((error: unknown) => {
-            log.warn(`畫布接片失敗：${String(error)}`)
+            log.warn(`Canvas join failed: ${String(error)}`)
             notify({
               tone: 'danger',
               message: isAppError(error)

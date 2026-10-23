@@ -9,7 +9,7 @@ export function stableStringify(value: unknown): string {
   if (typeof value === 'string') return JSON.stringify(value)
   if (typeof value === 'boolean') return value ? 'true' : 'false'
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new TypeError('不能序列化 NaN 或 Infinity')
+    if (!Number.isFinite(value)) throw new TypeError('Cannot serialize NaN or Infinity')
     return JSON.stringify(value)
   }
   if (typeof value === 'object') {
@@ -22,7 +22,7 @@ export function stableStringify(value: unknown): string {
       .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`)
     return `{${entries.join(',')}}`
   }
-  throw new TypeError(`不能序列化 ${typeof value}`)
+  throw new TypeError(`Cannot serialize ${typeof value}`)
 }
 
 export function sha256Hex(text: string): string {

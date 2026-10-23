@@ -102,7 +102,7 @@ export function registerCharacterTools(ctx: ToolContext): void {
     run: async ({ characterId }) => {
       const reserved = reserveSpending(
         ctx,
-        '請 AI 整理固定外觀描述',
+        'Condense the fixed appearance description',
         SUGGEST_ANCHOR_ESTIMATE_USD,
         1,
       )
@@ -202,10 +202,13 @@ export function registerCharacterTools(ctx: ToolContext): void {
     run: async ({ characterId }) => {
       const check = await ctx.caller.call('characters.conceptCheck', { characterId })
       if (!check.ok)
-        throw new McpToolError(check.issue ?? '現在不能生成角色概念圖。', 'cannot_generate')
+        throw new McpToolError(
+          check.issue ?? 'Character concept pictures cannot be generated right now.',
+          'cannot_generate',
+        )
       const reserved = reserveSpending(
         ctx,
-        `生成 ${String(check.count)} 張角色概念圖`,
+        `Generate ${String(check.count)} character concept picture(s)`,
         check.estimatedUsd,
         IMAGE_RESERVE_FACTOR,
       )

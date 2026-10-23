@@ -685,6 +685,6 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
 
   const missing = registry.missingHandlers()
   if (missing.length > 0) {
-    throw new Error(`合約內的 channel 沒有實作：${missing.join(', ')}`)
+    throw new Error(`Channels in the contract have no handler: ${missing.join(', ')}`)
   }
 }
