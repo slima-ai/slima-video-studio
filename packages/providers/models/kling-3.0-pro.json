@@ -10,7 +10,7 @@
     "nativeAudio": true,
     "characterMechanism": "elements"
   },
-  "badges": ["有聲", "角色一致"],
+  "badges": ["有聲"],
   "prompt": {
     "language": "en",
     "hint": "用 @Element1 引用角色元素；每鏡獨立 prompt 與秒數。"
@@ -70,7 +70,7 @@
         "max": 15
       },
       "resolutions": ["720p", "1080p"],
-      "notes": "畫質最好的選擇之一。OpenRouter 沒有確認支援 Kling Elements，要用 Elements 請填 fal.ai 的金鑰。參考生影片（input_references）：Std 版 2026-10-23 實測不建議，Pro 沒另測、一樣不走（見 verification.tested）。",
+      "notes": "畫質最好的選擇之一。OpenRouter 沒有確認支援 Kling Elements，要用 Elements 請填 fal.ai 的金鑰。參考生影片（input_references）：Std 版 2026-10-23 實測不建議，Pro 沒另測、一樣不走（見 verification.tested）。 選單上的「角色一致」標籤 2026-10-23 拿掉：只寫 App 真的會用到、或實測過的能力；它是人工寫在模型檔的廠商宣稱（Kling Elements），App 沒用到 Elements，OpenRouter 管道參考生影片實測反而走樣。",
       "characterMechanism": "none",
       "prompt": {
         "language": "en"

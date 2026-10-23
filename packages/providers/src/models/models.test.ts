@@ -267,13 +267,18 @@ describe('內建 ModelCard', () => {
     // 能力看管道的端點：fal 上的 Kling 3.0 Pro 沒有參考生影片
     expect(fal?.capabilities).toEqual(['t2v', 'i2v'])
     expect(viaOpenRouter?.capabilities).toEqual(['t2v', 'i2v'])
-    expect(fal?.badges).toEqual(['有聲', '角色一致'])
+    expect(fal?.badges).toEqual(['有聲'])
     // 示範模型沿用舊的 id，舊專案的版本紀錄照樣讀得到
     expect(registry.get('mock/video')?.model).toBe('mock-video')
   })
 
-  it('Kling 3.0 Standard 的選單標籤沒有「角色一致」：那是廠商宣稱，App 沒用 Elements，實測參考圖反而走樣', () => {
-    for (const id of ['fal/kling-3.0-standard', 'openrouter/kling-3.0-standard']) {
+  it('Kling 3.0 的選單標籤沒有「角色一致」（Standard、Pro）：標籤只寫 App 真的用到或實測過的能力；那是廠商宣稱，App 沒用 Elements，實測參考圖反而走樣', () => {
+    for (const id of [
+      'fal/kling-3.0-standard',
+      'openrouter/kling-3.0-standard',
+      'fal/kling-3.0-pro',
+      'openrouter/kling-3.0-pro',
+    ]) {
       expect(registry.get(id)?.badges, id).toEqual(['有聲'])
     }
   })
