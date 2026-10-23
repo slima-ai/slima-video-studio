@@ -4,6 +4,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { assetUrl } from '../../lib/asset'
 import { cn } from '../../lib/cn'
 import { usageLine } from '../../lib/usage'
+import { t, msg, type MessageRef } from '@svs/schema'
 
 export type GraphFlowNode = Node<{ view: GraphNodeView }, 'step'>
 
@@ -16,14 +17,14 @@ const CATEGORY_BAR: Readonly<Record<GraphCategory, string>> = {
   output: 'bg-slate-400',
 }
 
-export const STATUS_LABEL: Readonly<Record<GraphNodeStatus, string>> = {
-  idle: '還沒生成',
-  running: '生成中',
-  succeeded: '完成',
-  cached: '沿用上次的結果',
-  failed: '失敗',
-  blocked: '前面的步驟失敗，這步沒做',
-  cancelled: '已取消',
+export const STATUS_LABEL: Readonly<Record<GraphNodeStatus, MessageRef>> = {
+  idle: msg('graph.notGenerated'),
+  running: msg('graph.generating'),
+  succeeded: msg('graph.done'),
+  cached: msg('graph.reusingTheLastResult'),
+  failed: msg('graph.failed'),
+  blocked: msg('graph.anEarlierStepFailedSo'),
+  cancelled: msg('graph.cancelled'),
 }
 
 const STATUS_TONE: Readonly<Record<GraphNodeStatus, string>> = {
@@ -44,7 +45,7 @@ function Preview({ view }: { view: GraphNodeView }) {
       <img
         data-testid="node-preview-image"
         src={assetUrl(preview.hash)}
-        alt={`${view.title}的結果`}
+        alt={t('graph.resultOf', { title: view.title })}
         className="aspect-video w-full rounded object-cover"
       />
     )
@@ -89,14 +90,16 @@ export function NodeCard({ data, selected }: NodeProps<GraphFlowNode>) {
             data-testid="node-status"
             className={cn('shrink-0 rounded px-1.5 py-0.5 text-xs', STATUS_TONE[view.status])}
           >
-            {STATUS_LABEL[view.status]}
+            {t(STATUS_LABEL[view.status])}
           </span>
         </div>
-        {view.modelName ? <p className="text-xs text-fg-muted">模型：{view.modelName}</p> : null}
+        {view.modelName ? (
+          <p className="text-xs text-fg-muted">{t('graph.model', { modelName: view.modelName })}</p>
+        ) : null}
         {view.summary ? <p className="line-clamp-2 text-xs text-fg-muted">{view.summary}</p> : null}
         {view.sources.length > 0 ? (
           <p data-testid="node-sources" className="text-xs text-fg-muted">
-            來自：{view.sources.join('、')}
+            {t('graph.from', { value: view.sources.join(t('list.comma')) })}
           </p>
         ) : null}
         <Preview view={view} />

@@ -12,6 +12,8 @@ import {
   type RecordTarget,
   type RecordsFilter,
   type RecordsSnapshot,
+  t,
+  displayNameOf,
 } from '@svs/schema'
 import { REFERENCE_PROMPT_SUFFIX, withoutFrameFillSuffix } from '@svs/workflows'
 
@@ -70,18 +72,21 @@ function promptOf(request: GenerationRequest): string | undefined {
 function paramsOf(request: GenerationRequest): string[] {
   const out: string[] = []
   if (request.capability === 'music') {
-    if (request.durationSec !== undefined) out.push(`${String(request.durationSec)} 秒`)
+    if (request.durationSec !== undefined)
+      out.push(t('services.s2', { value: String(request.durationSec) }))
     return out
   }
   if (request.capability === 'llm' || request.capability === 'tts') return out
   out.push(request.aspectRatio)
-  if ('durationSec' in request) out.push(`${String(request.durationSec)} 秒`)
-  if ('audio' in request && request.audio) out.push('有聲')
+  if ('durationSec' in request) out.push(t('services.s2', { value: String(request.durationSec) }))
+  if ('audio' in request && request.audio) out.push(t('services.withSound'))
   if (request.referenceAssets.length > 0)
-    out.push(`${String(request.referenceAssets.length)} 張參考圖`)
-  if ('startFrameAsset' in request && request.startFrameAsset) out.push('用第一張畫面生成')
-  if ('cameraMove' in request && request.cameraMove) out.push(`運鏡：${request.cameraMove}`)
-  if (request.seed !== undefined) out.push(`變化 ${String(request.seed)}`)
+    out.push(t('services.referencePictures', { value: String(request.referenceAssets.length) }))
+  if ('startFrameAsset' in request && request.startFrameAsset)
+    out.push(t('services.madeFromTheFirstFrame'))
+  if ('cameraMove' in request && request.cameraMove)
+    out.push(t('services.cameraMove2', { cameraMove: request.cameraMove }))
+  if (request.seed !== undefined) out.push(t('services.variation', { value: String(request.seed) }))
   return out
 }
 
@@ -100,7 +105,7 @@ function targetsOf(handle: ProjectHandle): Targets {
     const target: RecordTarget = {
       type: 'shot',
       id: shot.id,
-      label: `第 ${String(shot.number)} 鏡`,
+      label: t('services.shot', { value: String(shot.number) }),
     }
     for (const take of shots.listTakes(shot.id)) {
       if (take.nodeRunId && !byNodeRun.has(take.nodeRunId)) byNodeRun.set(take.nodeRunId, target)
@@ -131,7 +136,7 @@ function resultOf(job: Job): RecordResult | undefined {
 export function createRecordsService(deps: RecordsServiceDeps): RecordsService {
   const current = (): ProjectHandle => {
     const handle = deps.projects.current()
-    if (!handle || handle.closed) throw invalid('請先開啟或建立一個專案。')
+    if (!handle || handle.closed) throw invalid(t('services.openOrCreateAProject'))
     return handle
   }
 
@@ -177,7 +182,7 @@ export function createRecordsService(deps: RecordsServiceDeps): RecordsService {
         kind: job.kind,
         status: job.status,
         modelId: job.modelId,
-        modelName: deps.models.get(job.modelId)?.displayName ?? job.modelId,
+        modelName: displayNameOf(deps.models.get(job.modelId), job.modelId),
         ...(prompt ? { prompt } : {}),
         params: request ? paramsOf(request) : [],
         ...(Number.isFinite(started) && Number.isFinite(ended)
@@ -213,16 +218,16 @@ export function createRecordsService(deps: RecordsServiceDeps): RecordsService {
     async redo({ jobId, prompt }) {
       const handle = current()
       const record = build(handle, {}).find((r) => r.id === jobId)
-      if (!record) throw invalid('找不到這筆紀錄。')
+      if (!record) throw invalid(t('services.canTFindThisRecord'))
       const { target } = record
       if (!record.canRedo || target?.type !== 'shot') {
-        throw invalid('這一筆沒辦法直接重新生成，請到對應的頁面操作。')
+        throw invalid(t('services.thisRecordCanTBe'))
       }
       const shot = deps.shots.list().shots.find((s) => s.id === target.id)
-      if (!shot) throw invalid('這個鏡頭已經不在了。')
+      if (!shot) throw invalid(t('services.thisShotNoLongerExists'))
 
       const wanted = (prompt ?? record.prompt ?? '').trim()
-      if (wanted === '') throw invalid('prompt 不能是空的。')
+      if (wanted === '') throw invalid(t('services.thePromptCanTBe'))
       // 跟鏡頭現在實際會送出的 prompt 一樣就不必動它
       if (wanted !== (shot.prompt ?? shot.autoPrompt).trim()) {
         deps.shots.update(shot.id, { prompt: wanted })

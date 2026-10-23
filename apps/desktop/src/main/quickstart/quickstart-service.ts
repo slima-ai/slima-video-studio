@@ -18,6 +18,7 @@ import {
   type QuickStartProgress,
   type QuickStartRequest,
   displayNameOf,
+  t,
 } from '@svs/schema'
 import {
   STUDIO_SERVICE_KEY,
@@ -172,7 +173,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       issues.push({ message, ...(action ? { action } : {}) })
     }
 
-    if (request.story.trim() === '') problem('請先輸入你想拍的故事。')
+    if (request.story.trim() === '') problem(t('services.enterTheStoryYouWant'))
     const handle0 = projects.current()
     if (
       request.sourceKey !== undefined &&
@@ -180,17 +181,14 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
         .listNodes()
         .some((n) => n.type === 'oneliner' && `node:${n.id}` === request.sourceKey)
     ) {
-      problem('找不到這個「一句話」，可能已經被刪掉了。')
+      problem(t('services.canTFindThisOne'))
     }
-    if (active) problem('已經有一支影片正在生成，等它完成或先取消。')
-    const hint = demoMode ? '' : '（或到設定打開示範模式先試玩）'
-    if (!chosen.llm)
-      problem(`還沒有可用的文字模型：請到設定填入 OpenRouter 的服務金鑰${hint}。`, 'settings')
-    if (!chosen.image)
-      problem(`還沒有可用的圖片模型：請到設定填入 fal.ai 的服務金鑰${hint}。`, 'settings')
-    if (!chosen.video)
-      problem(`還沒有可用的影片模型：請到設定填入 fal.ai 的服務金鑰${hint}。`, 'settings')
-    if (!tools()) problem('找不到影片處理工具（FFmpeg），沒辦法把鏡頭接成一支影片。')
+    if (active) problem(t('services.aFilmIsAlreadyBeing'))
+    const hint = demoMode ? '' : t('services.orTurnOnDemoMode')
+    if (!chosen.llm) problem(t('services.noTextModelIsAvailable2', { hint }), 'settings')
+    if (!chosen.image) problem(t('services.noImageModelIsAvailable', { hint }), 'settings')
+    if (!chosen.video) problem(t('services.noVideoModelIsAvailable', { hint }), 'settings')
+    if (!tools()) problem(t('services.canTFindTheVideo'))
 
     let estimatedUsd = 0
     let lowerBound = true
@@ -247,7 +245,8 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       const [first] = result.issues
       if (first) throw invalid(first.message)
       const chosen = picked()
-      if (!chosen.llm || !chosen.image || !chosen.video) throw invalid('還沒有可用的模型。')
+      if (!chosen.llm || !chosen.image || !chosen.video)
+        throw invalid(t('services.noModelIsAvailableYet'))
 
       ensureProject(projects, deps.projectsDir, request.story, now())
       const handle = projects.current()
@@ -256,7 +255,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       if (!handle || !queue || !tool) {
         throw new AppError({
           code: 'internal_error',
-          userMessage: '生成服務還沒準備好，請重新啟動 App。',
+          userMessage: t('services.theGenerationServiceIsnT'),
         })
       }
 
@@ -334,7 +333,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
             ? error.toShape()
             : new AppError({
                 code: 'internal_error',
-                userMessage: '生成失敗，請再試一次。',
+                userMessage: t('services.generationFailedPleaseTryAgain'),
               }).toShape()
           if (!isAppError(error)) log.error(`快速開始發生未預期錯誤：${String(error)}`)
           const current = myTracker.snapshot()
@@ -422,7 +421,10 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       const runId = myTracker.snapshot()?.runId
       if (!runId) {
         await running // 預估超過上限等：丟出原本的錯誤
-        throw new AppError({ code: 'internal_error', userMessage: '生成沒有開始。' })
+        throw new AppError({
+          code: 'internal_error',
+          userMessage: t('services.generationDidnTStart'),
+        })
       }
       // 背景執行：錯誤已經由上面的 catch 回報給畫面，這裡不再往外丟
       running.catch(() => undefined)
@@ -442,12 +444,12 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       const handle = projects.current()
       // 最新一版成品（有聲音時是混好的）；沒有才用這次生成接好的影片
       const hash = shots.finalVideoHash() ?? tracker.snapshot()?.finalVideoHash
-      if (!handle || !hash) throw invalid('還沒有可以匯出的影片，請先完成一次生成。')
+      if (!handle || !hash) throw invalid(t('services.thereSNoFilmTo'))
       const source = handle.assets.find(hash)
-      if (!source) throw invalid('找不到成品影片檔，可能已被刪除。')
+      if (!source) throw invalid(t('services.canTFindTheFilm'))
       const dir = join(handle.dir, 'exports')
       mkdirSync(dir, { recursive: true })
-      const title = safeFileName(tracker.snapshot()?.title ?? '', '短片')
+      const title = safeFileName(tracker.snapshot()?.title ?? '', t('services.film'))
       // 檔名的時間戳只到秒：同一秒匯出兩次（例如先有字卡、再取消字卡）不能蓋掉前一個，後面的加 -2、-3…
       const base = `${title}-${stamp(now())}`
       let path = join(dir, `${base}.mp4`)

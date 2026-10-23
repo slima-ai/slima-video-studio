@@ -10,6 +10,8 @@ import {
   type NodeRun,
   type ShotGraph,
   type Workflow,
+  t,
+  displayNameOf,
 } from '@svs/schema'
 import { NODE_INFO, NODE_TYPES, registerQuickStartNodes } from '@svs/workflows'
 
@@ -121,14 +123,21 @@ export function createGraphService(deps: GraphServiceDeps): GraphService {
       case NODE_TYPES.shotPrompt: {
         const anchors = Array.isArray(params.anchors) ? params.anchors.length : 0
         const scenes = Array.isArray(params.scenes) ? params.scenes.length : 0
-        return `畫風 ${text(params.style)}・帶入 ${String(anchors)} 位角色、${String(scenes)} 個場景`
+        return t('services.styleUsingCharactersAndLocations', {
+          value: text(params.style),
+          value2: String(anchors),
+          value3: String(scenes),
+        })
       }
       case NODE_TYPES.image:
         return typeof params.editModel === 'string'
-          ? '有角色或場景參考圖時，改用可帶參考圖的模型'
-          : `畫面 ${text(params.aspectRatio)}`
+          ? t('services.whenCharactersOrLocationsHave')
+          : t('services.picture', { value: text(params.aspectRatio) })
       case NODE_TYPES.video:
-        return `${text(params.durationSec)} 秒・${text(params.aspectRatio)}`
+        return t('services.s', {
+          value: text(params.durationSec),
+          value2: text(params.aspectRatio),
+        })
       default:
         return undefined
     }
@@ -140,13 +149,13 @@ export function createGraphService(deps: GraphServiceDeps): GraphService {
       if (!handle || handle.closed) {
         throw new AppError({
           code: 'project_not_found',
-          userMessage: '請先開啟或建立一個專案。',
+          userMessage: t('services.openOrCreateAProject'),
         })
       }
       const { shots, costs } = handle.repos
       const shot = shots.get(shotId)
       if (!shot) {
-        throw new AppError({ code: 'invalid_request', userMessage: '找不到這個鏡頭。' })
+        throw new AppError({ code: 'invalid_request', userMessage: t('services.canTFindThisShot') })
       }
       const flow = deps.shots.flowOf(shotId)
 
@@ -212,7 +221,7 @@ export function createGraphService(deps: GraphServiceDeps): GraphService {
             ? Math.max(0, finishedAt - startedAt)
             : undefined
         const modelId = node.modelId === '' ? undefined : node.modelId
-        const modelName = modelId ? (deps.models.get(modelId)?.displayName ?? modelId) : undefined
+        const modelName = modelId ? displayNameOf(deps.models.get(modelId), modelId) : undefined
         const summary = summaryOf(node)
         const cost = nodeCost.get(node.id)
         return {

@@ -1,4 +1,9 @@
-import type { SlimaImportCheck, SlimaImportResult, SlimaTree } from '@svs/schema'
+import {
+  setLocale,
+  type SlimaImportCheck,
+  type SlimaImportResult,
+  type SlimaTree,
+} from '@svs/schema'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -184,5 +189,42 @@ describe('SlimaImportPage', () => {
 
     fireEvent.click(screen.getByTestId('slima-import-back'))
     expect(await screen.findAllByTestId('slima-import-book')).toHaveLength(2)
+  })
+})
+
+describe('SlimaImportPage（英文介面）', () => {
+  afterEach(() => {
+    setLocale('zh-TW')
+  })
+
+  it('選書 → 檢查 → 匯入 → 結果：單複數與整句都是英文，沒有中文的標點與量詞', async () => {
+    setLocale('en')
+    installFakeSvs({
+      'slima.status': () => READY,
+      'slima.books': () => ({ books: [...BOOKS] }),
+      'slima.tree': () => TREE,
+      'slima.importCheck': () => CHECK,
+      'slima.import': () => RESULT,
+    })
+    renderPage()
+    const books = await screen.findAllByTestId('slima-import-book')
+    expect(books.map((b) => b.textContent)).toEqual([
+      '雨夜的貓Novel · 12,345 words',
+      '鐵與花Script · 3,200 words',
+    ])
+    fireEvent.click(nth(books, 0))
+    await screen.findByTestId('slima-import-files')
+    fireEvent.click(screen.getByLabelText('Select chapter-01.md'))
+    expect(screen.getByTestId('slima-import-run').textContent).toBe('Import the 1 selected file')
+    fireEvent.click(screen.getByLabelText('Select world/舊倉庫.md'))
+    expect(screen.getByTestId('slima-import-run').textContent).toBe('Import the 2 selected files')
+    fireEvent.click(screen.getByTestId('slima-import-run'))
+    await screen.findByTestId('slima-import-check')
+    expect(screen.getByTestId('slima-import-story').textContent).toBe(
+      'Have AI split 1 file (about 900 words) into scenes for about US$0.05 (Test LLM).',
+    )
+    fireEvent.click(screen.getByTestId('slima-import-confirm'))
+    const summary = await screen.findByTestId('slima-import-summary')
+    expect(summary.textContent).toBe('Added: 2 acts, 1 character.')
   })
 })

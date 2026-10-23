@@ -12,34 +12,47 @@ import { Button } from '../../components/button'
 import { call, errorText } from '../../lib/svs'
 import { useSlimaStatus } from './use-slima-status'
 import { Page, SELECT_CLASS } from '../../components/page'
+import { formatNumber } from '@svs/schema'
+import { t, msg, type MessageRef } from '@svs/schema'
 
 export interface SlimaImportPageProps {
   onOpenSettings: () => void
   onNavigate: (view: AppView) => void
 }
 
-export const USE_LABELS: Record<SlimaFileUse, string> = {
-  story: '故事內容（拆成分場）',
-  character: '角色',
-  location: '地點',
-  scene: '一場戲',
+export const USE_LABELS: Record<SlimaFileUse, MessageRef> = {
+  story: msg('slima.storySplitIntoScenes'),
+  character: msg('slima.character'),
+  location: msg('slima.location'),
+  scene: msg('slima.aScene'),
 }
 
-const KIND_LABELS: Record<SlimaBook['kind'], string> = {
-  writing: '小說',
-  script: '劇本',
-  knowledge: '團隊資料庫',
+const KIND_LABELS: Record<SlimaBook['kind'], MessageRef> = {
+  writing: msg('slima.novel'),
+  script: msg('slima.script'),
+  knowledge: msg('slima.teamKnowledgeBase'),
 }
 
 const usd = (n: number): string => `US$${n.toFixed(2)}`
 
 function Names({ label, names }: { label: string; names: readonly string[] }) {
   if (names.length === 0) return null
-  return (
-    <li>
-      {label}：{names.join('、')}
-    </li>
-  )
+  return <li>{t('slima.nameList', { label, names: names.join(t('list.comma')) })}</li>
+}
+
+/** 「把 3 個檔案（約 1,234 字）交給 AI 拆成分場，預估約 US$0.05（模型名）」：示範模式與有沒有模型名各一句。 */
+function storyLine(check: SlimaImportCheck): string {
+  const files = t('slima.fileCount', { count: check.storyFiles })
+  const words = t('slima.wordCount', { formatted: formatNumber(check.storyChars) })
+  if (check.demoMode) {
+    return check.modelName
+      ? t('slima.haveAiSplitAboutInto', { files, words, modelName: check.modelName })
+      : t('slima.haveAiSplitAboutInto2', { files, words })
+  }
+  const cost = usd(check.estimatedUsd)
+  return check.modelName
+    ? t('slima.haveAiSplitAboutInto3', { files, words, cost, modelName: check.modelName })
+    : t('slima.haveAiSplitAboutInto4', { files, words, cost })
 }
 
 function CheckPanel({
@@ -64,30 +77,23 @@ function CheckPanel({
         </p>
       ) : null}
       <ul className="list-disc space-y-1 pl-5 text-sm">
-        {check.storyFiles > 0 ? (
-          <li data-testid="slima-import-story">
-            把 {check.storyFiles} 個檔案（約 {check.storyChars.toLocaleString()} 字）交給 AI
-            拆成分場
-            {check.demoMode ? '，示範模式不花錢' : `，預估約 ${usd(check.estimatedUsd)}`}
-            {check.modelName ? `（${check.modelName}）` : ''}
-          </li>
-        ) : null}
-        <Names label="新增角色" names={check.characters} />
-        <Names label="新增地點" names={check.locations} />
-        <Names label="新增場" names={check.scenes} />
+        {check.storyFiles > 0 ? <li data-testid="slima-import-story">{storyLine(check)}</li> : null}
+        <Names label={t('slima.newCharacters')} names={check.characters} />
+        <Names label={t('slima.newLocations')} names={check.locations} />
+        <Names label={t('slima.newScenes')} names={check.scenes} />
       </ul>
       {check.replacesOutline && check.storyFiles > 0 ? (
         <p className="text-sm text-warning" data-testid="slima-import-replaces">
-          拆成分場會換掉目前的大綱（已經生成的鏡頭不受影響）。
+          {t('slima.splittingIntoScenesReplacesThe')}
         </p>
       ) : null}
       {check.skipped.length > 0 ? (
         <div className="text-sm text-fg-muted" data-testid="slima-import-skipped">
-          <p>會略過：</p>
+          <p>{t('slima.willBeSkipped')}</p>
           <ul className="list-disc pl-5">
             {check.skipped.map((item) => (
               <li key={item.path}>
-                {item.path}（{item.reason}）
+                {t('slima.skippedItem', { path: item.path, reason: item.reason })}
               </li>
             ))}
           </ul>
@@ -101,11 +107,11 @@ function CheckPanel({
             disabled={busy}
             onClick={onConfirm}
           >
-            {busy ? '匯入中…' : '確定匯入'}
+            {busy ? t('slima.importing') : t('slima.import')}
           </Button>
         ) : null}
         <Button data-testid="slima-import-cancel" disabled={busy} onClick={onCancel}>
-          {check.ok ? '先不要' : '返回'}
+          {check.ok ? t('slima.notNow') : t('slima.back')}
         </Button>
       </div>
     </div>
@@ -122,20 +128,28 @@ function ResultPanel({
   onAgain: () => void
 }) {
   const parts = [
-    result.actsFromStory > 0 ? `拆出 ${String(result.actsFromStory)} 幕` : '',
-    result.characters.length > 0 ? `${String(result.characters.length)} 個角色` : '',
-    result.locations.length > 0 ? `${String(result.locations.length)} 個地點` : '',
-    result.scenes.length > 0 ? `${String(result.scenes.length)} 場戲` : '',
+    result.actsFromStory > 0 ? t('slima.partActs', { count: result.actsFromStory }) : '',
+    result.characters.length > 0
+      ? t('slima.partCharacters', { count: result.characters.length })
+      : '',
+    result.locations.length > 0 ? t('slima.partLocations', { count: result.locations.length }) : '',
+    result.scenes.length > 0 ? t('slima.partScenes', { count: result.scenes.length }) : '',
   ].filter((part) => part !== '')
   return (
     <div
       className="space-y-3 rounded-lg border border-success/40 bg-success-soft p-4"
       data-testid="slima-import-result"
     >
-      <p className="font-medium">匯入完成了。</p>
+      <p className="font-medium">{t('slima.importFinished')}</p>
       <p className="text-sm text-fg-muted" data-testid="slima-import-summary">
-        {parts.length > 0 ? `新增：${parts.join('、')}。` : '沒有新增任何東西。'}
-        {result.skipped.length > 0 ? `略過了 ${String(result.skipped.length)} 個檔案。` : ''}
+        {[
+          parts.length > 0
+            ? t('slima.added', { value: parts.join(t('list.comma')) })
+            : t('slima.nothingWasAdded'),
+          ...(result.skipped.length > 0
+            ? [t('slima.skippedFiles', { count: result.skipped.length })]
+            : []),
+        ].join(t('list.sentence'))}
       </p>
       <div className="flex flex-wrap gap-2">
         {result.actsFromStory > 0 || result.scenes.length > 0 ? (
@@ -146,7 +160,7 @@ function ResultPanel({
               onNavigate('outline')
             }}
           >
-            看大綱
+            {t('slima.seeTheOutline')}
           </Button>
         ) : null}
         {result.characters.length > 0 ? (
@@ -157,7 +171,7 @@ function ResultPanel({
               onNavigate('characters')
             }}
           >
-            看角色
+            {t('slima.seeTheCharacters')}
           </Button>
         ) : null}
         {result.locations.length > 0 ? (
@@ -168,11 +182,11 @@ function ResultPanel({
               onNavigate('locations')
             }}
           >
-            看場景卡
+            {t('slima.seeTheLocations')}
           </Button>
         ) : null}
         <Button size="sm" variant="ghost" data-testid="slima-import-again" onClick={onAgain}>
-          再匯入別的
+          {t('slima.importSomethingElse')}
         </Button>
       </div>
     </div>
@@ -248,8 +262,8 @@ export function SlimaImportPage({ onOpenSettings, onNavigate }: SlimaImportPageP
 
   return (
     <Page
-      title="從 Slima 匯入"
-      hint="把 Slima 裡的小說或劇本變成大綱、角色和場景。只會讀取，不會改動 Slima 裡的內容。"
+      title={t('slima.importFromSlima')}
+      hint={t('slima.turnANovelOrScript')}
       width="narrow"
       testId="slima-import-page"
     >
@@ -259,9 +273,9 @@ export function SlimaImportPage({ onOpenSettings, onNavigate }: SlimaImportPageP
             className="rounded-lg border border-border bg-surface-raised shadow-card p-4"
             data-testid="slima-import-offline"
           >
-            <p className="text-sm">{status.message ?? '還沒有連上 Slima。'}</p>
+            <p className="text-sm">{status.message ?? t('slima.notConnectedToSlimaYet')}</p>
             <Button className="mt-3" size="sm" onClick={onOpenSettings}>
-              到設定檢查 Slima 連線
+              {t('slima.checkTheSlimaConnectionIn')}
             </Button>
           </div>
         ) : null}
@@ -273,10 +287,12 @@ export function SlimaImportPage({ onOpenSettings, onNavigate }: SlimaImportPageP
         ) : null}
 
         {ready && !tree ? (
-          <section aria-label="我的書" data-testid="slima-import-books">
-            {books === undefined ? <p className="text-sm text-fg-muted">讀取你的書…</p> : null}
+          <section aria-label={t('slima.myBooks')} data-testid="slima-import-books">
+            {books === undefined ? (
+              <p className="text-sm text-fg-muted">{t('slima.loadingYourBooks')}</p>
+            ) : null}
             {books?.length === 0 ? (
-              <p className="text-sm text-fg-muted">你的 Slima 裡還沒有書。</p>
+              <p className="text-sm text-fg-muted">{t('slima.yourSlimaHasNoBooks')}</p>
             ) : null}
             <ul className="space-y-2">
               {books?.map((book) => (
@@ -292,7 +308,7 @@ export function SlimaImportPage({ onOpenSettings, onNavigate }: SlimaImportPageP
                   >
                     <span className="font-medium">{book.title}</span>
                     <span className="ml-2 text-sm text-fg-muted">
-                      {KIND_LABELS[book.kind]}・{book.words.toLocaleString()} 字
+                      {`${t(KIND_LABELS[book.kind])}${t('list.dot')}${t('slima.wordCount', { formatted: formatNumber(book.words) })}`}
                     </span>
                   </button>
                 </li>
@@ -304,14 +320,14 @@ export function SlimaImportPage({ onOpenSettings, onNavigate }: SlimaImportPageP
         {tree && !result ? (
           <section
             className="space-y-3"
-            aria-label="選擇要匯入的檔案"
+            aria-label={t('slima.chooseTheFilesToImport')}
             data-testid="slima-import-files"
           >
             <div className="flex items-center justify-between">
               <h2 className="font-medium">
-                《{tree.book.title}》
+                {t('slima.bookTitle', { title: tree.book.title })}
                 <span className="ml-2 text-sm font-normal text-fg-muted">
-                  {KIND_LABELS[tree.book.kind]}
+                  {t(KIND_LABELS[tree.book.kind])}
                 </span>
               </h2>
               <Button
@@ -324,12 +340,12 @@ export function SlimaImportPage({ onOpenSettings, onNavigate }: SlimaImportPageP
                   setCheck(undefined)
                 }}
               >
-                換一本書
+                {t('slima.pickAnotherBook')}
               </Button>
             </div>
             {tree.files.length === 0 ? (
               <p className="text-sm text-fg-muted" data-testid="slima-import-nofiles">
-                這本書裡沒有可以匯入的文字檔。
+                {t('slima.thisBookHasNoText')}
               </p>
             ) : (
               <ul className="divide-y divide-border rounded-lg border border-border bg-surface-raised shadow-card">
@@ -341,7 +357,7 @@ export function SlimaImportPage({ onOpenSettings, onNavigate }: SlimaImportPageP
                   >
                     <input
                       type="checkbox"
-                      aria-label={`選取 ${file.path}`}
+                      aria-label={t('slima.select', { path: file.path })}
                       checked={picked.has(file.path)}
                       onChange={() => {
                         toggle(file.path)
@@ -349,10 +365,12 @@ export function SlimaImportPage({ onOpenSettings, onNavigate }: SlimaImportPageP
                     />
                     <span className="min-w-0 flex-1 truncate text-sm" title={file.path}>
                       {file.path}
-                      <span className="ml-2 text-fg-muted">{file.words.toLocaleString()} 字</span>
+                      <span className="ml-2 text-fg-muted">
+                        {t('slima.wordCount', { formatted: formatNumber(file.words) })}
+                      </span>
                     </span>
                     <select
-                      aria-label={`${file.path} 要當成`}
+                      aria-label={t('slima.useAs', { path: file.path })}
                       data-testid="slima-import-use"
                       className={SELECT_CLASS}
                       value={uses[file.path] ?? file.suggestedUse}
@@ -363,7 +381,7 @@ export function SlimaImportPage({ onOpenSettings, onNavigate }: SlimaImportPageP
                     >
                       {(Object.keys(USE_LABELS) as SlimaFileUse[]).map((use) => (
                         <option key={use} value={use}>
-                          {USE_LABELS[use]}
+                          {t(USE_LABELS[use])}
                         </option>
                       ))}
                     </select>
@@ -381,7 +399,9 @@ export function SlimaImportPage({ onOpenSettings, onNavigate }: SlimaImportPageP
                 })
               }}
             >
-              {picked.size > 0 ? `匯入選取的 ${String(picked.size)} 個檔案` : '先勾選要匯入的檔案'}
+              {picked.size > 0
+                ? t('slima.importPicked', { count: picked.size })
+                : t('slima.tickTheFilesToImport')}
             </Button>
             {check ? (
               <CheckPanel

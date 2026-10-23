@@ -5,6 +5,7 @@ import { call, errorText } from '../../lib/svs'
 import { timeAgo, usageLine } from '../../lib/usage'
 import type { CardUsage } from './card-usage'
 import { useEscape } from '../../lib/use-escape'
+import { t } from '@svs/schema'
 
 export interface CardFooterProps {
   shotId: string
@@ -27,11 +28,11 @@ export function CardFooter({ shotId, number, usage, busy }: CardFooterProps) {
   const [problem, setProblem] = useState<string>()
   const line = usageLine({ durationMs: usage.durationMs, costUsd: usage.costUsd })
   const text = [
-    line ? `${line}${usage.costEstimated ? '（估算）' : ''}` : undefined,
+    line ? (usage.costEstimated ? t('footer.estimated', { line }) : line) : undefined,
     timeAgo(usage.createdAt),
   ]
     .filter(Boolean)
-    .join('・')
+    .join(t('list.dot'))
 
   const regenerate = (): void => {
     setConfirming(false)
@@ -53,24 +54,22 @@ export function CardFooter({ shotId, number, usage, busy }: CardFooterProps) {
             variant="ghost"
             className="h-6 shrink-0 px-2 text-xs"
             data-testid="card-regenerate"
-            aria-label={`重新生成第 ${String(number)} 鏡`}
+            aria-label={t('shots.generateShotAgain', { value: String(number) })}
             disabled={busy}
             onClick={() => {
               setConfirming(true)
             }}
           >
-            重新生成
+            {t('shots.generateAgain')}
           </Button>
         )}
       </div>
       {confirming ? (
         <div className="flex flex-wrap items-center gap-2" data-testid="card-confirm">
           <span>
-            再生成一次
             {usage.regenerateUsd === undefined
-              ? ''
-              : `，大約再花 US$${usage.regenerateUsd.toFixed(2)}`}
-            ；舊版本都會保留。
+              ? t('shots.generateOnceMoreEarlierVersions')
+              : t('shots.generateOnceMoreForAbout', { value: usage.regenerateUsd.toFixed(2) })}
           </span>
           <Button
             size="sm"
@@ -79,7 +78,7 @@ export function CardFooter({ shotId, number, usage, busy }: CardFooterProps) {
             data-testid="card-regenerate-confirm"
             onClick={regenerate}
           >
-            確定
+            {t('shots.confirm')}
           </Button>
           <Button
             size="sm"
@@ -90,7 +89,7 @@ export function CardFooter({ shotId, number, usage, busy }: CardFooterProps) {
               setConfirming(false)
             }}
           >
-            取消
+            {t('shots.cancel')}
           </Button>
         </div>
       ) : null}

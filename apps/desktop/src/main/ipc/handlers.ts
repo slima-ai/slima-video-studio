@@ -133,7 +133,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     if (!handle || handle.closed) {
       throw new AppError({
         code: 'project_not_found',
-        userMessage: '請先開啟或建立一個專案。',
+        userMessage: t('services.openOrCreateAProject'),
       })
     }
     const repo = handle.repos.projects
@@ -178,7 +178,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('project.createNew', ({ name }) => library.createNew(name))
   registry.registerHandler('dev.seedDemo', ({ shots: count }) => {
     if (!deps.demo) {
-      throw new AppError({ code: 'invalid_request', userMessage: '這裡不能產生示範專案。' })
+      throw new AppError({ code: 'invalid_request', userMessage: t('services.aSampleProjectCanT') })
     }
     return deps.demo.seed(count)
   })
@@ -205,43 +205,48 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('graph.shot', ({ shotId }) => graph.shot(shotId))
   registry.registerHandler('canvas.get', (request) => canvas.get(request))
   registry.registerHandler('canvas.move', (request) => {
-    history.record(request.reparent ? '把鏡頭移到另一場' : '移動位置', () => {
-      canvas.move(request)
-    })
+    history.record(
+      request.reparent ? t('services.moveShotToAnotherScene') : t('services.move'),
+      () => {
+        canvas.move(request)
+      },
+    )
     return {}
   })
   // 角色也在歷史涵蓋的資料表裡：新增、刪除角色都能復原
   registry.registerHandler('canvas.add', (request) =>
     history.record(addLabel(request.kind), () => canvas.add(request)),
   )
-  registry.registerHandler('canvas.tidy', () => history.record('整理', () => canvas.tidy()))
+  registry.registerHandler('canvas.tidy', () =>
+    history.record(t('services.tidy'), () => canvas.tidy()),
+  )
   registry.registerHandler('canvas.link', (request) => {
-    history.record('接上線', () => {
+    history.record(t('services.connect'), () => {
       canvas.link(request)
     })
     return {}
   })
   registry.registerHandler('canvas.relink', (request) => {
-    history.record('改接一條線', () => {
+    history.record(t('services.reconnect'), () => {
       canvas.relink(request)
     })
     return {}
   })
   registry.registerHandler('canvas.unlink', (request) => {
-    history.record('剪掉線', () => {
+    history.record(t('services.cutLine'), () => {
       canvas.unlink(request)
     })
     return {}
   })
   registry.registerHandler('canvas.remove', (request) =>
-    history.record('刪除', () => canvas.remove(request)),
+    history.record(t('services.delete'), () => canvas.remove(request)),
   )
   registry.registerHandler('canvas.paste', (request) =>
-    history.record('貼上', () => canvas.paste(request)),
+    history.record(t('services.paste'), () => canvas.paste(request)),
   )
   registry.registerHandler('canvas.rename', ({ key, title }) => {
     const [kind, id = ''] = key.split(':')
-    history.record('改名', () => {
+    history.record(t('services.rename'), () => {
       if (kind === 'scene') outline.edit({ op: 'updateScene', sceneId: id, patch: { title } })
       else if (kind === 'location')
         outline.edit({ op: 'updateLocation', locationId: id, patch: { name: title } })
@@ -250,14 +255,14 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
       else
         throw new AppError({
           code: 'invalid_request',
-          userMessage: '這一格不能改名：場、角色、地點、群組才能改名。',
+          userMessage: t('services.thisCellCanTBe'),
         })
     })
     return {}
   })
   // 上傳與拖進來的檔案：存檔是非同步的，整批算一步復原
   registry.registerHandler('canvas.importFiles', async (request) => {
-    const finish = history.begin('放上圖片或影片')
+    const finish = history.begin(t('services.addAPictureOrVideo'))
     try {
       return await canvas.importFiles(request)
     } finally {
@@ -265,7 +270,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     }
   })
   registry.registerHandler('canvas.importBytes', async (request) => {
-    const finish = history.begin('放上圖片或影片')
+    const finish = history.begin(t('services.addAPictureOrVideo'))
     try {
       return await canvas.importBytes(request)
     } finally {
@@ -276,19 +281,19 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     const { patch } = request
     const label =
       patch.text !== undefined
-        ? '修改便條'
+        ? t('services.editNote')
         : patch.color !== undefined
-          ? '換群組顏色'
+          ? t('services.changeGroupColor')
           : patch.title !== undefined
-            ? '改名'
-            : '調整群組大小'
+            ? t('services.rename')
+            : t('services.resizeGroup')
     history.record(label, () => {
       canvas.updateFree(request)
     })
     return {}
   })
   registry.registerHandler('canvas.updateOneliner', (request) => {
-    history.record('修改一句話', () => {
+    history.record(t('services.editOneLiner'), () => {
       canvas.updateOneliner(request)
     })
     return {}
@@ -334,7 +339,10 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('mcp.regenerateToken', () => mcp?.regenerateToken() ?? mcpOff())
   registry.registerHandler('mcp.resetCommitted', () => mcp?.resetCommitted() ?? mcpOff())
   const noConnector = (): never => {
-    throw new AppError({ code: 'invalid_request', userMessage: '這個版本還不能一鍵連接。' })
+    throw new AppError({
+      code: 'invalid_request',
+      userMessage: t('services.thisVersionCanTConnect'),
+    })
   }
   registry.registerHandler('mcp.connectInfo', () => (mcpConnector ?? noConnector()).info())
   registry.registerHandler('mcp.connectClaudeDesktop', () =>
@@ -345,7 +353,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   )
   // 右下角 Claude 對話（只給畫面用，不在 MCP 白名單）
   const noChat = (): never => {
-    throw new AppError({ code: 'invalid_request', userMessage: '這個版本還不能和 Claude 對話。' })
+    throw new AppError({ code: 'invalid_request', userMessage: t('services.thisVersionCanTChat') })
   }
   registry.registerHandler(
     'chat.status',
@@ -381,7 +389,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     if (!queue) {
       throw new AppError({
         code: 'project_not_found',
-        userMessage: '請先開啟或建立一個專案。',
+        userMessage: t('services.openOrCreateAProject'),
       })
     }
     return queue
@@ -401,7 +409,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('quickstart.check', (request) => quickstart.check(request))
   registry.registerHandler('quickstart.run', async (request) => {
     // 整次生成（含「取代全部」先刪掉的舊內容）記成一筆，生成結束（成功、失敗或停止）時寫進歷史
-    const finish = history.begin('一句話生成')
+    const finish = history.begin(t('services.generateFromOneLiner'))
     try {
       return await quickstart.run(request, { onSettled: finish })
     } catch (error) {
@@ -485,7 +493,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     if (!sound) {
       throw new AppError({
         code: 'internal_error',
-        userMessage: '聲音服務還沒準備好，請重新啟動 App。',
+        userMessage: t('services.theSoundServiceIsnT'),
       })
     }
     return sound
@@ -509,7 +517,11 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     const sound = needSound()
     const kind = sound.kindOf(clipId)
     history.record(
-      kind === 'music' ? '刪除配樂' : kind === 'narration' ? '刪除旁白' : '刪除聲音',
+      kind === 'music'
+        ? t('services.deleteMusic')
+        : kind === 'narration'
+          ? t('services.deleteNarration')
+          : t('services.deleteSound'),
       () => {
         sound.removeClip(clipId)
       },
@@ -517,8 +529,9 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     return {}
   })
   registry.registerHandler('sound.remove', ({ kind, shotId }) => ({
-    removed: history.record(kind === 'music' ? '刪除配樂' : '刪除旁白', () =>
-      needSound().removeSound({ kind, shotId }),
+    removed: history.record(
+      kind === 'music' ? t('services.deleteMusic') : t('services.deleteNarration'),
+      () => needSound().removeSound({ kind, shotId }),
     ),
   }))
   registry.registerHandler('sound.mix', () => needSound().mix())
@@ -532,10 +545,12 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     concepts.references(characterId),
   )
   registry.registerHandler('characters.addReference', (request) =>
-    history.record('加上參考圖', () => concepts.addReference(request)),
+    history.record(t('services.addReferencePicture'), () => concepts.addReference(request)),
   )
   registry.registerHandler('characters.removeReference', ({ characterId, referenceId }) =>
-    history.record('拿掉參考圖', () => concepts.removeReference(characterId, referenceId)),
+    history.record(t('services.removeReferencePicture'), () =>
+      concepts.removeReference(characterId, referenceId),
+    ),
   )
   registry.registerHandler('characters.generateConcepts', ({ characterId }) => {
     concepts.generate(characterId)
@@ -569,18 +584,21 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     characters.adoptTurnaround(characterId, turnaroundId),
   )
   registry.registerHandler('shots.create', (input) =>
-    history.record('新增鏡頭', () => shots.create(input)),
+    history.record(t('services.addAShot'), () => shots.create(input)),
   )
   registry.registerHandler('shots.delete', ({ shotIds }) =>
-    history.record(shotIds.length > 1 ? `刪除 ${String(shotIds.length)} 個鏡頭` : '刪除鏡頭', () =>
-      shots.remove(shotIds),
+    history.record(
+      shotIds.length > 1
+        ? t('history.deleteShots', { count: shotIds.length })
+        : t('services.deleteShot'),
+      () => shots.remove(shotIds),
     ),
   )
   registry.registerHandler('shots.reorder', ({ orderedIds }) =>
-    history.record('調整鏡頭順序', () => shots.reorder(orderedIds)),
+    history.record(t('services.reorderShots'), () => shots.reorder(orderedIds)),
   )
   registry.registerHandler('shots.assignScene', ({ shotIds, sceneId }) =>
-    history.record('把鏡頭歸進場', () => shots.assignScene(shotIds, sceneId)),
+    history.record(t('services.putShotsInAScene'), () => shots.assignScene(shotIds, sceneId)),
   )
   registry.registerHandler('storyboard.splitCheck', ({ sceneId }) => storyboard.splitCheck(sceneId))
   registry.registerHandler('storyboard.splitScene', async ({ sceneId }) => {
@@ -624,7 +642,9 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     return { started: true as const }
   })
   registry.registerHandler('shots.setReferences', ({ shotId, assetHashes }) =>
-    history.record('指定參考圖', () => shots.setReferences(shotId, assetHashes)),
+    history.record(t('services.setReferencePictures'), () =>
+      shots.setReferences(shotId, assetHashes),
+    ),
   )
 
   registry.registerHandler('locations.list', () => ({ locations: locations.list() }))
@@ -652,10 +672,14 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     locations.references(locationId),
   )
   registry.registerHandler('locations.addReference', (request) =>
-    history.record('加上場景參考圖', () => locations.addReference(request)),
+    history.record(t('services.addLocationReferencePicture'), () =>
+      locations.addReference(request),
+    ),
   )
   registry.registerHandler('locations.removeReference', ({ locationId, referenceId }) =>
-    history.record('拿掉場景參考圖', () => locations.removeReference(locationId, referenceId)),
+    history.record(t('services.removeLocationReferencePicture'), () =>
+      locations.removeReference(locationId, referenceId),
+    ),
   )
 
   const missing = registry.missingHandlers()

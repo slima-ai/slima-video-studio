@@ -1,4 +1,5 @@
 import type { SoundState } from '@svs/schema'
+import { t } from '@svs/schema'
 
 const pct = (value: number, total: number): string =>
   `${String(Math.max(0, Math.min(100, (value / total) * 100)))}%`
@@ -15,9 +16,9 @@ export function SoundTimeline({ state }: { state: SoundState }) {
   )
   const lane = 'relative h-5 rounded bg-surface-overlay'
   return (
-    <div className="space-y-1" data-testid="sound-timeline" aria-label="聲音時間軸">
+    <div className="space-y-1" data-testid="sound-timeline" aria-label={t('sound.soundTimeline')}>
       <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-2 text-[11px]">
-        <span className="text-fg-muted">鏡頭</span>
+        <span className="text-fg-muted">{t('sound.shots')}</span>
         <div className={lane}>
           {state.shots.map((shot) => (
             <div
@@ -30,7 +31,7 @@ export function SoundTimeline({ state }: { state: SoundState }) {
             </div>
           ))}
         </div>
-        <span className="text-fg-muted">原聲</span>
+        <span className="text-fg-muted">{t('sound.videoSound2')}</span>
         <div className={lane}>
           {state.shots.map((shot) => (
             <div
@@ -46,7 +47,7 @@ export function SoundTimeline({ state }: { state: SoundState }) {
             />
           ))}
         </div>
-        <span className="text-fg-muted">旁白</span>
+        <span className="text-fg-muted">{t('sound.narration2')}</span>
         <div className={lane}>
           {state.shots.map((shot) =>
             shot.narration ? (
@@ -67,7 +68,7 @@ export function SoundTimeline({ state }: { state: SoundState }) {
             ) : null,
           )}
         </div>
-        <span className="text-fg-muted">配樂</span>
+        <span className="text-fg-muted">{t('sound.music2')}</span>
         <div className={lane}>
           {state.music ? (
             <div

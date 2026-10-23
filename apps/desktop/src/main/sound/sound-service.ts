@@ -30,6 +30,7 @@ import {
   type SoundShotView,
   type SoundState,
   type SoundWarning,
+  t,
 } from '@svs/schema'
 
 import { currentFinal } from '../shots/current-final'
@@ -111,7 +112,10 @@ const outputAsset = (output: unknown): { hash: string; mime: string } => {
   const assets = (output as { kind?: string; assets?: { hash: string; mime: string }[] }).assets
   const first = assets?.[0]
   if (!first) {
-    throw new AppError({ code: 'invalid_response', userMessage: '供應商沒有回傳聲音。' })
+    throw new AppError({
+      code: 'invalid_response',
+      userMessage: t('services.theProviderDidnTReturn'),
+    })
   }
   return first
 }
@@ -135,7 +139,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     if (!handle) {
       throw new AppError({
         code: 'project_not_found',
-        userMessage: '請先開啟或建立一個專案。',
+        userMessage: t('services.openOrCreateAProject'),
       })
     }
     return handle
@@ -187,8 +191,8 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
           shotId: view.shotId,
           message:
             view.dialogue.trim() === ''
-              ? `第 ${String(view.number)} 鏡的台詞已經清掉了，可是旁白還是念舊的字。`
-              : `第 ${String(view.number)} 鏡的台詞改過了，旁白念的還是舊的字。重新生成這一鏡的旁白，聲音才會跟台詞一樣。`,
+              ? t('services.shotSLinesWereCleared', { value: String(view.number) })
+              : t('services.shotSLinesChangedBut', { value: String(view.number) }),
         })
       }
       if (!clip?.durationSec) continue
@@ -197,14 +201,21 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         warnings.push({
           kind: 'narration_too_long',
           shotId: view.shotId,
-          message: `第 ${String(view.number)} 鏡的旁白有 ${clip.durationSec.toFixed(1)} 秒，鏡頭只有 ${view.durationSec.toFixed(1)} 秒，會蓋到下一鏡。請縮短台詞，或換一個比較長的鏡頭。`,
+          message: t('services.shotSNarrationIsS', {
+            value: String(view.number),
+            value2: clip.durationSec.toFixed(1),
+            value3: view.durationSec.toFixed(1),
+          }),
         })
       }
     }
     if (music?.durationSec !== undefined && total > 0 && music.durationSec < total - 0.5) {
       warnings.push({
         kind: 'music_shorter_than_film',
-        message: `配樂只有 ${music.durationSec.toFixed(0)} 秒，比整支片子（${total.toFixed(0)} 秒）短，混音時會接著重複。`,
+        message: t('services.theMusicIsOnlyS', {
+          value: music.durationSec.toFixed(0),
+          value2: total.toFixed(0),
+        }),
       })
     }
     return warnings
@@ -291,12 +302,12 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     if (!tool) {
       throw new AppError({
         code: 'internal_error',
-        userMessage: '找不到影片處理工具（FFmpeg），沒辦法混音。',
+        userMessage: t('services.canTFindTheVideo3'),
       })
     }
     const pathOf = (hash: string): string => {
       const found = handle.assets.find(hash)
-      if (!found) throw invalid('找不到聲音檔，可能已被刪除。')
+      if (!found) throw invalid(t('services.canTFindTheSound'))
       return found.path
     }
     const settings = handle.repos.sound.getSettings()
@@ -390,7 +401,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         wanted ? wanted.includes(v.shotId) : v.dialogue.trim() !== '' && !v.narration,
       )
       if (!model) {
-        issue = '還沒有可用的旁白模型：請到設定填入 OpenRouter 的服務金鑰（或打開示範模式）。'
+        issue = t('services.noNarrationModelIsAvailable')
       } else {
         for (const view of picked) {
           const text = view.dialogue.trim()
@@ -406,7 +417,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     }
     if (request.music && issue === undefined) {
       const model = settingsService.resolveModel('music')
-      if (!model) issue = '還沒有可用的配樂模型：請到設定填入 OpenRouter 的服務金鑰。'
+      if (!model) issue = t('services.noMusicModelIsAvailable')
       else
         items.push({
           kind: 'music',
@@ -437,7 +448,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     if (!queue) {
       throw new AppError({
         code: 'internal_error',
-        userMessage: '生成服務還沒準備好，請重新啟動 App。',
+        userMessage: t('services.theGenerationServiceIsnT'),
       })
     }
     const studio = createStudioServices({
@@ -447,7 +458,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       models,
     })
     const result = await studio.generate(request, { signal: new AbortController().signal })
-    if (handle.closed) throw invalid('專案已經關閉，沒有儲存這段聲音。')
+    if (handle.closed) throw invalid(t('services.theProjectWasClosedSo3'))
     const asset = outputAsset(result.output)
     // 長度：用 FFmpeg 量；沒有工具或量不到就不填（之後混音時還是會量）
     let durationSec: number | undefined
@@ -483,7 +494,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
   }
 
   const guard = async <T>(key: string, work: () => Promise<T>): Promise<T> => {
-    if (busy.has(key)) throw invalid('這個項目正在生成中，請稍後。')
+    if (busy.has(key)) throw invalid(t('services.thisIsBeingGeneratedPlease'))
     busy.add(key)
     try {
       return await work()
@@ -504,17 +515,14 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     async generateNarration(input) {
       const handle = need()
       const shot = handle.repos.shots.get(input.shotId)
-      if (!shot) throw invalid('找不到這個鏡頭。')
+      if (!shot) throw invalid(t('services.canTFindThisShot'))
       const text = (input.text ?? shot.dialogue).trim()
-      if (text === '') throw invalid('這一鏡還沒有台詞，請先寫下要念的內容。')
+      if (text === '') throw invalid(t('services.thisShotHasNoLines'))
       if (text.length > NARRATION_MAX_CHARS) {
-        throw invalid(`旁白太長了（上限 ${String(NARRATION_MAX_CHARS)} 字），請縮短。`)
+        throw invalid(t('services.theNarrationIsTooLong', { value: String(NARRATION_MAX_CHARS) }))
       }
       const model = settingsService.resolveModel('tts')
-      if (!model)
-        throw invalid(
-          '還沒有可用的旁白模型：請到設定填入 OpenRouter 的服務金鑰（或打開示範模式）。',
-        )
+      if (!model) throw invalid(t('services.noNarrationModelIsAvailable'))
       const voiceId = input.voiceId ?? settingsService.resolveVoice(model)
       const estimate = narrationEstimate(model, text)
       const issue = budgetIssue(handle, estimate)
@@ -549,7 +557,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     async generateMusic(input) {
       const handle = need()
       const model = settingsService.resolveModel('music')
-      if (!model) throw invalid('還沒有可用的配樂模型：請到設定填入 OpenRouter 的服務金鑰。')
+      if (!model) throw invalid(t('services.noMusicModelIsAvailable'))
       const views = timeline(handle)
       const totalSec = views.reduce((sum, v) => sum + v.durationSec, 0)
       const durationSec = input.durationSec ?? (totalSec > 0 ? totalSec : undefined)
@@ -634,10 +642,10 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         ...(input.narration ? { narration: {} } : {}),
         ...(input.music ? { music: {} } : {}),
       })
-      if (!items.ok) throw invalid(items.issue ?? '現在不能加聲音。')
+      if (!items.ok) throw invalid(items.issue ?? t('services.canTAddSoundRight'))
       const stopped = (): void => {
         if (input.signal?.aborted) {
-          throw new AppError({ code: 'cancelled', userMessage: '已取消。' })
+          throw new AppError({ code: 'cancelled', userMessage: t('services.cancelled') })
         }
       }
       let narrations = 0
@@ -660,13 +668,13 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     async analyze() {
       const handle = need()
       const latest = currentFinal(handle, () => soundKeyOf(handle))?.cut
-      if (!latest) throw invalid('還沒有接好的成品，先把鏡頭接成一支影片。')
+      if (!latest) throw invalid(t('services.thereSNoJoinedFilm'))
       const tool = tools()
       const found = handle.assets.find(latest.assetHash)
       if (!tool || !found) {
         throw new AppError({
           code: 'internal_error',
-          userMessage: '找不到影片處理工具（FFmpeg）或成品檔案，沒辦法量測。',
+          userMessage: t('services.canTFindTheVideo4'),
         })
       }
       const info = await probe(tool, found.path)
@@ -689,22 +697,22 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         })
       }
       const warnings: string[] = []
-      if (!info.hasAudio) warnings.push('成品沒有聲音軌。')
+      if (!info.hasAudio) warnings.push(t('services.theFilmHasNoAudio'))
       if (loudness.integratedLufs === undefined) {
-        warnings.push('整支成品都是安靜的，沒有任何聲音。')
+        warnings.push(t('services.theWholeFilmIsSilent'))
       } else {
         if (loudness.integratedLufs < -23) {
           warnings.push(
-            `整體響度只有 ${loudness.integratedLufs.toFixed(1)} LUFS，聽起來會很小聲（目標約 −16）。`,
+            t('services.theOverallLoudnessIsOnly', { value: loudness.integratedLufs.toFixed(1) }),
           )
         }
         if (loudness.truePeakDb !== undefined && loudness.truePeakDb > -1) {
-          warnings.push(`峰值 ${loudness.truePeakDb.toFixed(1)} dBTP，可能爆音（要低於 −1）。`)
+          warnings.push(t('services.thePeakIsDbtpWhich', { value: loudness.truePeakDb.toFixed(1) }))
         }
       }
       for (const entry of shots) {
         if (entry.rmsDb === null && loudness.integratedLufs !== undefined) {
-          warnings.push(`第 ${String(entry.number)} 鏡完全沒有聲音。`)
+          warnings.push(t('services.shotHasNoSoundAt', { value: String(entry.number) }))
         }
       }
       for (const view of views) {
@@ -712,9 +720,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         if (!clip) continue
         const entry = shots.find((s) => s.shotId === view.shotId)
         if (entry?.rmsDb === null) {
-          warnings.push(
-            `第 ${String(view.number)} 鏡有旁白，但這一段量到的是完全安靜，旁白可能沒有混進去，請重新混音。`,
-          )
+          warnings.push(t('services.shotHasNarrationButThis', { value: String(view.number) }))
         }
       }
       return {
@@ -738,14 +744,14 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     async mix() {
       const handle = need()
       const current = currentFinal(handle, () => soundKeyOf(handle))
-      if (!current) throw invalid('還沒有接好的成品，先把鏡頭接成一支影片。')
+      if (!current) throw invalid(t('services.thereSNoJoinedFilm'))
       // 目前的版本已經跟現在的聲音對得上（例如剛復原，自動重混的計時還沒到）：不用混，也不加新的版本號
       if (current.stale === false)
         return { videoHash: current.cut.assetHash, version: current.cut.version }
       const latest = current.cut
       const baseHash = latest.baseAssetHash ?? latest.assetHash
       const meta = handle.assets.getMeta(baseHash)
-      if (!meta) throw invalid('找不到接好的影片，請再按一次「接成成品」。')
+      if (!meta) throw invalid(t('services.canTFindTheJoined'))
       const base: AssetRef = {
         hash: meta.hash,
         kind: 'video',

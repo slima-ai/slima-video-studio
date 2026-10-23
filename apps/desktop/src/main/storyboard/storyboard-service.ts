@@ -11,6 +11,8 @@ import {
   storyboardGuidePrompt,
   type ShotsSnapshot,
   type StoryboardSplitCheck,
+  t,
+  cardNameOf,
 } from '@svs/schema'
 import {
   QUICK_STYLES,
@@ -102,7 +104,7 @@ export function createStoryboardService(deps: StoryboardServiceDeps): Storyboard
   const sceneOf = (sceneId: string) => {
     const handle = projects.current()
     const scene = handle?.repos.outline.listScenes().find((s) => s.id === sceneId)
-    if (!handle || !scene) throw invalid('找不到這個場，請先到「大綱」新增。')
+    if (!handle || !scene) throw invalid(t('services.canTFindThisScene2'))
     return { handle, scene }
   }
 
@@ -118,18 +120,18 @@ export function createStoryboardService(deps: StoryboardServiceDeps): Storyboard
       generatedShots: counts.generated,
     }
     if (!handle || !found) {
-      return { ...base, ok: false, issue: '找不到這個場。', estimatedUsd: 0 }
+      return { ...base, ok: false, issue: t('services.canTFindThisScene'), estimatedUsd: 0 }
     }
     if (!model) {
       return {
         ...base,
         ok: false,
-        issue: '還沒有可用的文字模型：請到設定填入 OpenRouter 的服務金鑰（或打開示範模式）。',
+        issue: t('services.noTextModelIsAvailable'),
         estimatedUsd: 0,
       }
     }
     const estimatedUsd = models.estimate(model, { inputTokens: 1200, outputTokens: 1200 })
-    const modelName = models.get(model)?.displayName
+    const modelName = cardNameOf(models.get(model))
     const exceeded = checkBudget({
       budget,
       runProjectedUsd: estimatedUsd,
@@ -151,14 +153,14 @@ export function createStoryboardService(deps: StoryboardServiceDeps): Storyboard
     async splitScene(sceneId) {
       const checked = splitCheck(sceneId)
       const model = settingsService.resolveModel('llm')
-      if (!checked.ok || !model) throw invalid(checked.issue ?? '現在不能讓 AI 分畫面。')
+      if (!checked.ok || !model) throw invalid(checked.issue ?? t('services.aiCanTSplitInto'))
       const { handle, scene } = sceneOf(sceneId)
       const queue = runtime.queue()
       const tool = tools()
       if (!queue || !tool) {
         throw new AppError({
           code: 'internal_error',
-          userMessage: '生成服務還沒準備好，請重新啟動 App。',
+          userMessage: t('services.theGenerationServiceIsnT'),
         })
       }
 
@@ -219,7 +221,7 @@ export function createStoryboardService(deps: StoryboardServiceDeps): Storyboard
           jobId: result.jobId,
         })
       }
-      if (handle.closed) throw invalid('專案已經關閉，沒有套用拆好的鏡頭。')
+      if (handle.closed) throw invalid(t('services.theProjectWasClosedSo4'))
 
       const snapshot = shots.replaceSceneShots(sceneId, result.data.shots)
       log.info(`「${scene.title}」已拆成 ${String(result.data.shots.length)} 個鏡頭`)

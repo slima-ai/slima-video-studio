@@ -6,7 +6,7 @@ import {
 } from '@svs/schema'
 
 import type { HandlerContext, IpcRegistry } from '../ipc/registry'
-import { NEW_SHOT_DESCRIPTION } from '../shots/defaults'
+import { isNewShotDescription } from '../shots/defaults'
 import type { McpCaller } from './bridge'
 
 /** 一個節點的指紋：內容變了才會不一樣（位置、自動排版、步驟展開不算）。 */
@@ -57,7 +57,7 @@ function isEmpty(node: CanvasNode, nodes: readonly CanvasNode[]): boolean {
   const blank = (text: string | undefined): boolean => (text ?? '').trim() === ''
   if (node.kind === 'shot') {
     return (
-      (blank(node.summary) || node.summary === NEW_SHOT_DESCRIPTION) &&
+      (blank(node.summary) || isNewShotDescription(node.summary)) &&
       blank(node.dialogue) &&
       (node.tags ?? []).length === 0 &&
       !nodes.some((n) => n.shotKey === node.key && n.assetHash !== undefined)

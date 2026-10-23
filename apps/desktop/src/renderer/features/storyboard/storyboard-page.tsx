@@ -13,6 +13,7 @@ import { BatchConfirm } from './batch-confirm'
 import { StoryboardBoard } from './storyboard-board'
 import { StoryboardTable } from './storyboard-table'
 import { Page, SELECT_CLASS } from '../../components/page'
+import { t } from '@svs/schema'
 
 const EMPTY_OUTLINE: OutlineView = { acts: [], locations: [] }
 
@@ -24,7 +25,10 @@ interface SplitProps {
 /** 選一個場，讓 AI 依劇情拆成鏡頭（這個場原本的鏡頭會被換掉）。 */
 function SplitScene({ outline, onError }: SplitProps) {
   const scenes = outline.acts.flatMap((act) =>
-    act.scenes.map((scene) => ({ id: scene.id, label: `${act.title}／${scene.title}` })),
+    act.scenes.map((scene) => ({
+      id: scene.id,
+      label: t('storyboard.actScene', { act: act.title, scene: scene.title }),
+    })),
   )
   const [sceneId, setSceneId] = useState('')
   const [check, setCheck] = useState<StoryboardSplitCheck>()
@@ -79,7 +83,7 @@ function SplitScene({ outline, onError }: SplitProps) {
   if (scenes.length === 0) {
     return (
       <p className="text-sm text-fg-muted" data-testid="storyboard-no-scenes">
-        想讓 AI 幫你把場分成幾個畫面，請先到「大綱」建立場。
+        {t('storyboard.toHaveAiSplitA')}
       </p>
     )
   }
@@ -87,22 +91,30 @@ function SplitScene({ outline, onError }: SplitProps) {
   const cost = check
     ? check.ok
       ? check.demoMode
-        ? '示範模式，不會花錢'
-        : `預估約 US$${check.estimatedUsd.toFixed(2)}${check.modelName ? `（${check.modelName}）` : ''}`
-      : (check.issue ?? '現在不能讓 AI 分畫面。')
+        ? t('storyboard.demoModeNothingIsCharged')
+        : check.modelName
+          ? t('storyboard.aboutUs2', {
+              value: check.estimatedUsd.toFixed(2),
+              modelName: check.modelName,
+            })
+          : t('storyboard.aboutUs', { value: check.estimatedUsd.toFixed(2) })
+      : (check.issue ?? t('storyboard.aiCanTSplitInto'))
     : ''
   const warn =
     check && check.existingShots > 0
-      ? `這個場目前有 ${String(check.existingShots)} 個鏡頭` +
-        (check.generatedShots > 0 ? `，其中 ${String(check.generatedShots)} 個已經生成過` : '') +
-        '，拆完會整批換掉。要繼續嗎？'
+      ? check.generatedShots > 0
+        ? t('storyboard.thisSceneHasShotsOf', {
+            value: String(check.existingShots),
+            value2: String(check.generatedShots),
+          })
+        : t('storyboard.thisSceneHasShotsSplitting', { value: String(check.existingShots) })
       : ''
 
   return (
     <div className="space-y-2" data-testid="storyboard-split">
       <div className="flex flex-wrap items-center gap-2">
         <label className="text-sm font-medium" htmlFor="storyboard-scene">
-          讓 AI 幫我分成幾個畫面：
+          {t('storyboard.letAiSplitItInto')}
         </label>
         <select
           id="storyboard-scene"
@@ -127,7 +139,7 @@ function SplitScene({ outline, onError }: SplitProps) {
             onClick={() => void start()}
           >
             <Sparkles className="size-4" />
-            {busy ? 'AI 整理中…' : '請 AI 拆這個場'}
+            {busy ? t('storyboard.aiIsWorking') : t('storyboard.splitThisScene')}
           </Button>
         )}
         <span className="text-sm text-fg-muted" data-testid="storyboard-split-cost">
@@ -143,7 +155,7 @@ function SplitScene({ outline, onError }: SplitProps) {
             data-testid="storyboard-split-confirm-yes"
             onClick={() => void run()}
           >
-            換掉並重新拆
+            {t('storyboard.replaceAndSplitAgain')}
           </Button>
           <Button
             size="sm"
@@ -152,7 +164,7 @@ function SplitScene({ outline, onError }: SplitProps) {
               setConfirming(false)
             }}
           >
-            不換
+            {t('storyboard.keepThem')}
           </Button>
         </div>
       ) : null}
@@ -236,19 +248,23 @@ export function StoryboardPage() {
 
   const generated = (result: ShotBatchResult): void => {
     setConfirmingGenerate(false)
-    setNotice(`已開始生成 ${String(result.started)} 個鏡頭。`)
+    setNotice(t('storyboard.startedGeneratingShots', { value: String(result.started) }))
     const [first] = result.failed
     if (first) {
       setError(
-        `有 ${String(result.failed.length)} 個鏡頭沒辦法開始（例如第 ${String(first.number)} 鏡）：${first.error}`,
+        t('storyboard.shotsCouldnTStartFor', {
+          value: String(result.failed.length),
+          value2: String(first.number),
+          error: first.error,
+        }),
       )
     }
   }
 
   return (
     <Page
-      title="分鏡表"
-      hint="每一列是一個鏡頭。欄位點一下就能改，按 Enter 跳到下一列；左邊的把手可以拖拉換順序。想看畫面可以切到「故事板」，兩邊是同一份資料。"
+      title={t('storyboard.storyboard')}
+      hint={t('storyboard.eachRowIsOneShot')}
       actions={<UndoRedoButtons />}
       width="full"
       testId="storyboard-page"
@@ -259,15 +275,15 @@ export function StoryboardPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Button data-testid="storyboard-add" onClick={add}>
             <Plus className="size-4" />
-            新增鏡頭
+            {t('storyboard.addAShot')}
           </Button>
           {confirmingDelete ? (
             <>
               <span className="text-sm">
-                確定刪除選取的 {picked.length} 個鏡頭（連同生成過的版本）？
+                {t('storyboard.deleteTheSelectedShotsIncluding', { length: picked.length })}
               </span>
               <Button size="sm" data-testid="storyboard-delete-confirm" onClick={remove}>
-                確定刪除
+                {t('storyboard.delete')}
               </Button>
               <Button
                 size="sm"
@@ -276,7 +292,7 @@ export function StoryboardPage() {
                   setConfirmingDelete(false)
                 }}
               >
-                不刪
+                {t('storyboard.keep')}
               </Button>
             </>
           ) : confirmingGenerate ? (
@@ -300,7 +316,9 @@ export function StoryboardPage() {
                   setConfirmingGenerate(true)
                 }}
               >
-                生成選取的鏡頭{picked.length > 0 ? `（${String(picked.length)}）` : ''}
+                {picked.length > 0
+                  ? t('storyboard.generateSelectedShots', { value: String(picked.length) })
+                  : t('storyboard.generateSelectedShots2')}
               </Button>
               <Button
                 data-testid="storyboard-delete"
@@ -311,7 +329,7 @@ export function StoryboardPage() {
                 }}
               >
                 <Trash2 className="size-4" />
-                刪除選取
+                {t('storyboard.deleteSelected')}
               </Button>
             </>
           )}
@@ -328,11 +346,11 @@ export function StoryboardPage() {
           </p>
         ) : null}
 
-        <div className="flex gap-1" role="group" aria-label="檢視方式">
+        <div className="flex gap-1" role="group" aria-label={t('storyboard.view')}>
           {(
             [
-              ['table', '表格', Table2],
-              ['board', '故事板', LayoutGrid],
+              ['table', t('storyboard.table'), Table2],
+              ['board', t('storyboard.board'), LayoutGrid],
             ] as const
           ).map(([id, label, Icon]) => (
             <Button
@@ -353,7 +371,7 @@ export function StoryboardPage() {
 
         {shots.length === 0 ? (
           <p className="text-sm text-fg-muted" data-testid="storyboard-empty">
-            還沒有鏡頭。按「新增鏡頭」，或到「大綱」建立場後讓 AI 幫你拆。
+            {t('storyboard.noShotsYetPressAdd')}
           </p>
         ) : view === 'board' ? (
           <StoryboardBoard

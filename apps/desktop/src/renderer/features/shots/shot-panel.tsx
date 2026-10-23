@@ -6,6 +6,7 @@ import {
   type ShotView,
   type TakeView,
   formatDate,
+  t,
 } from '@svs/schema'
 import { useEffect, useState } from 'react'
 
@@ -67,7 +68,7 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
   return (
     <div className="space-y-3">
       <label className="block text-sm font-medium">
-        這一鏡發生什麼事
+        {t('shots.whatHappensInThisShot')}
         <textarea
           data-testid="shot-description"
           rows={3}
@@ -80,17 +81,22 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
       </label>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <span className="block text-sm font-medium">鏡頭怎麼動</span>
+          <span className="block text-sm font-medium">{t('shots.cameraMove')}</span>
           <div className="mt-1">
             <SimpleSelect
-              label="鏡頭怎麼動"
+              label={t('shots.cameraMove')}
               testId="shot-camera"
               value={draft.cameraMove}
               options={[
-                { value: '', label: '不指定' },
+                { value: '', label: t('shots.notSet') },
                 ...CAMERA_MOVES.map((move) => ({ value: move.id, label: move.label })),
                 ...(draft.cameraMove !== '' && !cameraMoveById(draft.cameraMove)
-                  ? [{ value: draft.cameraMove, label: `自訂：${draft.cameraMove}` }]
+                  ? [
+                      {
+                        value: draft.cameraMove,
+                        label: t('shots.custom', { cameraMove: draft.cameraMove }),
+                      },
+                    ]
                   : []),
               ]}
               onChange={(value) => {
@@ -100,13 +106,16 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
           </div>
         </div>
         <div>
-          <span className="block text-sm font-medium">長度</span>
+          <span className="block text-sm font-medium">{t('shots.length')}</span>
           <div className="mt-1">
             <SimpleSelect
-              label="長度"
+              label={t('shots.length')}
               testId="shot-duration"
               value={String(draft.durationSec)}
-              options={durations.map((n) => ({ value: String(n), label: `${String(n)} 秒` }))}
+              options={durations.map((n) => ({
+                value: String(n),
+                label: t('shots.sec', { value: String(n) }),
+              }))}
               onChange={(value) => {
                 set({ durationSec: Number(value) })
               }}
@@ -115,13 +124,13 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
         </div>
       </div>
       <p className="-mt-1 text-xs text-fg-muted" data-testid="shot-camera-hint">
-        {cameraMoveById(draft.cameraMove)?.description ?? '不指定時，由模型自己決定鏡頭怎麼動。'}
+        {cameraMoveById(draft.cameraMove)?.description ?? t('shots.whenNotSetTheModel')}
       </p>
       <div>
         <label className="block text-sm font-medium" htmlFor="shot-prompt">
-          送給模型的 Prompt
+          {t('shots.promptSentToTheModel')}
           <span className="ml-2 text-xs font-normal text-fg-muted">
-            {shot.prompt ? '（你改過的版本）' : '（自動組出的）'}
+            {shot.prompt ? t('shots.yourEditedVersion') : t('shots.madeAutomatically')}
           </span>
         </label>
         <textarea
@@ -143,7 +152,7 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
               set({ prompt: shot.autoPrompt })
             }}
           >
-            還原成自動組出的內容
+            {t('shots.restoreTheAutomaticText')}
           </button>
         ) : null}
       </div>
@@ -157,7 +166,7 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
             onRun('apply', edit)
           }}
         >
-          套用修改並重新生成
+          {t('shots.applyChangesAndGenerateAgain')}
         </Button>
         <Button
           data-testid="shot-save"
@@ -166,15 +175,13 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
             onRun('save', edit)
           }}
         >
-          只儲存修改
+          {t('shots.saveChangesOnly')}
         </Button>
       </div>
-      <p className="text-xs text-fg-muted">
-        重新生成只會重做有變動的部分，會再花一次這個鏡頭的費用。
-      </p>
+      <p className="text-xs text-fg-muted">{t('shots.generatingAgainOnlyRedoesWhat')}</p>
 
       <div className="space-y-2 border-t border-border pt-3">
-        <p className="text-sm font-medium">想要不同的結果？</p>
+        <p className="text-sm font-medium">{t('shots.wantADifferentResult')}</p>
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
@@ -184,7 +191,7 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
               onRun('video', edit)
             }}
           >
-            只換一支影片
+            {t('shots.newVideoOnly')}
           </Button>
           <Button
             size="sm"
@@ -194,7 +201,7 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
               onRun('all', edit)
             }}
           >
-            整個鏡頭重做
+            {t('shots.redoTheWholeShot')}
           </Button>
         </div>
       </div>
@@ -232,10 +239,10 @@ export function VersionList({
             className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1 text-sm"
           >
             <span className="min-w-0">
-              <span className="font-medium">版本 {take.version}</span>
-              {take.adopted ? <span className="ml-1 text-success">（目前使用）</span> : null}
+              <span className="font-medium">{t('shots.version', { version: take.version })}</span>
+              {take.adopted ? <span className="ml-1 text-success">{t('shots.inUse')}</span> : null}
               <span className="block truncate text-xs text-fg-muted">
-                {modelName(take.modelId)}・{timeText(take.createdAt)}
+                {`${modelName(take.modelId)}${t('list.dot')}${timeText(take.createdAt)}`}
               </span>
             </span>
             <span className="flex shrink-0 gap-1">
@@ -248,7 +255,7 @@ export function VersionList({
                     onPreview(take.id)
                   }}
                 >
-                  預覽
+                  {t('shots.preview')}
                 </Button>
               ) : null}
               {onAdopt ? (
@@ -260,7 +267,7 @@ export function VersionList({
                     onAdopt(take.id)
                   }}
                 >
-                  使用這個版本
+                  {t('shots.useThisVersion')}
                 </Button>
               ) : null}
             </span>
@@ -312,15 +319,15 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
 
   return (
     <aside
-      aria-label={`第 ${String(shot.number)} 鏡`}
+      aria-label={t('shots.shot', { value: String(shot.number) })}
       data-testid="shot-panel"
       className={onClose ? 'space-y-4 p-6' : 'space-y-4 p-4'}
     >
       {onClose ? (
         <div className="sticky top-0 z-10 -mx-6 -mt-6 flex items-center justify-between bg-surface-raised/90 px-6 py-4 backdrop-blur-md">
-          <h2 className="text-lg font-semibold">第 {shot.number} 鏡</h2>
+          <h2 className="text-lg font-semibold">{t('shots.shot2', { number: shot.number })}</h2>
           <Button size="sm" variant="ghost" data-testid="shot-panel-close" onClick={onClose}>
-            關閉
+            {t('shots.close')}
           </Button>
         </div>
       ) : null}
@@ -338,12 +345,12 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
           <img
             data-testid="shot-preview-image"
             src={assetUrl(frame.assetHash)}
-            alt={`第 ${String(shot.number)} 鏡的畫面`}
+            alt={t('shots.pictureForShot', { value: String(shot.number) })}
             className="size-full object-cover"
           />
         ) : (
           <p className="flex size-full items-center justify-center text-sm text-fg-muted">
-            還沒有畫面
+            {t('shots.noPictureYet')}
           </p>
         )}
       </div>
@@ -353,7 +360,7 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
           className="flex items-center justify-between rounded-md bg-surface-overlay p-2 text-sm"
           data-testid="shot-activity"
         >
-          <span>正在{STEP_LABEL[shot.activity?.step ?? 'prompt']}…</span>
+          <span>{t(STEP_LABEL[shot.activity?.step ?? 'prompt'])}</span>
           <Button
             size="sm"
             variant="ghost"
@@ -362,13 +369,13 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
               call('shots.cancel', { shotId: shot.id }).catch(() => undefined)
             }}
           >
-            取消
+            {t('shots.cancel')}
           </Button>
         </div>
       ) : null}
       {shot.error && !generating ? (
         <p role="alert" className="text-sm text-danger" data-testid="shot-error">
-          上一次沒有成功：{shot.error}
+          {t('shots.lastTryFailed', { error: shot.error })}
         </p>
       ) : null}
       {error ? (
@@ -382,7 +389,7 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
       <ShotSound shotId={shot.id} />
 
       <VersionList
-        title="影片的各個版本"
+        title={t('shots.videoVersions')}
         takes={shot.videos}
         modelName={modelName}
         previewId={shown?.id}
@@ -397,20 +404,20 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
       />
       {shot.firstFrames.length > 1 ? (
         <div className="space-y-1">
-          <p className="text-sm font-medium">第一張畫面的各個版本</p>
+          <p className="text-sm font-medium">{t('shots.firstFrameVersions')}</p>
           <ul className="flex flex-wrap gap-2" data-testid="shot-frames">
             {[...shot.firstFrames].reverse().map((take) => (
               <li key={take.id} className="w-20 text-center text-xs text-fg-muted">
                 <img
                   src={assetUrl(take.assetHash)}
-                  alt={`第一張畫面版本 ${String(take.version)}`}
+                  alt={t('shots.firstFrameVersion', { value: String(take.version) })}
                   className={
                     take.adopted
                       ? 'aspect-video w-full rounded border-2 border-accent object-cover'
                       : 'aspect-video w-full rounded border border-border object-cover'
                   }
                 />
-                版本 {take.version}
+                {t('shots.version', { version: take.version })}
               </li>
             ))}
           </ul>

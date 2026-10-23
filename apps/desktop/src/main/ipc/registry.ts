@@ -12,6 +12,7 @@ import {
   type IpcParsedRequest,
   type IpcResponse,
   type IpcResult,
+  t,
 } from '@svs/schema'
 
 import type { Logger } from '../logger'
@@ -64,7 +65,7 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
         return fail({
           code: 'invalid_request',
           retryable: false,
-          userMessage: '請求格式不正確。',
+          userMessage: t('services.theRequestIsnTIn'),
         })
       }
       const { channel, payload } = envelope.data
@@ -75,7 +76,7 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
         return fail({
           code: 'unknown_channel',
           retryable: false,
-          userMessage: '這個功能不存在。',
+          userMessage: t('services.thisFeatureDoesnTExist'),
         })
       }
 
@@ -85,7 +86,7 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
         return fail({
           code: 'invalid_request',
           retryable: false,
-          userMessage: '請求內容不正確。',
+          userMessage: t('services.theRequestHasTheWrong'),
         })
       }
 
@@ -103,7 +104,7 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
         return fail(
           new AppError({
             code: 'internal_error',
-            userMessage: '發生未預期的錯誤，請稍後再試。',
+            userMessage: t('services.somethingUnexpectedWentWrongPlease'),
           }).toShape(),
         )
       }
@@ -114,7 +115,7 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
         return fail({
           code: 'invalid_response',
           retryable: false,
-          userMessage: '發生內部錯誤。',
+          userMessage: t('services.anInternalErrorOccurred'),
         })
       }
       return { ok: true, data: parsedResponse.data }

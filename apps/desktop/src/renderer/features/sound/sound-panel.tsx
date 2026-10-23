@@ -8,6 +8,7 @@ import { SoundTimeline } from './sound-timeline'
 import { useAutoMix } from './use-auto-mix'
 import { useRemoveSound } from './use-remove-sound'
 import { useSound } from './use-sound'
+import { t } from '@svs/schema'
 
 type Choice = Level | 'off'
 
@@ -30,7 +31,7 @@ function LevelPicker({
 }) {
   const choices: Choice[] = [...(withOff ? (['off'] as const) : []), 'low', 'mid', 'high']
   return (
-    <div className="flex items-center gap-3" role="group" aria-label={`${label}音量`}>
+    <div className="flex items-center gap-3" role="group" aria-label={t('sound.volume', { label })}>
       <span className="w-16 shrink-0 text-sm">{label}</span>
       <div className="flex gap-1">
         {choices.map((choice) => (
@@ -44,7 +45,7 @@ function LevelPicker({
               onPick(choice)
             }}
           >
-            {choice === 'off' ? '關' : LEVEL_LABELS[choice]}
+            {choice === 'off' ? t('sound.off') : t(LEVEL_LABELS[choice])}
           </Button>
         ))}
       </div>
@@ -56,7 +57,7 @@ function LevelPicker({
           aria-label={onDelete.label}
           onClick={onDelete.onClick}
         >
-          刪除
+          {t('sound.delete')}
         </Button>
       ) : null}
     </div>
@@ -75,10 +76,10 @@ function planText(plan: SoundPlan): string {
   const narrations = plan.items.filter((i) => i.kind === 'narration').length
   const music = plan.items.filter((i) => i.kind === 'music').length
   const parts = [
-    narrations > 0 ? `旁白 ${String(narrations)} 句` : '',
-    music > 0 ? `配樂 ${String(music)} 首` : '',
+    narrations > 0 ? t('sound.narrationLines', { count: narrations }) : '',
+    music > 0 ? t('sound.musicTracks', { count: music }) : '',
   ].filter((p) => p !== '')
-  return `預估約 ${usd(plan.totalUsd)}：${parts.join('、')}。`
+  return t('sound.about', { value: usd(plan.totalUsd), value2: parts.join(t('list.comma')) })
 }
 
 /**
@@ -131,7 +132,7 @@ export function SoundPanel() {
     call('sound.plan', { narration: {}, music: {} })
       .then((plan) => {
         if (!plan.ok) {
-          setActionError(plan.issue ?? '現在不能加聲音。')
+          setActionError(plan.issue ?? t('sound.canTAddSoundRight'))
           setAdd({ step: 'idle' })
         } else {
           setAdd({ step: 'confirm', plan })
@@ -150,15 +151,18 @@ export function SoundPanel() {
         if (item.shotId === undefined) continue
         setAdd({
           step: 'running',
-          text: `旁白 ${String(index + 1)}／${String(narrations.length)}…`,
+          text: t('sound.narration', {
+            value: String(index + 1),
+            value2: String(narrations.length),
+          }),
         })
         await call('sound.generateNarration', { shotId: item.shotId })
       }
       if (plan.items.some((i) => i.kind === 'music')) {
-        setAdd({ step: 'running', text: '配樂…' })
+        setAdd({ step: 'running', text: t('sound.music') })
         await call('sound.generateMusic', {})
       }
-      setAdd({ step: 'running', text: '混音…' })
+      setAdd({ step: 'running', text: t('sound.mixing2') })
       await call('sound.mix', {})
     } catch (e) {
       fail(e)
@@ -189,16 +193,12 @@ export function SoundPanel() {
       </p>
     )
   } else if (state.final === undefined) {
-    body = (
-      <p className="text-sm text-fg-muted">
-        先把鏡頭接成成品（在畫布的剪輯上按「接成成品」），再來加聲音。
-      </p>
-    )
+    body = <p className="text-sm text-fg-muted">{t('sound.firstJoinTheShotsInto')}</p>
   } else if (!hasClips) {
     body =
       add.step === 'confirm' ? (
         <div className="space-y-2" data-testid="sound-add-confirm">
-          <p className="text-sm">{planText(add.plan)}要開始嗎？</p>
+          <p className="text-sm">{t('sound.start2', { value: planText(add.plan) })}</p>
           <div className="flex gap-2">
             <Button
               variant="primary"
@@ -207,7 +207,7 @@ export function SoundPanel() {
                 void runAdd(add.plan)
               }}
             >
-              開始
+              {t('sound.start')}
             </Button>
             <Button
               data-testid="sound-add-cancel"
@@ -215,14 +215,12 @@ export function SoundPanel() {
                 setAdd({ step: 'idle' })
               }}
             >
-              取消
+              {t('sound.cancel')}
             </Button>
           </div>
         </div>
       ) : noModels ? (
-        <p className="text-sm text-fg-muted">
-          還沒有可用的旁白與配樂模型：請到設定填入 OpenRouter 的金鑰（或打開示範模式）。
-        </p>
+        <p className="text-sm text-fg-muted">{t('sound.noNarrationOrMusicModel')}</p>
       ) : (
         <div className="space-y-2">
           <Button
@@ -231,11 +229,11 @@ export function SoundPanel() {
             disabled={add.step === 'planning'}
             onClick={startAdd}
           >
-            {add.step === 'planning' ? '估價中…' : '加上旁白與配樂'}
+            {add.step === 'planning'
+              ? t('sound.gettingAnEstimate')
+              : t('sound.addNarrationAndMusic')}
           </Button>
-          <p className="text-xs text-fg-muted">
-            念每個鏡頭的台詞，再配一首背景音樂，最後混進成品。先告訴你預估花費，確認才會開始。
-          </p>
+          <p className="text-xs text-fg-muted">{t('sound.readsEachShotSLines')}</p>
         </div>
       )
   } else {
@@ -243,7 +241,7 @@ export function SoundPanel() {
       <div className="space-y-3" data-testid="sound-mixer">
         <LevelPicker
           testId="sound-native"
-          label="影片原聲"
+          label={t('sound.videoSound')}
           withOff
           value={nativeValue}
           onPick={(choice) => {
@@ -257,19 +255,19 @@ export function SoundPanel() {
         {narrationCount > 0 ? (
           <LevelPicker
             testId="sound-narration"
-            label="旁白"
+            label={t('sound.narration2')}
             value={levelOf(NARRATION_DB, state.settings.narrationGainDb)}
             onPick={(choice) => {
               if (choice !== 'off') change({ narrationGainDb: NARRATION_DB[choice] })
             }}
             onDelete={{
-              label: '刪除旁白',
-              tip: '刪掉全部鏡頭的旁白（鏡頭的台詞還在，可以再念）。可以復原',
+              label: t('sound.deleteNarration'),
+              tip: t('sound.deleteTheNarrationForEvery'),
               onClick: () => {
                 setActionError(undefined)
                 removeSound(
                   { kind: 'narration' },
-                  `已刪除 ${String(narrationCount)} 句旁白，台詞還在，可以再念。`,
+                  t('sound.narrationsDeleted', { count: narrationCount }),
                 )
               },
             }}
@@ -277,17 +275,16 @@ export function SoundPanel() {
         ) : dialogueShots > 0 ? (
           // 有台詞、沒有旁白（例如旁白被刪掉了）：台詞還在，可以再念
           <p className="text-sm text-fg-muted" data-testid="sound-narration-missing">
-            {String(dialogueShots)}{' '}
-            個鏡頭有台詞，還沒有旁白。到鏡頭裡按「念出這句台詞」（會先給預估），就會念出來。
+            {t('sound.narrationMissing', { count: dialogueShots })}
           </p>
         ) : (
           <p className="text-sm text-fg-muted" data-testid="sound-no-narration">
-            鏡頭沒有台詞，所以沒有旁白。到鏡頭裡寫台詞，就會念出來。
+            {t('sound.noShotHasLinesSo')}
           </p>
         )}
         <LevelPicker
           testId="sound-music"
-          label="配樂"
+          label={t('sound.music2')}
           value={levelOf(MUSIC_DB, state.settings.musicGainDb)}
           onPick={(choice) => {
             if (choice !== 'off') change({ musicGainDb: MUSIC_DB[choice] })
@@ -295,11 +292,11 @@ export function SoundPanel() {
           {...(state.music
             ? {
                 onDelete: {
-                  label: '刪除配樂',
-                  tip: '刪掉這首配樂（旁白不受影響）。可以復原',
+                  label: t('sound.deleteMusic'),
+                  tip: t('sound.deleteThisMusicNarrationIsn'),
                   onClick: () => {
                     setActionError(undefined)
-                    removeSound({ kind: 'music' }, '已刪除配樂。')
+                    removeSound({ kind: 'music' }, t('sound.deletedTheMusic'))
                   },
                 },
               }
@@ -307,8 +304,13 @@ export function SoundPanel() {
         />
         <SoundTimeline state={state} />
         <p className="text-xs text-fg-muted" data-testid="sound-summary">
-          {narrationCount > 0 ? `${String(narrationCount)} 個鏡頭有旁白` : '沒有旁白'}
-          {state.music ? '、有配樂' : '、沒有配樂'}。調整音量不花錢，會自動重混。
+          {narrationCount > 0
+            ? state.music
+              ? t('sound.shotsHaveNarrationAndThere', { value: String(narrationCount) })
+              : t('sound.shotsHaveNarrationAndThere2', { value: String(narrationCount) })
+            : state.music
+              ? t('sound.thereSNoNarrationBut')
+              : t('sound.thereSNoNarrationAnd')}
         </p>
         {state.warnings.map((w) => (
           <p key={`${w.kind}:${w.shotId ?? ''}`} className="text-xs text-warning" role="status">
@@ -317,7 +319,7 @@ export function SoundPanel() {
         ))}
         {mixing ? (
           <p className="text-sm text-fg-muted" role="status" data-testid="sound-mixing">
-            混音中…
+            {t('sound.mixing')}
           </p>
         ) : state.final.soundStale ? (
           <Button
@@ -327,7 +329,7 @@ export function SoundPanel() {
               scheduleMix()
             }}
           >
-            重新混音（不花錢）
+            {t('sound.mixAgainFree')}
           </Button>
         ) : null}
       </div>
@@ -338,9 +340,9 @@ export function SoundPanel() {
     <section
       className="space-y-2 border-t border-border pt-3"
       data-testid="sound-panel"
-      aria-label="聲音"
+      aria-label={t('sound.sound')}
     >
-      <h3 className="text-sm font-semibold">聲音</h3>
+      <h3 className="text-sm font-semibold">{t('sound.sound')}</h3>
       {body}
       {mixError ? (
         <p role="alert" className="text-sm text-danger" data-testid="sound-mix-error">

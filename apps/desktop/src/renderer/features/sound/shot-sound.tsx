@@ -6,6 +6,7 @@ import { call, errorText } from '../../lib/svs'
 import { useAutoMix } from './use-auto-mix'
 import { useRemoveSound } from './use-remove-sound'
 import { useSound } from './use-sound'
+import { t } from '@svs/schema'
 
 const usd = (n: number): string => `US$${n < 0.1 ? n.toFixed(4) : n.toFixed(2)}`
 
@@ -45,7 +46,7 @@ function DialogueEditor({
   return (
     <div className="space-y-1">
       <label className="block text-sm text-fg-muted" htmlFor={`shot-sound-dialogue-${shotId}`}>
-        台詞（旁白念的就是這句）
+        {t('sound.linesNarrationReadsExactlyThis')}
       </label>
       <textarea
         id={`shot-sound-dialogue-${shotId}`}
@@ -54,7 +55,7 @@ function DialogueEditor({
         rows={2}
         maxLength={2000}
         value={draft}
-        placeholder="例如：黑藤爬滿了斷橋。"
+        placeholder={t('sound.forExampleBlackVinesCover')}
         onChange={(event) => {
           setDraft(event.target.value)
           onDirty(event.target.value.trim() !== saved.trim())
@@ -68,7 +69,7 @@ function DialogueEditor({
           disabled={saving}
           onClick={save}
         >
-          儲存台詞
+          {t('sound.saveLines')}
         </Button>
       ) : null}
     </div>
@@ -130,7 +131,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
     setError(undefined)
     call('sound.plan', { narration: { shotIds: [shotId] } })
       .then((plan) => {
-        if (!plan.ok) setError(plan.issue ?? '現在不能念旁白。')
+        if (!plan.ok) setError(plan.issue ?? t('sound.canTMakeNarrationRight'))
         else setFlow({ step: 'confirm', plan })
       })
       .catch(fail)
@@ -165,9 +166,9 @@ export function ShotSound({ shotId }: { shotId: string }) {
     <section
       className="space-y-2 border-t border-border pt-3"
       data-testid="shot-sound"
-      aria-label="這一鏡的聲音"
+      aria-label={t('sound.soundForThisShot')}
     >
-      <h3 className="text-sm font-semibold">聲音</h3>
+      <h3 className="text-sm font-semibold">{t('sound.sound')}</h3>
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
@@ -177,7 +178,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
             toggleNative(event.target.checked)
           }}
         />
-        用影片原聲
+        {t('sound.useTheVideoSOwn')}
       </label>
       <DialogueEditor
         key={`${shotId}:${view.dialogue}`}
@@ -189,20 +190,23 @@ export function ShotSound({ shotId }: { shotId: string }) {
       <div className="space-y-1">
         {narration ? (
           <p className="text-sm" data-testid="shot-sound-narration">
-            旁白：
-            {narration.durationSec === undefined ? '' : `${narration.durationSec.toFixed(1)} 秒・`}
-            第 {narration.version} 版
+            {narration.durationSec === undefined
+              ? t('sound.narrationVersion', { version: narration.version })
+              : t('sound.narrationSVersion', {
+                  value: narration.durationSec.toFixed(1),
+                  version: narration.version,
+                })}
           </p>
         ) : dialogue === '' ? (
           <p className="text-sm text-fg-muted" data-testid="shot-sound-no-dialogue">
-            這一鏡還沒有台詞，所以沒有旁白。在下面寫一句，就能念出來。
+            {t('sound.thisShotHasNoLines')}
           </p>
         ) : (
-          <p className="text-sm text-fg-muted">這一鏡還沒有旁白。</p>
+          <p className="text-sm text-fg-muted">{t('sound.thisShotHasNoNarration')}</p>
         )}
         {flow.step === 'confirm' ? (
           <div className="space-y-1" data-testid="shot-sound-confirm">
-            <p className="text-sm">預估約 {usd(flow.plan.totalUsd)}。要開始嗎？</p>
+            <p className="text-sm">{t('sound.aboutStart', { value: usd(flow.plan.totalUsd) })}</p>
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -210,7 +214,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
                 data-testid="shot-sound-go"
                 onClick={runNarration}
               >
-                開始
+                {t('sound.start')}
               </Button>
               <Button
                 size="sm"
@@ -219,13 +223,13 @@ export function ShotSound({ shotId }: { shotId: string }) {
                   setFlow({ step: 'idle' })
                 }}
               >
-                取消
+                {t('sound.cancel')}
               </Button>
             </div>
           </div>
         ) : flow.step === 'running' ? (
           <p className="text-sm text-fg-muted" role="status" data-testid="shot-sound-running">
-            正在念…
+            {t('sound.readingAloud')}
           </p>
         ) : (
           <div className="flex gap-2">
@@ -234,33 +238,30 @@ export function ShotSound({ shotId }: { shotId: string }) {
                 size="sm"
                 data-testid="shot-sound-narrate"
                 disabled={dialogueDirty}
-                title={dialogueDirty ? '先儲存台詞' : undefined}
+                title={dialogueDirty ? t('sound.saveTheLinesFirst') : undefined}
                 onClick={askNarration}
               >
-                {narration ? '重新念' : '念出這句台詞'}
+                {narration ? t('sound.readAgain') : t('sound.readThisLineAloud')}
               </Button>
             ) : null}
             {narration ? (
               <Button
                 size="sm"
                 data-testid="shot-sound-narration-delete"
-                title="刪掉這一鏡的旁白（台詞還在，可以再念）。可以復原"
+                title={t('sound.deleteThisShotSNarration')}
                 onClick={() => {
                   setError(undefined)
-                  removeSound(
-                    { kind: 'narration', shotId },
-                    '已刪除這一鏡的旁白，台詞還在，可以再念。',
-                  )
+                  removeSound({ kind: 'narration', shotId }, t('sound.deletedThisShotSNarration'))
                 }}
               >
-                刪除旁白
+                {t('sound.deleteNarration')}
               </Button>
             ) : null}
           </div>
         )}
         {mixing ? (
           <p className="text-xs text-fg-muted" role="status" data-testid="shot-sound-mixing">
-            混音中…
+            {t('sound.mixing')}
           </p>
         ) : null}
       </div>

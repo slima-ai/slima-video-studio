@@ -24,6 +24,7 @@ import { CardFooter } from '../shots/card-footer'
 import { cardUsage } from '../shots/card-usage'
 import { SelectCell, TextCell } from './cells'
 import { ANGLE_LABELS, SIZE_LABELS, STATUS_LABELS } from './labels'
+import { t } from '@svs/schema'
 
 export interface StoryboardBoardProps {
   shots: ShotView[]
@@ -41,9 +42,9 @@ export function thumbnailHash(shot: ShotView): string | undefined {
 }
 
 function statusText(shot: ShotView): string {
-  if (shot.activity) return STATUS_LABELS.generating
-  if (shot.error) return STATUS_LABELS.failed
-  return STATUS_LABELS[shot.status]
+  if (shot.activity) return t(STATUS_LABELS.generating)
+  if (shot.error) return t(STATUS_LABELS.failed)
+  return t(STATUS_LABELS[shot.status])
 }
 
 /** 多行的描述框：離開才存，Esc 放棄這次的修改（外面的值變了就重新開始）。 */
@@ -69,7 +70,7 @@ function DescriptionInner({
   return (
     <textarea
       data-testid="board-description"
-      aria-label="畫面描述"
+      aria-label={t('storyboard.pictureDescription')}
       rows={3}
       value={draft}
       onChange={(event) => {
@@ -117,11 +118,11 @@ function SortableCard({ shot, sceneLabel, checked, onCheck, onEdit }: CardProps)
         {hash ? (
           <img
             src={assetUrl(hash)}
-            alt={`第 ${String(shot.number)} 鏡的畫面`}
+            alt={t('storyboard.pictureForShot', { value: String(shot.number) })}
             className="size-full object-cover"
           />
         ) : (
-          <span className="text-xs text-fg-muted">還沒有畫面</span>
+          <span className="text-xs text-fg-muted">{t('storyboard.noPictureYet')}</span>
         )}
       </div>
       <div className="space-y-1 p-2">
@@ -129,7 +130,7 @@ function SortableCard({ shot, sceneLabel, checked, onCheck, onEdit }: CardProps)
           <button
             type="button"
             data-testid="board-handle"
-            aria-label={`拖拉調整第 ${String(shot.number)} 鏡的順序`}
+            aria-label={t('storyboard.dragToReorderShot', { value: String(shot.number) })}
             className="cursor-grab touch-none rounded p-1 text-fg-muted hover:bg-surface-overlay"
             {...attributes}
             {...listeners}
@@ -139,13 +140,13 @@ function SortableCard({ shot, sceneLabel, checked, onCheck, onEdit }: CardProps)
           <input
             type="checkbox"
             data-testid="board-select"
-            aria-label={`選取第 ${String(shot.number)} 鏡`}
+            aria-label={t('storyboard.selectShot', { value: String(shot.number) })}
             checked={checked}
             onChange={(event) => {
               onCheck(event.target.checked)
             }}
           />
-          <span className="font-medium">第 {shot.number} 鏡</span>
+          <span className="font-medium">{t('storyboard.shot', { number: shot.number })}</span>
           <span
             className={`ml-auto text-xs ${shot.error ? 'text-danger' : 'text-fg-muted'}`}
             data-testid="board-status"
@@ -168,7 +169,7 @@ function SortableCard({ shot, sceneLabel, checked, onCheck, onEdit }: CardProps)
         <div className="grid grid-cols-3 gap-1">
           <SelectCell
             column="board-size"
-            label="景別"
+            label={t('storyboard.shotSize')}
             value={shot.size}
             options={SIZE_OPTIONS}
             onCommit={(value) => {
@@ -177,7 +178,7 @@ function SortableCard({ shot, sceneLabel, checked, onCheck, onEdit }: CardProps)
           />
           <SelectCell
             column="board-angle"
-            label="角度"
+            label={t('storyboard.angle')}
             value={shot.angle}
             options={ANGLE_OPTIONS}
             onCommit={(value) => {
@@ -186,7 +187,7 @@ function SortableCard({ shot, sceneLabel, checked, onCheck, onEdit }: CardProps)
           />
           <TextCell
             column="board-duration"
-            label="秒數"
+            label={t('storyboard.seconds')}
             type="number"
             min={1}
             max={15}
@@ -225,7 +226,10 @@ export function StoryboardBoard({
     () =>
       new Map(
         outline.acts.flatMap((act) =>
-          act.scenes.map((scene) => [scene.id, `${act.title}／${scene.title}`] as const),
+          act.scenes.map(
+            (scene) =>
+              [scene.id, t('storyboard.actScene', { act: act.title, scene: scene.title })] as const,
+          ),
         ),
       ),
     [outline],
@@ -249,7 +253,7 @@ export function StoryboardBoard({
       <SortableContext items={ids} strategy={rectSortingStrategy}>
         <ol
           className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          aria-label="鏡頭卡片"
+          aria-label={t('storyboard.shotCards')}
           data-testid="storyboard-board"
         >
           {shots.map((shot) => (

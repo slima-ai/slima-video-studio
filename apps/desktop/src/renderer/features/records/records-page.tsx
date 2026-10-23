@@ -6,6 +6,7 @@ import { FilterChips, Page } from '../../components/page'
 import type { AppView } from '../../components/app-layout'
 import { KIND_LABEL, RecordRow } from './record-row'
 import { useRecords } from './use-records'
+import { t } from '@svs/schema'
 
 const KINDS: readonly JobKind[] = ['image', 'video', 'llm']
 
@@ -27,31 +28,31 @@ export function RecordsPage({ onNavigate }: RecordsPageProps) {
 
   return (
     <Page
-      title="生成紀錄"
-      hint="每一次送給模型的請求：用了什麼描述、哪個模型、花多久、花多少、結果是什麼"
+      title={t('records.generationRecords')}
+      hint={t('records.everyRequestSentToA')}
       testId="records-page"
       actions={
         <>
           <FilterChips
-            label="種類"
+            label={t('records.type')}
             showLabel
             testId="records-kind"
             value={kind}
             options={[
-              { value: '', label: '全部' },
-              ...KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] })),
+              { value: '', label: t('records.all') },
+              ...KINDS.map((k) => ({ value: k, label: t(KIND_LABEL[k]) })),
             ]}
             onChange={setKind}
           />
           <FilterChips
-            label="結果"
+            label={t('records.result2')}
             showLabel
             testId="records-outcome"
             value={outcome}
             options={[
-              { value: '', label: '全部' },
-              { value: 'succeeded', label: '成功' },
-              { value: 'failed', label: '失敗' },
+              { value: '', label: t('records.all') },
+              { value: 'succeeded', label: t('records.succeeded') },
+              { value: 'failed', label: t('records.failed') },
             ]}
             onChange={setOutcome}
           />
@@ -61,10 +62,16 @@ export function RecordsPage({ onNavigate }: RecordsPageProps) {
       <div className="flex flex-col gap-4">
         {snapshot ? (
           <p data-testid="records-summary" className="text-sm text-fg-muted">
-            共 {snapshot.total} 筆・花了約 US${snapshot.totalCostUsd.toFixed(2)}
             {snapshot.total > snapshot.records.length
-              ? `（先顯示最近 ${String(snapshot.records.length)} 筆）`
-              : ''}
+              ? t('records.recordsAboutUsSpentShowing', {
+                  total: snapshot.total,
+                  value: snapshot.totalCostUsd.toFixed(2),
+                  value2: String(snapshot.records.length),
+                })
+              : t('records.recordsAboutUsSpent', {
+                  total: snapshot.total,
+                  value: snapshot.totalCostUsd.toFixed(2),
+                })}
           </p>
         ) : null}
 
@@ -89,7 +96,7 @@ export function RecordsPage({ onNavigate }: RecordsPageProps) {
                 onNavigate('storyboard')
               }}
             >
-              到分鏡表看進度
+              {t('records.seeProgressInTheStoryboard')}
             </Button>
           </p>
         ) : null}
@@ -97,8 +104,8 @@ export function RecordsPage({ onNavigate }: RecordsPageProps) {
         {snapshot?.records.length === 0 ? (
           <p data-testid="records-empty" className="text-sm text-fg-muted">
             {kind || outcome
-              ? '沒有符合的紀錄。'
-              : '還沒有生成過任何東西。到畫布寫一句話做一支影片，每一次生成都會記在這裡。'}
+              ? t('records.noRecordsMatch')
+              : t('records.nothingHasBeenGeneratedYet')}
           </p>
         ) : null}
 
@@ -109,7 +116,7 @@ export function RecordsPage({ onNavigate }: RecordsPageProps) {
               record={record}
               onRedo={(label) => {
                 setProblem(undefined)
-                setNotice(`已開始重新生成${label}。`)
+                setNotice(t('records.startedGeneratingAgain', { label }))
               }}
               onError={(message) => {
                 setNotice(undefined)

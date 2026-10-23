@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 
 import {
-  AI_TURN_UNDO_LABEL,
+  aiTurnUndoLabel,
   AppError,
   CHAT_BUDGET_DEFAULT_USD,
   getLocale,
@@ -105,7 +105,7 @@ const CHECK_TTL_MS = 60_000
 const STATUS_CACHE_MS = 10 * 60_000
 /** 閒置多久關掉行程：十個對話就是十個常駐的 claude，沒在用的不該一直佔著。 */
 /** 一輪的復原名稱（復原按鈕旁、「已復原：…」的提示會用）。 */
-export const CHAT_UNDO_LABEL = AI_TURN_UNDO_LABEL
+export const chatUndoLabel = (): string => aiTurnUndoLabel()
 const DEFAULT_IDLE_MS = 10 * 60_000
 /** 改開新對話時帶過去的舊內容最多這麼多字（取最後面的）。 */
 const SEED_MAX_CHARS = 6000
@@ -557,7 +557,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       const { turn } = conv
       if (!turn?.endHistory) continue
       turn.endHistory()
-      turn.endHistory = deps.history?.beginAiTurn(CHAT_UNDO_LABEL)
+      turn.endHistory = deps.history?.beginAiTurn(chatUndoLabel())
     }
     if (dir) {
       for (const conv of conversations.values()) {
@@ -715,7 +715,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       emitConversation(conv)
       persist(conv, [user])
       // 檢查通過、要開始做事了：從現在開始把這一輪的改動記成一步
-      turn.endHistory = deps.history?.beginAiTurn(CHAT_UNDO_LABEL)
+      turn.endHistory = deps.history?.beginAiTurn(chatUndoLabel())
       try {
         ensureProcess(conv, check.path).send(withNote(text, note))
       } catch (error) {

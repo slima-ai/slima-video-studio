@@ -1,4 +1,4 @@
-import { formatDate } from '@svs/schema'
+import { formatDate, t } from '@svs/schema'
 import type { FileEntry } from '@svs/schema'
 import { useState } from 'react'
 
@@ -19,8 +19,11 @@ export function FileRow({ file, onError }: FileRowProps) {
   const [copied, setCopied] = useState(false)
   const size =
     file.width && file.height ? `${String(file.width)}×${String(file.height)}` : undefined
-  const duration = file.durationSec === undefined ? undefined : `${file.durationSec.toFixed(1)} 秒`
-  const details = [size, duration, formatBytes(file.bytes)].filter(Boolean).join('・')
+  const duration =
+    file.durationSec === undefined
+      ? undefined
+      : t('files.s', { value: file.durationSec.toFixed(1) })
+  const details = [size, duration, formatBytes(file.bytes)].filter(Boolean).join(t('list.dot'))
 
   const reveal = (): void => {
     call('files.reveal', { hash: file.hash }).catch((e: unknown) => {
@@ -46,7 +49,7 @@ export function FileRow({ file, onError }: FileRowProps) {
         {file.kind === 'image' ? (
           <img
             src={assetUrl(file.hash)}
-            alt={`圖片 ${file.hash.slice(0, 8)}`}
+            alt={t('files.image', { value: file.hash.slice(0, 8) })}
             className="size-full object-cover"
           />
         ) : (
@@ -55,13 +58,15 @@ export function FileRow({ file, onError }: FileRowProps) {
             muted
             preload="metadata"
             className="size-full object-cover"
-            aria-label={`影片 ${file.hash.slice(0, 8)}`}
+            aria-label={t('files.video', { value: file.hash.slice(0, 8) })}
           />
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-medium">{file.kind === 'image' ? '圖片' : '影片'}</span>
+          <span className="font-medium">
+            {file.kind === 'image' ? t('files.image2') : t('files.video2')}
+          </span>
           <span data-testid="file-details" className="text-xs text-fg-muted">
             {details}
           </span>
@@ -77,7 +82,7 @@ export function FileRow({ file, onError }: FileRowProps) {
           </ul>
         ) : (
           <p data-testid="file-unused" className="text-xs text-fg-muted">
-            目前沒有被使用
+            {t('files.notUsedAnywhere')}
           </p>
         )}
         {/* 完整路徑很長（含內容雜湊）：只留一行，從專案資料夾裡的 assets 開始，滑過看全文 */}
@@ -91,10 +96,10 @@ export function FileRow({ file, onError }: FileRowProps) {
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
           <Button size="sm" variant="ghost" data-testid="file-reveal" onClick={reveal}>
-            在資料夾中顯示
+            {t('files.showInFolder')}
           </Button>
           <Button size="sm" variant="ghost" data-testid="file-copy-path" onClick={copyPath}>
-            {copied ? '已複製' : '複製路徑'}
+            {copied ? t('files.copied') : t('files.copyPath')}
           </Button>
         </div>
       </div>

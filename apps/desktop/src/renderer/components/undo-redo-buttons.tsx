@@ -21,7 +21,7 @@ export function UndoRedoButtons() {
         variant="ghost"
         data-testid="history-undo"
         aria-label={undoText}
-        title={`${undoText}（${mod}Z）`}
+        title={t('shell.withShortcut', { label: undoText, keys: `${mod}Z` })}
         disabled={!state.canUndo}
         onClick={undo}
       >
@@ -32,7 +32,10 @@ export function UndoRedoButtons() {
         variant="ghost"
         data-testid="history-redo"
         aria-label={redoText}
-        title={`${redoText}（${isMac() ? '⇧⌘Z' : 'Ctrl+Shift+Z'}）`}
+        title={t('shell.withShortcut', {
+          label: redoText,
+          keys: isMac() ? '⇧⌘Z' : 'Ctrl+Shift+Z',
+        })}
         disabled={!state.canRedo}
         onClick={redo}
       >

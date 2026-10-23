@@ -16,6 +16,7 @@ import {
   type TurnaroundView,
   type TurnaroundsState,
   t,
+  cardNameOf,
 } from '@svs/schema'
 import {
   QUICK_STYLE_IDS,
@@ -139,7 +140,7 @@ export function createTurnaroundService(deps: TurnaroundServiceDeps): Turnaround
       }
     }
     const estimatedUsd = models.estimate(model, { images: 1 }) * TURNAROUNDS_PER_ROUND
-    const modelName = models.get(model)?.displayName
+    const modelName = cardNameOf(models.get(model))
     const exceeded = checkBudget({
       budget,
       runProjectedUsd: estimatedUsd,

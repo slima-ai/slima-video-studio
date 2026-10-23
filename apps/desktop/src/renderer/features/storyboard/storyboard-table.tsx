@@ -29,6 +29,7 @@ import {
   type ShotEdit,
   type ShotSize,
   type ShotView,
+  t,
 } from '@svs/schema'
 import { GripVertical } from 'lucide-react'
 import { createContext, useContext, useMemo, type HTMLAttributes } from 'react'
@@ -71,7 +72,7 @@ function DragHandle({ shot }: { shot: ShotView }) {
     <button
       type="button"
       data-testid="row-handle"
-      aria-label={`拖拉調整第 ${String(shot.number)} 鏡的順序`}
+      aria-label={t('storyboard.dragToReorderShot', { value: String(shot.number) })}
       className="cursor-grab touch-none rounded p-1 text-fg-muted hover:bg-surface-overlay"
       {...handle?.attributes}
       {...handle?.listeners}
@@ -91,9 +92,9 @@ export interface StoryboardTableProps {
 }
 
 function statusText(shot: ShotView): string {
-  if (shot.activity) return STATUS_LABELS.generating
-  if (shot.error) return STATUS_LABELS.failed
-  return STATUS_LABELS[shot.status]
+  if (shot.activity) return t(STATUS_LABELS.generating)
+  if (shot.error) return t(STATUS_LABELS.failed)
+  return t(STATUS_LABELS[shot.status])
 }
 
 function SortableRow({ shot, children }: { shot: ShotView; children: React.ReactNode }) {
@@ -127,16 +128,19 @@ export function StoryboardTable({
 }: StoryboardTableProps) {
   const sceneOptions = useMemo(
     () => [
-      { value: NONE, label: '（不屬於任何場）' },
+      { value: NONE, label: t('storyboard.notInAnyScene') },
       ...outline.acts.flatMap((act) =>
-        act.scenes.map((scene) => ({ value: scene.id, label: `${act.title}／${scene.title}` })),
+        act.scenes.map((scene) => ({
+          value: scene.id,
+          label: t('storyboard.actScene', { act: act.title, scene: scene.title }),
+        })),
       ),
     ],
     [outline],
   )
   const locationOptions = useMemo(
     () => [
-      { value: NONE, label: '（沒指定）' },
+      { value: NONE, label: t('storyboard.notSet') },
       ...outline.locations.map((l) => ({ value: l.id, label: l.name })),
     ],
     [outline],
@@ -151,7 +155,7 @@ export function StoryboardTable({
   )
   const cameraOptions = useMemo(
     () => [
-      { value: NONE, label: '（固定）' },
+      { value: NONE, label: t('storyboard.fixed') },
       ...CAMERA_MOVES.map((c) => ({ value: c.id, label: c.label })),
     ],
     [],
@@ -166,12 +170,12 @@ export function StoryboardTable({
       },
       {
         id: 'select',
-        header: () => <span className="sr-only">選取</span>,
+        header: () => <span className="sr-only">{t('storyboard.select')}</span>,
         cell: ({ row }) => (
           <input
             type="checkbox"
             data-testid="row-select"
-            aria-label={`選取第 ${String(row.original.number)} 鏡`}
+            aria-label={t('storyboard.selectShot', { value: String(row.original.number) })}
             checked={row.getIsSelected()}
             onChange={row.getToggleSelectedHandler()}
           />
@@ -179,18 +183,18 @@ export function StoryboardTable({
       },
       {
         id: 'number',
-        header: '鏡號',
+        header: t('storyboard.no'),
         cell: ({ row }) => (
           <span className="whitespace-nowrap px-2 text-sm">{row.original.number}</span>
         ),
       },
       {
         id: 'scene',
-        header: '場',
+        header: t('storyboard.scene'),
         cell: ({ row }) => (
           <SelectCell
             column="scene"
-            label="屬於哪個場"
+            label={t('storyboard.belongsToScene')}
             value={row.original.sceneId ?? NONE}
             options={sceneOptions}
             onCommit={(value) => {
@@ -201,11 +205,11 @@ export function StoryboardTable({
       },
       {
         id: 'description',
-        header: '畫面描述',
+        header: t('storyboard.pictureDescription'),
         cell: ({ row }) => (
           <TextCell
             column="description"
-            label="畫面描述"
+            label={t('storyboard.pictureDescription')}
             value={row.original.description}
             onCommit={(value) => {
               if (value.trim() !== '') onEdit(row.original.id, { description: value })
@@ -215,11 +219,11 @@ export function StoryboardTable({
       },
       {
         id: 'size',
-        header: '景別',
+        header: t('storyboard.shotSize'),
         cell: ({ row }) => (
           <SelectCell
             column="size"
-            label="景別"
+            label={t('storyboard.shotSize')}
             value={row.original.size}
             options={sizeOptions}
             onCommit={(value) => {
@@ -230,11 +234,11 @@ export function StoryboardTable({
       },
       {
         id: 'angle',
-        header: '角度',
+        header: t('storyboard.angle'),
         cell: ({ row }) => (
           <SelectCell
             column="angle"
-            label="拍攝角度"
+            label={t('storyboard.cameraAngle')}
             value={row.original.angle}
             options={angleOptions}
             onCommit={(value) => {
@@ -245,11 +249,11 @@ export function StoryboardTable({
       },
       {
         id: 'camera',
-        header: '運鏡',
+        header: t('storyboard.cameraMove'),
         cell: ({ row }) => (
           <SelectCell
             column="camera"
-            label="運鏡"
+            label={t('storyboard.cameraMove')}
             value={row.original.cameraMove ?? NONE}
             options={cameraOptions}
             onCommit={(value) => {
@@ -260,11 +264,11 @@ export function StoryboardTable({
       },
       {
         id: 'duration',
-        header: '秒數',
+        header: t('storyboard.seconds'),
         cell: ({ row }) => (
           <TextCell
             column="duration"
-            label="秒數"
+            label={t('storyboard.seconds')}
             type="number"
             min={1}
             max={15}
@@ -280,13 +284,13 @@ export function StoryboardTable({
       },
       {
         id: 'characters',
-        header: '出場角色',
+        header: t('storyboard.characters'),
         cell: ({ row }) => (
           <TextCell
             column="characters"
-            label="出場角色（用頓號分開）"
-            placeholder="例如：阿鐵、小花"
-            value={row.original.characters.join('、')}
+            label={t('storyboard.charactersInTheShotSeparate')}
+            placeholder={t('storyboard.forExampleIronMina')}
+            value={row.original.characters.join(t('list.comma'))}
             onCommit={(value) => {
               onEdit(row.original.id, { characters: parseNames(value) })
             }}
@@ -295,11 +299,11 @@ export function StoryboardTable({
       },
       {
         id: 'dialogue',
-        header: '台詞',
+        header: t('storyboard.lines'),
         cell: ({ row }) => (
           <TextCell
             column="dialogue"
-            label="台詞"
+            label={t('storyboard.lines')}
             value={row.original.dialogue}
             onCommit={(value) => {
               onEdit(row.original.id, { dialogue: value })
@@ -309,11 +313,11 @@ export function StoryboardTable({
       },
       {
         id: 'location',
-        header: '地點',
+        header: t('storyboard.location'),
         cell: ({ row }) => (
           <SelectCell
             column="location"
-            label="地點"
+            label={t('storyboard.location')}
             value={row.original.locationId ?? NONE}
             options={locationOptions}
             onCommit={(value) => {
@@ -324,12 +328,12 @@ export function StoryboardTable({
       },
       {
         id: 'lighting',
-        header: '光線',
+        header: t('storyboard.lighting'),
         cell: ({ row }) => (
           <TextCell
             column="lighting"
-            label="光線"
-            placeholder="例如：逆光"
+            label={t('storyboard.lighting')}
+            placeholder={t('storyboard.forExampleBacklit')}
             value={row.original.lighting ?? ''}
             onCommit={(value) => {
               onEdit(row.original.id, { lighting: value.trim() === '' ? null : value })
@@ -339,12 +343,12 @@ export function StoryboardTable({
       },
       {
         id: 'time',
-        header: '時段',
+        header: t('storyboard.timeOfDay'),
         cell: ({ row }) => (
           <TextCell
             column="time"
-            label="時段"
-            placeholder="例如：黃昏"
+            label={t('storyboard.timeOfDay')}
+            placeholder={t('storyboard.forExampleDusk')}
             value={row.original.timeOfDay ?? ''}
             onCommit={(value) => {
               onEdit(row.original.id, { timeOfDay: value.trim() === '' ? null : value })
@@ -354,11 +358,11 @@ export function StoryboardTable({
       },
       {
         id: 'mood',
-        header: '氣氛',
+        header: t('storyboard.mood'),
         cell: ({ row }) => (
           <TextCell
             column="mood"
-            label="氣氛"
+            label={t('storyboard.mood')}
             value={row.original.mood ?? ''}
             onCommit={(value) => {
               onEdit(row.original.id, { mood: value.trim() === '' ? null : value })
@@ -368,7 +372,7 @@ export function StoryboardTable({
       },
       {
         id: 'status',
-        header: '狀態',
+        header: t('storyboard.status'),
         cell: ({ row }) => (
           <span
             className={`block truncate px-2 text-sm ${row.original.error ? 'text-danger' : 'text-fg-muted'}`}

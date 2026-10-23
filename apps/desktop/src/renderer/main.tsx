@@ -17,7 +17,7 @@ document.addEventListener('securitypolicyviolation', (e) => {
 restoreTheme()
 
 const root = document.getElementById('root')
-if (!root) throw new Error('找不到 #root')
+if (!root) throw new Error('Cannot find #root')
 
 // 先問主行程現在的介面語言再畫第一次，才不會先閃一下別的語言
 void loadLocale().then(() => {

@@ -17,6 +17,7 @@ import {
   type ReferenceView,
   type ReferencesState,
   t,
+  cardNameOf,
 } from '@svs/schema'
 import {
   QUICK_STYLE_IDS,
@@ -211,7 +212,7 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
       }
     }
     const estimatedUsd = models.estimate(model, { images: 1 }) * CONCEPTS_PER_ROUND
-    const modelName = models.get(model)?.displayName
+    const modelName = cardNameOf(models.get(model))
     const exceeded = checkBudget({
       budget,
       runProjectedUsd: estimatedUsd,

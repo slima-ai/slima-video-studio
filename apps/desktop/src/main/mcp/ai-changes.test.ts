@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import { diffMarks, marksOf, withAiChangeNotice, type CanvasMarks } from './ai-changes'
-import { NEW_SHOT_DESCRIPTION } from '../shots/defaults'
+import { newShotDescription } from '../shots/defaults'
 import type { McpCaller } from './bridge'
 import { dataOf, startRealMcp } from './test-support'
 
@@ -39,7 +39,7 @@ describe('diffMarks：AI 前後的畫布差在哪', () => {
 describe('diffMarks：刪掉的格子帶「是不是空的」與內容摘要（提示用）', () => {
   it('鏡頭：沒描述（或還是新增時預設的那句）、沒旁白、沒圖影片才算空的；有描述的帶摘要', () => {
     const before = marks(
-      node('shot:a', { title: '第 1 鏡', summary: NEW_SHOT_DESCRIPTION }),
+      node('shot:a', { title: '第 1 鏡', summary: newShotDescription() }),
       node('shot:b', { title: '第 2 鏡', summary: '看見暖光' }),
       node('shot:c', { title: '第 3 鏡' }),
       node('shot:c:image', { kind: 'image', shotKey: 'shot:c', assetHash: 'a'.repeat(64) }),

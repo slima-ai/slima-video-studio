@@ -11,6 +11,8 @@ import {
   type SlimaImportResult,
   type SlimaSkipped,
   type SlimaTree,
+  messageVariants,
+  t,
 } from '@svs/schema'
 
 import { ensureProject } from '../ensure-project'
@@ -34,7 +36,10 @@ export interface SlimaImportService {
 }
 
 /** 匯入的場放在這一幕底下（找得到同名的幕就沿用）。 */
-export const IMPORT_ACT_TITLE = '從 Slima 匯入'
+/** 匯入時開的那一幕的名字（照匯入那一刻的介面語言）；找它時每種語言的名字都算。 */
+export const importActTitle = (): string => t('slima.importAct')
+const isImportActTitle = (title: string): boolean =>
+  messageVariants('slima.importAct').includes(title)
 
 const invalid = (userMessage: string): AppError =>
   new AppError({ code: 'invalid_request', userMessage })
@@ -88,7 +93,7 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
       try {
         const file = await reader.readFile(request.bookToken, item.path)
         if (file.content.trim() === '') {
-          skipped.push({ path: item.path, reason: '檔案是空的' })
+          skipped.push({ path: item.path, reason: t('services.theFileIsEmpty') })
           continue
         }
         loaded.push({
@@ -102,7 +107,7 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
         if (error instanceof AppError && error.code === 'slima_auth_failed') throw error
         if (error instanceof AppError) firstError ??= error
         failed += 1
-        skipped.push({ path: item.path, reason: '讀不到這個檔案' })
+        skipped.push({ path: item.path, reason: t('services.canTReadThisFile') })
       }
     }
     // 每一個檔案都讀不到，多半是整個連線的問題：把原因直接告訴使用者
@@ -111,7 +116,7 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
   }
 
   async function prepare(request: SlimaImportRequest): Promise<Plan> {
-    if (request.items.length === 0) throw invalid('請先選要匯入的檔案。')
+    if (request.items.length === 0) throw invalid(t('services.pickTheFilesToImport'))
     const book = await reader.getBook(request.bookToken)
     const { loaded, skipped } = await load(request)
 
@@ -119,7 +124,7 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
     const takenCharacters = new Set(handle?.repos.characters.list().map((c) => c.name))
     const takenLocations = new Set(handle?.repos.outline.listLocations().map((l) => l.name))
     const takenScenes = new Set<string>()
-    const importAct = handle?.repos.outline.listActs().find((a) => a.title === IMPORT_ACT_TITLE)
+    const importAct = handle?.repos.outline.listActs().find((a) => isImportActTitle(a.title))
     if (handle && importAct) {
       for (const scene of handle.repos.outline.listScenes()) {
         if (scene.actId === importAct.id) takenScenes.add(scene.title)
@@ -134,15 +139,19 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
       const taken = { character: takenCharacters, location: takenLocations, scene: takenScenes }[
         file.item.use
       ]
-      const label = { character: '角色', location: '地點', scene: '場' }[file.item.use]
+      const dupReason = {
+        character: (n: string) => t('services.thereSAlreadyACharacter', { n }),
+        location: (n: string) => t('services.thereSAlreadyALocation', { n }),
+        scene: (n: string) => t('services.thereSAlreadyAScene', { n }),
+      }[file.item.use]
       const limit = { character: 40, location: 100, scene: 200 }[file.item.use]
       const name = clip(entity.name, limit)
       if (name === '') {
-        skipped.push({ path: file.item.path, reason: '找不到名稱' })
+        skipped.push({ path: file.item.path, reason: t('services.canTFindAName') })
         continue
       }
       if (taken.has(name)) {
-        skipped.push({ path: file.item.path, reason: `已經有同名的${label}「${name}」` })
+        skipped.push({ path: file.item.path, reason: dupReason(name) })
         continue
       }
       taken.add(name)
@@ -165,7 +174,10 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
         check = {
           ...base,
           ok: false,
-          issue: `選的文字太長了（${String(storyText.length)} 字，上限 ${String(OUTLINE_TEXT_MAX)} 字），請少選幾個章節。`,
+          issue: t('services.theSelectedTextIsToo', {
+            value: String(storyText.length),
+            value2: String(OUTLINE_TEXT_MAX),
+          }),
           estimatedUsd: 0,
           demoMode: deps.demoMode(),
           replacesOutline: false,
@@ -186,7 +198,7 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
       check = {
         ...base,
         ok: false,
-        issue: '沒有可以匯入的內容。',
+        issue: t('services.thereSNothingToImport'),
         estimatedUsd: 0,
         demoMode: deps.demoMode(),
         replacesOutline: false,
@@ -224,7 +236,7 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
 
     async import(request) {
       const plan = await prepare(request)
-      if (!plan.check.ok) throw invalid(plan.check.issue ?? '現在不能匯入。')
+      if (!plan.check.ok) throw invalid(plan.check.issue ?? t('services.canTImportRightNow'))
 
       ensureProject(projects, deps.projectsDir, plan.bookTitle, now())
       let actsFromStory = 0
@@ -236,7 +248,7 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
       }
 
       const handle = projects.current()
-      if (!handle || handle.closed) throw invalid('專案已經關閉，沒有匯入。')
+      if (!handle || handle.closed) throw invalid(t('services.theProjectWasClosedSo2'))
       const { repos } = handle
       const link = (
         entityType: 'outline' | 'character' | 'location' | 'scene',
@@ -259,13 +271,13 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
       // 拆成分場時 AI 可能已經建了同名的角色或地點：以現在實際有的為準，不重複建立
       const takenCharacters = new Set(repos.characters.list().map((c) => c.name))
       const takenLocations = new Set(repos.outline.listLocations().map((l) => l.name))
-      let importActId = repos.outline.listActs().find((a) => a.title === IMPORT_ACT_TITLE)?.id
+      let importActId = repos.outline.listActs().find((a) => isImportActTitle(a.title))?.id
       for (const entity of plan.entities) {
         if (entity.use === 'character') {
           if (takenCharacters.has(entity.name)) {
             skipped.push({
               path: entity.file.item.path,
-              reason: `已經有同名的角色「${entity.name}」`,
+              reason: t('services.thereSAlreadyACharacter2', { name: entity.name }),
             })
             continue
           }
@@ -277,7 +289,7 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
           if (takenLocations.has(entity.name)) {
             skipped.push({
               path: entity.file.item.path,
-              reason: `已經有同名的地點「${entity.name}」`,
+              reason: t('services.thereSAlreadyALocation2', { name: entity.name }),
             })
             continue
           }
@@ -292,7 +304,7 @@ export function createSlimaImportService(deps: SlimaImportDeps): SlimaImportServ
           link('location', made.id, entity.file)
           created.location.push(entity.name)
         } else {
-          importActId ??= repos.outline.addAct({ title: IMPORT_ACT_TITLE }).id
+          importActId ??= repos.outline.addAct({ title: importActTitle() }).id
           const made = repos.outline.addScene(importActId, {
             title: entity.name,
             summary: clip(entity.description, 4000),

@@ -3,5 +3,6 @@ export const list = {
   'list.comma': ', ',
   'list.and': ' and ',
   'list.semicolon': '; ',
+  'list.sentence': ' ',
   'list.dot': ' · ',
 } as const

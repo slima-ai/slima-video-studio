@@ -1,4 +1,4 @@
-import { AI_TURN_UNDO_LABEL } from '@svs/schema'
+import { aiTurnUndoLabel } from '@svs/schema'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -154,7 +154,7 @@ describe('HistoryProvider', () => {
         applied: true,
         label: '改名',
         skipped: 'all',
-        state: { canUndo: true, canRedo: true, undoLabel: AI_TURN_UNDO_LABEL },
+        state: { canUndo: true, canRedo: true, undoLabel: aiTurnUndoLabel() },
       }),
     })
     render(<Page />)
@@ -210,7 +210,7 @@ describe('HistoryProvider', () => {
         applied: true,
         label: '改名',
         skipped: 'all',
-        state: { canUndo: true, canRedo: true, redoLabel: AI_TURN_UNDO_LABEL },
+        state: { canUndo: true, canRedo: true, redoLabel: aiTurnUndoLabel() },
       }),
     })
     render(<Page />)

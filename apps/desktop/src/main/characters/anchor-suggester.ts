@@ -1,6 +1,6 @@
 import type { MediaTools } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
-import { AppError, storyLanguageNote, type Character } from '@svs/schema'
+import { AppError, storyLanguageNote, t, type Character } from '@svs/schema'
 import { generateStructured } from '@svs/workflows'
 import { z } from 'zod'
 
@@ -60,13 +60,13 @@ export function createAnchorSuggester(
     if (!model) {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: '還沒有可用的文字模型：請到設定填入 OpenRouter 的服務金鑰（或打開示範模式）。',
+        userMessage: t('services.noTextModelIsAvailable'),
       })
     }
     if (!handle || !queue || !tool) {
       throw new AppError({
         code: 'internal_error',
-        userMessage: '生成服務還沒準備好，請重新啟動 App。',
+        userMessage: t('services.theGenerationServiceIsnT'),
       })
     }
     const studio = createStudioServices({ queue, handle, tools: tool, models: deps.models })

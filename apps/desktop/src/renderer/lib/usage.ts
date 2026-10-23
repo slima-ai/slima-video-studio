@@ -18,7 +18,7 @@ export function usageLine(view: {
   if (view.costUsd !== undefined && view.costUsd > 0) {
     parts.push(t('shell.aboutUs', { value: view.costUsd.toFixed(2) }))
   }
-  return parts.length > 0 ? parts.join('・') : undefined
+  return parts.length > 0 ? parts.join(t('list.dot')) : undefined
 }
 
 /** 「剛剛」「5 分鐘前」「3 小時前」「2 天前」。 */
