@@ -169,6 +169,9 @@ export async function concatVideos(
     '[v]',
     '-map',
     '[a]',
+    // 明確指定輸出幀率：concat 濾鏡的輸出沒有幀率資訊時，FFmpeg 7 會退回預設的 25 fps 重新取樣（多出 4% 的格）
+    '-r',
+    String(fps),
     '-c:v',
     'libx264',
     '-preset',

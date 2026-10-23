@@ -280,22 +280,35 @@ describe('接片照裁切剪（真的跑 FFmpeg）', () => {
     expect(await frameCount(out)).toBe(36)
   })
 
-  it('《黑藤裂谷》粗剪：8 鏡每鏡 121 格、鏡 5、6 剪到 3.5 秒（84 格）＝894 格；每鏡起點（格）0、121、242、363、484、568、652、773，每鏡開頭的短音落在這些起點上（≤ 1 格）', async () => {
-    // 每鏡 121 格（5.0417 秒，Kling 實際輸出），聲音在每鏡第 0.35 秒有短音（對應旁白的 +0.35）
-    const seconds = 121 / FPS
+  it('《黑藤裂谷》粗剪：8 鏡每鏡 121 格（Kling 的影片沒有音軌）、鏡 5、6 剪到 3.5 秒（84 格）＝894 格', async () => {
     const inputs: ConcatInput[] = []
     for (let n = 1; n <= 8; n++) {
-      const file = await makeClip(`film-${String(n)}.mp4`, { seconds, burstAt: 0.35 })
+      const file = await makeClip(`film-${String(n)}.mp4`, { seconds: 121 / FPS, audio: false })
       expect(await frameCount(file)).toBe(121)
       inputs.push(n === 5 || n === 6 ? { path: file, outSec: 3.5 } : { path: file })
     }
     const out = path('film-out.mp4')
     await concatVideos(tools, inputs, out, { fps: FPS })
     expect(await frameCount(out)).toBe(894)
-    const startFrames = [0, 121, 242, 363, 484, 568, 652, 773]
+    expect((await probe(tools, out)).fps).toBe(FPS)
+  })
+
+  it('每鏡開頭的短音落在影格起點上（≤ 1 格）：8 鏡每鏡 121 格、鏡 5、6 剪到 84 格 → 起點（格）0、121、242、363、484、568、652、773', async () => {
+    // 有音軌的片子，每鏡第 0.35 秒有短音（對應旁白的 +0.35）。每一段都明確給出入點出點，長度才是整數格
+    const inputs: ConcatInput[] = []
+    for (let n = 1; n <= 8; n++) {
+      const file = await makeClip(`film-snd-${String(n)}.mp4`, {
+        seconds: 121 / FPS,
+        burstAt: 0.35,
+      })
+      inputs.push({ path: file, inSec: 0, outSec: n === 5 || n === 6 ? 3.5 : 121 / FPS })
+    }
+    const out = path('film-snd-out.mp4')
+    await concatVideos(tools, inputs, out, { fps: FPS })
+    expect(await frameCount(out)).toBe(894)
     const onsets = await soundOnsets(out)
     expect(onsets).toHaveLength(8)
-    for (const [i, frame] of startFrames.entries()) {
+    for (const [i, frame] of [0, 121, 242, 363, 484, 568, 652, 773].entries()) {
       const expected = frame / FPS + 0.35
       expect(Math.abs((onsets[i] ?? -1) - expected), `鏡 ${String(i + 1)}`).toBeLessThanOrEqual(
         1 / FPS + 0.005,
