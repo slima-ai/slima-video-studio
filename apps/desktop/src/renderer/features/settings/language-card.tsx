@@ -34,11 +34,11 @@ export function LanguageCard({ value, onChanged }: LanguageCardProps) {
       body={
         <fieldset>
           <legend className="sr-only">{t('settings.language')}</legend>
-          <div className="inline-flex rounded-md border border-border bg-surface p-0.5">
+          <div className="inline-flex max-w-full flex-wrap rounded-md border border-border bg-surface p-0.5">
             {LANGUAGE_PREFERENCES.map((option) => (
               <label
                 key={option}
-                className="cursor-pointer rounded px-3 py-1.5 text-sm text-fg-muted transition-colors duration-200 has-checked:bg-surface-overlay has-checked:text-fg has-focus-visible:outline-2 has-focus-visible:outline-accent"
+                className="cursor-pointer whitespace-nowrap rounded px-3 py-1.5 text-sm text-fg-muted transition-colors duration-200 has-checked:bg-surface-overlay has-checked:text-fg has-focus-visible:outline-2 has-focus-visible:outline-accent"
               >
                 <input
                   type="radio"
