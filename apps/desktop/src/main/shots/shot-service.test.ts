@@ -1104,6 +1104,30 @@ describe('只做影片：不重生首幀', { timeout: 30_000 }, () => {
     expect(videoInputs(h).at(-1)?.startFrameAsset).toBe(first.firstFrames[0]?.assetHash)
   })
 
+  it('畫布上「只跑這個影片」（shots.planRun／run，exact=video）也一樣：預估只有影片、0 個圖片請求；沒有首幀的鏡頭還不能跑', async () => {
+    const h = setup()
+    await h.runQuickStart()
+    const [first] = h.shots.list().shots
+    if (!first) throw new Error('沒有鏡頭')
+    const imagesBefore = imageJobs(h).length
+    h.shots.update(first.id, { description: '換了描述，首幀過期' })
+
+    const items = [{ shotId: first.id, exact: 'video' as const }]
+    const plan = h.shots.planRun(items)
+    expect(plan.ok).toBe(true)
+    expect(plan.entries.map((e) => [e.mode, e.image, e.video])).toEqual([['video', false, true]])
+    await h.shots.run(items)
+    await h.idle(first.id)
+    expect(imageJobs(h)).toHaveLength(imagesBefore)
+    expect(h.shots.list().shots[0]?.firstFrames).toEqual(first.firstFrames)
+    expect(videoInputs(h).at(-1)?.startFrameAsset).toBe(first.firstFrames[0]?.assetHash)
+
+    // 沒有首幀的鏡頭：還不能跑，說明原因（早就是這樣，這裡釘住）
+    const created = h.shots.create({})
+    const blocked = h.shots.planRun([{ shotId: created.id, exact: 'video' as const }])
+    expect(blocked.ok).toBe(false)
+  })
+
   it('還沒有影片、只有首幀的鏡頭（以前走「補跑」會連首幀一起重生）：只做影片也不發圖片請求', async () => {
     const h = setup()
     await h.runQuickStart()
