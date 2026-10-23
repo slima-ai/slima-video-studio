@@ -543,3 +543,45 @@ describe('Mock driver：示範拆鏡', () => {
     for (const shot of without.shots) expect(shot.dialogue).toBeUndefined()
   })
 })
+
+describe('Mock driver：英文介面的示範拆鏡', () => {
+  it('標題與畫面描述是英文，標題在單字邊界切（不會切成「A cat finds a wa」）；繁中的標題照舊', async () => {
+    const { DEFAULT_LOCALE, setLocale } = await import('@svs/schema')
+    const { driver } = setup()
+    const schema = z.object({
+      title: z.string(),
+      shots: z.array(z.object({ description: z.string() })).min(1),
+    })
+    const run = async (story: string) => {
+      const result = await driver.submit(
+        job({
+          capability: 'llm',
+          modelId: 'mock/llm',
+          messages: [{ role: 'user', content: `故事：\n${story}\n\n請拆成 3 個鏡頭。` }],
+          jsonSchema: z.toJSONSchema(schema),
+        }),
+        ctx,
+      )
+      if (result.status !== 'done') throw new Error('沒有完成')
+      const output = GenerationOutputSchema.parse(result.output)
+      if (output.kind !== 'text') throw new Error('不是文字')
+      return schema.parse(JSON.parse(output.text))
+    }
+    try {
+      setLocale('en')
+      const parsed = await run('A cat finds a warm home on a rainy night')
+      expect(parsed.title).toBe('A cat finds a warm home on')
+      expect(parsed.shots.map((s) => s.description.split(':')[0])).toEqual([
+        'Opening',
+        'Part 2',
+        'Ending',
+      ])
+      expect(JSON.stringify(parsed)).not.toMatch(/[㐀-鿿]/)
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
+    expect((await run('一隻貓在下雨的夜晚，找到溫暖的家')).title).toBe(
+      '一隻貓在下雨的夜晚，找到溫暖的家',
+    )
+  })
+})

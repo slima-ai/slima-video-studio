@@ -4,6 +4,7 @@ import {
   type GenerationOutput,
   type GenerationRequest,
   type NodeServices,
+  t,
 } from '@svs/schema'
 
 export interface GenerateResult {
@@ -38,7 +39,7 @@ export function getStudio(services: NodeServices): StudioServices {
   if (!studio?.generate || !studio.concatVideos) {
     throw new AppError({
       code: 'internal_error',
-      userMessage: '生成服務還沒準備好，請重新啟動 App。',
+      userMessage: t('nodes.theGenerationServiceIsnT'),
     })
   }
   return studio as StudioServices

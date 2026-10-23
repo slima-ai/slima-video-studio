@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { ContentHashSchema, IdSchema, IsoDateTimeSchema } from './common'
+import { t } from '../i18n'
 
 /** 「不要出現的特徵」最多幾個字（和負面提示一起送，不能太長）。 */
 export const CHARACTER_AVOID_MAX_CHARS = 300
@@ -38,7 +39,12 @@ export type CharacterView = z.infer<typeof CharacterViewSchema>
 
 /** 使用者可以改的角色欄位。年齡傳 null 代表清掉。 */
 export const CharacterEditSchema = z.object({
-  name: z.string().trim().min(1, '角色需要一個名字').max(40, '名字不要超過 40 個字').optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, { error: () => t('errors.aCharacterNeedsAName') })
+    .max(40, { error: () => t('errors.theNameCanTBe3') })
+    .optional(),
   age: z.string().trim().max(40).nullable().optional(),
   appearance: z.string().max(2000).optional(),
   personality: z.string().max(2000).optional(),
@@ -64,7 +70,11 @@ export const CharacterVersionSchema = z.object({
 })
 export type CharacterVersion = z.infer<typeof CharacterVersionSchema>
 
-export const CharacterNameSchema = z.string().trim().min(1, '角色需要一個名字').max(40)
+export const CharacterNameSchema = z
+  .string()
+  .trim()
+  .min(1, { error: () => t('errors.aCharacterNeedsAName') })
+  .max(40)
 
 /** 每一輪生成幾張概念圖。 */
 export const CONCEPTS_PER_ROUND = 4
@@ -165,7 +175,7 @@ export type ConceptCheck = z.infer<typeof ConceptCheckSchema>
 /** 設定稿上兩條切線的位置（佔寬度的比例，0～1，A 在左、B 在右）。 */
 export const TurnaroundCutsSchema = z
   .object({ a: z.number().min(0.1).max(0.9), b: z.number().min(0.1).max(0.9) })
-  .refine((cuts) => cuts.b - cuts.a >= 0.1, '兩條切線至少要隔開一些')
+  .refine((cuts) => cuts.b - cuts.a >= 0.1, { error: () => t('errors.theTwoCutLinesMust') })
 export type TurnaroundCuts = z.infer<typeof TurnaroundCutsSchema>
 
 /** 預設把設定稿平均切成三份。 */

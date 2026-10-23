@@ -6,25 +6,8 @@ import { expect, test } from './fixtures'
 import { pick } from './pick'
 
 // 英文介面：畫布上看得到的字不能有中文與全形標點（使用者自己寫的內容除外：這裡的故事也是英文）
-// 還沒轉的是別支 PR 的範圍（畫風名稱在 workflows、復原清單的名字在主行程的 handlers、示範模型的名字在模型卡）：轉完就從這裡拿掉
-const NOT_YET = [
-  '寫實',
-  '修改一句話',
-  '一句話生成',
-  '執行：',
-  // 示範模式的 AI 拆出來的鏡頭標題（providers 的示範驅動）與景別、角度的名稱（schema 的標籤）
-  '開場',
-  '結尾',
-  '段：',
-  '遠景',
-  '全景',
-  '中景',
-  '近景',
-  '特寫',
-  '平視',
-  '俯拍',
-  '仰拍',
-]
+// 還沒轉的是 PR 7 的範圍：復原清單裡的名字（主行程的 handlers）
+const NOT_YET: string[] = []
 
 const BAD = /[㐀-鿿，。：；（）、！？「」・]/u
 
@@ -127,6 +110,9 @@ test.describe('英文介面的畫布', () => {
     ).toBeVisible()
     expect(await kindCount(page, 'shot')).toBe(3)
     expect(await visibleBadText(page), '長完之後').toBeUndefined()
+    // 鏡頭卡上的景別與角度、一句話卡的畫風都是英文名稱（不是只有「沒有中文」）
+    await expect(page.getByText(/Eye level/).first()).toBeVisible()
+    await expect(page.getByTestId('oneliner-style')).toContainText('Realistic')
 
     // 卡片尺寸是固定的：「In: … Out: …」那一行在英文下也要放得下（不能被切掉；各作業系統的字體寬度不同，留一成的餘地）
     const cut = await page.evaluate(() =>

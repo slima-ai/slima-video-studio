@@ -1,4 +1,4 @@
-import { AppError, IdSchema, IsoDateTimeSchema } from '@svs/schema'
+import { AppError, IdSchema, IsoDateTimeSchema, t } from '@svs/schema'
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
@@ -24,7 +24,7 @@ export function readProjectFile(dir: string): ProjectFile {
   if (!existsSync(path)) {
     throw new AppError({
       code: 'project_not_found',
-      userMessage: '找不到專案，這個資料夾裡沒有 project.json。',
+      userMessage: t('errors.couldnTFindTheProject'),
     })
   }
   let raw: unknown
@@ -33,7 +33,7 @@ export function readProjectFile(dir: string): ProjectFile {
   } catch (cause) {
     throw new AppError({
       code: 'project_invalid',
-      userMessage: 'project.json 損壞，無法讀取。',
+      userMessage: t('errors.projectJsonIsDamagedAnd'),
       cause,
     })
   }
@@ -41,14 +41,14 @@ export function readProjectFile(dir: string): ProjectFile {
   if (!parsed.success) {
     throw new AppError({
       code: 'project_invalid',
-      userMessage: 'project.json 的格式不正確。',
+      userMessage: t('errors.projectJsonIsnTIn'),
       cause: parsed.error,
     })
   }
   if (parsed.data.formatVersion > PROJECT_FORMAT_VERSION) {
     throw new AppError({
       code: 'project_too_new',
-      userMessage: '這個專案是用比較新版本的 Slima Video Studio 建立的，請先更新 App。',
+      userMessage: t('errors.thisProjectWasCreatedWith'),
     })
   }
   return parsed.data

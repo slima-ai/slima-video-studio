@@ -606,4 +606,9 @@ export const canvas = {
   'canvas.textShort': '畫面描述',
   'canvas.refsShort': '參考圖',
   'canvas.imageShort': '圖',
+  'canvas.retryTitle': '重試：{title}',
+  'canvas.runTitle': '執行：{title}',
+  'canvas.nameQuotedHint': '{label}「{hint}」',
+  'canvas.quotedName': '「{name}」',
+  'canvas.labelAndHint': '{label}：{hint}',
 } as const

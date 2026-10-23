@@ -1,37 +1,39 @@
+import { msg, t, type MessageRef } from '@svs/schema'
+
 type JsonSchema = Record<string, unknown>
 
 /**
- * 常見欄位的中文範例（示範模式給人看的文字要是中文，不能出現「示範description」這種欄位名）。
+ * 常見欄位的範例（示範模式給人看的文字用介面語言，不能出現「示範description」這種欄位名）。
  * 陣列裡的第 N 個元素名字後面帶數字（例如 `names2`），查表時拿掉數字、顯示時加回「2」。
  */
-const SAMPLE_TEXT: Readonly<Record<string, string>> = {
-  title: '示範短片',
-  name: '示範角色',
-  names: '示範角色',
-  characters: '示範角色',
-  description: '示範畫面：主角走進下著雨的街角',
-  summary: '示範摘要：這一場發生的事',
-  synopsis: '示範摘要：這一場發生的事',
-  appearance: '示範外觀：短黑髮、深藍色外套',
-  personality: '示範個性：安靜、細心',
-  outfit: '示範服裝：深藍色外套',
-  anchorText: '示範固定外觀：短黑髮、琥珀色眼睛、深藍色外套',
-  text: '示範文字',
-  prompt: '示範畫面描述',
-  mood: '安靜',
-  dialogue: '（沒有台詞）',
-  location: '示範地點：街角',
-  locations: '示範地點',
-  setting: '示範地點：街角',
-  timeOfDay: '夜晚',
-  lighting: '路燈的暖光',
+const SAMPLE_TEXT: Readonly<Record<string, MessageRef>> = {
+  title: msg('mock.demoShortFilm'),
+  name: msg('mock.demoCharacter'),
+  names: msg('mock.demoCharacter'),
+  characters: msg('mock.demoCharacter'),
+  description: msg('mock.demoPictureTheMainCharacter'),
+  summary: msg('mock.demoSummaryWhatHappensIn'),
+  synopsis: msg('mock.demoSummaryWhatHappensIn'),
+  appearance: msg('mock.demoLookShortBlackHair'),
+  personality: msg('mock.demoPersonalityQuietCareful'),
+  outfit: msg('mock.demoOutfitNavyJacket'),
+  anchorText: msg('mock.demoFixedLookShortBlack'),
+  text: msg('mock.demoText'),
+  prompt: msg('mock.demoPictureDescription'),
+  mood: msg('mock.quiet'),
+  dialogue: msg('mock.noDialogue'),
+  location: msg('mock.demoLocationStreetCorner'),
+  locations: msg('mock.demoLocation'),
+  setting: msg('mock.demoLocationStreetCorner'),
+  timeOfDay: msg('mock.night'),
+  lighting: msg('mock.warmLightFromTheStreet'),
 }
 
-/** 欄位名對應的中文範例；查不到就用「示範文字」。陣列元素保留編號。 */
+/** 欄位名對應的範例（跟著介面語言）；查不到就用「示範文字」。陣列元素保留編號。 */
 function sampleText(name: string): string {
   const match = /^(.*?)(\d+)$/.exec(name)
   const base = match?.[1] ?? name
-  const sample = SAMPLE_TEXT[base] ?? '示範文字'
+  const sample = t(SAMPLE_TEXT[base] ?? msg('mock.demoText'))
   return match?.[2] === undefined ? sample : `${sample} ${match[2]}`
 }
 

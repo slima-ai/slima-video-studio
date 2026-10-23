@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 
 import { httpError, networkError, type ProviderLabel } from './errors'
 
@@ -26,7 +26,8 @@ export async function request(
   try {
     response = await options.fetch(url, { ...init, signal })
   } catch (error) {
-    if (options.signal.aborted) throw new AppError({ code: 'cancelled', userMessage: '已取消。' })
+    if (options.signal.aborted)
+      throw new AppError({ code: 'cancelled', userMessage: t('errors.cancelled') })
     throw networkError(options.provider, error, timeout.aborted)
   }
   if (response.ok) return response
@@ -50,7 +51,7 @@ export async function readJson(response: Response, provider: ProviderLabel): Pro
     throw new AppError({
       code: 'invalid_response',
       retryable: true,
-      userMessage: `${provider.name} 回傳的內容無法讀取，稍後會自動重試。`,
+      userMessage: t('errors.returnedContentThatCouldnT', { name: provider.name }),
       cause: error,
     })
   }

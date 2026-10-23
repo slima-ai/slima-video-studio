@@ -285,3 +285,23 @@ describe('Engine 預算：執行中超過上限', () => {
     expect(ledger.totalUsd('local')).toBe(8)
   })
 })
+
+describe('英文介面的超額訊息', () => {
+  it('單次與專案兩種：英文、不含中文，金額照填；繁中維持原句', async () => {
+    const { setLocale, DEFAULT_LOCALE } = await import('@svs/schema')
+    const exceeded = (scope: 'run' | 'project') => ({ scope, projectedUsd: 1.5, limitUsd: 1 })
+    try {
+      expect(budgetExceededError(exceeded('run')).userMessage).toContain('「單次花費上限」 US$1.00')
+      setLocale('en')
+      for (const scope of ['run', 'project'] as const) {
+        const text = budgetExceededError(exceeded(scope)).userMessage
+        expect(text).not.toMatch(/[㐀-鿿]/)
+        expect(text).toContain('US$1.50')
+        expect(text).toContain('US$1.00')
+      }
+      expect(budgetExceededError(exceeded('run')).userMessage).toContain('Per-run spending limit')
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
+  })
+})

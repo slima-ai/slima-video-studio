@@ -1,4 +1,12 @@
-import { AppError, ShotSchema, TakeSchema, type Shot, type Take, type TakeKind } from '@svs/schema'
+import {
+  AppError,
+  ShotSchema,
+  TakeSchema,
+  type Shot,
+  type Take,
+  type TakeKind,
+  t,
+} from '@svs/schema'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import type { z } from 'zod'
@@ -23,7 +31,7 @@ export interface NewTake {
 }
 
 const notFound = (what: string, id: string): AppError =>
-  new AppError({ code: 'project_invalid', userMessage: `找不到${what}（${id}）。` })
+  new AppError({ code: 'project_invalid', userMessage: t('errors.couldnTFind', { what, id }) })
 
 export class ShotsRepository {
   constructor(
@@ -70,7 +78,7 @@ export class ShotsRepository {
 
   update(id: string, patch: ShotPatch): Shot {
     const current = this.get(id)
-    if (!current) throw notFound('鏡頭', id)
+    if (!current) throw notFound(t('errors.shot'), id)
     const next = ShotSchema.parse({ ...current, ...patch })
     this.db.update(shots).set(toShotRow(next)).where(eq(shots.id, id)).run()
     return next
@@ -90,7 +98,7 @@ export class ShotsRepository {
     if (!sameSet) {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: '排序必須包含所有鏡頭，且不能重複。',
+        userMessage: t('errors.theOrderMustIncludeEvery'),
       })
     }
     this.db.transaction((tx) => {
@@ -191,7 +199,7 @@ export class ShotsRepository {
    * 原本就有的圖沿用同一列（只改順序），不是整份刪掉重寫：復原才不會撞到「同一張圖只能一列」。
    */
   setPins(shotId: string, assetHashes: readonly string[]): void {
-    if (!this.get(shotId)) throw notFound('鏡頭', shotId)
+    if (!this.get(shotId)) throw notFound(t('errors.shot'), shotId)
     const wanted = [...new Set(assetHashes)]
     this.db.transaction((tx) => {
       const current = tx.select().from(shotPins).where(eq(shotPins.shotId, shotId)).all()
@@ -215,7 +223,7 @@ export class ShotsRepository {
   adoptTake(takeId: string): Take {
     return this.db.transaction((tx) => {
       const row = tx.select().from(takes).where(eq(takes.id, takeId)).get()
-      if (!row) throw notFound('版本', takeId)
+      if (!row) throw notFound(t('errors.version'), takeId)
       tx.update(takes)
         .set({ adopted: false })
         .where(

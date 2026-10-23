@@ -1,5 +1,5 @@
 import {
-  LOCATION_REFERENCE_PURPOSE_LABELS,
+  locationReferencePurposeLabel,
   type ConceptView,
   type LocationCardView,
   type LocationGenerateKind,
@@ -278,7 +278,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
             </p>
             <div className="grid grid-cols-4 gap-2">
               {extras.map((reference) => {
-                const name = LOCATION_REFERENCE_PURPOSE_LABELS[reference.purpose]
+                const name = locationReferencePurposeLabel(reference.purpose)
                 return (
                   <figure key={reference.id} data-testid={`location-extra-${reference.id}`}>
                     <img

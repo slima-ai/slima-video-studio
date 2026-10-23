@@ -6,6 +6,7 @@ import {
   type Act,
   type Location,
   type Scene,
+  t,
 } from '@svs/schema'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
@@ -41,7 +42,7 @@ export interface NewScene {
 }
 
 const notFound = (what: string, id: string): AppError =>
-  new AppError({ code: 'project_invalid', userMessage: `找不到${what}（${id}）。` })
+  new AppError({ code: 'project_invalid', userMessage: t('errors.couldnTFind', { what, id }) })
 
 /** 大綱：幕、場與地點。排序都用 position，同一幕裡的場依 position 排。 */
 export class OutlineRepository {
@@ -92,7 +93,7 @@ export class OutlineRepository {
   moveAct(id: string, direction: 'up' | 'down'): void {
     const all = this.listActs()
     const index = all.findIndex((a) => a.id === id)
-    if (index < 0) throw notFound('這一幕', id)
+    if (index < 0) throw notFound(t('errors.thatAct'), id)
     const other = all[direction === 'up' ? index - 1 : index + 1]
     const self = all[index]
     if (!other || !self) return
@@ -198,7 +199,7 @@ export class OutlineRepository {
 
   updateLocation(id: string, patch: LocationPatch): Location {
     const current = this.listLocations().find((l) => l.id === id)
-    if (!current) throw notFound('這個地點', id)
+    if (!current) throw notFound(t('errors.thatLocation'), id)
     const next = LocationSchema.parse({ ...current, ...stripUndefined(patch) })
     this.db.update(locations).set(toLocationRow(next)).where(eq(locations.id, id)).run()
     return next
@@ -229,13 +230,13 @@ export class OutlineRepository {
 
   private getAct(id: string): Act {
     const row = this.db.select().from(acts).where(eq(acts.id, id)).get()
-    if (!row) throw notFound('這一幕', id)
+    if (!row) throw notFound(t('errors.thatAct'), id)
     return toAct(row)
   }
 
   private getScene(id: string): Scene {
     const row = this.db.select().from(scenes).where(eq(scenes.id, id)).get()
-    if (!row) throw notFound('這個場', id)
+    if (!row) throw notFound(t('errors.thatScene'), id)
     return toScene(row)
   }
 

@@ -219,7 +219,9 @@ function PlayButton({ id, data }: { id: string; data: CanvasNodeData }) {
     <span className="flex shrink-0 items-center">
       <button
         type="button"
-        aria-label={`${status === 'failed' ? '重試' : '執行'}：${data.title}`}
+        aria-label={t(status === 'failed' ? 'canvas.retryTitle' : 'canvas.runTitle', {
+          title: data.title,
+        })}
         data-tip={tipText ? `${runTipOf(data)}${t('list.dot')}${tipText}` : runTipOf(data)}
         data-testid={`run-${id}`}
         className="nodrag rounded px-1.5 py-0.5 text-xs hover:bg-fg/10"

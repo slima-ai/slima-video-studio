@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 
 import { probe } from './probe'
 import { runTool, runToolRaw, type MediaTools, type RunOptions } from './run'
@@ -97,7 +97,7 @@ function musicCopies(music: MusicPlan, videoSec: number): number {
   const fade = Math.min(DEFAULTS.musicLoopCrossfade, music.durationSec / 4)
   const copies = Math.ceil((videoSec - fade) / (music.durationSec - fade))
   if (copies > MAX_LOOP_COPIES) {
-    throw invalid('配樂太短，無法循環到整支影片的長度，請換一首長一點的。')
+    throw invalid(t('errors.theMusicIsTooShort'))
   }
   return copies
 }
@@ -294,7 +294,7 @@ function parseLoudnorm(stderr: string): Loudness {
   if (!match) {
     throw new AppError({
       code: 'internal_error',
-      userMessage: '量測音量失敗。',
+      userMessage: t('errors.couldnTMeasureTheVolume'),
       cause: new Error(stderr.slice(-500)),
     })
   }
@@ -367,7 +367,7 @@ export async function measureRmsDb(
   if (rms === undefined) {
     throw new AppError({
       code: 'internal_error',
-      userMessage: '量測音量失敗。',
+      userMessage: t('errors.couldnTMeasureTheVolume'),
       cause: new Error(stderr.slice(-500)),
     })
   }
@@ -384,10 +384,10 @@ async function planClips(
   const plans: ClipPlan[] = []
   for (const clip of clips) {
     if (!(clip.startSec >= 0) || clip.startSec >= videoSec) {
-      throw invalid(`${what}的位置超出影片長度，請調整它的起點。`)
+      throw invalid(t('errors.theStartsAfterTheEnd', { what }))
     }
     const info = await probe(tools, clip.file, options)
-    if (!info.hasAudio) throw invalid(`${what}的檔案裡沒有聲音。`)
+    if (!info.hasAudio) throw invalid(t('errors.theFileHasNoSound', { what }))
     plans.push({ ...clip, durationSec: info.durationSec })
   }
   return plans
@@ -409,15 +409,21 @@ export async function mixAudio(
 ): Promise<void> {
   const videoInfo = await probe(tools, video, options)
   if (!videoInfo.hasVideo || !(videoInfo.durationSec > 0)) {
-    throw invalid('要混音的檔案沒有影像，無法處理。')
+    throw invalid(t('errors.theFileToMixHas'))
   }
   const videoSec = videoInfo.durationSec
-  const narration = await planClips(tools, options.narration ?? [], videoSec, '旁白', options)
-  const sfx = await planClips(tools, options.sfx ?? [], videoSec, '音效', options)
+  const narration = await planClips(
+    tools,
+    options.narration ?? [],
+    videoSec,
+    t('errors.narration'),
+    options,
+  )
+  const sfx = await planClips(tools, options.sfx ?? [], videoSec, t('errors.soundEffect'), options)
   let music: MusicPlan | undefined
   if (options.music) {
     const info = await probe(tools, options.music.file, options)
-    if (!info.hasAudio || !(info.durationSec > 0)) throw invalid('配樂的檔案裡沒有聲音。')
+    if (!info.hasAudio || !(info.durationSec > 0)) throw invalid(t('errors.theMusicFileHasNo'))
     music = { ...options.music, durationSec: info.durationSec }
   }
 

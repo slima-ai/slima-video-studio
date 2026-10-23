@@ -192,7 +192,10 @@ export function createGraphService(deps: GraphServiceDeps): GraphService {
         }
       }
 
-      const titleOf = (type: string): string => NODE_INFO[type]?.title ?? type
+      const titleOf = (type: string): string => {
+        const info = NODE_INFO[type]
+        return info ? t(info.title) : type
+      }
       const byId = new Map(flow.nodes.map((n) => [n.id, n]))
       const positions = layoutNodes(
         flow.nodes.map((n) => n.id),

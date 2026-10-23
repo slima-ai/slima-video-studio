@@ -11,6 +11,7 @@ import {
   type PollResult,
   type ProviderServices,
   type SubmitResult,
+  t,
 } from '@svs/schema'
 import { z } from 'zod'
 
@@ -111,7 +112,7 @@ async function buildInput(
       if (!req.startFrameAsset) {
         throw new AppError({
           code: 'invalid_request',
-          userMessage: '圖生影片需要一張起始畫面。',
+          userMessage: t('errors.imageToVideoNeedsA'),
         })
       }
       const fields = frameFields(endpoint)
@@ -153,7 +154,7 @@ function parseRequest(job: Job): MediaRequest {
   ) {
     throw new AppError({
       code: 'provider_rejected',
-      userMessage: 'fal.ai 這裡只處理圖片與影片的請求。',
+      userMessage: t('errors.falAiOnlyHandlesImage'),
     })
   }
   return parsed.data
@@ -172,7 +173,7 @@ export function createFalDriver(options: FalDriverOptions): Required<JobDriver> 
     if (!endpoint) {
       throw new AppError({
         code: 'invalid_request',
-        userMessage: `找不到模型「${req.modelId}」在 fal.ai 上的對應端點。`,
+        userMessage: t('errors.couldnTFindTheFal', { modelId: req.modelId }),
       })
     }
     return endpoint
@@ -193,7 +194,7 @@ export function createFalDriver(options: FalDriverOptions): Required<JobDriver> 
     if (files.length === 0) {
       throw new AppError({
         code: 'provider_rejected',
-        userMessage: 'fal.ai 沒有回傳任何結果，可能是內容被過濾了。請調整描述後再試。',
+        userMessage: t('errors.falAiReturnedNoResult'),
       })
     }
     const assets: AssetRef[] = []
@@ -234,7 +235,7 @@ export function createFalDriver(options: FalDriverOptions): Required<JobDriver> 
     async poll(job: Job, ctx: DriverContext): Promise<PollResult> {
       const req = parseRequest(job)
       if (!job.providerJobId) {
-        throw new AppError({ code: 'internal_error', userMessage: '任務缺少 fal.ai 的編號。' })
+        throw new AppError({ code: 'internal_error', userMessage: t('errors.theJobIsMissingIts') })
       }
       const endpoint = endpointOf(req)
       const status = await client.status(endpoint, job.providerJobId, ctx.signal)
@@ -244,7 +245,7 @@ export function createFalDriver(options: FalDriverOptions): Required<JobDriver> 
           status: 'failed',
           error: new AppError({
             code: 'provider_rejected',
-            userMessage: 'fal.ai 無法完成這個任務，請調整描述或換一個模型。',
+            userMessage: t('errors.falAiCouldnTFinish'),
             cause: new Error(status.failure.slice(0, 500)),
           }).toShape(),
         }

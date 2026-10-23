@@ -22,6 +22,10 @@ import { graph } from './graph'
 import { history } from './history'
 import { footer } from './footer'
 import { services } from './services'
+import { labels } from './labels'
+import { errors } from './errors'
+import { mock } from './mock'
+import { nodes } from './nodes'
 // <i18n:imports>
 
 export const en = {
@@ -48,5 +52,9 @@ export const en = {
   ...history,
   ...footer,
   ...services,
+  ...labels,
+  ...errors,
+  ...mock,
+  ...nodes,
   // <i18n:spread>
 } as const

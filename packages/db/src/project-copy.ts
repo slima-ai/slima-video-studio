@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { cp } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -33,13 +33,13 @@ export async function copyProject(
   if (!destDir.endsWith(PROJECT_DIR_SUFFIX)) {
     throw new AppError({
       code: 'invalid_request',
-      userMessage: `專案資料夾名稱必須以 ${PROJECT_DIR_SUFFIX} 結尾。`,
+      userMessage: t('errors.theProjectFolderNameMust', { projectDirSuffix: PROJECT_DIR_SUFFIX }),
     })
   }
   if (existsSync(destDir)) {
     throw new AppError({
       code: 'project_exists',
-      userMessage: '這個位置已經有同名的專案或資料夾了。',
+      userMessage: t('errors.aProjectOrFolderWith'),
     })
   }
   mkdirSync(destDir, { recursive: true })
@@ -73,8 +73,7 @@ export async function copyProject(
     if (error instanceof AppError) throw error
     throw new AppError({
       code: 'internal_error',
-      userMessage:
-        '另存失敗：複製專案的時候出錯了（硬碟空間不夠或沒有寫入權限？）。原本的專案沒有受影響。',
+      userMessage: t('errors.saveAsFailedWhileCopying'),
       cause: error,
     })
   }

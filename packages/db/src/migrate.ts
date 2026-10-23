@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 import type { Database } from 'better-sqlite3'
 
 import type { Migration } from './migrations.generated'
@@ -35,7 +35,7 @@ export function runMigrations(
   if (from > to) {
     throw new AppError({
       code: 'project_too_new',
-      userMessage: '這個專案是用比較新版本的 Slima Video Studio 建立的，請先更新 App。',
+      userMessage: t('errors.thisProjectWasCreatedWith'),
     })
   }
   if (from === to) return { from, to }
@@ -53,7 +53,7 @@ export function runMigrations(
     } catch (cause) {
       throw new AppError({
         code: 'project_invalid',
-        userMessage: `專案資料庫升級失敗（${migration.tag}），原始檔案沒有被修改。`,
+        userMessage: t('errors.couldnTUpgradeTheProject', { tag: migration.tag }),
         cause,
       })
     }

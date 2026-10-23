@@ -83,6 +83,3 @@ export const CAMERA_MOVE_IDS = CAMERA_MOVES.map((c) => c.id) as [string, ...stri
 
 export const cameraMoveById = (id: string): CameraMove | undefined =>
   CAMERA_MOVES.find((c) => c.id === id)
-
-/** 運鏡的白話名稱；不是預設清單裡的（舊資料或自己打的字）就原樣顯示。 */
-export const cameraMoveLabel = (value: string): string => cameraMoveById(value)?.label ?? value

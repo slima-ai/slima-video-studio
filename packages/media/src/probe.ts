@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 import { z } from 'zod'
 
 import { runTool, runToolRaw, type MediaTools, type RunOptions } from './run'
@@ -73,7 +73,7 @@ export function parseFfmpegBanner(stderr: string): MediaInfo | undefined {
 const unreadable = (cause?: unknown): AppError =>
   new AppError({
     code: 'internal_error',
-    userMessage: '讀不懂這個影片檔的資訊。',
+    userMessage: t('errors.couldnTReadThisVideo'),
     ...(cause === undefined ? {} : { cause }),
   })
 

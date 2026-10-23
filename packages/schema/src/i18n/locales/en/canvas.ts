@@ -674,4 +674,9 @@ export const canvas = {
   'canvas.textShort': 'Text',
   'canvas.refsShort': 'Refs',
   'canvas.imageShort': 'Image',
+  'canvas.retryTitle': 'Retry: {title}',
+  'canvas.runTitle': 'Run: {title}',
+  'canvas.nameQuotedHint': '{label} “{hint}”',
+  'canvas.quotedName': '“{name}”',
+  'canvas.labelAndHint': '{label}: {hint}',
 } as const

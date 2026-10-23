@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 import { z } from 'zod'
 
 import type { ProviderLabel } from '../http/errors'
@@ -49,7 +49,7 @@ export class FalClient {
     if (!key) {
       throw new AppError({
         code: 'provider_auth_failed',
-        userMessage: '還沒有設定 fal.ai 的服務金鑰，請先到設定頁填入。',
+        userMessage: t('errors.theFalAiServiceKey'),
       })
     }
     return { Authorization: `Key ${key}`, 'Content-Type': 'application/json' }
@@ -79,7 +79,7 @@ export class FalClient {
       throw new AppError({
         code: 'invalid_response',
         retryable: true,
-        userMessage: 'fal.ai 回傳的內容格式不對，稍後會自動重試。',
+        userMessage: t('errors.falAiReturnedContentIn'),
         cause: parsed.error,
       })
     }
@@ -97,7 +97,7 @@ export class FalClient {
       throw new AppError({
         code: 'invalid_response',
         retryable: true,
-        userMessage: 'fal.ai 回傳的狀態格式不對，稍後會自動重試。',
+        userMessage: t('errors.falAiReturnedAStatus'),
         cause: parsed.error,
       })
     }
@@ -170,4 +170,4 @@ export class FalClient {
 }
 
 const tooLarge = (): AppError =>
-  new AppError({ code: 'provider_rejected', userMessage: 'fal.ai 回傳的檔案太大，已略過。' })
+  new AppError({ code: 'provider_rejected', userMessage: t('errors.theFileFalAiReturned') })

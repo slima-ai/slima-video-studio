@@ -1,4 +1,4 @@
-import { AppError } from '@svs/schema'
+import { AppError, t } from '@svs/schema'
 import { and, eq, ne } from 'drizzle-orm'
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core'
 import { isDeepStrictEqual } from 'node:util'
@@ -521,7 +521,7 @@ export class StructureHistory {
       else this.redoStack.pop()
       throw new AppError({
         code: 'project_invalid',
-        userMessage: '資料已經和當時不一樣了，沒辦法復原這個動作。',
+        userMessage: t('errors.theDataHasChangedSince'),
         cause: error,
       })
     }

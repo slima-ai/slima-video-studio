@@ -1,11 +1,11 @@
 import {
   DEFAULT_QUICK_START_SOUND,
   QUICK_STYLE_IDS,
-  QUICK_STYLE_LABELS,
   type OnelinerParams,
   type QuickStartSound,
   t,
   msg,
+  quickStyleLabel,
   type MessageRef,
 } from '@svs/schema'
 import { Lock } from 'lucide-react'
@@ -17,8 +17,8 @@ import { useCanvasActions } from './canvas-actions'
 import type { CanvasNodeData } from './canvas-model'
 import { anchorOf } from './run-confirm'
 
-const STYLE_OPTIONS = QUICK_STYLE_IDS.map((id) => ({ value: id, label: QUICK_STYLE_LABELS[id] }))
 // 選項的字要在畫的時候才翻（模組載入時語言還沒定下來），所以是函式
+const styleOptions = () => QUICK_STYLE_IDS.map((id) => ({ value: id, label: quickStyleLabel(id) }))
 const shotOptions = () =>
   Array.from({ length: 12 }, (_, i) => ({
     value: String(i + 1),
@@ -115,10 +115,10 @@ export function OnelinerBody({ id, data }: { id: string; data: CanvasNodeData })
             label={t('canvas.style')}
             testId="oneliner-style"
             value={picked?.style}
-            options={STYLE_OPTIONS}
+            options={styleOptions()}
             disabled={running}
             onChange={(value) => {
-              const style = STYLE_OPTIONS.find((o) => o.value === value)
+              const style = styleOptions().find((o) => o.value === value)
               if (style) commit({ style: style.value })
             }}
           />

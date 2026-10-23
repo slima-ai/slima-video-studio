@@ -4,6 +4,7 @@ import {
   type Workflow,
   type WorkflowEdge,
   type WorkflowNode,
+  t,
 } from '@svs/schema'
 
 import {
@@ -116,7 +117,7 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
   const stamp = options.now ?? new Date().toISOString()
   return {
     id: 'quickstart-shot',
-    name: '單鏡頭',
+    name: t('nodes.singleShot'),
     version: 1,
     createdAt: stamp,
     updatedAt: stamp,
@@ -248,7 +249,7 @@ export function buildQuickStart(options: QuickStartOptions): Workflow {
   )
   return {
     id: options.id ?? 'quickstart',
-    name: options.storyboardOnly === true ? '只寫分鏡' : '快速開始',
+    name: options.storyboardOnly === true ? t('nodes.storyboardOnly') : t('nodes.quickStart'),
     version: 1,
     createdAt: stamp,
     updatedAt: stamp,

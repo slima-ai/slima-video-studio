@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { ContentHashSchema, IdSchema, IsoDateTimeSchema, UsdSchema } from './common'
+import { t } from '../i18n'
 
 /** 聲音片段的種類：旁白（每鏡一句）、音效（每鏡，第一版不做）、配樂（整支一首）。 */
 export const SoundClipKindSchema = z.enum(['narration', 'sfx', 'music'])
@@ -38,10 +39,18 @@ export const SoundClipSchema = z
   })
   .superRefine((clip, ctx) => {
     if (clip.kind === 'music' && clip.shotId !== undefined) {
-      ctx.addIssue({ code: 'custom', path: ['shotId'], message: '配樂是整支的，不屬於某一鏡' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['shotId'],
+        message: t('errors.musicCoversTheWholeFilm2'),
+      })
     }
     if (clip.kind !== 'music' && clip.shotId === undefined) {
-      ctx.addIssue({ code: 'custom', path: ['shotId'], message: '旁白與音效要屬於某一鏡' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['shotId'],
+        message: t('errors.narrationAndSoundEffectsMust2'),
+      })
     }
   })
 export type SoundClip = z.infer<typeof SoundClipSchema>

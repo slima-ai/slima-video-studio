@@ -1,4 +1,4 @@
-import { AppError, type Project } from '@svs/schema'
+import { AppError, type Project, t } from '@svs/schema'
 import type { Database } from 'better-sqlite3'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
@@ -96,7 +96,7 @@ function build(dir: string, env: ProjectEnv, create?: { name: string }): Project
     if (!create && !existsSync(dbFile)) {
       throw new AppError({
         code: 'project_invalid',
-        userMessage: '專案資料夾裡沒有 project.sqlite，專案可能已損壞。',
+        userMessage: t('errors.thereSNoProjectSqlite'),
       })
     }
     opened = openDatabase(dbFile)
@@ -141,7 +141,7 @@ function build(dir: string, env: ProjectEnv, create?: { name: string }): Project
       if (file.projectId !== project.id) {
         throw new AppError({
           code: 'project_invalid',
-          userMessage: 'project.json 與資料庫不屬於同一個專案。',
+          userMessage: t('errors.projectJsonAndTheDatabase'),
         })
       }
       if (project.schemaVersion !== migrations.length) projects.setSchemaVersion(migrations.length)
@@ -195,13 +195,13 @@ export function createProject(input: CreateProjectInput, env: ProjectEnv): Proje
   if (!input.dir.endsWith(PROJECT_DIR_SUFFIX)) {
     throw new AppError({
       code: 'invalid_request',
-      userMessage: `專案資料夾名稱必須以 ${PROJECT_DIR_SUFFIX} 結尾。`,
+      userMessage: t('errors.theProjectFolderNameMust', { projectDirSuffix: PROJECT_DIR_SUFFIX }),
     })
   }
   if (existsSync(input.dir)) {
     throw new AppError({
       code: 'project_exists',
-      userMessage: '這個位置已經有同名的專案或資料夾了。',
+      userMessage: t('errors.aProjectOrFolderWith'),
     })
   }
   mkdirSync(input.dir, { recursive: true })
@@ -218,7 +218,7 @@ export function openProject(dir: string, env: ProjectEnv): ProjectHandle {
   ) {
     throw new AppError({
       code: 'project_not_found',
-      userMessage: '找不到專案，請確認資料夾位置。',
+      userMessage: t('errors.couldnTFindTheProject2'),
     })
   }
   for (const sub of SUBFOLDERS) mkdirSync(join(dir, sub), { recursive: true })

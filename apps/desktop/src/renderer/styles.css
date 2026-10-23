@@ -263,3 +263,8 @@ html[lang='en'] [data-testid='node-io'] {
 html:not([lang='zh-Hant']) .oneliner-story-field {
   min-height: min-content;
 }
+
+/* 分鏡卡下面那排（景別、角度、秒數）：英文的景別、角度名稱比中文長，三格平分會被截斷；秒數只要放得下數字（繁中維持原樣） */
+html:not([lang='zh-Hant']) .storyboard-board-fields {
+  grid-template-columns: 1fr 1fr 3.25rem;
+}

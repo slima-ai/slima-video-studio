@@ -10,6 +10,7 @@ import {
   type PollResult,
   type ProviderServices,
   type SubmitResult,
+  t,
 } from '@svs/schema'
 
 import { exampleFromJsonSchema } from './json-example'
@@ -102,7 +103,7 @@ function defaultSleep(ms: number, signal: AbortSignal): Promise<void> {
       'abort',
       () => {
         clearTimeout(timer)
-        reject(new AppError({ code: 'cancelled', userMessage: '已取消。' }))
+        reject(new AppError({ code: 'cancelled', userMessage: t('mock.cancelled') }))
       },
       { once: true },
     )
@@ -115,6 +116,15 @@ function rand(seed: number): number {
   t = Math.imul(t ^ (t >>> 15), t | 1)
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+}
+
+/** 示範的標題與旁白：中文取前 16 個字；英文字比較窄，取前 28 個字元，並在單字的邊界切（不切在字中間）。 */
+function shorten(text: string): string {
+  if (/[㐀-鿿]/.test(text)) return text.slice(0, 16)
+  if (text.length <= 28) return text
+  const cut = text.slice(0, 28)
+  const space = cut.lastIndexOf(' ')
+  return space > 8 ? cut.slice(0, space) : cut
 }
 
 function hashString(text: string): number {
@@ -191,7 +201,7 @@ export function createMockDriver(
     if (!parsed.success) {
       throw new AppError({
         code: 'provider_rejected',
-        userMessage: '示範供應商收到格式不正確的請求。',
+        userMessage: t('mock.theDemoProviderReceivedA'),
       })
     }
     return parsed.data
@@ -226,14 +236,14 @@ export function createMockDriver(
         if (!config.renderVideo) {
           throw new AppError({
             code: 'internal_error',
-            userMessage: '示範模式的影片需要 FFmpeg，目前沒有設定。',
+            userMessage: t('mock.demoModeVideoNeedsFfmpeg'),
           })
         }
         const [width, height] = mockSize(request.aspectRatio)
         const video = await config.renderVideo({
           frame: {
             kind: 'video',
-            title: '示範影片',
+            title: t('mock.demoVideo'),
             caption: captionOf(request.prompt),
             detail: `#${hashString(request.prompt).toString(16).slice(0, 4)}`,
             hue: hashString(`${request.prompt}|${String(request.seed ?? 0)}`),
@@ -286,13 +296,13 @@ export function createMockDriver(
           code: 'provider_rate_limited',
           retryable: true,
           retryAfterMs: config.retryAfterMs ?? 1000,
-          userMessage: '示範供應商：請求太頻繁，稍後會自動重試。',
+          userMessage: t('mock.demoProviderTooManyRequests'),
         })
       }
       if (config.rejectOnCalls?.includes(call)) {
         throw new AppError({
           code: 'provider_rejected',
-          userMessage: '示範供應商：內容被拒絕，請修改後再試。',
+          userMessage: t('mock.demoProviderContentRejectedEdit'),
         })
       }
       if (
@@ -302,7 +312,7 @@ export function createMockDriver(
       ) {
         throw new AppError({
           code: 'provider_rejected',
-          userMessage: '示範供應商：內容被拒絕，請修改後再試。',
+          userMessage: t('mock.demoProviderContentRejectedEdit'),
         })
       }
       if (
@@ -312,7 +322,7 @@ export function createMockDriver(
         throw new AppError({
           code: 'provider_unavailable',
           retryable: true,
-          userMessage: '示範供應商：暫時無法服務，稍後會自動重試。',
+          userMessage: t('mock.demoProviderTemporarilyUnavailableIt'),
         })
       }
       const request = parse(job)
@@ -376,17 +386,23 @@ function demoBreakdown(example: unknown, request: LlmRequest): unknown {
   const sizes = allowedValues(request.jsonSchema, 'size')
   return {
     ...example,
-    title: story.length > 0 ? story.slice(0, 16) : example.title,
+    title: story.length > 0 ? shorten(story) : example.title,
     shots: Array.from({ length: n }, (_, i) => {
-      const clause = clauses[Math.floor((i * clauses.length) / n)] ?? (story || '主角登場')
-      const lead = i === 0 ? '開場' : i === n - 1 ? '結尾' : `第 ${String(i + 1)} 段`
+      const clause =
+        clauses[Math.floor((i * clauses.length) / n)] ?? (story || t('mock.heroAppears'))
+      const lead =
+        i === 0
+          ? t('mock.opening')
+          : i === n - 1
+            ? t('mock.ending')
+            : t('mock.part', { value: String(i + 1) })
       const wanted = DEMO_SIZES[i % DEMO_SIZES.length]
       const size = wanted !== undefined && sizes.includes(wanted) ? wanted : undefined
       return {
         ...template,
-        description: `${lead}：${clause}`,
+        description: t('mock.leadClause', { lead, clause }),
         // 要旁白時（schema 有 dialogue）：示範的旁白就是這一段故事的短句，示範模式也聽得到
-        ...('dialogue' in template ? { dialogue: clause.slice(0, 16) } : {}),
+        ...('dialogue' in template ? { dialogue: shorten(clause) } : {}),
         ...(size === undefined ? {} : { size }),
       }
     }),
@@ -431,7 +447,7 @@ function llmOutput(request: LlmRequest, config: MockProviderConfig): GenerationO
     text = JSON.stringify(withKnownCharacters(example, request))
   } else {
     const last = request.messages.at(-1)?.content ?? ''
-    text = `（示範回覆）${last.slice(0, 40)}`
+    text = t('mock.demoReply', { value: last.slice(0, 40) })
   }
   const inputChars = request.messages.reduce(
     (n, m) => n + m.content.length,
@@ -459,7 +475,10 @@ function imageFrame(
 ): MockFrame {
   return {
     kind: 'image',
-    title: request.count > 1 ? `示範圖 ${String(index + 1)}/${String(request.count)}` : '示範畫面',
+    title:
+      request.count > 1
+        ? t('mock.demoImage', { value: String(index + 1), value2: String(request.count) })
+        : t('mock.demoPicture'),
     caption: captionOf(request.prompt),
     detail: `#${hashString(request.prompt).toString(16).slice(0, 4)}`,
     hue: hashString(`${request.prompt}|${String(request.seed ?? 0)}|${String(index)}`),
