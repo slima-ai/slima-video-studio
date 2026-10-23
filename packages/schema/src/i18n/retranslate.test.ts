@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { DEFAULT_LOCALE, setLocale } from './locale'
 import { en } from './locales/en'
 import { zhTW } from './locales/zh-TW'
-import { retranslate, t } from './t'
+import { retranslate, retranslateStats, t } from './t'
 
 afterEach(() => {
   setLocale(DEFAULT_LOCALE)
@@ -161,5 +161,39 @@ describe('存下來的訊息換成現在的語言（retranslate）', () => {
     const video = translate('zh-TW', 'errors.openrouterCouldnTFinishThis', {})
     setLocale('en')
     expect(retranslate(video)).toBe(translate('en', 'errors.openrouterCouldnTFinishThis', {}))
+  })
+
+  it('快取：同一串字第二次直接從快取拿（不重算）', () => {
+    const stored = translate('zh-TW', 'errors.cancelled', {})
+    setLocale('en')
+    const sizeBefore = retranslateStats.size
+    const hitsBefore = retranslateStats.hits
+    const first = retranslate(stored)
+    expect(retranslateStats.size).toBe(sizeBefore + 1)
+    expect(retranslateStats.hits).toBe(hitsBefore)
+    expect(retranslate(stored)).toBe(first)
+    expect(retranslate(stored)).toBe(first)
+    expect(retranslateStats.hits).toBe(hitsBefore + 2)
+    expect(retranslateStats.size).toBe(sizeBefore + 1)
+  })
+
+  it('快取：換語言就清掉，翻出來的是新語言的字（不是快取裡舊語言的）', () => {
+    const zh = translate('zh-TW', 'errors.cancelled', {})
+    const english = translate('en', 'errors.cancelled', {})
+    setLocale('en')
+    expect(retranslate(zh)).toBe(english)
+    expect(retranslateStats.size).toBeGreaterThan(0)
+    setLocale('zh-TW')
+    expect(retranslateStats.size).toBe(0)
+    // 同一串字，現在的語言是繁中：原樣；不會拿到快取裡「英文」那一份
+    expect(retranslate(zh)).toBe(zh)
+    setLocale('en')
+    expect(retranslate(zh)).toBe(english)
+  })
+
+  it('快取有上限，滿了就整份清掉重來（不會一直長）', () => {
+    setLocale('en')
+    for (let i = 0; i < 2100; i++) retranslate(`HTTP 502 upstream error #${String(i)}`)
+    expect(retranslateStats.size).toBeLessThanOrEqual(2000)
   })
 })

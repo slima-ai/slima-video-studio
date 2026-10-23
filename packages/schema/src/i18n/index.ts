@@ -9,6 +9,7 @@ export {
   msg,
   pseudoLocalize,
   retranslate,
+  retranslateStats,
   t,
   type DateStyle,
   type MessageKey,
