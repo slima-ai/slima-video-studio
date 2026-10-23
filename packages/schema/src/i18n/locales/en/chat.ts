@@ -236,8 +236,7 @@ export const chat = {
     'Look at the shots in this project. Which ones don’t have pictures or videos yet?',
   'chat.makeShot1SDescription': 'Make shot 1’s description feel more cinematic',
   'chat.tellClaudeWhatYouWant': 'Tell Claude what you want to do',
-  'chat.tellClaudeWhatYouWant2':
-    'Tell Claude what you want to do… (Enter to send, Shift+Enter for a new line)',
+  'chat.tellClaudeWhatYouWant2': 'Tell Claude what to do… (Enter: send, Shift+Enter: new line)',
   'chat.stop': 'Stop',
   'chat.stopWhatClaudeIsDoing': 'Stop what Claude is doing (Esc)',
   'chat.send': 'Send',
