@@ -172,7 +172,7 @@ test.describe('第一次使用的引導與設定頁', () => {
       await expect(next.locator('html')).toHaveAttribute('data-theme', 'light')
       await next.getByRole('button', { name: '設定' }).click()
       await expect(next.getByTestId('theme-light')).toBeChecked()
-      await next.getByTestId('general-section').getByText('跟隨系統', { exact: true }).click()
+      await next.getByTestId('theme-system').locator('xpath=..').click()
       await expect(next.locator('html')).not.toHaveAttribute('data-theme', /.+/)
     } finally {
       await again.app.close()
