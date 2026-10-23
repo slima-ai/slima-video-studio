@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   breakdownNode,
+  avoidOf,
   composeShotPrompts,
   negativeLimitsOf,
   frameFillSuffix,
@@ -435,6 +436,7 @@ describe('節點：組 Prompt', () => {
       // 手動改過 Prompt，運鏡一樣有效
       cameraMove: 'push_in',
       references: [],
+      negativeExtra: '',
     })
   })
 
@@ -692,6 +694,71 @@ describe('節點：首幀圖、圖生影片、接片', () => {
     expect((await run({ negativePrompt: 'mouth, arms' })).negativePrompt).toBe('mouth, arms')
     expect(await run({})).not.toHaveProperty('negativePrompt')
     expect(await run({ negativePrompt: '' })).not.toHaveProperty('negativePrompt')
+  })
+
+  it('角色的「不要出現的特徵」：avoidOf 照出場順序接起來、相同的詞只留一個、沒出場的不帶、衝突的不自動處理', () => {
+    const avoids = [
+      { name: '小饅頭', avoid: 'mouth, Arms, legs' },
+      { name: '獸人', avoid: 'arms, ears' },
+      { name: '路人', avoid: 'hat' },
+    ]
+    expect(avoidOf(['小饅頭'], avoids)).toBe('mouth, Arms, legs')
+    // 兩隻一起出場：照出場順序、重複的詞（不分大小寫）只留第一個；獸人有尖耳卻被列了 ears——不自動處理，照列
+    expect(avoidOf(['獸人', '小饅頭'], avoids)).toBe('arms, ears, mouth, legs')
+    expect(avoidOf(['路人2'], avoids)).toBe('')
+    expect(avoidOf([], avoids)).toBe('')
+    expect(avoidOf(['小饅頭'], [{ name: '小饅頭', avoid: ' , ' }])).toBe('')
+  })
+
+  it('組 Prompt 節點：小饅頭出場 → negativeExtra 是他的清單；沒出場、沒有清單 → 空字串；首幀與影片的 Prompt 完全不變', async () => {
+    const shot = { number: 1, description: '貓跳上窗台', durationSec: 3, characters: ['小花'] }
+    const avoids = [{ name: '小花', avoid: 'mouth, arms' }]
+    const withAvoid = await runNode(shotPromptNode, { params: { avoids }, inputs: { shot } })
+    expect(withAvoid.out.negativeExtra).toBe('mouth, arms')
+    const without = await runNode(shotPromptNode, { inputs: { shot } })
+    expect(without.out.negativeExtra).toBe('')
+    expect(withAvoid.out.imagePrompt).toBe(without.out.imagePrompt)
+    expect(withAvoid.out.videoPrompt).toBe(without.out.videoPrompt)
+    const absent = await runNode(shotPromptNode, {
+      params: { avoids },
+      inputs: { shot: { ...shot, characters: ['別人'] } },
+    })
+    expect(absent.out.negativeExtra).toBe('')
+  })
+
+  it('圖生影片：有 negativeExtra 才帶進請求', async () => {
+    const run = async (inputs: Record<string, unknown>) => {
+      const { studio, requests } = fakeStudio([assets(video)])
+      await runNode(videoNode, {
+        params: {},
+        inputs: { image, prompt: 'p', ...inputs },
+        modelId: 'm',
+        studio,
+      })
+      return requests[0] as { negativeExtra?: string }
+    }
+    expect((await run({ negativeExtra: 'mouth, arms' })).negativeExtra).toBe('mouth, arms')
+    expect(await run({ negativeExtra: '' })).not.toHaveProperty('negativeExtra')
+    expect(await run({})).not.toHaveProperty('negativeExtra')
+  })
+
+  it('單鏡流程：沒有角色寫「不要出現的特徵」→ 節點參數與連線和以前完全一樣；有人寫了才多參數與一條線', () => {
+    const plain = buildShotWorkflow(shotWorkflowOptions)
+    const prompt = (flow: ReturnType<typeof buildShotWorkflow>): unknown =>
+      flow.nodes.find((n) => n.id === 'prompt')?.params
+    const edgeIds = (flow: ReturnType<typeof buildShotWorkflow>): string[] =>
+      flow.edges.map((e) => e.id)
+    expect(prompt(plain)).not.toHaveProperty('avoids')
+    expect(edgeIds(plain)).not.toContain('b8')
+    expect(edgeIds(buildShotWorkflow({ ...shotWorkflowOptions, characterAvoids: [] }))).toEqual(
+      edgeIds(plain),
+    )
+    const custom = buildShotWorkflow({
+      ...shotWorkflowOptions,
+      characterAvoids: [{ name: '小花', avoid: 'mouth' }],
+    })
+    expect(prompt(custom)).toMatchObject({ avoids: [{ name: '小花', avoid: 'mouth' }] })
+    expect(edgeIds(custom)).toContain('b8')
   })
 
   it('單鏡流程：設定頁改過負面提示才會出現在影片節點的參數裡（改了清單，快取就會失效）；沒改的流程與以前完全一樣', () => {

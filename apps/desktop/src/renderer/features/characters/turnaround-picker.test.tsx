@@ -13,6 +13,7 @@ const character: CharacterView = {
   name: '阿鐵',
   appearance: '短黑髮',
   personality: '',
+  avoid: '',
   outfit: '',
   anchorText: '',
   anchorStatus: 'none',

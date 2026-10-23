@@ -49,6 +49,7 @@ export function toCharacterView(character: Character, pack?: CharacterPack): Cha
     ...(character.age ? { age: character.age } : {}),
     appearance: character.appearance,
     personality: character.personality,
+    avoid: character.avoid,
     outfit: outfitOf(character),
     ...(pack?.heroAssetHash ? { heroAssetHash: pack.heroAssetHash } : {}),
     ...(pack?.turnaround ? { turnaround: pack.turnaround } : {}),

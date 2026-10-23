@@ -14,6 +14,7 @@ import {
   shotPromptNode,
   videoNode,
   type CharacterAnchor,
+  type CharacterAvoid,
   type SceneAnchor,
 } from './nodes'
 import type { QuickStyleId } from './styles'
@@ -34,6 +35,8 @@ export interface QuickStartOptions {
   audio?: boolean
   /** 影片的負面提示（見 ShotWorkflowOptions.negativePrompt）。 */
   negativePrompt?: string
+  /** 各角色的「不要出現的特徵」（見 ShotWorkflowOptions.characterAvoids）。 */
+  characterAvoids?: readonly CharacterAvoid[]
   /** 已鎖定角色的固定外觀描述；出場的角色對得上名字就帶進每個 Prompt。 */
   anchors?: readonly CharacterAnchor[]
   /** 專案裡已經建好的角色名字（不管有沒有鎖定）：拆鏡時請 AI 用一模一樣的名字。 */
@@ -86,6 +89,8 @@ export interface ShotWorkflowOptions {
   audio?: boolean
   /** 影片的負面提示（使用者在設定頁改過的）；沒給或空字串就用各模型內建的清單。 */
   negativePrompt?: string
+  /** 各角色的「不要出現的特徵」（只列有寫的）；出場角色的清單會併進影片的負面提示。 */
+  characterAvoids?: readonly CharacterAvoid[]
   anchors?: readonly CharacterAnchor[]
   /** 已鎖定的場景卡；鏡頭指定的地點對得上，就帶入場景描述與參考圖。 */
   scenes?: readonly SceneAnchor[]
@@ -124,6 +129,10 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
           scenes: options.scenes ?? [],
           ...(options.editModel ? { referenceLimit: options.editModel.referenceLimit } : {}),
           ...(options.pinned && options.pinned.length > 0 ? { pinned: options.pinned } : {}),
+          // 沒有任何角色寫了就不放進參數，節點參數（與快取）和以前一樣
+          ...(options.characterAvoids && options.characterAvoids.length > 0
+            ? { avoids: options.characterAvoids }
+            : {}),
         },
         undefined,
         shotPromptNode.version,
@@ -157,6 +166,9 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
           variation: options.videoVariation ?? 0,
           // 沒改過就不放進參數，舊專案的節點參數（與快取）完全不變
           ...(options.negativePrompt ? { negativePrompt: options.negativePrompt } : {}),
+          ...(options.characterAvoids && options.characterAvoids.length > 0
+            ? { characterAvoids: options.characterAvoids }
+            : {}),
         },
         options.models.video,
         videoNode.version,
@@ -172,6 +184,10 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
       edge('b3', ['image', 'image'], ['video', 'image']),
       edge('b4', ['prompt', 'videoPrompt'], ['video', 'prompt']),
       edge('b6', ['prompt', 'cameraMove'], ['video', 'cameraMove']),
+      // 有角色寫了「不要出現的特徵」才接這條線；沒有的話流程與以前完全一樣
+      ...(options.characterAvoids && options.characterAvoids.length > 0
+        ? [edge('b8', ['prompt', 'negativeExtra'], ['video', 'negativeExtra'])]
+        : []),
       edge('b5', ['video', 'video'], ['out', 'value']),
     ],
   }

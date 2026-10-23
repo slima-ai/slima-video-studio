@@ -151,5 +151,11 @@ export const MIGRATIONS: readonly Migration[] = [
     "statements": [
       "ALTER TABLE `shots` ADD `action` text DEFAULT '' NOT NULL;"
     ]
+  },
+  {
+    "tag": "0016_character_avoid",
+    "statements": [
+      "ALTER TABLE `characters` ADD `avoid` text DEFAULT '' NOT NULL;"
+    ]
   }
 ]

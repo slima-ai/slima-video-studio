@@ -2,6 +2,9 @@ import { z } from 'zod'
 
 import { ContentHashSchema, IdSchema, IsoDateTimeSchema } from './common'
 
+/** 「不要出現的特徵」最多幾個字（和負面提示一起送，不能太長）。 */
+export const CHARACTER_AVOID_MAX_CHARS = 300
+
 /** 固定外觀描述（錨點）的狀態：還沒寫、草稿（可以改）、已鎖定（生成時原封不動帶入）。 */
 export const AnchorStatusSchema = z.enum(['none', 'draft', 'locked'])
 export type AnchorStatus = z.infer<typeof AnchorStatusSchema>
@@ -13,6 +16,8 @@ export const CharacterViewSchema = z.object({
   age: z.string().optional(),
   appearance: z.string(),
   personality: z.string(),
+  /** 影片裡不要出現的特徵（英文逗號分隔）；沒有就是空字串。 */
+  avoid: z.string(),
   /** 服裝（先只有一套）。 */
   outfit: z.string(),
   /** 固定外觀描述：之後每個帶到這個角色的 Prompt 都會原封不動帶入（鎖定之後才會帶入）。 */
@@ -37,6 +42,8 @@ export const CharacterEditSchema = z.object({
   age: z.string().trim().max(40).nullable().optional(),
   appearance: z.string().max(2000).optional(),
   personality: z.string().max(2000).optional(),
+  /** 影片裡不要出現的特徵（英文逗號分隔，例如 "mouth, arms, legs"）；空字串＝清掉。 */
+  avoid: z.string().max(CHARACTER_AVOID_MAX_CHARS).optional(),
   outfit: z.string().max(1000).optional(),
 })
 export type CharacterEdit = z.infer<typeof CharacterEditSchema>

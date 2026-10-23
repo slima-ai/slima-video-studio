@@ -464,11 +464,40 @@ export function negativeLimitsOf(anchorText: string): string {
   return found ? found.join(', ') : ''
 }
 
+/** 角色的「不要出現的特徵」（英文逗號分隔）；生影片時，出場角色的清單併進負面提示。 */
+export const CharacterAvoidSchema = z.object({ name: z.string().min(1), avoid: z.string() })
+export type CharacterAvoid = z.infer<typeof CharacterAvoidSchema>
+
+/**
+ * 這一鏡出場角色的「不要出現的特徵」：照出場順序把每個角色的清單接起來，相同的詞只留第一個（不分大小寫）。
+ * 兩個角色的清單互相衝突（例如一隻要「ears」、另一隻有尖耳）不自動處理，全部照列。
+ */
+export function avoidOf(characters: readonly string[], avoids: readonly CharacterAvoid[]): string {
+  const seen = new Set<string>()
+  const terms: string[] = []
+  for (const name of characters) {
+    const found = avoids.find((a) => a.name === name)
+    for (const raw of (found?.avoid ?? '').split(',')) {
+      const term = raw.trim()
+      if (term === '' || seen.has(term.toLowerCase())) continue
+      seen.add(term.toLowerCase())
+      terms.push(term)
+    }
+  }
+  return terms.join(', ')
+}
+
 export const shotPromptNode = defineNode({
   type: NODE_TYPES.shotPrompt,
   version: 5,
   inputs: { shot: { type: 'json' } },
-  outputs: { imagePrompt: 'text', videoPrompt: 'text', cameraMove: 'text', references: 'json' },
+  outputs: {
+    imagePrompt: 'text',
+    videoPrompt: 'text',
+    cameraMove: 'text',
+    references: 'json',
+    negativeExtra: 'text',
+  },
   params: z.object({
     style: StyleIdSchema.default('realistic'),
     /** 已鎖定角色的固定外觀描述（內容改了，快取就會失效而重新生成）。 */
@@ -482,10 +511,14 @@ export const shotPromptNode = defineNode({
      * 例如「阿鐵的臉」。沒有指定（空陣列）就是自動挑，輸出跟以前完全一樣。
      */
     pinned: z.array(z.object({ ref: AssetRefSchema, name: z.string().min(1) })).default([]),
+    /** 專案裡各角色的「不要出現的特徵」（只列有寫的）；出場角色的清單會併進影片的負面提示。 */
+    avoids: z.array(CharacterAvoidSchema).default([]),
   }),
   run: ({ inputs, params }) => {
     const shot = ShotItemSchema.parse(inputs.shot)
     const prompts = composeShotPrompts(shot, params.style, params.anchors, params.scenes)
+    // 出場角色不要出現的特徵（沒有就是空字串）：不影響首幀與影片的 Prompt，只在送出影片請求時併進負面提示
+    const negativeExtra = avoidOf(shot.characters, params.avoids)
     // 運鏡獨立輸出（空字串 = 沒有指定），手動改過 Prompt 時一樣有效
     if (params.pinned.length > 0) {
       const note = referenceNoteOf(params.pinned.map((pin) => pin.name))
@@ -495,6 +528,7 @@ export const shotPromptNode = defineNode({
         imagePrompt: note === '' ? prompts.imagePrompt : `${prompts.imagePrompt} ${note}`,
         cameraMove: shot.cameraMove ?? '',
         references: params.pinned.map((pin) => pin.ref),
+        negativeExtra,
       }
     }
     const picked = pickReferencesNamed(shot, params.anchors, params.referenceLimit, params.scenes)
@@ -507,6 +541,7 @@ export const shotPromptNode = defineNode({
       imagePrompt: note === '' ? prompts.imagePrompt : `${prompts.imagePrompt} ${note}`,
       cameraMove: shot.cameraMove ?? '',
       references: picked.map((item) => item.ref),
+      negativeExtra,
     }
   },
 })
@@ -880,6 +915,7 @@ export const videoNode = defineNode({
     image: { type: 'image' },
     prompt: { type: 'text' },
     cameraMove: { type: 'text', optional: true },
+    negativeExtra: { type: 'text', optional: true },
   },
   outputs: { video: 'video' },
   params: z.object({
@@ -911,6 +947,9 @@ export const videoNode = defineNode({
           ? { cameraMove: inputs.cameraMove }
           : {}),
         ...(params.negativePrompt === '' ? {} : { negativePrompt: params.negativePrompt }),
+        ...(typeof inputs.negativeExtra === 'string' && inputs.negativeExtra !== ''
+          ? { negativeExtra: inputs.negativeExtra }
+          : {}),
       },
       { signal, nodeRunId },
     )

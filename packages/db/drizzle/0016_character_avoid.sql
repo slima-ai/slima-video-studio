@@ -1,0 +1,1 @@
+ALTER TABLE `characters` ADD `avoid` text DEFAULT '' NOT NULL;

@@ -1,7 +1,7 @@
 import type { ProjectHandle } from '@svs/db'
 import type { ModelRegistry } from '@svs/providers'
 import type { AssetRef } from '@svs/schema'
-import type { CharacterAnchor, SceneAnchor } from '@svs/workflows'
+import type { CharacterAnchor, CharacterAvoid, SceneAnchor } from '@svs/workflows'
 
 import type { SettingsService } from '../settings/model-service'
 
@@ -22,6 +22,17 @@ export function assetRefOf(
         ...(meta.height ? { height: meta.height } : {}),
       }
     : undefined
+}
+
+/**
+ * 目前專案裡各角色的「不要出現的特徵」（只列有寫的；不管角色有沒有鎖定）：
+ * 生影片時，出場角色的清單會併進負面提示。
+ */
+export function avoidsOf(handle: ProjectHandle): CharacterAvoid[] {
+  return handle.repos.characters
+    .list()
+    .filter((character) => character.avoid.trim() !== '')
+    .map((character) => ({ name: character.name, avoid: character.avoid.trim() }))
 }
 
 /**

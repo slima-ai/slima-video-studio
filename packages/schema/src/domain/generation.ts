@@ -66,6 +66,8 @@ export const VideoRequestSchema = z.object({
   negativePrompt: z.string().min(1).optional(),
   /** 走 OpenRouter 時，實際接手這個模型的供應商 slug（負面提示要放在那個供應商的選項下）。 */
   negativePromptRoute: z.string().min(1).optional(),
+  /** 出場角色不要出現的特徵（英文逗號分隔）；送出前併進負面提示（見 withNegativePrompt），模型不接受負面提示就丟掉。 */
+  negativeExtra: z.string().min(1).optional(),
 })
 export type VideoRequest = z.infer<typeof VideoRequestSchema>
 

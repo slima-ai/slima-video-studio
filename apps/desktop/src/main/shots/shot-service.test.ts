@@ -282,6 +282,39 @@ describe('shots.regenerate', { timeout: 30_000 }, () => {
     expect(copies).toHaveLength(2)
   })
 
+  it('角色的「不要出現的特徵」：小饅頭出場的鏡頭，送給影片模型的負面提示帶著他的清單（接在通用清單後面）；他沒出場的鏡頭只有通用清單', async () => {
+    const { shots, runQuickStart, idle, projects } = setup({
+      mockVideoNegativePrompt: 'blur, low quality',
+    })
+    await runQuickStart()
+    const handle = projects.current()
+    if (!handle) throw new Error('沒有開啟專案')
+    const bun = handle.repos.characters.create('小饅頭')
+    handle.repos.characters.update(bun.id, { avoid: 'mouth, arms, Blur' })
+    const [withBun, without] = shots.list().shots
+    if (!withBun || !without) throw new Error('鏡頭不夠')
+    shots.update(withBun.id, { characters: ['小饅頭'] })
+    const negatives = (): (string | undefined)[] =>
+      (projects.current()?.repos.jobs.list() ?? [])
+        .filter((job) => job.kind === 'video')
+        .map((job) => (job.input as { negativePrompt?: string }).negativePrompt)
+
+    await shots.regenerate(withBun.id, 'video')
+    await idle(withBun.id)
+    // 相同的詞（不分大小寫）只留一個；清單裡不會有送給供應商用不到的內部欄位
+    expect(negatives()).toContain('blur, low quality, mouth, arms')
+
+    await shots.regenerate(without.id, 'video')
+    await idle(without.id)
+    const sent = negatives().filter((n) => n !== undefined)
+    expect(sent.at(-1)).toBe('blur, low quality')
+    expect(sent.filter((n) => n.includes('mouth'))).toHaveLength(1)
+    const inputs = (projects.current()?.repos.jobs.list() ?? [])
+      .filter((job) => job.kind === 'video')
+      .map((job) => job.input as Record<string, unknown>)
+    for (const input of inputs) expect(input).not.toHaveProperty('negativeExtra')
+  })
+
   it('整個重做：首幀圖和影片都多一個新版本', async () => {
     const { shots, runQuickStart, idle } = setup()
     await runQuickStart()
