@@ -10,6 +10,7 @@ import { READABLE_ZOOM, useFitAll, useFocusEntry } from './fit-all'
 import { KindBadge } from './kind-icon'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
 import { ADD_ITEMS } from './menus'
+import { t } from '@svs/schema'
 
 export const DRAG_MIME = 'application/x-svs-node'
 
@@ -58,28 +59,28 @@ export function NodePalette({
           setOpen(true)
         }}
       >
-        ＋ 新增
+        {t('canvas.add2')}
       </button>
     )
   }
   return (
     <aside
       data-testid="node-palette"
-      aria-label="新增面板"
+      aria-label={t('canvas.addPanel')}
       className="absolute left-3 top-[68px] z-20 flex w-56 flex-col gap-1 rounded-2xl border border-border bg-surface-raised p-3 shadow-panel animate-scale-in"
     >
       <div className="flex items-center justify-between px-1 pb-1">
-        <h2 className="text-xs font-semibold text-fg-muted">新增{'\u3000'}（Tab）</h2>
+        <h2 className="text-xs font-semibold text-fg-muted">{t('canvas.addTab')}</h2>
         <button
           type="button"
           data-testid="palette-close-text"
-          title="收起這個面板（Esc）"
+          title={t('canvas.closeThisPanelEsc')}
           className="rounded-md px-1.5 py-0.5 text-[11px] text-fg-muted hover:bg-fg/10 hover:text-fg"
           onClick={() => {
             setOpen(false)
           }}
         >
-          收起 ‹
+          {t('canvas.close')}
         </button>
       </div>
       {ADD_ITEMS.filter((item) => kinds === undefined || kinds.includes(item.kind)).map((item) => (
@@ -99,15 +100,15 @@ export function NodePalette({
         >
           <KindBadge kind={item.kind} />
           <span className="flex flex-col">
-            <b className="text-[13px] font-medium">{item.label}</b>
-            <small className="text-[11px] leading-tight text-fg-muted">{item.desc}</small>
+            <b className="text-[13px] font-medium">{t(item.label)}</b>
+            <small className="text-[11px] leading-tight text-fg-muted">{t(item.desc)}</small>
           </span>
         </button>
       ))}
       <button
         type="button"
-        aria-label="收起新增面板"
-        title="收起新增面板（Esc）"
+        aria-label={t('canvas.closeTheAddPanel')}
+        title={t('canvas.closeTheAddPanelEsc')}
         data-testid="palette-close"
         className="absolute -right-4 top-1/2 flex h-12 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-fg/30 bg-surface-raised text-base font-semibold text-fg shadow-card hover:border-accent hover:text-accent"
         onClick={() => {
@@ -167,8 +168,12 @@ export function TopBar(props: TopBarProps) {
         type="button"
         className={button}
         disabled={!canUndo}
-        aria-label={props.undoLabel ?? '復原'}
-        title={props.undoLabel ? `${props.undoLabel}（Ctrl/Cmd+Z）` : '沒有可以復原的'}
+        aria-label={props.undoLabel ?? t('canvas.undo')}
+        title={
+          props.undoLabel
+            ? t('canvas.undoWithKey', { label: props.undoLabel })
+            : t('canvas.nothingToUndo')
+        }
         data-testid="undo"
         onClick={props.onUndo}
       >
@@ -178,8 +183,12 @@ export function TopBar(props: TopBarProps) {
         type="button"
         className={button}
         disabled={!canRedo}
-        aria-label={props.redoLabel ?? '重做'}
-        title={props.redoLabel ? `${props.redoLabel}（Ctrl/Cmd+Shift+Z）` : '沒有可以重做的'}
+        aria-label={props.redoLabel ?? t('canvas.redo2')}
+        title={
+          props.redoLabel
+            ? t('canvas.redoWithKey', { label: props.redoLabel })
+            : t('canvas.nothingToRedo')
+        }
         data-testid="redo"
         onClick={props.onRedo}
       >
@@ -190,10 +199,10 @@ export function TopBar(props: TopBarProps) {
           type="button"
           className={button}
           data-testid="tidy"
-          data-tip="把拖過的格子排回自動排好的位置，再全部顯示（可以復原）"
+          data-tip={t('canvas.putMovedCellsBackIn')}
           onClick={props.onTidy}
         >
-          整理
+          {t('canvas.tidy')}
         </button>
       ) : null}
       {props.steps ? (
@@ -202,10 +211,10 @@ export function TopBar(props: TopBarProps) {
           className={button}
           data-testid="steps-all"
           aria-pressed={props.steps.allExpanded}
-          title="在每個鏡頭和第一張畫面之間，顯示整理 Prompt、挑參考圖、送出模型這三步"
+          title={t('canvas.betweenEachShotAndIts')}
           onClick={props.steps.onToggle}
         >
-          {props.steps.allExpanded ? '全部收合步驟' : '全部展開步驟'}
+          {props.steps.allExpanded ? t('canvas.collapseAllSteps') : t('canvas.expandAllSteps')}
         </button>
       ) : null}
       <span className="flex-1" />
@@ -215,10 +224,13 @@ export function TopBar(props: TopBarProps) {
           data-testid="run-progress"
           className="flex items-center gap-2 rounded-lg bg-accent/15 py-1 pl-3 pr-1 text-[13px] font-semibold text-accent"
         >
-          <Spinner label="生成中" />
+          <Spinner label={t('canvas.generating')} />
           {props.running === 'grow'
-            ? '生成中'
-            : `生成中 ${String(props.running.done)}/${String(props.running.total)}`}
+            ? t('canvas.generating')
+            : t('canvas.generating2', {
+                value: String(props.running.done),
+                value2: String(props.running.total),
+              })}
           {props.onStop ? (
             <button
               type="button"
@@ -226,7 +238,7 @@ export function TopBar(props: TopBarProps) {
               className="rounded-md border border-border bg-surface-raised px-2 py-0.5 text-xs font-normal text-fg hover:border-danger hover:text-danger"
               onClick={props.onStop}
             >
-              停止
+              {t('canvas.stop')}
             </button>
           ) : null}
         </span>
@@ -241,32 +253,32 @@ export function TopBar(props: TopBarProps) {
           }}
         >
           {allDone
-            ? '全部都生成好了'
+            ? t('canvas.everythingIsGenerated')
             : props.joinOnly === true
-              ? '接成成品'
+              ? t('canvas.joinIntoFilm')
               : pending === undefined
-                ? '全部生成'
-                : `全部生成（約 US$${pending.toFixed(2)}）`}
+                ? t('canvas.generateAll')
+                : t('canvas.generateAllAboutUs', { value: pending.toFixed(2) })}
         </button>
       ) : null}
       {props.onHelp ? (
         <button
           type="button"
           className={button}
-          aria-label="說明與工具"
-          title="怎麼開始、鍵盤快捷鍵、效能自測"
+          aria-label={t('canvas.helpAndTools')}
+          title={t('canvas.howToStartKeyboardShortcuts')}
           data-testid="help-menu"
           onClick={(event) => {
             props.onHelp?.(anchorOf(event.currentTarget))
           }}
         >
-          ？
+          {t('canvas.helpGlyph')}
         </button>
       ) : null}
       <button
         type="button"
         className={button}
-        aria-label="切換主題"
+        aria-label={t('canvas.changeTheme')}
         onClick={() => {
           applyTheme(theme === 'dark' ? 'light' : 'dark')
         }}
@@ -305,7 +317,7 @@ export function ZoomControls({
           role="switch"
           aria-checked={aiFollow.on}
           data-testid="follow-ai"
-          title="AI 在改東西時，畫面跟著移到它正在改的地方（你自己在拖曳或縮放時不會搶畫面）"
+          title={t('canvas.whenAiEditsSomethingThe')}
           className={cn(
             button,
             'flex items-center gap-1',
@@ -316,7 +328,7 @@ export function ZoomControls({
           }}
         >
           <Sparkles aria-hidden className="size-3.5" />
-          跟著 AI{aiFollow.on ? '：開' : '：關'}
+          {aiFollow.on ? t('canvas.followAiOn') : t('canvas.followAiOff')}
         </button>
       ) : null}
       {unreadable ? (
@@ -324,16 +336,16 @@ export function ZoomControls({
           type="button"
           className={cn(button, 'border-accent/50 text-accent')}
           data-testid="zoom-readable"
-          title="縮太小，卡片上的字和按鈕都看不到：回到第一個入口，放大到看得清楚"
+          title={t('canvas.zoomedOutTooFarTo')}
           onClick={focusEntry}
         >
-          放大到看得清楚
+          {t('canvas.zoomInToRead')}
         </button>
       ) : null}
       <button
         type="button"
         className={button}
-        aria-label="放大"
+        aria-label={t('canvas.zoomIn')}
         onClick={() => {
           void zoomIn({ duration: 200 })
         }}
@@ -343,7 +355,7 @@ export function ZoomControls({
       <button
         type="button"
         className={button}
-        aria-label="縮小"
+        aria-label={t('canvas.zoomOut')}
         onClick={() => {
           void zoomOut({ duration: 200 })
         }}
@@ -358,7 +370,7 @@ export function ZoomControls({
           fitAll()
         }}
       >
-        全部顯示
+        {t('canvas.showAll')}
       </button>
     </div>
   )

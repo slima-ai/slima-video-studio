@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { Mascot } from '../../brand/mascot'
 import { Button } from '../../components/button'
 import { anchorOf, type ConfirmAnchor } from './run-confirm'
+import { t } from '@svs/schema'
 
 const TEXTAREA =
   'resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm font-normal placeholder:text-fg-subtle'
@@ -63,29 +64,27 @@ export function StartCards({
         <div className="flex flex-col items-center gap-1 text-center">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Mascot size={32} mood="idle" />
-            從哪裡開始？
+            {t('canvas.whereToStart')}
           </h2>
-          <p className="text-sm text-fg-muted">
-            三種都可以，挑順手的；之後隨時能從左邊的「新增」加場、鏡頭、角色、地點，或上傳圖片。
-          </p>
+          <p className="text-sm text-fg-muted">{t('canvas.anyOfTheThreeWorks')}</p>
         </div>
         <div className="flex flex-wrap items-stretch justify-center gap-3">
           <StartCard
             icon={<PenLine className="size-4 text-accent" aria-hidden />}
-            title="自己一步一步來"
-            intro="先加一個場和第一個鏡頭，自己寫畫面描述；每一格你說了算，要生成時再按 ▶。"
-            cost="加上去不花錢；按 ▶ 生成之前會先告訴你預估多少。"
+            title={t('canvas.goStepByStep')}
+            intro={t('canvas.addASceneAndA')}
+            cost={t('canvas.addingCostsNothingBeforeYou')}
           >
             <div className="flex-1" />
             <Button variant="primary" data-testid="empty-manual" onClick={onManual}>
-              加第一個鏡頭
+              {t('canvas.addTheFirstShot')}
             </Button>
           </StartCard>
           <StartCard
             icon={<ClipboardPaste className="size-4 text-accent" aria-hidden />}
-            title="貼一段故事"
-            intro="貼上故事，AI 幫你拆成場和鏡頭（分鏡），拆好你可以先看、先改。"
-            cost="只用文字模型，不生成圖片和影片；確認前先看預估花費。"
+            title={t('canvas.pasteAStory')}
+            intro={t('canvas.pasteAStoryAndAi')}
+            cost={t('canvas.usesOnlyATextModel')}
           >
             <textarea
               data-testid="empty-paste-text"
@@ -93,7 +92,7 @@ export function StartCards({
               value={pasted}
               maxLength={20_000}
               disabled={busy}
-              placeholder="貼上你的故事或劇情大綱"
+              placeholder={t('canvas.pasteYourStoryOrPlot')}
               onChange={(event) => {
                 setPasted(event.target.value)
               }}
@@ -107,14 +106,14 @@ export function StartCards({
                 onSplit(pasted.trim(), anchorOf(event.currentTarget))
               }}
             >
-              {busy ? '拆分鏡中…' : '拆成分鏡'}
+              {busy ? t('canvas.splitting') : t('canvas.splitIntoStoryboard')}
             </Button>
           </StartCard>
           <StartCard
             icon={<Sparkles className="size-4 text-accent" aria-hidden />}
-            title="一句話"
-            intro="寫一句話，先看分鏡、改到滿意，再決定要不要全部生成（也可以一次做完整支）。"
-            cost="會花錢（圖片和影片），按下去之前會先給你看預估。"
+            title={t('canvas.oneLiner')}
+            intro={t('canvas.writeOneLineLookAt')}
+            cost={t('canvas.thisCostsMoneyPicturesAnd')}
           >
             <form
               className="flex flex-col gap-2.5"
@@ -128,14 +127,14 @@ export function StartCards({
                 rows={3}
                 value={line}
                 maxLength={2000}
-                placeholder="例如：一隻貓在下雨的夜晚找到溫暖的家"
+                placeholder={t('canvas.forExampleACatFinds')}
                 onChange={(event) => {
                   setLine(event.target.value)
                 }}
                 className={TEXTAREA}
               />
               <Button type="submit" variant="secondary" data-testid="empty-add-oneliner">
-                新增一句話
+                {t('canvas.addAOneLiner')}
               </Button>
             </form>
           </StartCard>

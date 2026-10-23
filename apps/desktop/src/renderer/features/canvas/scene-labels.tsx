@@ -1,6 +1,7 @@
 import { ViewportPortal } from '@xyflow/react'
 
 import type { CanvasNode } from './canvas-model'
+import { t } from '@svs/schema'
 
 /**
  * 縮到最小（只畫色塊）時，「第 N 場」蓋在場框正中間。
@@ -24,7 +25,7 @@ export function SceneLabels({ nodes }: { nodes: readonly CanvasNode[] }) {
               )}px) translate(-50%, -50%)`,
             }}
           >
-            第 {n.data.sceneNo ?? ''} 場
+            {t('canvas.scene4', { value: String(n.data.sceneNo ?? '') })}
           </div>
         ))}
     </ViewportPortal>

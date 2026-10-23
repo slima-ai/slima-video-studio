@@ -2,6 +2,7 @@ import type { CanvasNode } from './canvas-model'
 import { blockedReason } from './delete-plan'
 import { isRenamable } from './rename-box'
 import { isRunnable } from './use-run'
+import { t } from '@svs/schema'
 
 /** 右鍵選單的一項：畫布依 `id` 決定要做什麼。 */
 export interface ContextEntry {
@@ -41,13 +42,13 @@ const HAS_PANEL = new Set(['shot', 'image', 'video', 'cut', 'character', 'locati
 /** ▶ 在選單裡的說法（跟格子的狀態走）。 */
 function runLabel(node: CanvasNode): string {
   const { kind, status } = node.data
-  if (kind === 'cut') return '全部生成再接成成品'
-  if (kind === 'shot') return '生成這一鏡還缺的'
-  if (kind === 'scene') return '生成這一場還缺的'
-  if (status === 'failed') return '重試'
-  if (status === 'done') return '重做（產生新的一版）'
-  if (status === 'stale') return '重跑'
-  return kind === 'image' ? '生成第一張畫面' : '生成影片'
+  if (kind === 'cut') return t('canvas.generateAllThenJoinInto')
+  if (kind === 'shot') return t('canvas.generateWhatThisShotIs')
+  if (kind === 'scene') return t('canvas.generateWhatThisSceneIs')
+  if (status === 'failed') return t('canvas.retry')
+  if (status === 'done') return t('canvas.redoMakeANewVersion')
+  if (status === 'stale') return t('canvas.runAgain')
+  return kind === 'image' ? t('canvas.generateFirstFrame') : t('canvas.generateVideo')
 }
 
 /**
@@ -62,19 +63,19 @@ export function nodeEntries(node: CanvasNode, selection: readonly CanvasNode[]):
     if (runnable.length > 0)
       entries.push({
         id: 'run',
-        label: `執行選取的 ${String(runnable.length)} 格`,
+        label: t('canvas.runTheSelectedCells', { value: String(runnable.length) }),
         hint: 'Ctrl+Enter',
       })
     if (group.some(copyable)) {
       entries.push(
-        { id: 'copy', label: '複製', hint: 'Ctrl+C', separated: entries.length > 0 },
-        { id: 'duplicate', label: '再做一份', hint: 'Ctrl+D' },
+        { id: 'copy', label: t('canvas.copy3'), hint: 'Ctrl+C', separated: entries.length > 0 },
+        { id: 'duplicate', label: t('canvas.duplicate'), hint: 'Ctrl+D' },
       )
     }
     if (group.some(deletable))
       entries.push({
         id: 'delete',
-        label: `刪除選取的 ${String(group.length)} 格`,
+        label: t('canvas.deleteTheSelectedCells', { value: String(group.length) }),
         hint: 'Delete',
         danger: true,
         separated: entries.length > 0,
@@ -84,24 +85,39 @@ export function nodeEntries(node: CanvasNode, selection: readonly CanvasNode[]):
   const { kind } = node.data
   const entries: ContextEntry[] = []
   if (HAS_PANEL.has(kind))
-    entries.push({ id: 'open', label: kind === 'cut' ? '打開成品' : '打開面板', hint: 'Enter' })
-  if (kind === 'oneliner') entries.push({ id: 'story', label: '寫故事', hint: 'Enter' })
-  if (kind === 'note') entries.push({ id: 'note', label: '編輯文字', hint: 'Enter' })
+    entries.push({
+      id: 'open',
+      label: kind === 'cut' ? t('canvas.openFilm') : t('canvas.openPanel'),
+      hint: 'Enter',
+    })
+  if (kind === 'oneliner')
+    entries.push({ id: 'story', label: t('canvas.writeStory'), hint: 'Enter' })
+  if (kind === 'note') entries.push({ id: 'note', label: t('canvas.editText'), hint: 'Enter' })
   if (isRunnable(node.id) && node.data.status !== 'running' && node.data.status !== 'queued')
     entries.push({ id: 'run', label: runLabel(node), hint: 'Ctrl+Enter' })
   if (kind === 'video')
-    entries.push({ id: 'incut', label: node.data.inCut === false ? '放回成品' : '不放進成品' })
-  if (isRenamable(node.id, kind)) entries.push({ id: 'rename', label: '改名', hint: 'F2' })
+    entries.push({
+      id: 'incut',
+      label: node.data.inCut === false ? t('canvas.putBackInFilm') : t('canvas.leaveOutOfFilm'),
+    })
+  if (isRenamable(node.id, kind))
+    entries.push({ id: 'rename', label: t('canvas.rename'), hint: 'F2' })
   if (kind === 'shot') {
-    entries.push({ id: 'steps', label: node.data.expanded === true ? '收合步驟' : '展開步驟' })
+    entries.push({
+      id: 'steps',
+      label: node.data.expanded === true ? t('canvas.collapseSteps') : t('canvas.expandSteps'),
+    })
   }
-  entries.push({ id: 'focus', label: '置中顯示' })
+  entries.push({ id: 'focus', label: t('canvas.center') })
   if (copyable(node)) {
     entries.push(
-      { id: 'copy', label: '複製', hint: 'Ctrl+C', separated: true },
+      { id: 'copy', label: t('canvas.copy3'), hint: 'Ctrl+C', separated: true },
       {
         id: 'duplicate',
-        label: kind === 'image' || kind === 'video' ? '複製成獨立的一格' : '再做一份',
+        label:
+          kind === 'image' || kind === 'video'
+            ? t('canvas.copyAsASeparateCell')
+            : t('canvas.duplicate'),
         hint: 'Ctrl+D',
       },
     )
@@ -112,10 +128,10 @@ export function nodeEntries(node: CanvasNode, selection: readonly CanvasNode[]):
     id: 'delete',
     label:
       kind === 'group'
-        ? '刪除群組（格子留著）'
+        ? t('canvas.deleteGroupKeepItsCells')
         : kind === 'image' || kind === 'video'
-          ? '清掉採用中的版本'
-          : '刪除',
+          ? t('canvas.clearTheVersionInUse')
+          : t('canvas.delete'),
     hint: 'Delete',
     danger: true,
     separated: true,
@@ -127,9 +143,9 @@ export function nodeEntries(node: CanvasNode, selection: readonly CanvasNode[]):
 /** 在空白處按右鍵：新增、貼上（有複製的東西時）、整理、全部顯示。 */
 export function paneEntries(canPaste = false): ContextEntry[] {
   return [
-    { id: 'add', label: '新增…', hint: 'Tab' },
-    ...(canPaste ? [{ id: 'paste' as const, label: '貼上', hint: 'Ctrl+V' }] : []),
-    { id: 'tidy', label: '整理', separated: true },
-    { id: 'fit', label: '全部顯示' },
+    { id: 'add', label: t('canvas.add3'), hint: 'Tab' },
+    ...(canPaste ? [{ id: 'paste' as const, label: t('canvas.paste'), hint: 'Ctrl+V' }] : []),
+    { id: 'tidy', label: t('canvas.tidy'), separated: true },
+    { id: 'fit', label: t('canvas.showAll') },
   ]
 }

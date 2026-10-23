@@ -5,6 +5,7 @@ import {
   type CanvasNotice,
   type CanvasRunSoundPlan,
   type QuickStartSound,
+  t,
 } from '@svs/schema'
 
 import type { Logger } from '../logger'
@@ -52,11 +53,16 @@ export interface RunSoundResult {
 
 /** 開始加聲音時的通知：只寫真的會做的（沒有台詞就不說旁白）；沒有東西要加就不通知。 */
 export function soundStartNotice(plan: CanvasRunSoundPlan | undefined): CanvasNotice | undefined {
-  const parts = [plan && plan.narrationShots > 0 ? '旁白' : '', plan?.music ? '配樂' : ''].filter(
-    Boolean,
-  )
+  // 名詞放在句子中間：英文用小寫（中文沒有大小寫，不受影響）
+  const parts = [
+    plan && plan.narrationShots > 0 ? t('canvas.narration').toLowerCase() : '',
+    plan?.music ? t('canvas.music').toLowerCase() : '',
+  ].filter(Boolean)
   if (parts.length === 0) return undefined
-  return { tone: 'success', message: `成品接好了，正在加${parts.join('與')}…` }
+  return {
+    tone: 'success',
+    message: t('canvas.theFilmIsJoinedAdding', { value: parts.join(t('list.and')) }),
+  }
 }
 
 /** 加完聲音之後的一行通知：說實話做了哪些（沒台詞就不會有旁白，要講出來）。 */
@@ -64,17 +70,24 @@ export function soundDoneNotice(result: RunSoundResult): CanvasNotice {
   if (result.problem !== undefined) {
     return {
       tone: 'danger',
-      message: `聲音沒加成（${result.problem}）：可以在成品面板的「聲音」區再試`,
+      message: t('canvas.theSoundWasnTAdded', { problem: result.problem }),
     }
   }
-  const done = [...(result.narrations > 0 ? ['旁白'] : []), ...(result.music ? ['配樂'] : [])]
+  const done = [
+    ...(result.narrations > 0 ? [t('canvas.narration')] : []),
+    ...(result.music ? [t('canvas.music')] : []),
+  ].map((noun, index) => (index === 0 ? noun : noun.toLowerCase()))
   const why = result.noNarrationBecause
     ? result.noNarrationBecause.dialogueShots === 0
-      ? '沒有鏡頭有台詞，所以沒有旁白'
-      : '有台詞的鏡頭都已經有旁白了'
+      ? t('canvas.noShotHasLinesSo')
+      : t('canvas.everyShotWithLinesAlready')
     : undefined
   const head =
-    done.length === 0 ? '成品接好了' : `${done.join('與')}${done.length > 1 ? '也' : ''}加好了`
+    done.length === 0
+      ? t('canvas.theFilmIsJoined')
+      : done.length > 1
+        ? t('canvas.added', { value: done.join(t('list.and')) })
+        : t('canvas.added2', { value: done.join(t('list.and')) })
   return {
     tone: 'success',
     message: why === undefined || done.length > 1 ? head : `${head}；${why}`,
@@ -184,7 +197,7 @@ export function createRunSound(deps: RunSoundDeps): RunSound {
         return {
           narrations: 0,
           music: false,
-          problem: isAppError(error) ? error.userMessage : '加聲音失敗了',
+          problem: isAppError(error) ? error.userMessage : t('canvas.addingSoundFailed'),
         }
       }
     },

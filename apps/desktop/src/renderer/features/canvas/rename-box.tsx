@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { t } from '@svs/schema'
 
 export interface RenameTarget {
   key: string
@@ -43,7 +44,7 @@ export function RenameBox({
     <input
       ref={ref}
       data-testid="rename-box"
-      aria-label="新的名字"
+      aria-label={t('canvas.newName')}
       value={value}
       maxLength={100}
       className="fixed z-50 rounded-md border border-accent bg-surface-raised px-2 text-sm font-semibold text-fg shadow-lg outline-none"

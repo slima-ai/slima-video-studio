@@ -1,4 +1,5 @@
 import { COL_X, ROW_PITCH, SCENE_PAD, sizeOf, type CanvasNode, type Graph } from './canvas-model'
+import { t } from '@svs/schema'
 
 /** 場框裡的成員：同一場的鏡頭、圖、影片。 */
 export const isMember = (node: CanvasNode): boolean =>
@@ -347,7 +348,7 @@ export function syncCut(graph: Graph): Graph {
     const sceneId = sceneOfSlot.get(slot.id)
     const all = sceneId === undefined ? 0 : (total.get(sceneId) ?? 0)
     const inCut = sceneId === undefined ? 0 : (used.get(sceneId) ?? 0)
-    const note = `${String(inCut)}/${String(all)} 鏡`
+    const note = t('canvas.shots', { value: String(inCut), value2: String(all) })
     const partial = inCut < all
     return slot.note === note && slot.partial === partial ? slot : { ...slot, note, partial }
   })
@@ -373,7 +374,7 @@ export function renumberShots(nodes: CanvasNode[]): CanvasNode[] {
       const sb = sceneNo.get(b.data.sceneId ?? '') ?? Number.MAX_SAFE_INTEGER
       return sa - sb || a.position.y - b.position.y || a.position.x - b.position.x
     })
-  const titles = new Map(shots.map((n, i) => [n.id, `第 ${String(i + 1)} 鏡`]))
+  const titles = new Map(shots.map((n, i) => [n.id, t('canvas.shot', { value: String(i + 1) })]))
   const next = nodes.map((n) => {
     const title = titles.get(n.id)
     if (title === undefined || n.data.title === title || !SHOT_TITLE.test(n.data.title)) return n

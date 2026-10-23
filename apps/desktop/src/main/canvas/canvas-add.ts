@@ -1,4 +1,4 @@
-import { AppError, ONELINER_DEFAULTS, type CanvasAdd, type CanvasAddResult } from '@svs/schema'
+import { AppError, ONELINER_DEFAULTS, type CanvasAdd, type CanvasAddResult, t } from '@svs/schema'
 import type { CanvasRepository } from '@svs/db'
 
 import type { CharacterService } from '../characters/character-service'
@@ -57,11 +57,11 @@ export function createCanvasAdder(deps: CanvasAdderDeps): {
     if (view.acts.length === 0) view = outline.edit({ op: 'addAct' })
     else {
       const act = view.acts.at(-1)
-      if (!act) throw invalid('新增場失敗，請再試一次。')
+      if (!act) throw invalid(t('canvas.couldnTAddTheScene'))
       view = outline.edit({ op: 'addScene', actId: act.id })
     }
     const created = view.acts.flatMap((a) => a.scenes).find((s) => !known.has(s.id))
-    if (!created) throw invalid('新增場失敗，請再試一次。')
+    if (!created) throw invalid(t('canvas.couldnTAddTheScene'))
     if (locationId !== undefined) {
       outline.edit({ op: 'updateScene', sceneId: created.id, patch: { locationId } })
     }
@@ -72,13 +72,13 @@ export function createCanvasAdder(deps: CanvasAdderDeps): {
     const known = new Set(outline.get().locations.map((l) => l.id))
     const view = outline.edit({ op: 'addLocation' })
     const created = view.locations.find((l) => !known.has(l.id))
-    if (!created) throw invalid('新增地點失敗，請再試一次。')
+    if (!created) throw invalid(t('canvas.couldnTAddTheLocation'))
     return { id: created.id, title: created.name }
   }
 
   const addCharacter = (): { id: string; title: string } => {
     const name = freshName(
-      '新角色',
+      t('canvas.newCharacter'),
       characters.list().map((c) => c.name),
     )
     const created = characters.create(name)
@@ -88,37 +88,40 @@ export function createCanvasAdder(deps: CanvasAdderDeps): {
   return {
     add(request) {
       const { kind, from } = request
-      const unsupported = (): AppError => invalid('這個圓點還不能接這一種。')
+      const unsupported = (): AppError => invalid(t('canvas.thisDotCanTTake'))
       const fromId = (prefix: string): string | undefined => idOf(from?.key, prefix)
 
       if (kind === 'oneliner') {
         if (from) throw unsupported()
         const repo = freeNodes()
-        if (!repo) throw invalid('請先開啟或建立一個專案。')
+        if (!repo) throw invalid(t('canvas.openOrCreateAProject'))
         const row = repo.addNode({
           type: 'oneliner',
           params: { ...ONELINER_DEFAULTS },
           x: request.x ?? 60,
           y: request.y ?? 60,
         })
-        return { key: freeKey(row.id), title: '一句話' }
+        return { key: freeKey(row.id), title: t('canvas.oneLiner') }
       }
 
       if (kind === 'note' || kind === 'group') {
         if (from) throw unsupported()
         const repo = freeNodes()
-        if (!repo) throw invalid('請先開啟或建立一個專案。')
+        if (!repo) throw invalid(t('canvas.openOrCreateAProject'))
         const params =
           kind === 'note'
             ? { text: '' }
             : {
-                title: '群組',
+                title: t('canvas.group'),
                 color: 'slate',
                 width: request.width ?? GROUP_SIZE.width,
                 height: request.height ?? GROUP_SIZE.height,
               }
         const row = repo.addNode({ type: kind, params, x: request.x ?? 60, y: request.y ?? 60 })
-        return { key: freeKey(row.id), title: kind === 'note' ? '便條' : '群組' }
+        return {
+          key: freeKey(row.id),
+          title: kind === 'note' ? t('canvas.note') : t('canvas.group'),
+        }
       }
 
       // 先確認接得起來再動資料，免得失敗時留下一個孤零零的新節點
@@ -136,9 +139,10 @@ export function createCanvasAdder(deps: CanvasAdderDeps): {
       }
       const character = characters.list().find((c) => c.id === fromId('character'))
       const targetShot = shots.list().shots.find((s) => s.id === fromId('shot'))
-      if (from?.port === 'char-out' && !character) throw invalid('找不到這個角色。')
+      if (from?.port === 'char-out' && !character)
+        throw invalid(t('canvas.couldnTFindThisCharacter'))
       if ((from?.port === 'shot-ref-char' || from?.port === 'shot-ref-loc') && !targetShot) {
-        throw invalid('找不到這個鏡頭。')
+        throw invalid(t('canvas.couldnTFindThisShot'))
       }
       if (from?.port === 'loc-out' && fromId('location') === undefined) throw unsupported()
       if (from?.port === 'scene-loc' && fromId('scene') === undefined) throw unsupported()
@@ -157,7 +161,7 @@ export function createCanvasAdder(deps: CanvasAdderDeps): {
           const locationId = fromId('location')
           if (locationId !== undefined) shots.update(shot.id, { locationId })
         }
-        return { key: shotKey(shot.id), title: `第 ${String(shot.number)} 鏡` }
+        return { key: shotKey(shot.id), title: t('canvas.shot', { value: String(shot.number) }) }
       }
 
       if (kind === 'character') {

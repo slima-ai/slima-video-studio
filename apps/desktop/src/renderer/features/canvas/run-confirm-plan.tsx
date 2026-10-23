@@ -2,17 +2,22 @@ import type { CanvasRunPlan, ModelTier } from '@svs/schema'
 
 import { cn } from '../../lib/cn'
 import { RunConfirm, type ConfirmAnchor } from './run-confirm'
+import { t, msg, type MessageRef } from '@svs/schema'
 
 /** 生成鈕旁的品質切換：「預設」是設定裡選的模型；「經濟」就是先出草稿。 */
 export const QUALITY_CHOICES: readonly {
   value: ModelTier | undefined
-  label: string
-  hint: string
+  label: MessageRef
+  hint: MessageRef
 }[] = [
-  { value: undefined, label: '預設', hint: '用設定裡選的模型（通常是「平衡」）' },
-  { value: 'premium', label: '高品質', hint: '畫面最好，比較貴、比較慢' },
-  { value: 'balanced', label: '平衡', hint: '畫面、價錢、速度都中等' },
-  { value: 'budget', label: '經濟', hint: '先出草稿：便宜、快，滿意的鏡頭再用高品質重做' },
+  { value: undefined, label: msg('canvas.default'), hint: msg('canvas.usesTheModelsChosenIn') },
+  {
+    value: 'premium',
+    label: msg('canvas.highQuality'),
+    hint: msg('canvas.bestPictureCostsMoreAnd'),
+  },
+  { value: 'balanced', label: msg('canvas.balanced'), hint: msg('canvas.middleOnPicturePriceAnd') },
+  { value: 'budget', label: msg('canvas.economy'), hint: msg('canvas.forDraftsCheapAndFast') },
 ]
 
 /** 三選一（加上「預設」）的小切換；換了之後確認面板重新算步驟與花費。 */
@@ -28,7 +33,7 @@ export function QualitySwitch({
     <div className="flex flex-col gap-1">
       <div
         role="radiogroup"
-        aria-label="品質"
+        aria-label={t('canvas.quality')}
         data-testid="quality-switch"
         className="flex rounded-lg border border-border bg-surface p-0.5 text-xs"
       >
@@ -36,11 +41,11 @@ export function QualitySwitch({
           const on = choice.value === value
           return (
             <button
-              key={choice.label}
+              key={choice.label.msgKey}
               type="button"
               role="radio"
               aria-checked={on}
-              title={choice.hint}
+              title={t(choice.hint)}
               data-testid={`quality-${choice.value ?? 'default'}`}
               className={cn(
                 'flex-1 rounded-md px-2 py-1 transition-colors',
@@ -50,14 +55,14 @@ export function QualitySwitch({
                 onChange(choice.value)
               }}
             >
-              {choice.label}
+              {t(choice.label)}
             </button>
           )
         })}
       </div>
       {chosen ? (
         <p data-testid="quality-hint" className="text-xs leading-snug text-fg-muted">
-          {chosen.label}：{chosen.hint}
+          {`${t(chosen.label)}：${t(chosen.hint)}`}
         </p>
       ) : null}
     </div>
@@ -67,12 +72,15 @@ export function QualitySwitch({
 /** 確認鈕：重做時說清楚會產生第幾版、舊的留著。 */
 function okLabelOf(plan: CanvasRunPlan): string {
   const redo = plan.steps.filter((step) => step.redo)
-  if (redo.length === 0) return '執行'
+  if (redo.length === 0) return t('canvas.run')
   const [only] = redo
   if (redo.length === 1 && only?.versions) {
-    return `重做（產生 v${String(only.versions.next)}，保留 v${String(only.versions.current)}）`
+    return t('canvas.redoMakesVKeepsV', {
+      value: String(only.versions.next),
+      value2: String(only.versions.current),
+    })
   }
-  return '重做（產生新的一版，舊的保留）'
+  return t('canvas.redoMakesANewVersion')
 }
 
 /**
@@ -80,24 +88,37 @@ function okLabelOf(plan: CanvasRunPlan): string {
  * 沒有台詞（示範模式拆出來的鏡頭都沒有）就明說不會念，不說「自動加旁白」。
  */
 function soundLines(sound: NonNullable<CanvasRunPlan['sound']>): string[] {
-  const adds = [sound.narrationShots > 0 ? '旁白' : '', sound.music ? '配樂' : ''].filter(Boolean)
+  const adds = [
+    sound.narrationShots > 0 ? t('canvas.narration') : '',
+    sound.music ? t('canvas.music') : '',
+  ].filter(Boolean)
   if (sound.issue !== undefined) {
-    const what = [sound.narration ? '旁白' : '', sound.music ? '配樂' : ''].filter(Boolean)
-    return [`接好片之後想自動加${what.join('與')}，但現在加不成：${sound.issue}`]
+    const what = [
+      sound.narration ? t('canvas.narration') : '',
+      sound.music ? t('canvas.music') : '',
+    ].filter(Boolean)
+    return [
+      t('canvas.afterJoiningItShouldAdd', { value: what.join(t('list.and')), issue: sound.issue }),
+    ]
   }
   return [
     ...(adds.length > 0
-      ? [`接好片之後自動加${adds.join('與')}（約 US$${sound.usd.toFixed(2)}）`]
+      ? [
+          t('canvas.afterJoiningIsAddedAutomatically', {
+            value: adds.join(t('list.and')),
+            value2: sound.usd.toFixed(2),
+          }),
+        ]
       : []),
     ...(sound.narration && sound.narrationShots === 0
       ? [
           sound.dialogueShots === 0
-            ? '旁白：目前沒有鏡頭有台詞，所以不會念（有台詞的鏡頭才加旁白）'
-            : '旁白：有台詞的鏡頭都已經有旁白了',
+            ? t('canvas.narrationNoShotHasLines')
+            : t('canvas.narrationEveryShotWithLines'),
         ]
       : []),
     ...(sound.narrationShots > 0
-      ? [`旁白：${String(sound.narrationShots)} 個鏡頭有台詞，會念出來`]
+      ? [t('canvas.narrationShotsHaveLinesAnd', { value: String(sound.narrationShots) })]
       : []),
   ]
 }
@@ -107,17 +128,17 @@ export function runStepLines(plan: CanvasRunPlan): string[] {
   return [
     ...plan.steps.map((step) =>
       step.redo
-        ? `${step.label}（重做${
-            step.versions
-              ? `：產生 v${String(step.versions.next)}，保留 v${String(step.versions.current)}`
-              : ''
-          }）`
+        ? step.versions
+          ? t('canvas.redoWithVersions', {
+              label: step.label,
+              next: String(step.versions.next),
+              current: String(step.versions.current),
+            })
+          : t('canvas.redoLabel', { label: step.label })
         : step.label,
     ),
     ...(plan.joinSkipped
-      ? [
-          `其他 ${String(plan.joinSkipped)} 段還沒有影片，這次不會接成成品。影片都有了，再按「接成成品」`,
-        ]
+      ? [t('canvas.theOtherClipsHaveNo', { value: String(plan.joinSkipped) })]
       : []),
   ]
 }
@@ -128,9 +149,13 @@ export function runPinnedLines(plan: CanvasRunPlan): string[] {
     (name): name is string => name !== undefined,
   )
   return [
-    ...(models.length > 0 && plan.shotCount > 0 ? [`用：${models.join('、')}`] : []),
-    ...(plan.skippedBusy > 0 ? [`${String(plan.skippedBusy)} 個鏡頭正在生成，先略過`] : []),
-    ...(plan.demoMode && plan.shotCount > 0 ? ['示範模式：不會真的花錢，結果是假的'] : []),
+    ...(models.length > 0 && plan.shotCount > 0
+      ? [t('canvas.uses', { value: models.join(t('list.comma')) })]
+      : []),
+    ...(plan.skippedBusy > 0
+      ? [t('canvas.shotsAreBeingGeneratedSkipping', { value: String(plan.skippedBusy) })]
+      : []),
+    ...(plan.demoMode && plan.shotCount > 0 ? [t('canvas.demoModeNothingIsCharged')] : []),
   ]
 }
 
@@ -163,11 +188,11 @@ export function RunPlanConfirm({
       <RunConfirm
         anchor={anchor}
         count={1}
-        title={`接成成品 · ${String(plan.segments)} 段 · 免費（在本機處理）`}
+        title={t('canvas.joinIntoFilmClipsFree', { value: String(plan.segments) })}
         lines={[]}
         costUsd={0}
         free
-        okLabel="接成成品"
+        okLabel={t('canvas.joinIntoFilm')}
         onOk={onOk}
         onCancel={onCancel}
       />

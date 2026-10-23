@@ -5,6 +5,7 @@ import {
   type CanvasRunRequest,
   type CanvasRunResult,
   type CanvasRunStep,
+  t,
 } from '@svs/schema'
 
 import type { Logger } from '../logger'
@@ -130,10 +131,10 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
       const { items } = target
       const views = shots.list().shots
       if (items.length === 0 && !target.rejoin) {
-        return { ...emptyPlan(), ok: false, issue: '這裡沒有可以執行的鏡頭。' }
+        return { ...emptyPlan(), ok: false, issue: t('canvas.thereAreNoShotsTo') }
       }
       if (target.rejoin && views.length === 0) {
-        return { ...emptyPlan(), ok: false, issue: '還沒有鏡頭可以接。', rejoin: true }
+        return { ...emptyPlan(), ok: false, issue: t('canvas.thereAreNoShotsTo2'), rejoin: true }
       }
       const check = shots.planRun(items, request.quality)
       const videoIds = check.entries.filter((entry) => entry.video).map((entry) => entry.shot.id)
@@ -158,7 +159,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
       }
       for (const entry of check.entries) {
         const id = entry.shot.id
-        const no = `第 ${String(entry.shot.number)} 鏡`
+        const no = t('canvas.shot', { value: String(entry.shot.number) })
         const view = views.find((v) => v.id === id)
         const redoVersions = (kind: 'firstFrames' | 'videos') => {
           const versions = entry.redo && view ? versionsOf(view[kind]) : undefined
@@ -169,7 +170,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
           steps.push({
             key: `${shotKey(id)}:image`,
             kind: 'image',
-            label: `${no}：第一張畫面`,
+            label: t('canvas.firstFrame', { no }),
             redo: entry.redo,
             ...redoVersions('firstFrames'),
           })
@@ -179,7 +180,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
           steps.push({
             key: `${shotKey(id)}:video`,
             kind: 'video',
-            label: `${no}：影片`,
+            label: t('canvas.video', { no }),
             redo: entry.redo,
             ...redoVersions('videos'),
           })
@@ -191,7 +192,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         steps.push({
           key: 'cut',
           kind: 'cut',
-          label: `接成成品（${String(segments)} 段，在本機處理、免費）`,
+          label: t('canvas.joinIntoTheFilmClips', { value: String(segments) }),
           redo: false,
         })
         highlight.add('cut')
@@ -240,7 +241,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
           .then(() => shots.rejoin())
           .then(async () => {
             if (!soundWant || !runSound) {
-              notify({ tone: 'success', message: '成品接好了' })
+              notify({ tone: 'success', message: t('canvas.theFilmIsJoined') })
               return
             }
             const started = soundStartNotice(runSound.plan(soundWant))
@@ -251,7 +252,9 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
             log.warn(`畫布接片失敗：${String(error)}`)
             notify({
               tone: 'danger',
-              message: isAppError(error) ? error.userMessage : '接成成品失敗了，請再試一次。',
+              message: isAppError(error)
+                ? error.userMessage
+                : t('canvas.joiningTheFilmFailedPlease'),
             })
           })
       }

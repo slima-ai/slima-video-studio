@@ -1,21 +1,22 @@
 import type { CanvasNode } from './canvas-model'
+import { t, msg, type MessageRef } from '@svs/schema'
 
 /** 刪除後「復原」的提示停留多久：留 10 秒，讓人看得完後果、來得及按。 */
 export const DELETE_TOAST_MS = 10_000
 
 /** 刪除鈕滑過時的說明（能刪的）：說清楚刪的是什麼、有哪些會留著，以及可以復原。 */
-const DELETE_TIPS: Readonly<Partial<Record<CanvasNode['data']['kind'], string>>> = {
-  shot: '刪除這個鏡頭（連同它的圖和影片）。可以復原',
-  scene: '刪除這一場（裡面的鏡頭留著）。可以復原',
-  character: '刪除這個角色（出場的鏡頭會拿掉它）。可以復原',
-  location: '刪除這個地點（用到它的場和鏡頭會清空地點）。可以復原',
-  oneliner: '刪除這個一句話（它生出來的內容留著）。可以復原',
-  group: '刪除這個群組（框裡的格子留著）。可以復原',
-  image: '清掉採用中的版本（版本還在生成紀錄裡）。可以復原',
-  video: '清掉採用中的版本（版本還在生成紀錄裡）。可以復原',
+const DELETE_TIPS: Readonly<Partial<Record<CanvasNode['data']['kind'], MessageRef>>> = {
+  shot: msg('canvas.deleteThisShotWithIts'),
+  scene: msg('canvas.deleteThisSceneItsShots'),
+  character: msg('canvas.deleteThisCharacterShotsThat'),
+  location: msg('canvas.deleteThisLocationScenesAnd'),
+  oneliner: msg('canvas.deleteThisOneLinerWhat'),
+  group: msg('canvas.deleteThisGroupTheCells'),
+  image: msg('canvas.clearTheVersionInUse2'),
+  video: msg('canvas.clearTheVersionInUse2'),
 }
 export const deleteTip = (kind: CanvasNode['data']['kind']): string =>
-  DELETE_TIPS[kind] ?? '刪除這一格。可以復原'
+  t(DELETE_TIPS[kind] ?? msg('canvas.deleteThisCellCanBe'))
 
 /** 這次要刪的東西，和刪完要告訴使用者的後果（一行白話；提示旁有「復原」）。 */
 export interface DeletePlan {
@@ -46,22 +47,24 @@ const hasResult = (node: Pick<CanvasNode, 'data'>): boolean =>
 export function blockedReason(node: Pick<CanvasNode, 'data'>): string | undefined {
   const { kind } = node.data
   if (kind === 'cut') {
-    return '剪輯是由「場」自動長出來的，不能單獨刪；把所有場刪掉，它就會消失'
+    return t('canvas.theCutGrowsFromThe')
   }
   if (kind === 'step') {
-    return '這是鏡頭的步驟，不是獨立的格子；按鏡頭上的「收合步驟」把它收起來'
+    return t('canvas.thisIsAShotS')
   }
   if ((kind === 'image' || kind === 'video') && !hasResult(node)) {
-    return kind === 'image'
-      ? '這一鏡的第一張畫面還沒生成，沒有東西可以刪；整個鏡頭不要了，請刪鏡頭'
-      : '這一鏡的影片還沒生成，沒有東西可以刪；整個鏡頭不要了，請刪鏡頭'
+    return kind === 'image' ? t('canvas.thisShotSFirstFrame') : t('canvas.thisShotSVideoHasn')
   }
-  return DELETABLE.has(kind) || kind === 'image' || kind === 'video' ? undefined : '這一格不能刪'
+  return DELETABLE.has(kind) || kind === 'image' || kind === 'video'
+    ? undefined
+    : t('canvas.thisCellCanTBe4')
 }
 
 const nameOf = (node: CanvasNode): string => {
   const title = node.data.title
-  return title.includes('・') ? title.split('・').slice(1).join('・') || title : title
+  // 標題是「第 2 場・名字」（英文是「Scene 2 · Name」）：去掉前面的編號，留名字
+  const parts = title.split(/\s*[・·]\s*/u)
+  return parts.length > 1 ? parts.slice(1).join(t('list.dot')) || title : title
 }
 
 /**
@@ -112,48 +115,56 @@ export function planDelete(
   if (shots.length > 0) {
     parts.push(
       shots.length === 1
-        ? `已刪除${shots[0]?.data.title ?? '這個鏡頭'}，連同它的圖和影片版本`
-        : `已刪除 ${String(shots.length)} 個鏡頭，連同它們的圖和影片版本`,
+        ? t('canvas.deletedWithItsPictureAnd', {
+            value: shots[0]?.data.title ?? t('canvas.thisShotFallback'),
+          })
+        : t('canvas.deletedShotsWithTheirPicture', { value: String(shots.length) }),
     )
   }
   for (const scene of scenes) {
-    parts.push(
-      `已刪除「${nameOf(scene)}」這一場；裡面的鏡頭留著，但不屬於任何場（畫布上方可以一鍵歸進別的場）`,
-    )
+    parts.push(t('canvas.deletedTheSceneItsShots', { value: nameOf(scene) }))
   }
   for (const location of locations) {
-    parts.push(`已刪除地點「${location.data.title}」；指到它的場和鏡頭已清空地點`)
+    parts.push(t('canvas.deletedTheLocationScenesAnd', { title: location.data.title }))
   }
   for (const character of characters) {
-    parts.push(
-      `已刪除角色「${character.data.title}」；出場的鏡頭已拿掉這個角色，角色卡、概念圖、三視圖一起刪了`,
-    )
+    parts.push(t('canvas.deletedTheCharacterShotsDropped', { title: character.data.title }))
   }
   if (oneliners.length > 0) {
     parts.push(
       oneliners.length === 1
-        ? '已刪除一句話；它生出來的場、鏡頭、圖和影片都留著'
-        : `已刪除 ${String(oneliners.length)} 個一句話；它們生出來的內容都留著`,
+        ? t('canvas.deletedTheOneLinerThe')
+        : t('canvas.deletedOneLinersWhatThey', { value: String(oneliners.length) }),
     )
   }
   for (const group of groups) {
-    parts.push(`已刪除群組「${group.data.title}」；框裡的格子留著`)
+    parts.push(t('canvas.deletedTheGroupTheCells', { title: group.data.title }))
   }
   if (notes.length > 0) {
-    parts.push(notes.length === 1 ? '已刪除便條' : `已刪除 ${String(notes.length)} 張便條`)
+    parts.push(
+      notes.length === 1
+        ? t('canvas.deletedTheNote')
+        : t('canvas.deletedNotes', { value: String(notes.length) }),
+    )
   }
   for (const media of medias) {
-    parts.push(`已刪除${media.data.kind === 'freeVideo' ? '影片' : '圖片'}「${media.data.title}」`)
+    parts.push(
+      t('canvas.deleted', {
+        value: media.data.kind === 'freeVideo' ? t('canvas.video3') : t('canvas.picture2'),
+        title: media.data.title,
+      }),
+    )
   }
   for (const clear of clears) {
     const shot = nodes.find((n) => n.data.kind === 'shot' && n.data.shotId === clear.data.shotId)
     parts.push(
-      `已清掉${shot?.data.title ?? ''}${clear.data.kind === 'video' ? '的影片' : '的第一張畫面'}（採用中的版本，版本還在生成紀錄裡）`,
+      t(clear.data.kind === 'video' ? 'canvas.clearedVideo' : 'canvas.clearedFirstFrame', {
+        value: shot?.data.title ?? '',
+      }),
     )
   }
-  return { plan: { keys, message: parts.join('；') } }
+  return { plan: { keys, message: parts.join(t('list.semicolon')) } }
 }
 
 /** 固定的線（不能剪）的說明：選到它按 Delete、或按它的 × 時說的話。 */
-export const FIXED_EDGE_REASON =
-  '這條線是固定的（一句話→場、鏡頭→圖→影片、場→剪輯），不能剪；不要它，就刪它連著的格子'
+export const FIXED_EDGE_REASON = msg('canvas.thisLineIsFixedOne')

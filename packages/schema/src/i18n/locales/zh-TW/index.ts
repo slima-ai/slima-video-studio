@@ -9,6 +9,8 @@ import { shots } from './shots'
 import { settings } from './settings'
 import { chat } from './chat'
 import { claude } from './claude'
+import { list } from './list'
+import { canvas } from './canvas'
 // <i18n:imports>
 
 export const zhTW = {
@@ -22,5 +24,7 @@ export const zhTW = {
   ...settings,
   ...chat,
   ...claude,
+  ...list,
+  ...canvas,
   // <i18n:spread>
 } as const

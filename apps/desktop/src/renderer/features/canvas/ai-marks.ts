@@ -1,4 +1,5 @@
 import type { CanvasAiChanged } from '@svs/schema'
+import { t, msg, type MessageRef } from '@svs/schema'
 
 /**
  * AI 剛改了這些節點（canvas.aiChanged）：哪些要標「AI 剛改」。
@@ -32,14 +33,14 @@ const REPORTED_KINDS: ReadonlySet<string> = new Set([
 type Removed = CanvasAiChanged['removed'][number]
 
 /** 種類的名字（「3 個空的場景」「角色「阿鐵」」用）。 */
-const KIND_NAME: Readonly<Record<string, string>> = {
-  oneliner: '一句話',
-  scene: '場景',
-  shot: '鏡頭',
-  character: '角色',
-  location: '地點',
-  note: '便條',
-  group: '群組',
+const KIND_NAME: Readonly<Record<string, MessageRef>> = {
+  oneliner: msg('canvas.oneLiner'),
+  scene: msg('canvas.location2'),
+  shot: msg('canvas.shot2'),
+  character: msg('canvas.character'),
+  location: msg('canvas.location'),
+  note: msg('canvas.note'),
+  group: msg('canvas.group'),
 }
 
 /** 鏡頭描述最多帶幾個字進提示（讓人認得是哪一格）。 */
@@ -50,18 +51,18 @@ function nameOf(node: Removed, renumbered: boolean): string {
   if (node.kind === 'scene') {
     // 連著刪好幾次時，後面幾次的「第 N 場」是前面刪掉之後重新編的號，跟畫面上原本看到的不一樣：只留名字
     if (!renumbered) return node.title
-    const name = node.title.replace(/^第 \d+ 場・?/, '')
-    return name === '' ? '場景' : `場景「${name}」`
+    const name = node.title.replace(/^(?:第 \d+ 場|Scene \d+)(?:\s*[・·]\s*)?/u, '')
+    return name === '' ? t('canvas.location2') : t('canvas.location3', { name })
   }
   if (node.kind === 'shot') {
     const text = (node.summary ?? '').trim()
-    const label = renumbered ? '鏡頭' : node.title
+    const label = renumbered ? t('canvas.shot2') : node.title
     if (text === '') return label
     const chars = Array.from(text)
     const hint = chars.length > HINT_CHARS ? `${chars.slice(0, HINT_CHARS).join('')}…` : text
     return `${label}「${hint}」`
   }
-  const label = KIND_NAME[node.kind] ?? '圖片或影片'
+  const label = t(KIND_NAME[node.kind] ?? msg('canvas.pictureOrVideo'))
   return node.title === '' ? label : `${label}「${node.title}」`
 }
 
@@ -93,17 +94,23 @@ export function removedMessage(
     const names = named
       .slice(0, MAX_NAMES)
       .map((node) => nameOf(node, renumbered))
-      .join('、')
-    parts.push(named.length > MAX_NAMES ? `${names}等 ${String(named.length)} 個` : names)
+      .join(t('list.comma'))
+    parts.push(
+      named.length > MAX_NAMES
+        ? t('canvas.andInAll', { names, value: String(named.length) })
+        : names,
+    )
   }
   const counts = new Map<string, number>()
   for (const node of blanks) counts.set(node.kind, (counts.get(node.kind) ?? 0) + 1)
   for (const [kind, count] of counts) {
-    parts.push(`${String(count)} 個空的${KIND_NAME[kind] ?? '格子'}`)
+    parts.push(
+      t('canvas.empty', { value: String(count), value2: t(KIND_NAME[kind] ?? msg('canvas.cell')) }),
+    )
   }
-  const head = parts.join('、')
-  const tail = wholeTurn
-    ? '按「復原」可以找回來（這一輪 AI 做的其他改動也會一起退回）'
-    : '按「復原」可以找回來'
-  return `AI 刪了${/^\d/.test(head) ? ' ' : ''}${head}，${tail}`
+  const head = parts.join(t('list.comma'))
+  const tail = wholeTurn ? t('canvas.pressUndoToGetIt') : t('canvas.pressUndoToGetIt2')
+  return /^\d/.test(head)
+    ? t('canvas.aiDeleted', { head, tail })
+    : t('canvas.aiDeleted2', { head, tail })
 }

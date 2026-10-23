@@ -6,6 +6,7 @@ import { call, errorText } from '../../lib/svs'
 import type { CanvasNode } from './canvas-model'
 import { shiftAnchor, type ConfirmAnchor } from './run-confirm'
 import { runSummary } from './run-summary'
+import { t } from '@svs/schema'
 
 export interface RunPending {
   request: CanvasRunRequest
@@ -71,9 +72,9 @@ export function useRun(options: {
       call('canvas.runPlan', request)
         .then(async (plan) => {
           if (!plan.ok) {
-            toast.show({ message: plan.issue ?? '現在不能執行。', tone: 'danger' })
+            toast.show({ message: plan.issue ?? t('canvas.canTRunRightNow2'), tone: 'danger' })
           } else if (plan.steps.length === 0) {
-            toast.show({ message: '都已經生成好了，沒有要補跑的' })
+            toast.show({ message: t('canvas.everythingIsAlreadyGeneratedSo2') })
           } else {
             // 平移時格子上的 ▶ 也跟著動：面板貼到它現在的位置
             const moved = await beforeConfirm.current?.(plan, anchor)
@@ -97,7 +98,10 @@ export function useRun(options: {
           const [first] = result.failed
           if (first) {
             toast.show({
-              message: `第 ${String(first.number)} 鏡沒辦法開始：${first.error}`,
+              message: t('canvas.shotCouldnTStart', {
+                value: String(first.number),
+                error: first.error,
+              }),
               tone: 'danger',
             })
             return
@@ -113,7 +117,7 @@ export function useRun(options: {
             started: new Set(),
             finished: new Set(),
           })
-          toast.show({ key: 'run', message: `開始生成：${summary}` })
+          toast.show({ key: 'run', message: t('canvas.starting', { summary }) })
         })
         .catch((error: unknown) => {
           toast.show({ message: errorText(error), tone: 'danger' })
@@ -153,9 +157,9 @@ export function useRun(options: {
           ? {
               key: 'run',
               tone: 'danger',
-              message: `有 ${String(failed)} 步沒有成功：在那一格按「重試」`,
+              message: t('canvas.stepsDidnTSucceedPress', { value: String(failed) }),
             }
-          : { key: 'run', message: `完成：${active.summary}` },
+          : { key: 'run', message: t('canvas.done2', { summary: active.summary }) },
       )
       return
     }
@@ -172,7 +176,7 @@ export function useRun(options: {
     for (const shotId of current.shotIds) {
       call('shots.cancel', { shotId }).catch(() => undefined)
     }
-    toast.show({ key: 'run', message: '已經停止，做好的部分留著' })
+    toast.show({ key: 'run', message: t('canvas.stoppedWhatSDoneIs') })
   }, [active, toast])
 
   const cancel = useCallback((): void => {

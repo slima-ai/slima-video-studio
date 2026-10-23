@@ -4,15 +4,18 @@ import { useState } from 'react'
 import { isMac } from '../../lib/history'
 import type { GrowConfirm as Pending } from './use-grow'
 import { RunConfirm } from './run-confirm'
+import { t } from '@svs/schema'
 
 /** 完成後自動加的旁白與配樂（照卡片上勾的）；花費已經算進預估。 */
 function soundLines(sound: OnelinerParams['sound']): string[] {
   if (!sound) return []
   const parts = [
-    ...(sound.narration ? ['旁白（念有台詞的鏡頭）'] : []),
-    ...(sound.music ? ['一首配樂'] : []),
+    ...(sound.narration ? [t('canvas.narrationReadsTheShotsThat')] : []),
+    ...(sound.music ? [t('canvas.aPieceOfMusic')] : []),
   ]
-  return parts.length === 0 ? [] : [`接好之後加${parts.join('、')}，花費已算進預估`]
+  return parts.length === 0
+    ? []
+    : [t('canvas.afterJoiningAddsTheCost', { value: parts.join(t('list.comma')) })]
 }
 
 /**
@@ -42,26 +45,35 @@ export function GrowConfirm({
       count={storyboard ? 1 : 1 + n * 3}
       title={
         replace
-          ? '刪掉現有內容，重新' + (storyboard ? '產生分鏡' : '生成')
+          ? storyboard
+            ? t('canvas.deleteWhatSThereAnd')
+            : t('canvas.deleteWhatSThereAnd2')
           : storyboard
-            ? '先產生分鏡'
-            : '一次做完整支短片'
+            ? t('canvas.writeTheStoryboardFirst')
+            : t('canvas.makeTheWholeFilmIn')
       }
       lines={
         storyboard
           ? [
-              `這一步只寫分鏡：把故事拆成 ${String(n)} 個鏡頭，約 US$${check.estimatedUsd.toFixed(2)}（只用文字模型）`,
+              t('canvas.thisStepOnlyWritesThe', {
+                value: String(n),
+                value2: check.estimatedUsd.toFixed(2),
+              }),
               pending.nextUsd === undefined
-                ? '下一步才生圖片和影片'
-                : `下一步才生圖片和影片：${String(n)} 張第一張畫面、${String(n)} 支影片，約 US$${pending.nextUsd.toFixed(2)}（跟拆完後右上角的數字會差一點點）`,
-              '分鏡寫好後你可以先看、先改，要生成時再按右上角的「全部生成」，那裡會給準確的預估',
-              '旁白與配樂也不在這一步：卡片上勾的聲音會記住，按「全部生成」時自動加',
+                ? t('canvas.theNextStepMakesPictures')
+                : t('canvas.theNextStepMakesPictures2', {
+                    value: String(n),
+                    value2: String(n),
+                    value3: pending.nextUsd.toFixed(2),
+                  }),
+              t('canvas.onceTheStoryboardIsWritten'),
+              t('canvas.narrationAndMusicArenT'),
             ]
           : [
-              `寫分鏡：拆成 ${String(n)} 個鏡頭`,
-              `${String(n)} 張第一張畫面`,
-              `${String(n)} 支影片（每支 ${String(params.durationSec)} 秒）`,
-              '接成一支完整的片子',
+              t('canvas.writeTheStoryboardSplitInto', { value: String(n) }),
+              t('canvas.firstFrames', { value: String(n) }),
+              t('canvas.videosSecEach', { value: String(n), value2: String(params.durationSec) }),
+              t('canvas.joinThemIntoOneComplete'),
               ...soundLines(params.sound),
             ]
       }
@@ -69,18 +81,28 @@ export function GrowConfirm({
       pinnedLines={
         storyboard
           ? [
-              ...(check.models.llm === undefined ? [] : [`這一步用：${check.models.llm}`]),
-              ...(check.demoMode ? ['示範模式：不會真的花錢，結果是假的'] : []),
+              ...(check.models.llm === undefined
+                ? []
+                : [t('canvas.thisStepUses', { llm: check.models.llm })]),
+              ...(check.demoMode ? [t('canvas.demoModeNothingIsCharged')] : []),
             ]
           : [
-              ...(models.length > 0 ? [`用：${models.join('、')}`] : []),
-              ...(check.demoMode ? ['示範模式：不會真的花錢，結果是假的'] : []),
+              ...(models.length > 0
+                ? [t('canvas.uses', { value: models.join(t('list.comma')) })]
+                : []),
+              ...(check.demoMode ? [t('canvas.demoModeNothingIsCharged')] : []),
             ]
       }
       costUsd={check.estimatedUsd}
       lowerBound={check.estimateIsLowerBound}
-      {...(storyboard ? { costLabel: '這一步預估約', cachedNote: false } : {})}
-      okLabel={replace ? '刪掉並生成' : storyboard ? '產生分鏡' : '全部做完'}
+      {...(storyboard ? { costLabel: t('canvas.thisStepIsAbout'), cachedNote: false } : {})}
+      okLabel={
+        replace
+          ? t('canvas.deleteAndGenerate')
+          : storyboard
+            ? t('canvas.writeStoryboard')
+            : t('canvas.doItAll')
+      }
       danger={replace}
       extra={
         pending.hasContent ? (
@@ -96,11 +118,9 @@ export function GrowConfirm({
                 }}
               />
               <span>
-                刪掉現有的內容，重新生成
+                {t('canvas.deleteWhatSThereAnd3')}
                 {replace ? null : (
-                  <small className="block text-fg-muted">
-                    不勾：新的鏡頭放進新的一場，接在現有內容後面，原本的都不動。
-                  </small>
+                  <small className="block text-fg-muted">{t('canvas.untickedTheNewShotsGo')}</small>
                 )}
               </span>
             </label>
@@ -110,15 +130,14 @@ export function GrowConfirm({
                 className="rounded-lg border border-danger/50 bg-danger/10 px-3 py-2 text-fg"
               >
                 <p className="font-semibold text-danger">
-                  會刪掉 {String(pending.existing.scenes)} 個場、
-                  {String(pending.existing.shots)} 個鏡頭
+                  {t('canvas.thisWillDeleteScenesAnd', {
+                    value: String(pending.existing.scenes),
+                    value2: String(pending.existing.shots),
+                  })}
                 </p>
+                <p className="mt-0.5 text-fg-muted">{t('canvas.theirPicturesVideosAndOutline')}</p>
                 <p className="mt-0.5 text-fg-muted">
-                  連同它們的圖、影片和大綱一起刪掉；角色和地點會留著。
-                </p>
-                <p className="mt-0.5 text-fg-muted">
-                  生成後想回到原本的樣子：按上方的「復原」（{isMac() ? '⌘Z' : 'Ctrl+Z'}
-                  ），刪掉的內容會全部回來。
+                  {t('canvas.toGoBackToHow', { value: isMac() ? '⌘Z' : 'Ctrl+Z' })}
                 </p>
               </div>
             ) : null}

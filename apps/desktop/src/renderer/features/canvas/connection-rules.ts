@@ -1,6 +1,7 @@
 import type { Connection } from '@xyflow/react'
 
 import { portOf, type CanvasEdge, type CanvasNode, type EdgeTone, type Graph } from './canvas-model'
+import { t, msg, type MessageRef } from '@svs/schema'
 
 /** 剪輯的輸入槽 id 是 `cut-slot-<n>`，規則上算同一種。 */
 export const portKind = (portId: string): string =>
@@ -25,16 +26,16 @@ const SINGLE = new Set(['img-in', 'img-first', 'vid-in', 'cut-slot', 'shot-ref-l
 const REPLACEABLE = new Set(['img-first', 'shot-ref-loc', 'scene-loc'])
 
 /** 接錯時游標旁的一行白話提示（依輸出點）。 */
-const WRONG_TARGET: Readonly<Record<string, string>> = {
-  'story-out': '一句話只能接到場',
-  'char-out': '角色只能接到鏡頭',
-  'loc-out': '地點只能接到場或鏡頭',
-  'shot-out': '鏡頭只能接到它的圖',
-  'img-out': '圖只能接到影片',
-  'scene-out': '場只能接到剪輯',
-  'free-img-out': '圖片可以接到鏡頭的「第一張畫面」，或角色、地點的「參考圖」',
-  'free-vid-out': '影片還不能接到別的格子',
-  'cut-out': '剪輯是最後一步，沒有地方可以接',
+const WRONG_TARGET: Readonly<Record<string, MessageRef>> = {
+  'story-out': msg('canvas.aOneLinerCanOnly'),
+  'char-out': msg('canvas.aCharacterCanOnlyConnect'),
+  'loc-out': msg('canvas.aLocationCanOnlyConnect'),
+  'shot-out': msg('canvas.aShotCanOnlyConnect'),
+  'img-out': msg('canvas.aPictureCanOnlyConnect'),
+  'scene-out': msg('canvas.aSceneCanOnlyConnect'),
+  'free-img-out': msg('canvas.aPictureCanConnectTo2'),
+  'free-vid-out': msg('canvas.aVideoCanTConnect2'),
+  'cut-out': msg('canvas.theCutIsTheLast'),
 }
 
 /** 連得起來就回 undefined；連不起來回一行提示。 */
@@ -49,33 +50,36 @@ export function explainConnection(
   options: { replace?: boolean } = {},
 ): string | undefined {
   const { source, target, sourceHandle, targetHandle } = connection
-  if (source === target) return '不能接到自己'
+  if (source === target) return t('canvas.canTConnectToItself')
   const from = graph.nodes.find((n) => n.id === source)
   const to = graph.nodes.find((n) => n.id === target)
   const out = portOf(from, sourceHandle)
   const into = portOf(to, targetHandle)
   if (!from || !to || !out || !into || out.side !== 'out' || into.side !== 'in') {
-    return '這裡接不起來'
+    return t('canvas.canTConnectHere')
   }
   const outKind = portKind(out.id)
   const inKind = portKind(into.id)
   if (!(TARGETS[outKind] ?? []).includes(inKind)) {
-    return WRONG_TARGET[outKind] ?? '這裡接不起來'
+    return t(WRONG_TARGET[outKind] ?? msg('canvas.canTConnectHere'))
   }
   if (outKind === 'shot-out' && from.data.shotId !== to.data.shotId) {
-    return '這個鏡頭的圖在它旁邊'
+    return t('canvas.thisShotSPicturesAre')
   }
   const taken = graph.edges.filter((e) => e.target === target && e.targetHandle === into.id)
   if (taken.some((e) => e.source === source && e.sourceHandle === out.id)) {
-    return outKind === 'char-out' ? `${from.data.title}已經在這一鏡` : '這兩個已經接在一起了'
+    return outKind === 'char-out'
+      ? t('canvas.isAlreadyInThisShot2', { title: from.data.title })
+      : t('canvas.theseTwoAreAlreadyConnected2')
   }
   if (SINGLE.has(inKind) && taken.length > 0) {
     // 新拉的線取代原本那條（改接一條已經存在的線時不行：要先剪掉目標上原本的）
     if (REPLACEABLE.has(inKind) && options.replace !== false) return undefined
-    if (inKind === 'cut-slot') return '這一場已經接在剪輯上了'
-    if (inKind === 'img-first') return '這張圖已經有第一張畫面了'
-    if (inKind === 'shot-ref-loc' || inKind === 'scene-loc') return '這裡已經有地點了'
-    return '這裡已經接了一條線'
+    if (inKind === 'cut-slot') return t('canvas.thisSceneIsAlreadyConnected')
+    if (inKind === 'img-first') return t('canvas.thisPictureAlreadyHasA')
+    if (inKind === 'shot-ref-loc' || inKind === 'scene-loc')
+      return t('canvas.thereSAlreadyALocation')
+    return t('canvas.thereSAlreadyALine')
   }
   return undefined
 }
@@ -105,7 +109,7 @@ export function explainLink(
   const into = portOf(to, connection.targetHandle)
   return out && into && LINKABLE.has(`${portKind(out.id)}>${portKind(into.id)}`)
     ? undefined
-    : '這兩個不用手動接，它們會自己連在一起'
+    : t('canvas.theseTwoDonTNeed')
 }
 
 /** 新拉的線會取代掉的那條線（接進單線輸入點、而且那裡已經有一條）；沒有就是 undefined。 */

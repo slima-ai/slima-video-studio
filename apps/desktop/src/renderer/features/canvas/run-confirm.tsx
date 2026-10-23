@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from '
 
 import { Button } from '../../components/button'
 import { useSuspendToasts } from '../../components/toast'
+import { t } from '@svs/schema'
 
 /** 確認面板貼在哪個按鈕旁邊（畫面座標）：按鈕的左右上下緣。 */
 export interface ConfirmAnchor {
@@ -161,7 +162,7 @@ function StepList({ lines }: { lines: readonly string[] }) {
             className="pointer-events-none absolute inset-x-0 bottom-5 h-6 bg-gradient-to-t from-surface-raised to-transparent"
           />
           <p className="pt-1 text-xs text-fg-muted" data-testid="run-confirm-more">
-            ↓ 往下還有，捲動看全部
+            {t('canvas.thereSMoreBelowScroll')}
           </p>
         </>
       ) : null}
@@ -182,10 +183,10 @@ export function RunConfirm({
   costUsd,
   lowerBound = false,
   title,
-  okLabel = '執行',
+  okLabel = t('canvas.run'),
   danger = false,
   cachedNote = true,
-  costLabel = '預估約',
+  costLabel = t('canvas.about'),
   extra,
   free = false,
   onOk,
@@ -264,7 +265,7 @@ export function RunConfirm({
   return (
     <section
       role="dialog"
-      aria-label="執行確認"
+      aria-label={t('canvas.confirmRun')}
       data-testid="run-confirm"
       ref={panelRef}
       data-placed={at !== undefined}
@@ -276,7 +277,9 @@ export function RunConfirm({
         ...(at ? {} : { opacity: 0 }),
       }}
     >
-      <h2 className="text-base font-semibold">{title ?? `這次會做 ${String(count)} 步`}</h2>
+      <h2 className="text-base font-semibold">
+        {title ?? t('canvas.thisWillDoSteps', { value: String(count) })}
+      </h2>
       {lines.length > 0 ? <StepList lines={lines} /> : null}
       {/* 用哪個模型、示範模式的說明：永遠在捲動區外面看得到（真實模式這行是「用什麼、多少錢」的一半） */}
       {pinnedLines.length > 0 ? (
@@ -293,13 +296,13 @@ export function RunConfirm({
       {free ? null : (
         <p className="text-sm">
           {costLabel} <b className="font-semibold">US${costUsd.toFixed(2)}</b>
-          {lowerBound ? '（至少，實際可能更多）' : ''}
-          {cachedNote ? '（已經有結果的不會重跑）' : ''}
+          {lowerBound ? t('canvas.atLeastTheRealCost') : ''}
+          {cachedNote ? t('canvas.anythingThatAlreadyHasA') : ''}
         </p>
       )}
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onCancel}>
-          取消
+          {t('canvas.cancel')}
         </Button>
         <Button
           ref={okRef}

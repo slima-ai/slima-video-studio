@@ -1,5 +1,6 @@
-import type { CanvasGroupColor, CanvasStep, OnelinerParams } from '@svs/schema'
+import type { CanvasGroupColor, CanvasStep, MessageRef, OnelinerParams } from '@svs/schema'
 import type { Edge, Node } from '@xyflow/react'
+import { getLocale, t, msg } from '@svs/schema'
 
 /** 畫布上的節點種類（手感雛形用；M6-7 起改成由 `canvas.get` 投影而來）。 */
 export type NodeKind =
@@ -163,29 +164,29 @@ export const KIND_COLOR: Readonly<Record<NodeKind, string>> = {
 }
 
 /** 自訂群組的 6 種顏色。 */
-export const GROUP_COLOR: Readonly<Record<CanvasGroupColor, { hex: string; label: string }>> = {
-  slate: { hex: '#64748b', label: '灰' },
-  blue: { hex: '#3b82f6', label: '藍' },
-  green: { hex: '#22c55e', label: '綠' },
-  amber: { hex: '#f59e0b', label: '黃' },
-  rose: { hex: '#f43f5e', label: '紅' },
-  violet: { hex: '#8b5cf6', label: '紫' },
+export const GROUP_COLOR: Readonly<Record<CanvasGroupColor, { hex: string; label: MessageRef }>> = {
+  slate: { hex: '#64748b', label: msg('canvas.gray') },
+  blue: { hex: '#3b82f6', label: msg('canvas.blue') },
+  green: { hex: '#22c55e', label: msg('canvas.green') },
+  amber: { hex: '#f59e0b', label: msg('canvas.yellow') },
+  rose: { hex: '#f43f5e', label: msg('canvas.red') },
+  violet: { hex: '#8b5cf6', label: msg('canvas.purple') },
 }
 
-export const KIND_LABEL: Readonly<Record<NodeKind, string>> = {
-  oneliner: '一句話',
-  scene: '場',
-  shot: '鏡頭',
-  image: '第一張畫面',
-  video: '影片',
-  cut: '剪輯',
-  character: '角色',
-  location: '地點',
-  freeImage: '圖片',
-  freeVideo: '影片',
-  note: '便條',
-  group: '群組',
-  step: '步驟',
+export const KIND_LABEL: Readonly<Record<NodeKind, MessageRef>> = {
+  oneliner: msg('canvas.oneLiner'),
+  scene: msg('canvas.scene'),
+  shot: msg('canvas.shot2'),
+  image: msg('canvas.firstFrame3'),
+  video: msg('canvas.video3'),
+  cut: msg('canvas.cut'),
+  character: msg('canvas.character'),
+  location: msg('canvas.location'),
+  freeImage: msg('canvas.picture2'),
+  freeVideo: msg('canvas.video3'),
+  note: msg('canvas.note'),
+  group: msg('canvas.group'),
+  step: msg('canvas.steps'),
 }
 
 /** 連接點傳的東西是什麼（決定圓點與「吃／出」小標的顏色）。 */
@@ -219,54 +220,166 @@ export const SCENE_PAD = { x: 24, top: 44, bottom: 24 } as const
 export const ROW_PITCH = 256
 export const COL_X = { shot: 0, image: 285, video: 570 } as const
 
-const PORTS: Readonly<Record<Exclude<NodeKind, 'cut'>, readonly PortDef[]>> = {
-  oneliner: [{ id: 'story-out', side: 'out', tone: 'main', type: 'story', label: '故事', top: 96 }],
+/** 連接點的定義（名字用 msg() 標記，要用的時候才翻：`portsOf` 會依目前語言換成 `PortDef`）。 */
+type PortSpec = Omit<PortDef, 'label' | 'short'> & { label: MessageRef; short?: MessageRef }
+
+const PORTS: Readonly<Record<Exclude<NodeKind, 'cut'>, readonly PortSpec[]>> = {
+  oneliner: [
+    {
+      id: 'story-out',
+      side: 'out',
+      tone: 'main',
+      type: 'story',
+      label: msg('canvas.story'),
+      top: 96,
+    },
+  ],
   scene: [
-    { id: 'scene-story', side: 'in', tone: 'main', type: 'story', label: '故事', top: 28 },
-    { id: 'scene-loc', side: 'in', tone: 'ref', type: 'ref', label: '地點', top: 56 },
-    { id: 'scene-out', side: 'out', tone: 'main', type: 'video', label: '這場的片段', top: 28 },
+    {
+      id: 'scene-story',
+      side: 'in',
+      tone: 'main',
+      type: 'story',
+      label: msg('canvas.story'),
+      top: 28,
+    },
+    {
+      id: 'scene-loc',
+      side: 'in',
+      tone: 'ref',
+      type: 'ref',
+      label: msg('canvas.location'),
+      top: 56,
+    },
+    {
+      id: 'scene-out',
+      side: 'out',
+      tone: 'main',
+      type: 'video',
+      label: msg('canvas.thisSceneSClips'),
+      top: 28,
+    },
   ],
   shot: [
-    { id: 'shot-ref-char', side: 'in', tone: 'ref', type: 'ref', label: '角色', top: 100 },
-    { id: 'shot-ref-loc', side: 'in', tone: 'ref', type: 'ref', label: '地點', top: 124 },
-    { id: 'shot-out', side: 'out', tone: 'main', type: 'shot', label: '畫面描述', top: 70 },
+    {
+      id: 'shot-ref-char',
+      side: 'in',
+      tone: 'ref',
+      type: 'ref',
+      label: msg('canvas.character'),
+      top: 100,
+    },
+    {
+      id: 'shot-ref-loc',
+      side: 'in',
+      tone: 'ref',
+      type: 'ref',
+      label: msg('canvas.location'),
+      top: 124,
+    },
+    {
+      id: 'shot-out',
+      side: 'out',
+      tone: 'main',
+      type: 'shot',
+      label: msg('canvas.shotDescription'),
+      top: 70,
+    },
   ],
   image: [
-    { id: 'img-in', side: 'in', tone: 'main', type: 'shot', label: '鏡頭', top: 70 },
+    { id: 'img-in', side: 'in', tone: 'main', type: 'shot', label: msg('canvas.shot2'), top: 70 },
     {
       id: 'img-first',
       side: 'in',
       tone: 'main',
       type: 'image',
-      label: '第一張畫面',
-      short: '現成圖',
+      label: msg('canvas.firstFrame3'),
+      short: msg('canvas.readyMadePicture'),
       top: 100,
     },
-    { id: 'img-ref', side: 'in', tone: 'ref', type: 'ref', label: '參考圖', top: 130 },
+    {
+      id: 'img-ref',
+      side: 'in',
+      tone: 'ref',
+      type: 'ref',
+      label: msg('canvas.referencePictures'),
+      top: 130,
+    },
     {
       id: 'img-out',
       side: 'out',
       tone: 'main',
       type: 'image',
-      label: '第一張畫面',
-      short: '圖',
+      label: msg('canvas.firstFrame3'),
+      short: msg('canvas.picture'),
       top: 70,
     },
   ],
-  video: [{ id: 'vid-in', side: 'in', tone: 'main', type: 'image', label: '第一張畫面', top: 70 }],
+  video: [
+    {
+      id: 'vid-in',
+      side: 'in',
+      tone: 'main',
+      type: 'image',
+      label: msg('canvas.firstFrame3'),
+      top: 70,
+    },
+  ],
   character: [
-    { id: 'char-ref', side: 'in', tone: 'ref', type: 'ref', label: '參考圖', top: 70 },
-    { id: 'char-out', side: 'out', tone: 'ref', type: 'ref', label: '角色', top: 70 },
+    {
+      id: 'char-ref',
+      side: 'in',
+      tone: 'ref',
+      type: 'ref',
+      label: msg('canvas.referencePictures'),
+      top: 70,
+    },
+    {
+      id: 'char-out',
+      side: 'out',
+      tone: 'ref',
+      type: 'ref',
+      label: msg('canvas.character'),
+      top: 70,
+    },
   ],
   location: [
-    { id: 'loc-ref', side: 'in', tone: 'ref', type: 'ref', label: '參考圖', top: 70 },
-    { id: 'loc-out', side: 'out', tone: 'ref', type: 'ref', label: '地點', top: 70 },
+    {
+      id: 'loc-ref',
+      side: 'in',
+      tone: 'ref',
+      type: 'ref',
+      label: msg('canvas.referencePictures'),
+      top: 70,
+    },
+    {
+      id: 'loc-out',
+      side: 'out',
+      tone: 'ref',
+      type: 'ref',
+      label: msg('canvas.location'),
+      top: 70,
+    },
   ],
   freeImage: [
-    { id: 'free-img-out', side: 'out', tone: 'main', type: 'image', label: '圖', top: 70 },
+    {
+      id: 'free-img-out',
+      side: 'out',
+      tone: 'main',
+      type: 'image',
+      label: msg('canvas.picture'),
+      top: 70,
+    },
   ],
   freeVideo: [
-    { id: 'free-vid-out', side: 'out', tone: 'main', type: 'video', label: '影片', top: 70 },
+    {
+      id: 'free-vid-out',
+      side: 'out',
+      tone: 'main',
+      type: 'video',
+      label: msg('canvas.video3'),
+      top: 70,
+    },
   ],
   note: [],
   group: [],
@@ -274,8 +387,30 @@ const PORTS: Readonly<Record<Exclude<NodeKind, 'cut'>, readonly PortDef[]>> = {
   step: [],
 }
 
+const PORT_CACHE = new Map<string, Map<string, readonly PortDef[]>>()
+
+/** 換成目前語言的連接點（每種語言只算一次，所以同一種格子每次拿到的是同一份）。 */
+function resolvedPorts(kind: Exclude<NodeKind, 'cut'>): readonly PortDef[] {
+  const locale = getLocale()
+  let byKind = PORT_CACHE.get(locale)
+  if (!byKind) {
+    byKind = new Map()
+    PORT_CACHE.set(locale, byKind)
+  }
+  let ports = byKind.get(kind)
+  if (!ports) {
+    ports = PORTS[kind].map(({ label, short, ...rest }): PortDef => ({
+      ...rest,
+      label: t(label),
+      ...(short === undefined ? {} : { short: t(short) }),
+    }))
+    byKind.set(kind, ports)
+  }
+  return ports
+}
+
 export function portsOf(data: CanvasNodeData): readonly PortDef[] {
-  if (data.kind !== 'cut') return PORTS[data.kind]
+  if (data.kind !== 'cut') return resolvedPorts(data.kind)
   const slots = data.slots ?? []
   return [
     ...slots.map((slot, index): PortDef => ({
@@ -286,7 +421,14 @@ export function portsOf(data: CanvasNodeData): readonly PortDef[] {
       label: slot.label,
       top: cutSlotTop(index),
     })),
-    { id: 'cut-out', side: 'out', tone: 'main', type: 'cut', label: '成品', top: cutSlotTop(0) },
+    {
+      id: 'cut-out',
+      side: 'out',
+      tone: 'main',
+      type: 'cut',
+      label: t('canvas.film'),
+      top: cutSlotTop(0),
+    },
   ]
 }
 

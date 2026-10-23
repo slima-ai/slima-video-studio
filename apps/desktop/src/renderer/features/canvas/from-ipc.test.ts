@@ -1,4 +1,4 @@
-import type { CanvasGraph, CanvasNode } from '@svs/schema'
+import { t, type CanvasGraph, type CanvasNode } from '@svs/schema'
 import { describe, expect, it } from 'vitest'
 
 import { LETTERBOX_NOTE, toFlowGraph } from './from-ipc'
@@ -292,9 +292,9 @@ describe('首幀自動裁掉黑邊的提示', () => {
     const trimmed = toFlowGraph(image(true)).nodes[0]?.data
     expect(trimmed?.usageText).toContain('已自動裁掉黑邊')
     expect(trimmed?.usageText).toContain('US$0.14')
-    expect(trimmed?.usageNote).toBe(LETTERBOX_NOTE)
-    expect(LETTERBOX_NOTE).toContain('畫質可能較差')
-    expect(LETTERBOX_NOTE).toContain('重新生成')
+    expect(trimmed?.usageNote).toBe(t(LETTERBOX_NOTE))
+    expect(t(LETTERBOX_NOTE)).toContain('畫質可能較差')
+    expect(t(LETTERBOX_NOTE)).toContain('重新生成')
     const plain = toFlowGraph(image(false)).nodes[0]?.data
     expect(plain?.usageText).not.toContain('裁掉黑邊')
     expect(plain?.usageNote).toBeUndefined()

@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 
 import type { NodeKind } from './canvas-model'
 import { KindIcon } from './kind-icon'
+import { t } from '@svs/schema'
 
 /** 面板寬度與離畫布邊緣的距離（uiux-spec §12.12：384px，右、上、下各 12px）。 */
 export const FLOAT_PANEL = { width: 384, inset: 12 } as const
@@ -117,7 +118,7 @@ export function FloatingPanel({
         </h2>
         <button
           type="button"
-          aria-label="關閉"
+          aria-label={t('canvas.close2')}
           data-testid="canvas-panel-close"
           className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-overlay hover:text-fg"
           onClick={onClose}
@@ -126,11 +127,15 @@ export function FloatingPanel({
         </button>
       </header>
       {view.tabs ? (
-        <div role="tablist" aria-label="面板分頁" className="flex shrink-0 gap-1 px-4 pt-2">
+        <div
+          role="tablist"
+          aria-label={t('canvas.panelTabs')}
+          className="flex shrink-0 gap-1 px-4 pt-2"
+        >
           {(
             [
-              ['edit', '編輯'],
-              ['trial', '試跑'],
+              ['edit', t('canvas.edit')],
+              ['trial', t('canvas.trialRun')],
             ] as const
           ).map(([id, label]) => (
             <button
