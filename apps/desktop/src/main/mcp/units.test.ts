@@ -45,9 +45,18 @@ describe('連線 token', () => {
 describe('AI 工具額度', () => {
   const make = (opts: { allowance: number; demo?: boolean }) => {
     const file = join(tmp(), 'committed.json')
-    const state = { allowance: opts.allowance, demo: opts.demo ?? false }
+    const state = {
+      allowance: opts.allowance,
+      demo: opts.demo ?? false,
+      spend: { dir: '/project-a', spentUsd: 0 } as { dir: string; spentUsd: number } | undefined,
+    }
     const build = () =>
-      createAllowance({ file, allowanceUsd: () => state.allowance, demoMode: () => state.demo })
+      createAllowance({
+        file,
+        allowanceUsd: () => state.allowance,
+        demoMode: () => state.demo,
+        spend: () => state.spend,
+      })
     return { build, state, file }
   }
 
@@ -69,6 +78,58 @@ describe('AI 工具額度', () => {
     expect(a.status()).toEqual({ allowanceUsd: 1, committedUsd: 0.4, remainingUsd: 0.6 })
     expect(a.reserve(0.6)).toMatchObject({ ok: true })
     expect(a.status().remainingUsd).toBe(0)
+  })
+
+  it('做完以後預留改成實際花的，多預留的退回；實際比預留多也只算到預留', () => {
+    const { build, state } = make({ allowance: 1 })
+    const a = build()
+    a.reserve(0.5)
+    state.spend = { dir: '/project-a', spentUsd: 0.2 }
+    expect(a.settle()).toBeCloseTo(0.3)
+    expect(a.status().committedUsd).toBeCloseTo(0.2)
+    expect(a.hasOpen()).toBe(false)
+    a.reserve(0.1)
+    state.spend = { dir: '/project-a', spentUsd: 0.9 }
+    expect(a.settle()).toBe(0)
+    expect(a.status().committedUsd).toBeCloseTo(0.3)
+  })
+
+  it('兩次預留接在一起結算：起點取最早的那次，退回的是總預留減實際', () => {
+    const { build, state } = make({ allowance: 2 })
+    const a = build()
+    a.reserve(0.5)
+    state.spend = { dir: '/project-a', spentUsd: 0.1 }
+    a.reserve(0.5)
+    state.spend = { dir: '/project-a', spentUsd: 0.4 }
+    expect(a.settle()).toBeCloseTo(0.6)
+    expect(a.status().committedUsd).toBeCloseTo(0.4)
+  })
+
+  it('專案換了或讀不到專案就不退（算不出這一段花了多少）；沒預留就沒什麼好結算', () => {
+    const { build, state } = make({ allowance: 1 })
+    const a = build()
+    expect(a.settle()).toBe(0)
+    a.reserve(0.5)
+    state.spend = { dir: '/project-b', spentUsd: 0 }
+    expect(a.settle()).toBe(0)
+    expect(a.status().committedUsd).toBe(0.5)
+    state.spend = undefined
+    a.reserve(0.2)
+    state.spend = { dir: '/project-a', spentUsd: 0 }
+    expect(a.settle()).toBe(0)
+    expect(a.status().committedUsd).toBe(0.7)
+  })
+
+  it('還沒結算的預留存在檔案裡，重開 App 後照樣能結算；歸零連同它一起清掉', () => {
+    const { build, state } = make({ allowance: 1 })
+    build().reserve(0.5)
+    state.spend = { dir: '/project-a', spentUsd: 0.1 }
+    const reopened = build()
+    expect(reopened.hasOpen()).toBe(true)
+    expect(reopened.settle()).toBeCloseTo(0.4)
+    reopened.reserve(0.3)
+    reopened.reset()
+    expect(build().hasOpen()).toBe(false)
   })
 
   it('已預留的金額存在檔案裡，重開後還在；人按歸零才重新算；額度由人（設定）調整', () => {

@@ -3,7 +3,7 @@ import type { ToolContext } from './define'
 
 /**
  * 文字模型是推理模型時，實際費用常是預估的好幾倍（輸出 token 含推理）。預留時乘上這個係數，
- * 寧可多預留一點（預留的金額不退回，由人在設定頁歸零）。
+ * 寧可多預留一點；做完之後會改成實際花的，多預留的部分退回（見 settleAllowance）。
  */
 export const TEXT_RESERVE_FACTOR = 2
 
@@ -31,5 +31,9 @@ export function reserveSpending(
       'allowance_exceeded',
     )
   }
-  return { reservedUsd, remainingUsd: result.remainingUsd }
+  // 示範模式不預留任何金額，回報也是 0
+  return {
+    reservedUsd: ctx.settings.get().demoMode ? 0 : reservedUsd,
+    remainingUsd: result.remainingUsd,
+  }
 }

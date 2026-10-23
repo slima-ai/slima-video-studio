@@ -140,6 +140,8 @@ export const McpStatusSchema = z.object({
   allowanceUsd: z.number().nonnegative(),
   /** 已經預留給 AI 工具的金額（美金）；額度減掉它就是還能花的。 */
   committedUsd: z.number().nonnegative(),
+  /** 目前專案的帳本實收（美金，示範模式的假結果不算）；沒開專案就沒有。跟 committedUsd 不同：預留是估計，這是實際花的。 */
+  spentUsd: z.number().nonnegative().optional(),
   /** 最近一次有 AI 工具帶著正確的 token 連進來（重開 App 之後清空）；畫面用它說「剛剛有人連過」。 */
   lastSeen: z
     .object({

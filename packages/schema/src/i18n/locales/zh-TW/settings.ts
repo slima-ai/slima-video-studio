@@ -48,8 +48,11 @@ export const settings = {
     'Claude 等 AI 工具透過 App 生成時，一共最多能花多少（花的是你服務金鑰帳戶的錢）；預設 US$0，用完就不能再生成。',
   'settings.enter0OrALarger': '請輸入 0 或更大的數字。',
   'settings.reservedLeftToSpend': '已預留 {value}，還能花 {value2}。',
+  'settings.projectSpentSoFar': '目前專案的帳本實收 {value}。',
+  'settings.reservationRefundNote':
+    '預留是保守的估計（預估 × 1.25，文字 × 2）。生成做完後，AI 下一次使用工具時會改成實收，多預留的退回。',
   'settings.onlyYouCanChangeThis':
-    '只有你能改這個數字，AI 工具改不了。要花錢的步驟（文字、圖片、影片）會先用預估金額預留，預留的金額不會因為實際花得比較少而退回；超過就拒絕。',
+    '只有你能改這個數字，AI 工具改不了。要花錢的步驟（文字、圖片、影片）會先用預估金額預留；超過剩下的額度就拒絕。',
   'settings.everyGenerationByAnAi':
     'AI 工具的每一次生成，也受「一般」裡的「單次花費上限」管。示範模式不花錢。',
   'settings.resetUsedAmount': '已用的歸零',

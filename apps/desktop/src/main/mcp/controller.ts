@@ -35,7 +35,7 @@ export interface McpControllerDeps {
   /** 通知 App 的視窗（AI 工具改了東西，畫面要跟著更新）。 */
   broadcast: Broadcast
   /** 目前開著的專案（看圖要用它的素材庫）。 */
-  projects: Pick<ProjectManager, 'current'>
+  projects: Pick<ProjectManager, 'current' | 'status'>
   /** 內建的 FFmpeg（給 AI 看的縮圖與影片抽格）。 */
   tools: () => MediaTools | undefined
   /** 使用者資料夾：放 token 與「已預留」金額的檔案。 */
@@ -51,6 +51,11 @@ export function createMcpController(deps: McpControllerDeps): McpController {
     file: join(deps.userDataDir, 'mcp-committed.json'),
     allowanceUsd: () => settings.get().mcp.allowanceUsd,
     demoMode: () => settings.get().demoMode,
+    // 實際花費要看專案帳本，所以這裡只在主行程讀；路徑與金額不會經過任何 MCP 通道
+    spend: () => {
+      const project = deps.projects.status()
+      return project ? { dir: project.dir, spentUsd: project.spentUsd } : undefined
+    },
   })
   const emit: HandlerContext['emit'] = (event, payload) => {
     deps.broadcast(event, payload)
@@ -82,6 +87,7 @@ export function createMcpController(deps: McpControllerDeps): McpController {
   const status = (): McpStatus => {
     const { enabled, port } = settings.get().mcp
     const { allowanceUsd, committedUsd } = allowance.status()
+    const spentUsd = deps.projects.status()?.spentUsd
     return {
       enabled,
       running: runningPort !== undefined,
@@ -93,6 +99,7 @@ export function createMcpController(deps: McpControllerDeps): McpController {
       ...(lastSeen === undefined ? {} : { lastSeen }),
       allowanceUsd,
       committedUsd,
+      ...(spentUsd === undefined ? {} : { spentUsd }),
     }
   }
 

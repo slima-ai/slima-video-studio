@@ -332,6 +332,7 @@ describe('影片線的花錢步驟（真實模式、假的 OpenRouter）', () =>
     await waitDone(r)
     r.h.settings.update({ mcp: { allowanceUsd: 0 } })
     const requestsBefore = noJobs(fake).length
+    await r.call('get_generation_status') // 先把上一步的預留結算掉，下面比的才是「被擋下的步驟有沒有動到額度」
     const committedBefore = r.controller.allowance.status().committedUsd
     for (const [tool, args] of [
       ['generate_first_frames', { shotIds: [ids[0]], redo: true }],
@@ -544,7 +545,16 @@ describe('影片線的花錢步驟（真實模式、假的 OpenRouter）', () =>
     expect(r.controller.allowance.status().committedUsd - committedBefore).toBeCloseTo(
       parsed.spending.reservedUsd,
     )
-    for (const result of [out, await r.call('get_generation_status'), await r.call('list_shots')]) {
+    // 生成還在跑時預留不動；做完之後下一次碰到工具，預留改成實際花的（帳本），多的退回
+    await waitDone(r)
+    const status = await r.call('get_generation_status')
+    const spentUsd = r.h.projects.status()?.spentUsd ?? 0
+    expect(spentUsd).toBeGreaterThan(0)
+    expect(spentUsd).toBeLessThan(parsed.spending.reservedUsd)
+    expect(r.controller.allowance.status().committedUsd - committedBefore).toBeCloseTo(spentUsd)
+    // 設定頁的卡片拿到的狀態也帶專案帳本實收（跟預留分開）
+    expect(r.controller.status().spentUsd).toBeCloseTo(spentUsd)
+    for (const result of [out, status, await r.call('list_shots')]) {
       expect(textOf(result)).not.toContain(FAKE_OPENROUTER_KEY)
       expect(textOf(result)).not.toContain(r.token)
     }

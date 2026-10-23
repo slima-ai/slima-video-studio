@@ -122,12 +122,14 @@ describe('故事 → 分鏡（示範模式，走完整條路）', () => {
     const project = dataOf(ProjectOnly, await call('create_project', { name: '黑藤裂谷' }))
     expect(project.project.name).toBe('黑藤裂谷')
 
-    const split = dataOf(
-      SplitStory,
-      await call('split_story_into_scenes', {
-        story: '小饅頭追著被黑藤拖走的紅色種子，越過斷橋。',
-      }),
-    )
+    const splitOut = await call('split_story_into_scenes', {
+      story: '小饅頭追著被黑藤拖走的紅色種子，越過斷橋。',
+    })
+    const split = dataOf(SplitStory, splitOut)
+    // 示範模式不花錢也不預留：回報的預留是 0，不是「預估 × 2」
+    expect(
+      (JSON.parse(textOf(splitOut)) as { spending: { reservedUsd: number } }).spending.reservedUsd,
+    ).toBe(0)
     expect(split.outline.acts[0]?.scenes.map((s) => s.title)).toEqual(['追逐', '飛越'])
     expect(split.newCharacters).toEqual(['小饅頭'])
     expect(split.newLocations).toEqual(['黑藤裂谷'])
@@ -317,7 +319,16 @@ describe('花錢的步驟與額度（真實模式、假的 OpenRouter 伺服器�
     r.h.settings.update({ mcp: { allowanceUsd: est.wouldReserveUsd * 1.5 } })
     await r.call('split_story_into_scenes', { story: '一隻貓找到家' }) // 假伺服器的回應不一定符合大綱格式，結果成不成功都不重要：要驗的是預留與呼叫
     expect(fake.requests.filter((q) => q.path === '/chat/completions').length).toBeGreaterThan(0)
+    // 剛做完：額度上記的是預留（預估 × 2）
     expect(r.controller.allowance.status().committedUsd).toBeCloseTo(est.wouldReserveUsd)
+    // 下一次碰到工具時（佇列是空的）預留改成實際花的，多預留的退回
+    await r.call('get_generation_status')
+    const spentUsd = r.h.projects.status()?.spentUsd ?? 0
+    expect(spentUsd).toBeGreaterThan(0)
+    expect(spentUsd).toBeLessThan(est.wouldReserveUsd)
+    expect(r.controller.allowance.status().committedUsd).toBeCloseTo(spentUsd)
+    // 剩下的額度不夠再預留一次：還是被擋
+    r.h.settings.update({ mcp: { allowanceUsd: spentUsd + est.wouldReserveUsd / 2 } })
     const second = await r.call('split_story_into_scenes', { story: '一隻貓找到家' })
     expect(second.isError).toBe(true)
     expect(textOf(second)).toContain('額度只剩')

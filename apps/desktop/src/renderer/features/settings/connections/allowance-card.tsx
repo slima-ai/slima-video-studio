@@ -55,12 +55,20 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
             <p className="mt-1 text-sm text-danger">{t('settings.enter0OrALarger')}</p>
           )}
           {status ? (
-            <p data-testid="mcp-committed" className="mt-2 text-sm text-fg-muted">
-              {t('settings.reservedLeftToSpend', {
-                value: usd(status.committedUsd),
-                value2: usd(Math.max(status.allowanceUsd - status.committedUsd, 0)),
-              })}
-            </p>
+            <div className="mt-2 space-y-1 text-sm text-fg-muted">
+              <p data-testid="mcp-committed">
+                {t('settings.reservedLeftToSpend', {
+                  value: usd(status.committedUsd),
+                  value2: usd(Math.max(status.allowanceUsd - status.committedUsd, 0)),
+                })}
+              </p>
+              {status.spentUsd === undefined ? null : (
+                <p data-testid="mcp-spent">
+                  {t('settings.projectSpentSoFar', { value: usd(status.spentUsd) })}
+                </p>
+              )}
+              <p data-testid="mcp-refund-note">{t('settings.reservationRefundNote')}</p>
+            </div>
           ) : null}
         </form>
       }
