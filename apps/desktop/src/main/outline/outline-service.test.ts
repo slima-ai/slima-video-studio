@@ -131,6 +131,23 @@ describe('OutlineService：AI 拆成分場', () => {
     })
   })
 
+  it('故事不是中文：提示多一句「用故事的語言寫、名字照原文」；中文故事沒有這一句', async () => {
+    const systems: string[] = []
+    const h = setup({
+      mockLlm: (request) => {
+        systems.push(request.system ?? '')
+        return mockSplit(request)
+      },
+    })
+    await h.outline.split('雨夜，阿鐵在舊街撿到一隻小貓，帶回家。')
+    await h.outline.split('Mina finds a green bottle on the doorstep of her lighthouse.')
+    await h.outline.split('ミナは灯台の扉の前で緑色の瓶を見つけました。')
+    expect(systems).toHaveLength(3)
+    expect(systems[0]).not.toContain('故事不是中文')
+    expect(systems[1]).toContain('故事不是中文')
+    expect(systems[2]).toContain('故事不是中文')
+  })
+
   it('拆成幕與場、新增地點，並把角色建成草稿（已有的角色不重複建立）', async () => {
     const h = setup()
     const existing = h.characters.create('小貓')
