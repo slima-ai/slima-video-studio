@@ -145,5 +145,11 @@ export const MIGRATIONS: readonly Migration[] = [
       "CREATE TABLE `shot_pins` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`shot_id` text NOT NULL,\n\t`asset_hash` text NOT NULL,\n\t`position` integer NOT NULL,\n\tFOREIGN KEY (`shot_id`) REFERENCES `shots`(`id`) ON UPDATE no action ON DELETE cascade\n);",
       "CREATE UNIQUE INDEX `shot_pins_uq` ON `shot_pins` (`shot_id`,`asset_hash`);"
     ]
+  },
+  {
+    "tag": "0015_shot_action",
+    "statements": [
+      "ALTER TABLE `shots` ADD `action` text DEFAULT '' NOT NULL;"
+    ]
   }
 ]

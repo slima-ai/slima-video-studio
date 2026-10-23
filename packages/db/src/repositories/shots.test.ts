@@ -22,6 +22,16 @@ describe('ShotsRepository', () => {
     expect(repos.shots.list().map((s) => s.description)).toEqual(['A', 'B'])
   })
 
+  it('動作欄：沒填是空字串，寫了能往返，update 可以清掉', () => {
+    const { repos } = newProject()
+    const plain = repos.shots.create({ description: 'A' })
+    expect(plain.action).toBe('')
+    const shot = repos.shots.create({ description: 'B', action: '向左跳一下' })
+    expect(repos.shots.get(shot.id)?.action).toBe('向左跳一下')
+    expect(repos.shots.update(shot.id, { action: '' }).action).toBe('')
+    expect(repos.shots.get(shot.id)?.action).toBe('')
+  })
+
   it('版本的輸入指紋可以事後補記或更新', () => {
     const { repos } = newProject()
     const shot = repos.shots.create({ description: 'A' })

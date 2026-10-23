@@ -13,6 +13,7 @@ export function shotSummary(shot: ShotView) {
     number: shot.number,
     sceneId: shot.sceneId ?? null,
     description: shot.description,
+    action: shot.action,
     size: shot.size,
     angle: shot.angle,
     cameraMove: shot.cameraMove,
@@ -62,7 +63,7 @@ export function registerShotTools(ctx: ToolContext): void {
     name: 'list_shots',
     title: 'List shots',
     description:
-      'The shot list of the current project in order, optionally only one scene. Each shot has an id, number, description, size, angle, camera move, duration, characters, status and how many first-frame/video versions exist (and which is adopted).',
+      'The shot list of the current project in order, optionally only one scene. Each shot has an id, number, description (the still picture), action (what happens during the seconds; empty = none), size, angle, camera move, duration, characters, status and how many first-frame/video versions exist (and which is adopted).',
     input: { sceneId: z.string().optional().describe('Only the shots of this scene') },
     hints: { readOnly: true },
     run: async ({ sceneId }) => {
@@ -142,7 +143,7 @@ export function registerShotTools(ctx: ToolContext): void {
     name: 'update_shot',
     title: 'Edit a shot',
     description:
-      'Change fields of one shot (only the fields you pass). Does NOT generate anything and costs nothing; regenerating pictures/videos is a separate step. Fields: description, size (extreme_wide|wide|full|medium|close_up|extreme_close_up), angle, cameraMove (null, or a preset id: ' +
+      'Change fields of one shot (only the fields you pass). Does NOT generate anything and costs nothing; regenerating pictures/videos is a separate step. Fields: description (ONLY the still picture the first frame should show: who is where, pose, expression, setting — no movement and no camera move), action (what happens during the seconds of the shot, e.g. "the small yellow dome hops once to the left and lands; the vines behind it sway" — describe motion only, name each subject the way it looks in the picture (for example "the small yellow dome") and say what it does; do not re-describe how things look. When action is set, the video model gets the action first, then the "NO mouth / NO arms"-type limits of the locked characters, then the art style; the first-frame picture still comes from description alone. Leave it empty and the video prompt is the picture description as before; send "" to clear), size (extreme_wide|wide|full|medium|close_up|extreme_close_up), angle, cameraMove (null, or a preset id: ' +
       CAMERA_MOVES.map((c) => c.id).join(', ') +
       '; or your own short description such as "slow push in" — a text that is not a preset id is added to the video prompt exactly as written), durationSec (1–15), dialogue, characters (names), lighting, mood, timeOfDay, prompt (null = back to the automatic prompt), inCut. See load_guide("cinematography") for when to use each size, angle and camera move.',
     input: { shotId: z.string().min(1), ...ShotEditSchema.shape },

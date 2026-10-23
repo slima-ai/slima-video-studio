@@ -20,6 +20,7 @@ const shot = (id: string, number: number, extra: Partial<ShotView> = {}): ShotVi
   id,
   number,
   description: `鏡頭 ${String(number)}`,
+  action: '',
   cameraMove: null,
   durationSec: 3,
   characters: [],

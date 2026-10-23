@@ -202,6 +202,7 @@ describe('生成中的節點狀態', () => {
     status: 'generating',
     characters: [],
     dialogue: '',
+    action: '',
     inCut: true,
   } as never
   const base = {

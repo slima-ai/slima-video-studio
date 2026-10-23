@@ -1,3 +1,4 @@
+import { hashValue } from '@svs/engine'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createStudioHarness } from '../shots/test-harness'
@@ -58,6 +59,34 @@ describe('需要重跑（stale）', () => {
       'video',
       'cut',
     ])
+  })
+
+  it('沒有動作的影片，記下的輸入指紋逐字等於加動作欄之前的算法（舊專案的影片不會被誤判成需要重跑）', async () => {
+    const h = await setup()
+    const { shots } = h.projects.current()?.repos ?? {}
+    const frame = shots?.listTakes(h.first.id, 'first_frame').find((t) => t.adopted)
+    const video = shots?.listTakes(h.first.id, 'video').find((t) => t.adopted)
+    expect(frame?.inputHash).toBeDefined()
+    // 加動作欄之前：hashValue({ image, cameraMove, durationSec })
+    expect(video?.inputHash).toBe(
+      hashValue({
+        image: frame?.inputHash,
+        cameraMove: h.first.cameraMove,
+        durationSec: h.first.durationSec,
+      }),
+    )
+  })
+
+  it('只寫了動作：圖不變，只有影片需要重跑；清掉動作（或只剩空白）就又是完成', async () => {
+    const h = await setup()
+    // 沒有動作的舊鏡頭，加了動作欄之後不會被誤判成需要重跑（指紋和以前一樣）
+    expect(h.shots.staleness().size).toBe(0)
+    h.shots.update(h.first.id, { action: '貓慢慢轉頭' })
+    expect(status(h, h.first.id, 'image')).toBe('done')
+    expect(status(h, h.first.id, 'video')).toBe('stale')
+    h.shots.update(h.first.id, { action: '   ' })
+    expect(status(h, h.first.id, 'video')).toBe('done')
+    expect(h.shots.staleness().size).toBe(0)
   })
 
   it('改回原來的樣子就不需要重跑了；不影響畫面的修改（放不放進成品）也不算', async () => {

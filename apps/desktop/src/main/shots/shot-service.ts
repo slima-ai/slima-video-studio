@@ -263,6 +263,7 @@ function toShotItem(shot: Shot, withOverride = true): ShotItem {
   return ShotItemSchema.parse({
     number: shot.number,
     description: shot.description,
+    ...(shot.action === '' ? {} : { action: shot.action }),
     size: shot.size,
     angle: shot.angle,
     cameraMove: shot.cameraMove,
@@ -401,6 +402,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       id: shot.id,
       number: shot.number,
       description: shot.description,
+      action: shot.action,
       cameraMove: shot.cameraMove,
       durationSec: shot.durationSec,
       characters: names,
@@ -519,7 +521,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       mood: full.mood,
       promptOverride: full.promptOverride,
     }
-    const { cameraMove, durationSec } = full
+    const { cameraMove, durationSec, action } = full
     // 接了上傳的圖：第一張畫面就是那張圖（換一張，影片就要重跑）
     const uploaded = uploadedFrameOf(handle, shot.id)
     const image = uploaded
@@ -533,7 +535,11 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           // 手動指定了參考圖：換了圖、順序或張數，第一張畫面都要重新生成（沒指定就不加這個欄位，指紋跟以前一樣）
           ...(context.pins.has(shot.id) ? { pins: context.pins.get(shot.id) } : {}),
         })
-    return { image, video: hashValue({ image, cameraMove, durationSec }) }
+    // 動作只影響影片；沒有動作時指紋與加這個欄位之前完全一樣（舊專案的影片不會變成「需要重跑」）
+    return {
+      image,
+      video: hashValue({ image, cameraMove, durationSec, ...(action ? { action } : {}) }),
+    }
   }
 
   /** 存一個版本；同一鏡頭同一種類已經有相同檔案就沿用，不會重複建立。 */
@@ -1306,6 +1312,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         value?.trim() ? value.trim() : undefined
       const updated = shots.update(shotId, {
         ...(edit.description === undefined ? {} : { description: edit.description.trim() }),
+        ...(edit.action === undefined ? {} : { action: edit.action.trim() }),
         ...(edit.cameraMove === undefined
           ? {}
           : { cameraMove: edit.cameraMove?.trim() ? edit.cameraMove.trim() : null }),
@@ -1379,6 +1386,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         cameraMove: source.cameraMove,
         durationSec: source.durationSec,
         description: source.description,
+        action: source.action,
         dialogue: source.dialogue,
         characters: source.characters,
         inCut: source.inCut,

@@ -1,0 +1,1 @@
+ALTER TABLE `shots` ADD `action` text DEFAULT '' NOT NULL;

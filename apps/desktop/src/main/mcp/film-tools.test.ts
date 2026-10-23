@@ -224,6 +224,31 @@ describe('影片線：首幀圖 → 看 → 影片 → 接片 → 匯出（示�
     expect((await detail(r, shotId ?? '')).cameraMove).toBe('push_in')
   })
 
+  it('動作欄：說明講清楚畫面描述與動作是分開的；寫進去、list_shots 與 get_shot 看得到、清得掉；autoPrompt 以動作開頭', async () => {
+    const r = await start()
+    const { tools } = await r.client.listTools()
+    const update = tools.find((t) => t.name === 'update_shot')?.description ?? ''
+    expect(update).toContain('action (what happens during')
+    expect(update).toContain('description (ONLY the still picture')
+    expect(update).toContain('no camera move')
+    const list = tools.find((t) => t.name === 'list_shots')?.description ?? ''
+    expect(list).toContain('action (what happens during the seconds')
+    const [shotId] = await withShots(r)
+    expect((await detail(r, shotId ?? '')).action).toBe('')
+
+    await r.call('update_shot', { shotId: shotId ?? '', action: '貓向右跳一步' })
+    const after = await detail(r, shotId ?? '')
+    expect(after.action).toBe('貓向右跳一步')
+    expect(String(after.autoPrompt).startsWith('貓向右跳一步')).toBe(true)
+    const listed = JSON.parse(textOf(await r.call('list_shots', {}))) as {
+      shots: { id: string; action: string }[]
+    }
+    expect(listed.shots.find((s) => s.id === shotId)?.action).toBe('貓向右跳一步')
+
+    await r.call('update_shot', { shotId: shotId ?? '', action: '' })
+    expect((await detail(r, shotId ?? '')).action).toBe('')
+  })
+
   it('沒有鏡頭、沒有影片、找不到鏡頭：白話錯誤，不是例外', async () => {
     const r = await start()
     await r.call('create_project', { name: 'x' })

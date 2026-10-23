@@ -70,6 +70,8 @@ export const shots = sqliteTable(
     cameraMove: text('camera_move'),
     durationSec: real('duration_sec').notNull(),
     description: text('description').notNull().default(''),
+    // 這幾秒裡發生什麼動作（給影片模型）；空字串 = 沒有，影片 Prompt 照舊用畫面描述
+    action: text('action').notNull().default(''),
     prompt: text('prompt'),
     dialogue: text('dialogue').notNull().default(''),
     characters: text('characters', { mode: 'json' }).$type<CharacterAppearance[]>().notNull(),

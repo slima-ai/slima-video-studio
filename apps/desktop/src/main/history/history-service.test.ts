@@ -168,6 +168,7 @@ describe('動作名稱', () => {
   it('只改一個欄位就指出是哪一個，改多個就統稱', () => {
     expect(shotEditLabel({ description: 'x' })).toBe('修改鏡頭的畫面描述')
     expect(shotEditLabel({ dialogue: 'x', mood: null })).toBe('修改鏡頭')
+    expect(shotEditLabel({ action: '向左跳' })).toBe('修改鏡頭的動作')
   })
 
   it('beginAiTurn：AI（MCP）呼叫的改動併成一步、使用者的照舊各一步；最上面是 Claude 還開著的那一步時，復原被擋下', () => {

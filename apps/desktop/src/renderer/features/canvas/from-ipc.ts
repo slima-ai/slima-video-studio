@@ -64,6 +64,7 @@ function toNode(n: IpcNode): CanvasNode {
     sceneId: n.sceneKey,
     shotId: n.shotKey,
     summary: n.summary,
+    action: n.action,
     dialogue: n.dialogue,
     meta: n.meta,
     thumb: kind === 'video' || kind === 'freeVideo' ? undefined : thumbOf(n.assetHash),

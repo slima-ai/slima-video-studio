@@ -84,6 +84,7 @@ export const addLabel = (kind: CanvasAddKind): string => ADD_LABELS[kind]
 /** 修改鏡頭欄位的名稱：只改一個欄位時指出是哪一個。 */
 const SHOT_FIELD_LABELS: Record<string, string> = {
   description: '畫面描述',
+  action: '動作',
   prompt: 'Prompt',
   size: '景別',
   angle: '角度',

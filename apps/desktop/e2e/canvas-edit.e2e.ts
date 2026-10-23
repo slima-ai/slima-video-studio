@@ -114,6 +114,38 @@ test.describe('畫布：雙擊就地改名、改鏡頭描述', () => {
     await expect(page.getByTestId('rename-box')).toHaveCount(0)
     await expect(card.getByTestId('shot-desc-edit')).toHaveCount(0)
   })
+
+  test('鏡頭有動作才顯示「動作：…」，沒有就不留空位；清掉動作就消失', async ({ page }) => {
+    await generateAndOpenCanvas(page)
+    const shot = await nodeByKind(page, 'shot')
+    await centerOn(page, shot.id)
+    const card = page.locator(`.react-flow__node[data-id="${shot.id}"]`)
+    // 新做出來的鏡頭沒有動作：卡片上沒有這一行
+    await expect(card.getByTestId('shot-desc')).toBeVisible()
+    await expect(card.getByTestId('shot-action')).toHaveCount(0)
+
+    const update = async (action: string): Promise<void> => {
+      const listed = await page.evaluate(() => window.svs.invoke('shots.list', {}))
+      if (!listed.ok) throw new Error(listed.error.userMessage)
+      const first = listed.data.shots[0]
+      if (!first) throw new Error('沒有鏡頭')
+      const result = await page.evaluate(
+        ({ shotId, text }) =>
+          window.svs.invoke('shots.update', { shotId, patch: { action: text } }),
+        { shotId: first.id, text: action },
+      )
+      if (!result.ok) throw new Error(result.error.userMessage)
+    }
+
+    await update('貓向右跳一步，尾巴輕輕擺動')
+    await expect(card.getByTestId('shot-action')).toHaveText('動作：貓向右跳一步，尾巴輕輕擺動')
+    // 描述還在：動作是另外一行，不是取代描述
+    await expect(card.getByTestId('shot-desc')).toBeVisible()
+    await page.screenshot({ path: test.info().outputPath('shot-action-card.png') })
+
+    await update('')
+    await expect(card.getByTestId('shot-action')).toHaveCount(0)
+  })
 })
 
 /** 這個節點的標題列（拖它的地方）：場框與群組是各自的標題抓手，其他是卡片頂端。 */

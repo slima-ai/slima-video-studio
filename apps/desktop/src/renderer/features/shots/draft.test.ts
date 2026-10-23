@@ -7,6 +7,7 @@ const shot: ShotView = {
   id: 's1',
   number: 1,
   description: '貓走在雨中',
+  action: '',
   cameraMove: null,
   durationSec: 3,
   characters: [],

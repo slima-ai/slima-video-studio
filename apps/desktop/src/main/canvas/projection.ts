@@ -271,6 +271,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
         title: `第 ${String(shot.number)} 鏡`,
         ...(stepInfo ? { expanded: true } : {}),
         summary: shot.description,
+        ...(shot.action.trim() === '' ? {} : { action: shot.action }),
         ...(shot.dialogue.trim() === '' ? {} : { dialogue: shot.dialogue }),
         meta: `${SHOT_SIZE_LABELS[shot.size]}・${SHOT_ANGLE_LABELS[shot.angle]}・${String(shot.durationSec)} 秒`,
         tags,

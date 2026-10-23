@@ -589,6 +589,15 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
           {data.kind === 'shot' ? (
             <>
               <ShotDescription id={id} text={data.summary ?? ''} />
+              {data.action ? (
+                <p
+                  data-testid="shot-action"
+                  className="lod-full truncate text-[11px] leading-snug text-fg-muted"
+                  title={data.action}
+                >
+                  動作：{data.action}
+                </p>
+              ) : null}
               {data.dialogue ? <ShotDialogue id={id} text={data.dialogue} /> : null}
               <p className="lod-full flex items-center gap-1.5 text-xs text-fg-muted">
                 <span className="min-w-0 truncate">{data.meta}</span>
