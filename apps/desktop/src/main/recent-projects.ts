@@ -33,7 +33,9 @@ export function createRecentStore(file: string, log: Pick<Logger, 'warn'>): Rece
       writeFileSync(tmp, JSON.stringify({ projects: entries }))
       renameSync(tmp, file)
     } catch (error) {
-      log.warn(`無法記住最近的專案：${error instanceof Error ? error.message : ''}`)
+      log.warn(
+        `Could not remember the recent project: ${error instanceof Error ? error.message : ''}`,
+      )
     }
   }
   return {

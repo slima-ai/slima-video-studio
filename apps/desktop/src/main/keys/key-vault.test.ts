@@ -396,7 +396,7 @@ describe('createKeyVault：開發版啟動時從環境變數帶入金鑰', () =>
     expect(vault.providers()).toEqual([])
   })
 
-  it('log 只寫「已從環境變數載入」，不含金鑰、末四碼；格式不對只警告變數名稱', () => {
+  it('log 只寫「Loaded the … key from the environment」，不含金鑰、末四碼；格式不對只警告變數名稱', () => {
     const logs: string[] = []
     createKeyVault({
       ...base,
@@ -407,8 +407,8 @@ describe('createKeyVault：開發版啟動時從環境變數帶入金鑰', () =>
       warn: (m) => logs.push(m),
     })
     expect(logs).toEqual([
-      '已從環境變數載入 OpenRouter 金鑰',
-      '環境變數 FAL_KEY 的格式不正確，已忽略',
+      'Loaded the OpenRouter key from the environment',
+      'The environment variable FAL_KEY is malformed; ignored',
     ])
     const all = logs.join('\n')
     expect(all).not.toContain(OR_KEY)

@@ -70,7 +70,7 @@ function guardWebContents(win: BrowserWindow, appUrl: () => string, log: Logger)
   // 不開新視窗；http(s) 連結改用系統瀏覽器
   webContents.setWindowOpenHandler(({ url }) => {
     if (isSafeExternalUrl(url)) void shell.openExternal(url)
-    else log.warn(`已阻擋開啟視窗：${url}`)
+    else log.warn(`Blocked opening a window: ${url}`)
     return { action: 'deny' }
   })
 
@@ -79,7 +79,7 @@ function guardWebContents(win: BrowserWindow, appUrl: () => string, log: Logger)
     if (isInternalUrl(url, appUrl())) return
     event.preventDefault()
     if (isSafeExternalUrl(url)) void shell.openExternal(url)
-    else log.warn(`已阻擋導航：${url}`)
+    else log.warn(`Blocked navigation: ${url}`)
   })
 
   webContents.on('will-attach-webview', (event) => {
@@ -155,7 +155,7 @@ void app.whenReady().then(() => {
   const log = createLogger(join(app.getPath('userData'), 'logs'))
   mainLog = log
   installCrashGuards(process, log)
-  log.info(`${APP_TITLE} 啟動（${app.getVersion()}，packaged=${String(app.isPackaged)}）`)
+  log.info(`${APP_TITLE} started (${app.getVersion()}, packaged=${String(app.isPackaged)})`)
   projects = new ProjectManager(app.getVersion())
   installAssetProtocol(projects)
 
@@ -163,7 +163,7 @@ void app.whenReady().then(() => {
   const userData = app.getPath('userData')
   if (!app.isPackaged && process.env.SVS_REAL_VAULT !== '1') {
     log.info(
-      '開發模式：服務金鑰只放在記憶體（重開就沒了，也不碰系統鑰匙圈）。要用真的鑰匙圈請設 SVS_REAL_VAULT=1',
+      'Development mode: service keys are kept in memory only (gone after a restart; the system keychain is not touched). Set SVS_REAL_VAULT=1 to use the real keychain',
     )
   }
   const keys = createKeyVault({
@@ -189,7 +189,7 @@ void app.whenReady().then(() => {
   // 測試用：OpenRouter 換成本機的假伺服器（只有非打包版、而且是本機位址才生效）
   const openrouterBaseUrl = openrouterBaseUrlOverride(process.env, app.isPackaged)
   if (testMode && process.env.SVS_OPENROUTER_BASE_URL && openrouterBaseUrl === undefined) {
-    log.warn('SVS_OPENROUTER_BASE_URL 不是本機位址，已忽略')
+    log.warn('SVS_OPENROUTER_BASE_URL is not a local address; ignored')
   }
   const settings = createSettingsStore({
     file: join(userData, 'settings.json'),
@@ -215,7 +215,7 @@ void app.whenReady().then(() => {
   // 而不是卡在第一次生成的途中；示範模式與沒存金鑰的人完全不會碰鑰匙圈
   if (!settings.get().demoMode) {
     keys.load().catch((error: unknown) => {
-      log.warn(`讀取服務金鑰失敗：${error instanceof Error ? error.message : ''}`)
+      log.warn(`Failed to read the service keys: ${error instanceof Error ? error.message : ''}`)
     })
   }
   // installIpc 在 handler 註冊之後才建立，事件先透過這個轉接
@@ -444,18 +444,18 @@ app.on('before-quit', () => {
   // 一步失敗不擋下一步，也不擋結束（以前丟錯會變成擋住結束的錯誤視窗）
   runShutdown(
     [
-      ['中斷 Slima 連線', () => slimaService?.stop()],
-      ['關閉 Claude 對話', () => chatService?.dispose()],
-      ['停止 AI 工具連線', () => mcpController?.stop()],
-      ['停止生成佇列', () => runtime?.dispose()],
-      ['關閉專案', () => projects?.close()],
+      ['disconnect Slima', () => slimaService?.stop()],
+      ['close the Claude chat', () => chatService?.dispose()],
+      ['stop the AI tools connection', () => mcpController?.stop()],
+      ['stop the job queue', () => runtime?.dispose()],
+      ['close the project', () => projects?.close()],
     ],
     mainLog ?? { info: console.log, error: console.error },
   )
 })
 
 app.on('will-quit', () => {
-  mainLog?.info('結束：視窗都關了')
+  mainLog?.info('Quitting: all windows are closed')
 })
 
 app.on('window-all-closed', () => {

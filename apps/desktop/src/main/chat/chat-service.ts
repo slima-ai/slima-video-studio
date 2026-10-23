@@ -255,7 +255,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
         ...messages.map((message) => ({ t: 'msg' as const, message })),
       ])
     } catch (error) {
-      deps.log.warn(`存不了對話紀錄：${String(error)}`)
+      deps.log.warn(`Could not save the chat history: ${String(error)}`)
     }
   }
   const loadedDirs = new Set<string>()
@@ -299,7 +299,9 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     conv.idleTimer = setTimeout(() => {
       conv.idleTimer = undefined
       if (conv.turn || !conv.proc) return
-      deps.log.info('Claude 對話閒置太久，關掉行程（下次講話會接回同一個對話）')
+      deps.log.info(
+        'The Claude chat was idle for too long; closing the process (the next message resumes the same conversation)',
+      )
       conv.proc.close()
     }, idleMs)
     conv.idleTimer.unref()
@@ -463,7 +465,9 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       /No conversation found/i.test(info.stderr)
     ) {
       // Claude 那邊找不到這個對話的紀錄（被清掉、換了電腦）：改開新的，把我們存的對話內容帶過去當背景
-      deps.log.warn('Claude 找不到這個對話的舊紀錄，改開新的並帶上我們存的內容')
+      deps.log.warn(
+        'Claude could not find the old record of this conversation; starting a new one with what we saved',
+      )
       conv.turn.fellBack = true
       conv.started = false
       conv.fork = false
@@ -476,7 +480,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
         )
         return
       } catch (error) {
-        deps.log.error(`改開新對話失敗：${String(error)}`)
+        deps.log.error(`Failed to start a new conversation: ${String(error)}`)
       }
     }
     if (conv.turn) {
@@ -572,7 +576,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
           })
           if (from) deleteConversationFile(from, conv.info.id)
         } catch (error) {
-          deps.log.warn(`搬對話紀錄失敗：${String(error)}`)
+          deps.log.warn(`Failed to move the conversation record: ${String(error)}`)
         }
       }
     }
@@ -719,7 +723,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       try {
         ensureProcess(conv, check.path).send(withNote(text, note))
       } catch (error) {
-        deps.log.error(`啟動 Claude 對話行程失敗：${String(error)}`)
+        deps.log.error(`Failed to start the Claude chat process: ${String(error)}`)
         finishTurn(conv, {
           state: 'error',
           error: t('chat.claudeCouldnTStartMake'),

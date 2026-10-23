@@ -82,17 +82,17 @@ describe('內建 ModelCard', () => {
   })
 
   it('parseModelSpecs 對格式錯誤與重複 key 直接丟錯；攤平後管道 id 重複也丟錯', () => {
-    expect(() => parseModelSpecs([{ key: 'x' }])).toThrow(/模型 x 格式錯誤/)
-    expect(() => parseModelSpecs([42])).toThrow(/#0 格式錯誤/)
+    expect(() => parseModelSpecs([{ key: 'x' }])).toThrow(/Model x is malformed/)
+    expect(() => parseModelSpecs([42])).toThrow(/#0 is malformed/)
     const [spec] = parseModelSpecs([SPEC])
     if (!spec) throw new Error('沒有解析出來')
-    expect(() => parseModelSpecs([SPEC, SPEC])).toThrow(/key 重複/)
+    expect(() => parseModelSpecs([SPEC, SPEC])).toThrow(/Duplicate model key/)
     expect(() =>
       expandModelSpecs([
         spec,
         { ...spec, key: 'other', channels: spec.channels.map((c) => ({ ...c, id: 'fal/demo' })) },
       ]),
-    ).toThrow(/id 重複：fal\/demo/)
+    ).toThrow(/Duplicate ModelCard id: fal\/demo/)
   })
 
   it('GPT Image 2：同一個 OpenRouter 模型開兩張卡（標準＝medium、高畫質＝high），都走 /images，價格各自寫', () => {
@@ -145,13 +145,15 @@ describe('內建 ModelCard', () => {
         { ...CHANNEL, provider: 'openrouter', endpoints: { llm: 'x/y' }, voices: [voice] },
       ],
     }
-    expect(() => expandModelSpecs(parseModelSpecs([llm]))).toThrow(/voices 只能用在/)
+    expect(() => expandModelSpecs(parseModelSpecs([llm]))).toThrow(/voices only apply to/)
     const dup = {
       ...SPEC,
       tasks: ['tts'],
       channels: [{ ...CHANNEL, endpoints: { tts: 'x/y' }, voices: [voice, voice] }],
     }
-    expect(() => expandModelSpecs(parseModelSpecs([dup]))).toThrow(/voice id 不能重複/)
+    expect(() => expandModelSpecs(parseModelSpecs([dup]))).toThrow(
+      /Voice ids on one card must be unique/,
+    )
   })
 
   it('配樂模型卡：Lyria 3 Pro（預設，每首 0.08）與 Clip（約 30 秒，每首 0.04），依首計價', () => {
@@ -261,7 +263,7 @@ describe('內建 ModelCard', () => {
     expect(onFal.success).toBe(true)
     expect(() =>
       expandModelSpecs(parseModelSpecs([{ ...SPEC, channels: [{ ...CHANNEL, imageApi }] }])),
-    ).toThrow(/imageApi 只有 OpenRouter/)
+    ).toThrow(/imageApi only applies to OpenRouter/)
     const llmOnly = {
       ...SPEC,
       tasks: ['llm'],
@@ -274,7 +276,9 @@ describe('內建 ModelCard', () => {
         },
       ],
     }
-    expect(() => expandModelSpecs(parseModelSpecs([llmOnly]))).toThrow(/imageApi 只能用在/)
+    expect(() => expandModelSpecs(parseModelSpecs([llmOnly]))).toThrow(
+      /imageApi only applies to models/,
+    )
   })
 
   it('同一個模型的管道共用名稱與分組；管道各自的端點、價格、角色一致性的機制', () => {
@@ -329,10 +333,12 @@ describe('內建 ModelCard', () => {
       return result.success ? [] : result.error.issues.map((i) => i.message)
     }
     expect(errors(SPEC)).toEqual([])
-    expect(errors({ ...SPEC, tasks: ['t2i'] })).toEqual(['管道的 edit 不在模型的 tasks 裡'])
-    expect(errors({ ...SPEC, tasks: ['t2i', 'edit', 'i2v'] })).toEqual(['沒有任何管道做得到 i2v'])
+    expect(errors({ ...SPEC, tasks: ['t2i'] })).toEqual([
+      'The channel’s edit is not in the model’s tasks',
+    ])
+    expect(errors({ ...SPEC, tasks: ['t2i', 'edit', 'i2v'] })).toEqual(['No channel can do i2v'])
     expect(errors({ ...SPEC, channels: [CHANNEL, CHANNEL] })).toEqual([
-      '同一個供應商（fal）只能有一個管道',
+      'A provider (fal) can have only one channel',
     ])
   })
 })

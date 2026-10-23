@@ -24,7 +24,7 @@ function splitFrames(bytes: Buffer): FrameSet {
     const bitrate = BITRATES_KBPS[(header >>> 12) & 0xf]
     const rate = SAMPLE_RATES[(header >>> 10) & 0x3]
     if (header >>> 21 !== 0x7ff || !bitrate || !rate) {
-      throw new Error(`示範 mp3 樣本在 ${offset} 處不是有效影格`)
+      throw new Error(`The demo mp3 sample has an invalid frame at ${offset}`)
     }
     sampleRate = rate
     const size = Math.floor((144 * bitrate * 1000) / rate) + ((header >>> 9) & 1)

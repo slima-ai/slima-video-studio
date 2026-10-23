@@ -329,7 +329,8 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
         const reason = isAppError(first)
           ? first.userMessage
           : t('chat.conceptPicturesFailedToGenerate')
-        if (!isAppError(first)) log.error(`概念圖生成發生未預期錯誤：${String(first)}`)
+        if (!isAppError(first))
+          log.error(`Unexpected error generating concept pictures: ${String(first)}`)
         lastErrors.set(
           characterId,
           run.done > 0

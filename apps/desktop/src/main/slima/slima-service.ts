@@ -137,7 +137,9 @@ export function createSlimaService(deps: SlimaServiceDeps): SlimaService {
         .load()
         .then(() => connection.start())
         .catch((error: unknown) => {
-          log.warn(`啟動 Slima 連線失敗：${error instanceof Error ? error.message : ''}`)
+          log.warn(
+            `Failed to start the Slima connection: ${error instanceof Error ? error.message : ''}`,
+          )
         })
     },
 

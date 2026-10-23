@@ -25,7 +25,7 @@ describe('NodeRegistry', () => {
 
   it('同一個類型不能重複註冊', () => {
     const registry = new NodeRegistry().register(make('a'))
-    expect(() => registry.register(make('a'))).toThrow('節點類型重複註冊：a')
+    expect(() => registry.register(make('a'))).toThrow('Step type registered twice: a')
   })
 })
 

@@ -61,7 +61,7 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
     async dispatch(raw, ctx) {
       const envelope = IpcEnvelopeSchema.safeParse(raw)
       if (!envelope.success) {
-        log.warn('IPC 訊息格式錯誤')
+        log.warn('Malformed IPC message')
         return fail({
           code: 'invalid_request',
           retryable: false,
@@ -72,7 +72,7 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
 
       const impl = handlers.get(channel)
       if (!isIpcChannel(channel) || !impl) {
-        log.warn(`呼叫了未定義的 channel：${channel}`)
+        log.warn(`Call to an undefined channel: ${channel}`)
         return fail({
           code: 'unknown_channel',
           retryable: false,
@@ -82,7 +82,7 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
 
       const parsedRequest = ipcContract[channel].request.safeParse(payload)
       if (!parsedRequest.success) {
-        log.warn(`IPC ${channel} 的 payload 驗證失敗：${parsedRequest.error.message}`)
+        log.warn(`IPC ${channel} payload validation failed: ${parsedRequest.error.message}`)
         return fail({
           code: 'invalid_request',
           retryable: false,
@@ -96,11 +96,11 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
       } catch (error) {
         if (isAppError(error)) {
           if (error.cause !== undefined)
-            log.error(`IPC ${channel} 失敗：${describeError(error.cause)}`)
+            log.error(`IPC ${channel} failed: ${describeError(error.cause)}`)
           return fail(error.toShape())
         }
         // 未知錯誤：細節只進 log，不把原始訊息丟給 renderer
-        log.error(`IPC ${channel} 發生未預期錯誤：${describeError(error)}`)
+        log.error(`IPC ${channel} hit an unexpected error: ${describeError(error)}`)
         return fail(
           new AppError({
             code: 'internal_error',
@@ -111,7 +111,9 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
 
       const parsedResponse = ipcContract[channel].response.safeParse(result)
       if (!parsedResponse.success) {
-        log.error(`IPC ${channel} 的回傳值不符合合約：${parsedResponse.error.message}`)
+        log.error(
+          `IPC ${channel} response does not match the contract: ${parsedResponse.error.message}`,
+        )
         return fail({
           code: 'invalid_response',
           retryable: false,

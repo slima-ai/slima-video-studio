@@ -82,9 +82,9 @@ export function parseModelSpecs(raw: readonly unknown[]): ModelSpec[] {
   return raw.map((item, index) => {
     const result = ModelSpecSchema.safeParse(item)
     if (!result.success) {
-      throw new Error(`模型 ${keyOf(item, index)} 格式錯誤：${result.error.message}`)
+      throw new Error(`Model ${keyOf(item, index)} is malformed: ${result.error.message}`)
     }
-    if (seen.has(result.data.key)) throw new Error(`模型 key 重複：${result.data.key}`)
+    if (seen.has(result.data.key)) throw new Error(`Duplicate model key: ${result.data.key}`)
     seen.add(result.data.key)
     return result.data
   })
@@ -95,7 +95,7 @@ export function expandModelSpecs(specs: readonly ModelSpec[]): ModelCard[] {
   const seen = new Set<string>()
   return specs.flatMap((spec) =>
     expandModelSpec(spec).map((card) => {
-      if (seen.has(card.id)) throw new Error(`ModelCard id 重複：${card.id}`)
+      if (seen.has(card.id)) throw new Error(`Duplicate ModelCard id: ${card.id}`)
       seen.add(card.id)
       return card
     }),

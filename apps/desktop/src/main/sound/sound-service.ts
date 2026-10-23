@@ -467,7 +467,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       try {
         durationSec = (await probe(tool, found.path)).durationSec
       } catch (error) {
-        log.warn(`量不到聲音的長度：${String(error)}`)
+        log.warn(`Could not measure the audio length: ${String(error)}`)
       }
     }
     const costUsd = result.costUsd ?? estimateUsd

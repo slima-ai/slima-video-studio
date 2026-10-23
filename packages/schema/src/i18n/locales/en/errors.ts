@@ -176,4 +176,6 @@ export const errors = {
     'Slima is getting too many requests. Wait a few seconds and try again.',
   'errors.slimaReportedAnErrorPlease': 'Slima reported an error. Please try again in a moment.',
   'errors.theTextIsTooLong': 'The text is too long. Keep it within {value} characters',
+  'errors.missingOutputs': ' (missing {names})',
+  'errors.extraOutputs': ' (unexpected {names})',
 } as const

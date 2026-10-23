@@ -197,7 +197,7 @@ export function createRunSound(deps: RunSoundDeps): RunSound {
             : {}),
         }
       } catch (error) {
-        log.warn(`全部生成之後加聲音失敗：${String(error)}`)
+        log.warn(`Failed to add sound after generating: ${String(error)}`)
         return {
           narrations: 0,
           music: false,

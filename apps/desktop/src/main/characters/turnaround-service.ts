@@ -258,7 +258,8 @@ export function createTurnaroundService(deps: TurnaroundServiceDeps): Turnaround
         const reason = isAppError(first)
           ? first.userMessage
           : t('chat.theTurnaroundFailedToGenerate')
-        if (!isAppError(first)) log.error(`三視圖生成發生未預期錯誤：${String(first)}`)
+        if (!isAppError(first))
+          log.error(`Unexpected error generating the turnaround: ${String(first)}`)
         lastErrors.set(
           characterId,
           run.done > 0
@@ -272,7 +273,7 @@ export function createTurnaroundService(deps: TurnaroundServiceDeps): Turnaround
           changed(handle, characterId)
         }
       })
-    log.info(`開始生成「${character.name}」的三視圖（第 ${String(round)} 輪）`)
+    log.info(`Started generating the turnaround for “${character.name}” (round ${String(round)})`)
   }
 
   return {

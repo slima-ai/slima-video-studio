@@ -473,7 +473,7 @@ export class StructureHistory {
     const toUpdate = entry.changes.filter((c) => c.kind === 'update')
     const byKey = (key: string): TrackedTable => {
       const table = TABLES.find((t) => t.key === key)
-      if (!table) throw new Error(`未知的資料表：${key}`)
+      if (!table) throw new Error(`Unknown table: ${key}`)
       return table
     }
     const order = (key: string): number => TABLES.findIndex((t) => t.key === key)

@@ -16,10 +16,12 @@ export function restoreLastProject(
   if (last && existsSync(last)) {
     try {
       projects.open(last)
-      log.info(`已接著上次的專案：${last}`)
+      log.info(`Continued with the last project: ${last}`)
     } catch (error) {
       // 專案被移走、損壞或被別的視窗開著：當作沒有上次的專案，不要擋住啟動
-      log.warn(`無法開啟上次的專案（${last}）：${error instanceof Error ? error.message : ''}`)
+      log.warn(
+        `Could not open the last project (${last}): ${error instanceof Error ? error.message : ''}`,
+      )
     }
   }
   // 只記「開啟」；關閉專案（包含結束 App 時）不清掉記錄
@@ -28,7 +30,9 @@ export function restoreLastProject(
     try {
       writeFileSync(file, JSON.stringify({ dir: handle.dir }))
     } catch (error) {
-      log.warn(`無法記住最後開啟的專案：${error instanceof Error ? error.message : ''}`)
+      log.warn(
+        `Could not remember the last opened project: ${error instanceof Error ? error.message : ''}`,
+      )
     }
   })
 }

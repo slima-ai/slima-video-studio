@@ -165,7 +165,9 @@ export function createMcpHttp(options: McpHttpOptions): McpHttp {
         }
         const instance = createServer((req, res) => {
           handle(req, res).catch((error: unknown) => {
-            log.error(`MCP 請求處理失敗：${error instanceof Error ? error.message : String(error)}`)
+            log.error(
+              `Failed to handle an MCP request: ${error instanceof Error ? error.message : String(error)}`,
+            )
             if (!res.headersSent) send(res, 500, jsonRpcError('Internal error'))
             else res.end()
           })
@@ -177,7 +179,7 @@ export function createMcpHttp(options: McpHttpOptions): McpHttp {
           const address = instance.address()
           boundPort = typeof address === 'object' && address ? address.port : options.port
           http = instance
-          log.info(`MCP 伺服器開始在 127.0.0.1:${String(boundPort)} 聽`)
+          log.info(`MCP server listening on 127.0.0.1:${String(boundPort)}`)
           resolve({ port: boundPort })
         })
       }),
@@ -190,7 +192,7 @@ export function createMcpHttp(options: McpHttpOptions): McpHttp {
           return
         }
         instance.close(() => {
-          log.info('MCP 伺服器已停止')
+          log.info('MCP server stopped')
           resolve()
         })
         instance.closeAllConnections()

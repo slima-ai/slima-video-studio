@@ -141,7 +141,7 @@ export function createMcpController(deps: McpControllerDeps): McpController {
       } catch (e) {
         const inUse = e instanceof Error && 'code' in e && e.code === 'EADDRINUSE'
         error = inUse ? t('mcp.portInUse', { port: String(port) }) : t('mcp.cantStartConnection')
-        log.error(`MCP 伺服器啟動失敗：${e instanceof Error ? e.message : String(e)}`)
+        log.error(`Failed to start the MCP server: ${e instanceof Error ? e.message : String(e)}`)
       }
     },
     regenerateToken: () => {

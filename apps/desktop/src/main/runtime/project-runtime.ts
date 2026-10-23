@@ -162,7 +162,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDeps): ProjectRuntime {
       })
       queue.start()
       current = { queue, unsubscribe, handle }
-      log.info('任務佇列已啟動')
+      log.info('Job queue started')
     }
     broadcast('queue.reset', {})
   })

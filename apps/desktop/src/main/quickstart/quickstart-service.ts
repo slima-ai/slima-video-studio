@@ -335,7 +335,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
                 code: 'internal_error',
                 userMessage: t('services.generationFailedPleaseTryAgain'),
               }).toShape()
-          if (!isAppError(error)) log.error(`快速開始發生未預期錯誤：${String(error)}`)
+          if (!isAppError(error)) log.error(`Unexpected error in quick start: ${String(error)}`)
           const current = myTracker.snapshot()
           const snapshot =
             current?.status === 'running'
@@ -391,7 +391,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
               }).message
             } catch (error) {
               failed = !controller.signal.aborted
-              log.warn(`快速開始完成後加聲音失敗：${String(error)}`)
+              log.warn(`Failed to add sound after quick start: ${String(error)}`)
             }
             // 加成功了：記在一句話節點上，之後的「全部生成」不再自動補（使用者刪掉的配樂不會又冒出來）
             if (!failed && !controller.signal.aborted && sourceNodeId !== undefined) {
@@ -428,7 +428,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       }
       // 背景執行：錯誤已經由上面的 catch 回報給畫面，這裡不再往外丟
       running.catch(() => undefined)
-      log.info(`快速開始開始：${runId}`)
+      log.info(`Quick start began: ${runId}`)
       return { runId }
     },
 
@@ -480,7 +480,7 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
           }
         } catch (error) {
           // 字卡出問題不能害使用者匯不出影片：改匯出沒有字卡的版本
-          log.warn(`片尾字卡沒有加成功，改匯出沒有字卡的版本：${String(error)}`)
+          log.warn(`The end card could not be added; exporting without it: ${String(error)}`)
         }
       }
       if (!credits) copyFileSync(source.path, path)
