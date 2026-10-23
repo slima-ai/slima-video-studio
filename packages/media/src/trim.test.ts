@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { buildConcatFilters, concatVideos, type ConcatInput } from './ops'
-import { countVideoFrames, probe, type MediaInfo } from './probe'
+import { probe, type MediaInfo } from './probe'
 import { resolveTools, runTool } from './run'
 
 const tools = resolveTools()
@@ -314,25 +314,5 @@ describe('接片照裁切剪（真的跑 FFmpeg）', () => {
         1 / FPS + 0.005,
       )
     }
-  })
-})
-
-describe('countVideoFrames（沒有 ffprobe 時量準長度用）', () => {
-  it('數出影片有幾格：121 格的影片是 121；沒有影像的檔案是 undefined', async () => {
-    const clip = await makeClip('count.mp4', { seconds: 121 / FPS, audio: false })
-    expect(await countVideoFrames(tools, clip)).toBe(121)
-    const wav = path('count.wav')
-    await runTool(tools.ffmpegPath, [
-      '-hide_banner',
-      '-loglevel',
-      'error',
-      '-y',
-      '-f',
-      'lavfi',
-      '-i',
-      'sine=frequency=440:duration=1',
-      wav,
-    ])
-    expect(await countVideoFrames(tools, wav).catch(() => undefined)).toBeUndefined()
   })
 })

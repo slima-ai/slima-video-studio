@@ -1,5 +1,5 @@
 import type { ProjectHandle } from '@svs/db'
-import { countVideoFrames, probe, type MediaTools } from '@svs/media'
+import { probe, type MediaTools } from '@svs/media'
 
 /**
  * 影片素材的長度要是檔案實際的長度。供應商存進來的影片，長度記的是「送出去的要求秒數」（5 秒），
@@ -16,18 +16,16 @@ export async function measureVideoAsset(
   try {
     const info = await probe(tools, found.path)
     if (!info.hasVideo) return undefined
-    // App 內建的 FFmpeg 沒有 ffprobe，長度只到百分之一秒（5.0417 秒印成 5.04）：沒有音軌的影片改用「格數 ÷ 幀率」，
-    // 才不會每一鏡差 0.002 秒、50 鏡累積成 0.1 秒
-    const frames =
-      tools.ffprobePath === null && !info.hasAudio && info.fps
-        ? await countVideoFrames(tools, found.path)
-        : undefined
+    // App 內建的 FFmpeg 沒有 ffprobe，長度只到百分之一秒（5.0417 秒印成 5.04）。沒有音軌的影片，
+    // 「長度 × 幀率」四捨五入就是格數（誤差遠小於半格），再「格數 ÷ 幀率」才是準的長度：
+    // 不然每一鏡差 0.002 秒、50 鏡累積成 0.1 秒。
+    const frameAccurate = tools.ffprobePath === null && !info.hasAudio && info.fps !== undefined
     const measured = {
       ...(info.width ? { width: info.width } : {}),
       ...(info.height ? { height: info.height } : {}),
       durationSec:
-        frames !== undefined && info.fps
-          ? Math.round((frames / Math.round(info.fps)) * 1e6) / 1e6
+        frameAccurate && info.fps
+          ? Math.round((Math.round(info.durationSec * info.fps) / info.fps) * 1e6) / 1e6
           : info.durationSec,
     }
     handle.assets.updateMeta(hash, measured)
