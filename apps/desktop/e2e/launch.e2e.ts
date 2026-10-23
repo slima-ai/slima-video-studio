@@ -22,7 +22,7 @@ test.describe('App 啟動', () => {
 
   test('主行程寫 log 且沒有 CSP 違規', async ({ page, readMainLog }) => {
     await expect(page.getByTestId('app-layout')).toBeVisible()
-    await expect.poll(readMainLog).toContain('啟動')
+    await expect.poll(readMainLog).toContain('Slima Video Studio started')
     expect(readMainLog()).not.toContain('[CSP-VIOLATION]')
   })
 
@@ -106,8 +106,10 @@ test.describe('App 啟動', () => {
     })
     await app.close()
     const log = readMainLog()
-    expect(log).toContain('主行程沒接住的錯誤：Error: 結束時故意丟的錯誤')
-    expect(log).toContain('主行程沒接住的 Promise 錯誤：Error: 結束時故意被拒的 Promise')
-    expect(log).toContain('結束：視窗都關了')
+    expect(log).toContain('Uncaught error in the main process: Error: 結束時故意丟的錯誤')
+    expect(log).toContain(
+      'Unhandled promise rejection in the main process: Error: 結束時故意被拒的 Promise',
+    )
+    expect(log).toContain('Quitting: all windows are closed')
   })
 })

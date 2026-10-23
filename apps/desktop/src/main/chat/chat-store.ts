@@ -80,7 +80,7 @@ const sanitizeInfo = (info: StoredConversationInfo): StoredConversationInfo => (
 })
 
 const fileOf = (projectDir: string, conversationId: string): string => {
-  if (!ID.test(conversationId)) throw new Error('對話 id 格式不對')
+  if (!ID.test(conversationId)) throw new Error('Invalid conversation id')
   return join(projectDir, CHAT_DIR, `${conversationId}.jsonl`)
 }
 

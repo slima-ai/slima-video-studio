@@ -11,7 +11,7 @@ export type IsoDateTime = z.infer<typeof IsoDateTimeSchema>
 /** 內容雜湊（sha256，十六進位小寫）。素材庫以它當檔名。 */
 export const ContentHashSchema = z
   .string()
-  .regex(/^[0-9a-f]{64}$/, '必須是 64 碼的 sha256 十六進位字串')
+  .regex(/^[0-9a-f]{64}$/, 'Must be a 64-character hexadecimal sha256 string')
 export type ContentHash = z.infer<typeof ContentHashSchema>
 
 export const AspectRatioSchema = z.enum(['16:9', '9:16', '1:1', '4:3', '21:9'])

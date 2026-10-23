@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { McpToolError } from '../bridge'
 import { WithImages, defineTool, type ToolContext } from './define'
+import { cutCard, filmName, joinIntoFilmButton } from '../ui-labels'
 import { shotSummary } from './shots'
 import { reserveSpending } from './spend'
 
@@ -394,8 +395,7 @@ export function registerFilmTools(ctx: ToolContext): void {
   defineTool(ctx, {
     name: 'assemble_film',
     title: 'Join the shots into one film',
-    description:
-      "Join the adopted video of every shot that is in the cut into one film, in shot order (local FFmpeg, costs nothing). Do this after the videos are final, then look at it with view_video_stills(finalCut=true) and save it with export_film. The app's own words for this: the button is 「接成成品」 (on the 「剪輯」 card and in the 「成品」 panel) and the result is the 「成品」; use those words when you talk to the user.",
+    description: `Join the adopted video of every shot that is in the cut into one film, in shot order (local FFmpeg, costs nothing). Do this after the videos are final, then look at it with view_video_stills(finalCut=true) and save it with export_film. The app's own words for this: the button is ${joinIntoFilmButton()} (on the ${cutCard()} card and in the ${filmName()} panel) and the result is the ${filmName()}; use those words when you talk to the user.`,
     input: {},
     hints: { readOnly: false, idempotent: true },
     run: async () => {

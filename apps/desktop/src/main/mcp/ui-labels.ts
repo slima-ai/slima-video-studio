@@ -20,3 +20,9 @@ export const resetUsedButton = (): string => quoted(t('settings.resetUsedAmount'
 export const demoModeName = (): string => t('settings.demoMode')
 /** 「儲存」鈕。 */
 export const saveButton = (): string => t('settings.save')
+/** 「接成成品」鈕（英文介面是 “Join into film”）。 */
+export const joinIntoFilmButton = (): string => quoted(t('canvas.joinIntoFilm'))
+/** 畫布上的「剪輯」卡。 */
+export const cutCard = (): string => quoted(t('canvas.cut'))
+/** 「成品」（接好的整支片）。 */
+export const filmName = (): string => quoted(t('canvas.film'))

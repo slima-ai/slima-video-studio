@@ -503,7 +503,17 @@ describe('工具', () => {
       const { tools } = await client.listTools()
       const listModels = tools.find((t) => t.name === 'list_models')?.description ?? ''
       expect(listModels).toContain('Settings → API keys')
-      for (const text of [instructions, guide, caps, listModels]) {
+      // 接成成品那個工具與入門指南裡的按鈕名字也跟著介面語言（Claude 才會對英文使用者說 “Join into film”）
+      const assemble = tools.find((t) => t.name === 'assemble_film')?.description ?? ''
+      expect(assemble).toContain(
+        'the button is “Join into film” (on the “Cut” card and in the “Film” panel)',
+      )
+      const started = dataOf(
+        GuideSchema,
+        await client.callTool({ name: 'load_guide', arguments: { topic: 'getting-started' } }),
+      ).text
+      expect(started).toContain('the app calls it “Join into film”, on the “Cut” card')
+      for (const text of [instructions, guide, caps, listModels, assemble, started]) {
         expect(text).not.toMatch(/[㐀-鿿]/)
       }
     } finally {

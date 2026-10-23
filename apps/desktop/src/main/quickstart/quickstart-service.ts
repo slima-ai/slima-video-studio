@@ -100,7 +100,7 @@ async function renderWithin(
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       abort.abort()
-      reject(new Error(`畫片尾字卡等了 ${String(Math.round(ms / 1000))} 秒還沒畫完`))
+      reject(new Error(`Drawing the end card took longer than ${String(Math.round(ms / 1000))} s`))
     }, ms)
   })
   try {

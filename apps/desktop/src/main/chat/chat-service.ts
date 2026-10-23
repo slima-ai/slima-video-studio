@@ -474,7 +474,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
       conv.claudeSession = newId()
       conv.resumeWithoutInit = false
       try {
-        if (conv.claudePath === undefined) throw new Error('沒有 claude 路徑')
+        if (conv.claudePath === undefined) throw new Error('No path to the claude command')
         ensureProcess(conv, conv.claudePath).send(
           seedText(conv, withNote(conv.turn.userText, conv.turn.appNote)),
         )
@@ -486,7 +486,7 @@ export function createChatService(deps: ChatServiceDeps): ChatService {
     if (conv.turn) {
       // 行程自己當掉或被中斷後退出：說明一聲；stderr 只進紀錄，不給使用者看
       deps.log.warn(
-        `Claude 對話行程結束：code=${String(info.code)} signal=${String(info.signal)} ${info.stderr.slice(-300)}`,
+        `The Claude chat process ended: code=${String(info.code)} signal=${String(info.signal)} ${info.stderr.slice(-300)}`,
       )
       finishTurn(conv, { state: 'error', error: t(LOST) })
     }

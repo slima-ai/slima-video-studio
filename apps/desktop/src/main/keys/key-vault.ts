@@ -335,6 +335,6 @@ export function createKeyVault(options: CreateKeyVaultOptions): KeyVault {
   }
   const crypto =
     options.crypto ?? (options.safeStorage ? directKeyCrypto(options.safeStorage) : undefined)
-  if (!crypto) throw new Error('createKeyVault 需要 crypto 或 safeStorage')
+  if (!crypto) throw new Error('createKeyVault needs crypto or safeStorage')
   return new SafeStorageVault(crypto, join(options.userDataDir, KEY_FILE_NAME), options.warn)
 }

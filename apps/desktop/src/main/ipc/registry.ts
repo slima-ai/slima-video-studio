@@ -50,7 +50,7 @@ export function createIpcRegistry(log: Pick<Logger, 'error' | 'warn'>): IpcRegis
 
   return {
     registerHandler(channel, impl) {
-      if (handlers.has(channel)) throw new Error(`channel 重複註冊：${channel}`)
+      if (handlers.has(channel)) throw new Error(`Channel registered twice: ${channel}`)
       handlers.set(channel, impl as (payload: unknown, ctx: HandlerContext) => unknown)
     },
 

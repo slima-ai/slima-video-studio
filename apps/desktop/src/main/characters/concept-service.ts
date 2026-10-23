@@ -346,9 +346,9 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
         }
       })
     log.info(
-      `開始生成「${character.name}」的概念圖（第 ${String(round)} 輪${
-        references.length > 0 ? `，照 ${String(references.length)} 張參考圖` : ''
-      }）`,
+      `Generating concept pictures for "${character.name}" (round ${String(round)}${
+        references.length > 0 ? `, from ${String(references.length)} reference pictures` : ''
+      })`,
     )
   }
 
