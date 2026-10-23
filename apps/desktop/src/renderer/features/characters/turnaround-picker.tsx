@@ -5,6 +5,7 @@ import { Button } from '../../components/button'
 import { assetUrl } from '../../lib/asset'
 import { call, errorText } from '../../lib/svs'
 import { useTurnarounds } from './use-turnarounds'
+import { t, msg } from '@svs/schema'
 
 export interface TurnaroundPickerProps {
   character: CharacterView
@@ -14,9 +15,9 @@ export interface TurnaroundPickerProps {
 const usd = (n: number): string => `US$${n.toFixed(2)}`
 
 const VIEWS = [
-  { key: 'front', label: '正面' },
-  { key: 'side', label: '側面' },
-  { key: 'back', label: '背面' },
+  { key: 'front', label: msg('chat.front') },
+  { key: 'side', label: msg('chat.side') },
+  { key: 'back', label: msg('chat.back') },
 ] as const
 
 function byRound(items: readonly TurnaroundView[]): { round: number; items: TurnaroundView[] }[] {
@@ -82,7 +83,7 @@ function TurnaroundCard({
       <div className="relative">
         <img
           src={assetUrl(turnaround.sheetHash)}
-          alt={`第 ${String(index + 1)} 組三視圖設定稿`}
+          alt={t('chat.turnaroundSheet', { value: String(index + 1) })}
           className="aspect-video w-full rounded object-cover"
         />
         {[adjusting ? cuts.a : turnaround.cuts.a, adjusting ? cuts.b : turnaround.cuts.b].map(
@@ -97,28 +98,31 @@ function TurnaroundCard({
         )}
       </div>
       <div className="grid grid-cols-3 gap-2">
-        {sliceHashes(turnaround).map((hash, i) => (
-          <figure key={VIEWS[i]?.key} className="text-center text-xs text-fg-muted">
-            <img
-              src={assetUrl(hash)}
-              alt={VIEWS[i]?.label ?? ''}
-              className="h-28 w-full rounded bg-white object-contain"
-            />
-            {VIEWS[i]?.label}
-          </figure>
-        ))}
+        {sliceHashes(turnaround).map((hash, i) => {
+          const view = VIEWS[i]
+          return (
+            <figure key={view?.key} className="text-center text-xs text-fg-muted">
+              <img
+                src={assetUrl(hash)}
+                alt={view ? t(view.label) : ''}
+                className="h-28 w-full rounded bg-white object-contain"
+              />
+              {view ? t(view.label) : null}
+            </figure>
+          )
+        })}
       </div>
 
       {adjusting ? (
         <div className="space-y-1 text-xs" data-testid="turnaround-adjust">
           <label className="flex items-center gap-2">
-            左邊切線
+            {t('chat.leftCutLine')}
             <input
               type="range"
               min={10}
               max={90}
               value={Math.round(cuts.a * 100)}
-              aria-label="左邊切線位置"
+              aria-label={t('chat.leftCutLinePosition')}
               data-testid="turnaround-cut-a"
               onChange={(event) => {
                 setCuts((current) => ({ ...current, a: Number(event.target.value) / 100 }))
@@ -127,13 +131,13 @@ function TurnaroundCard({
             />
           </label>
           <label className="flex items-center gap-2">
-            右邊切線
+            {t('chat.rightCutLine')}
             <input
               type="range"
               min={10}
               max={90}
               value={Math.round(cuts.b * 100)}
-              aria-label="右邊切線位置"
+              aria-label={t('chat.rightCutLinePosition')}
               data-testid="turnaround-cut-b"
               onChange={(event) => {
                 setCuts((current) => ({ ...current, b: Number(event.target.value) / 100 }))
@@ -141,7 +145,7 @@ function TurnaroundCard({
               className="flex-1"
             />
           </label>
-          {!valid ? <p className="text-warning">兩條切線要隔開一點。</p> : null}
+          {!valid ? <p className="text-warning">{t('chat.keepTheTwoCutLines')}</p> : null}
         </div>
       ) : null}
       {error ? (
@@ -159,7 +163,7 @@ function TurnaroundCard({
           disabled={adopted}
           onClick={onAdopt}
         >
-          {adopted ? '使用中' : '採用這組'}
+          {adopted ? t('chat.inUse') : t('chat.useThisOne')}
         </Button>
         {adjusting ? (
           <>
@@ -169,7 +173,7 @@ function TurnaroundCard({
               disabled={busy || !valid || !changed}
               onClick={() => void apply()}
             >
-              重新切
+              {t('chat.cutAgain')}
             </Button>
             <Button
               size="sm"
@@ -179,7 +183,7 @@ function TurnaroundCard({
                 setCuts(turnaround.cuts)
               }}
             >
-              取消調整
+              {t('chat.cancelAdjusting')}
             </Button>
           </>
         ) : (
@@ -191,7 +195,7 @@ function TurnaroundCard({
               setAdjusting(true)
             }}
           >
-            切得不準？調整切線
+            {t('chat.cutOffAdjustTheLines')}
           </Button>
         )}
       </div>
@@ -227,18 +231,17 @@ export function TurnaroundPicker({ character, onChanged }: TurnaroundPickerProps
 
   const costText = check
     ? check.demoMode
-      ? '示範模式：結果是假的，不會花錢'
-      : `預估約 ${usd(check.estimatedUsd)}${check.modelName ? `（${check.modelName}）` : ''}`
+      ? t('chat.demoModeSampleResultsNothing')
+      : check.modelName
+        ? t('chat.estimateAbout', { value: usd(check.estimatedUsd), modelName: check.modelName })
+        : t('chat.estimateAbout2', { value: usd(check.estimatedUsd) })
     : ''
   const problem = localError ?? error ?? state?.error
 
   return (
     <div className="space-y-3 rounded-md border border-border p-3" data-testid="turnaround-section">
-      <h3 className="text-sm font-medium">三視圖（正面・側面・背面）</h3>
-      <p className="text-xs text-fg-muted">
-        以主圖為準，畫出同一個角色的三個角度，之後生成影片時可以當參考。一次生成 4
-        組，挑最好的一組。
-      </p>
+      <h3 className="text-sm font-medium">{t('chat.turnaroundFrontSideBack')}</h3>
+      <p className="text-xs text-fg-muted">{t('chat.basedOnTheMainPicture')}</p>
 
       {character.turnaround ? (
         <div className="grid grid-cols-3 gap-2" data-testid="turnaround-adopted">
@@ -246,10 +249,10 @@ export function TurnaroundPicker({ character, onChanged }: TurnaroundPickerProps
             <figure key={view.key} className="text-center text-xs text-fg-muted">
               <img
                 src={assetUrl(character.turnaround?.[view.key] ?? '')}
-                alt={`${character.name}的${view.label}`}
+                alt={t('chat.text2', { name: character.name, label: t(view.label) })}
                 className="h-40 w-full rounded bg-white object-contain"
               />
-              {view.label}
+              {t(view.label)}
             </figure>
           ))}
         </div>
@@ -259,7 +262,10 @@ export function TurnaroundPicker({ character, onChanged }: TurnaroundPickerProps
         {generating ? (
           <>
             <span className="text-sm" data-testid="turnaround-progress">
-              生成中… 已完成 {generating.done}／{generating.total}
+              {t('chat.generatingOfDone', {
+                value: String(generating.done),
+                value2: String(generating.total),
+              })}
             </span>
             <Button
               size="sm"
@@ -267,7 +273,7 @@ export function TurnaroundPicker({ character, onChanged }: TurnaroundPickerProps
               data-testid="turnaround-cancel"
               onClick={() => void cancel()}
             >
-              取消
+              {t('chat.cancel')}
             </Button>
           </>
         ) : (
@@ -279,7 +285,7 @@ export function TurnaroundPicker({ character, onChanged }: TurnaroundPickerProps
               disabled={!check?.ok}
               onClick={() => void generate()}
             >
-              {turnarounds.length > 0 ? '整組重跑（4 組）' : '生成 4 組三視圖'}
+              {turnarounds.length > 0 ? t('chat.redoAll4Sets') : t('chat.generate4Turnarounds')}
             </Button>
             <span className="text-xs text-fg-muted" data-testid="turnaround-cost">
               {check && !check.ok ? check.issue : costText}
@@ -296,7 +302,7 @@ export function TurnaroundPicker({ character, onChanged }: TurnaroundPickerProps
 
       {byRound(turnarounds).map(({ round, items }) => (
         <div key={round} data-testid={`turnaround-round-${String(round)}`}>
-          <p className="mb-1 text-xs text-fg-muted">第 {round} 輪</p>
+          <p className="mb-1 text-xs text-fg-muted">{t('chat.round', { value: String(round) })}</p>
           <div className="space-y-3">
             {items.map((turnaround, index) => (
               <TurnaroundCard

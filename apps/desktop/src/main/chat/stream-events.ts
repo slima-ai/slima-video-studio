@@ -1,4 +1,4 @@
-import { CHAT_BUDGET_DEFAULT_USD } from '@svs/schema'
+import { CHAT_BUDGET_DEFAULT_USD, t } from '@svs/schema'
 
 import { SERVER_NAME } from '../mcp/connect'
 import { bareToolName } from './tool-labels'
@@ -41,7 +41,7 @@ function summarize(content: unknown): string {
     for (const block of content as unknown[]) {
       if (!isRecord(block)) continue
       if (block.type === 'text' && typeof block.text === 'string') parts.push(block.text)
-      else if (block.type === 'image') parts.push('（圖片）')
+      else if (block.type === 'image') parts.push(t('chat.picture'))
     }
   }
   const text = parts.join(' ').replace(/\s+/g, ' ').trim()
@@ -156,7 +156,7 @@ const isResumable = (subtype: string): boolean =>
  */
 export function budgetLimitMessage(limitUsd: number): string {
   const usd = String(Math.round(limitUsd * 100) / 100)
-  return `這是你自己的 Claude 用量，這一段用到上限了（目前每一段上限約 US$${usd}，跟生成圖片、影片的額度是兩回事）。要調高，到「設定 → 實驗功能」。按「繼續」只會接著做你剛才那句話，不會多做別的。`
+  return t('chat.thisIsYourOwnClaude', { usd })
 }
 
 /** 沒做完的一輪，用白話說原因（不貼原始錯誤文字給使用者）。 */
@@ -164,9 +164,8 @@ function resultError(subtype: string): string {
   if (subtype === 'error_max_budget_usd') {
     return budgetLimitMessage(CHAT_BUDGET_DEFAULT_USD)
   }
-  if (subtype === 'error_max_turns')
-    return 'Claude 這次做了太多步，先停下來了。按「繼續」，它會接著做。'
-  return 'Claude 這次沒有做完，請再試一次。'
+  if (subtype === 'error_max_turns') return t('chat.claudeTookTooManySteps')
+  return t('chat.claudeDidnTFinishThis')
 }
 
 /** 把標準輸出的片段拼成一行一行（換行分隔的 JSON）；壞掉的行略過。 */

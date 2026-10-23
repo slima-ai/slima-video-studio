@@ -9,7 +9,7 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 
-import { ChatPanelMessageSchema, type ChatPanelMessage } from '@svs/schema'
+import { ChatPanelMessageSchema, type ChatPanelMessage, t } from '@svs/schema'
 
 /**
  * Claude 對話的紀錄：放在專案資料夾的 `chat/`，一個對話一個檔（`<對話 id>.jsonl`），一行一筆，只往後面加。
@@ -150,7 +150,7 @@ function parseFile(text: string, expectedId: string): StoredConversation | undef
     if (raw.t === 'conv' && typeof raw.id === 'string' && raw.id === expectedId) {
       const next: StoredConversationInfo = {
         id: expectedId,
-        title: typeof raw.title === 'string' ? raw.title : '新對話',
+        title: typeof raw.title === 'string' ? raw.title : t('chat.newChat'),
         createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : '',
         updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
         ...(typeof raw.claudeSession === 'string' ? { claudeSession: raw.claudeSession } : {}),
@@ -164,7 +164,7 @@ function parseFile(text: string, expectedId: string): StoredConversation | undef
       // 還在串流的（App 當時被關掉）：當成沒做完
       const fixed: ChatPanelMessage =
         message.state === 'streaming'
-          ? { ...message, state: 'error', error: '這一則在 App 關閉時還沒做完。' }
+          ? { ...message, state: 'error', error: t('chat.thisOneWasnTFinished') }
           : message
       if (!byId.has(fixed.id)) order.push(fixed.id)
       byId.set(fixed.id, fixed)

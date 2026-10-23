@@ -4,6 +4,7 @@ import {
   type LocationCardView,
   type LocationGenerateKind,
   type LocationReferenceView,
+  t,
 } from '@svs/schema'
 import { Lock, LockOpen, Plus } from 'lucide-react'
 import { useCallback, useEffect, useState, type SyntheticEvent } from 'react'
@@ -91,8 +92,10 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
     if (!check) return ''
     if (!check.ok) return check.issue ?? ''
     return check.demoMode
-      ? '示範模式：結果是假的，不會花錢'
-      : `預估約 ${usd(check.estimatedUsd)}${check.modelName ? `（${check.modelName}）` : ''}`
+      ? t('chat.demoModeSampleResultsNothing')
+      : check.modelName
+        ? t('chat.estimateAbout', { value: usd(check.estimatedUsd), modelName: check.modelName })
+        : t('chat.estimateAbout2', { value: usd(check.estimatedUsd) })
   }
   const problem = error ?? images.error ?? images.state?.error
   const concepts = images.state?.concepts ?? []
@@ -106,20 +109,22 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
             data-testid="location-status"
             className={`text-xs ${locked ? 'text-success' : 'text-warning'}`}
           >
-            {locked ? '已鎖定（鏡頭會自動帶入）' : '草稿（還沒鎖定，鏡頭不會帶入）'}
+            {locked ? t('chat.lockedShotsUseItAutomatically') : t('chat.draftNotLockedSoShots')}
           </span>
         </div>
         {card.description ? (
-          <p className="text-sm text-fg-muted">故事裡的說明：{card.description}</p>
+          <p className="text-sm text-fg-muted">
+            {t('chat.fromTheStory', { description: card.description })}
+          </p>
         ) : null}
         <label className="block text-sm font-medium">
-          固定的場景描述
+          {t('chat.fixedLocationDescription')}
           <textarea
             data-testid="location-anchor"
             rows={3}
             value={text}
             disabled={locked}
-            placeholder="例如：潮濕的磚牆倉庫，天窗透進冷光，地上堆滿舊木箱"
+            placeholder={t('chat.forExampleADampBrick')}
             maxLength={1000}
             onChange={(event) => {
               setText(event.target.value)
@@ -127,9 +132,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
             className={FIELD}
           />
         </label>
-        <p className="text-xs text-fg-muted">
-          鎖定之後，每個發生在這個地點的鏡頭都會原封不動帶入這段描述和場景圖，讓場景前後一致。
-        </p>
+        <p className="text-xs text-fg-muted">{t('chat.onceLockedEveryShotSet')}</p>
         <div className="flex flex-wrap items-center gap-2">
           {locked ? (
             <Button
@@ -138,7 +141,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
               onClick={() => void run(() => call('locations.unlock', { locationId: card.id }))}
             >
               <LockOpen className="size-4" />
-              解除鎖定才能修改
+              {t('chat.unlockToEdit')}
             </Button>
           ) : (
             <>
@@ -148,7 +151,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                 disabled={!dirty}
                 onClick={() => void save()}
               >
-                存下描述
+                {t('chat.saveDescription2')}
               </Button>
               {card.description && text.trim() === '' ? (
                 <Button
@@ -159,7 +162,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                     setText(card.description)
                   }}
                 >
-                  用故事裡的說明
+                  {t('chat.useTheStorySDescription')}
                 </Button>
               ) : null}
               <Button
@@ -170,11 +173,11 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                 onClick={() => void lock()}
               >
                 <Lock className="size-4" />
-                鎖定
+                {t('chat.lock')}
               </Button>
               {text.trim() === '' || !card.mainAssetHash ? (
                 <span className="text-xs text-fg-muted" data-testid="location-lock-hint">
-                  要先寫好描述、挑好主場景圖才能鎖定
+                  {t('chat.writeADescriptionAndPick')}
                 </span>
               ) : null}
             </>
@@ -191,13 +194,13 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
         className="space-y-3 rounded-md border border-border p-3"
         data-testid="location-images"
       >
-        <h3 className="text-sm font-medium">主場景圖與其他角度</h3>
+        <h3 className="text-sm font-medium">{t('chat.mainPictureAndOtherAngles')}</h3>
         <div className="grid grid-cols-3 gap-2">
           {(
             [
-              ['main', '主場景圖', card.mainAssetHash],
-              ['reverse', '反方向', card.angles.reverse],
-              ['wide', '拉遠全景', card.angles.wide],
+              ['main', t('chat.mainPicture'), card.mainAssetHash],
+              ['reverse', t('chat.reverseAngle'), card.angles.reverse],
+              ['wide', t('chat.wideView'), card.angles.wide],
             ] as const
           ).map(([id, label, hash]) => (
             <figure key={id} data-testid={`location-${id}`}>
@@ -205,7 +208,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                 {hash ? (
                   <img src={assetUrl(hash)} alt={label} className="size-full object-cover" />
                 ) : (
-                  <span className="text-xs text-fg-muted">還沒有</span>
+                  <span className="text-xs text-fg-muted">{t('chat.noneYet')}</span>
                 )}
               </div>
               <figcaption className="mt-1 text-center text-xs text-fg-muted">{label}</figcaption>
@@ -217,7 +220,10 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
           {generating ? (
             <>
               <span className="text-sm" data-testid="location-progress">
-                生成中… 已完成 {generating.done}／{generating.total}
+                {t('chat.generatingOfDone', {
+                  value: String(generating.done),
+                  value2: String(generating.total),
+                })}
               </span>
               <Button
                 size="sm"
@@ -225,7 +231,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                 data-testid="location-cancel"
                 onClick={() => void images.cancel()}
               >
-                取消
+                {t('chat.cancel')}
               </Button>
             </>
           ) : (
@@ -237,7 +243,9 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                 disabled={!images.checks.concepts?.ok}
                 onClick={() => void images.generate('concepts')}
               >
-                {concepts.length > 0 ? '整組重跑（4 張）' : '生成 4 張場景概念圖'}
+                {concepts.length > 0
+                  ? t('chat.redoAll4Pictures')
+                  : t('chat.generate4LocationConceptPictures')}
               </Button>
               <span className="text-xs text-fg-muted" data-testid="location-concepts-cost">
                 {costText('concepts')}
@@ -253,7 +261,9 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
               disabled={!images.checks.angles?.ok}
               onClick={() => void images.generate('angles')}
             >
-              {card.angles.reverse || card.angles.wide ? '重新生成其他角度' : '生成另外兩個角度'}
+              {card.angles.reverse || card.angles.wide
+                ? t('chat.regenerateOtherAngles')
+                : t('chat.generateTheOtherTwoAngles')}
             </Button>
             <span className="text-xs text-fg-muted" data-testid="location-angles-cost">
               {costText('angles')}
@@ -264,7 +274,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
         {extras.length > 0 ? (
           <div data-testid="location-extras">
             <p className="mb-1 text-xs text-fg-muted">
-              另外加的參考圖（鎖定之後，拍鏡頭時依景別與角度自動挑：正上方的鏡頭用俯視圖，遠景用縱深感的環境圖）
+              {t('chat.extraReferencePicturesOnceLocked')}
             </p>
             <div className="grid grid-cols-4 gap-2">
               {extras.map((reference) => {
@@ -286,7 +296,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                         variant="ghost"
                         data-testid={`location-extra-remove-${reference.id}`}
                         disabled={locked}
-                        title={locked ? '要先解除鎖定才能拿掉' : undefined}
+                        title={locked ? t('chat.unlockBeforeRemoving') : undefined}
                         onClick={() => {
                           setError(undefined)
                           call('locations.removeReference', {
@@ -301,7 +311,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                             })
                         }}
                       >
-                        拿掉
+                        {t('chat.remove')}
                       </Button>
                     </figcaption>
                   </figure>
@@ -313,7 +323,9 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
 
         {byRound(concepts).map(({ round, items }) => (
           <div key={round} data-testid={`location-round-${String(round)}`}>
-            <p className="mb-1 text-xs text-fg-muted">第 {round} 輪（點一張當主場景圖）</p>
+            <p className="mb-1 text-xs text-fg-muted">
+              {t('chat.roundClickOneToUse', { value: String(round) })}
+            </p>
             <div className="grid grid-cols-4 gap-2">
               {items.map((concept) => {
                 const chosen = concept.assetHash === card.mainAssetHash
@@ -322,7 +334,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                     key={concept.id}
                     type="button"
                     data-testid={`location-concept-${concept.id}`}
-                    aria-label="挑這張當主場景圖"
+                    aria-label={t('chat.useAsMainLocationPicture')}
                     aria-pressed={chosen}
                     disabled={locked || generating !== undefined}
                     onClick={() =>
@@ -336,7 +348,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                   >
                     <img
                       src={assetUrl(concept.assetHash)}
-                      alt="場景概念圖"
+                      alt={t('chat.locationConceptPictures')}
                       className="aspect-video w-full object-cover"
                     />
                   </button>
@@ -407,11 +419,7 @@ export function LocationsPage() {
   }
 
   return (
-    <Page
-      title="場景卡"
-      hint="每個地點一張場景卡：把它的樣子固定下來，之後發生在這裡的每個鏡頭都會長得一致。地點也可以在「大綱」裡新增。"
-      testId="locations-page"
-    >
+    <Page title={t('chat.locations')} hint={t('chat.oneCardPerLocationIt')} testId="locations-page">
       <div className="grid gap-6 md:grid-cols-[16rem_1fr]">
         <div className="space-y-3">
           <form
@@ -422,8 +430,8 @@ export function LocationsPage() {
           >
             <input
               data-testid="location-new-name"
-              aria-label="新地點的名字"
-              placeholder="新地點的名字"
+              aria-label={t('chat.newLocationSName')}
+              placeholder={t('chat.newLocationSName')}
               value={newName}
               maxLength={100}
               onChange={(event) => {
@@ -435,7 +443,7 @@ export function LocationsPage() {
               type="submit"
               variant="primary"
               size="icon"
-              aria-label="新增地點"
+              aria-label={t('chat.addLocation')}
               data-testid="location-add"
               disabled={adding || newName.trim() === ''}
             >
@@ -447,7 +455,7 @@ export function LocationsPage() {
               {error}
             </p>
           ) : null}
-          <ul className="space-y-1" aria-label="場景卡清單" data-testid="location-list">
+          <ul className="space-y-1" aria-label={t('chat.locationList')} data-testid="location-list">
             {cards.map((c) => (
               <li key={c.id}>
                 <button
@@ -465,9 +473,9 @@ export function LocationsPage() {
                 >
                   {c.name}
                   {c.status === 'locked' ? (
-                    <span className="ml-2 text-xs text-success">已鎖定</span>
+                    <span className="ml-2 text-xs text-success">{t('chat.locked')}</span>
                   ) : (
-                    <span className="ml-2 text-xs text-warning">草稿</span>
+                    <span className="ml-2 text-xs text-warning">{t('chat.draft')}</span>
                   )}
                 </button>
               </li>
@@ -475,7 +483,7 @@ export function LocationsPage() {
           </ul>
           {loaded && cards.length === 0 ? (
             <p className="text-sm text-fg-muted" data-testid="location-empty">
-              還沒有地點。輸入名字按「＋」新增第一個。
+              {t('chat.noLocationsYetTypeA')}
             </p>
           ) : null}
         </div>

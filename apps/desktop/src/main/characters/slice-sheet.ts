@@ -1,6 +1,6 @@
 import type { ProjectHandle } from '@svs/db'
 import { cropImage, probe, type MediaTools } from '@svs/media'
-import { AppError, type TurnaroundCuts } from '@svs/schema'
+import { AppError, type TurnaroundCuts, t } from '@svs/schema'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -37,14 +37,14 @@ export async function sliceSheet(
   if (!sheet) {
     throw new AppError({
       code: 'invalid_request',
-      userMessage: '找不到三視圖的設定稿，可能已被刪除。',
+      userMessage: t('chat.couldnTFindTheTurnaround'),
     })
   }
   const options = signal ? { signal } : {}
   const info = await probe(tools, sheet.path, options)
   const { width, height } = info
   if (!width || !height || width < 3) {
-    throw new AppError({ code: 'invalid_response', userMessage: '設定稿的圖片大小讀不出來。' })
+    throw new AppError({ code: 'invalid_response', userMessage: t('chat.couldnTReadTheSize') })
   }
   const dir = await mkdtemp(join(tmpdir(), 'svs-slice-'))
   try {
@@ -66,7 +66,10 @@ export async function sliceSheet(
     }
     const [frontHash, sideHash, backHash] = hashes
     if (!frontHash || !sideHash || !backHash) {
-      throw new AppError({ code: 'internal_error', userMessage: '切圖失敗，請再試一次。' })
+      throw new AppError({
+        code: 'internal_error',
+        userMessage: t('chat.cuttingTheSheetFailedPlease'),
+      })
     }
     return { frontHash, sideHash, backHash }
   } finally {

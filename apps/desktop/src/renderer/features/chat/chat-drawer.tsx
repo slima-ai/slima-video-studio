@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 
 import { useChatDock } from './chat-context'
 import { ChatPanel } from './chat-panel'
+import { t } from '@svs/schema'
 
 /** 對話面板的寬度（畫布讓出這麼多位置，不蓋住畫布：要看得到它在改什麼）。 */
 export const CHAT_DRAWER_WIDTH = 380
@@ -24,7 +25,7 @@ export function ChatDrawer() {
   if (!enabled) return null
   return (
     <aside
-      aria-label="Claude 對話"
+      aria-label={t('chat.claudeChat')}
       data-testid="chat-drawer"
       data-open={open}
       inert={!open}

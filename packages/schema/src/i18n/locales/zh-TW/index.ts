@@ -7,6 +7,7 @@ import { shell } from './shell'
 import { endFrame } from './endFrame'
 import { shots } from './shots'
 import { settings } from './settings'
+import { chat } from './chat'
 // <i18n:imports>
 
 export const zhTW = {
@@ -18,5 +19,6 @@ export const zhTW = {
   ...endFrame,
   ...shots,
   ...settings,
+  ...chat,
   // <i18n:spread>
 } as const

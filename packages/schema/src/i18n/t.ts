@@ -114,6 +114,14 @@ export function t(keyOrRef: MessageKey | MessageRef, ...args: unknown[]): string
   return interpolate(locale === 'en-XA' ? pseudoLocalize(raw) : raw, params)
 }
 
+/**
+ * 這條訊息在每一種語言的文字（沒有參數的訊息）。給「存在檔案裡的文字之後要比對」用：例如預設的對話標題存下來之後，
+ * 換了語言還是要認得它是預設的。
+ */
+export function messageVariants(key: PlainMessageKey): string[] {
+  return [zhTW[key], en[key]]
+}
+
 /** 數字依目前語言排版（千分位）。 */
 export function formatNumber(value: number): string {
   return new Intl.NumberFormat(intlTag()).format(value)

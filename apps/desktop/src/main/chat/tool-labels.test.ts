@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, setLocale } from '@svs/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { startRealMcp } from '../mcp/test-support'
@@ -5,6 +6,7 @@ import { bareToolName, hasToolLabel, toolDoingLabel, toolLabel } from './tool-la
 
 const running: Awaited<ReturnType<typeof startRealMcp>>[] = []
 afterEach(async () => {
+  setLocale(DEFAULT_LOCALE)
   for (const r of running.splice(0)) await r.close()
 })
 
@@ -32,5 +34,20 @@ describe('工具名換成白話', () => {
     const { tools } = await r.client.listTools()
     expect(tools.length).toBeGreaterThan(40)
     expect(tools.filter((t) => !hasToolLabel(t.name)).map((t) => t.name)).toEqual([])
+  })
+
+  it('英文：每一個工具的白話標籤都是英文，進行中與做完不同、重做和重新生成分得開', async () => {
+    setLocale('en')
+    const r = await startRealMcp()
+    running.push(r)
+    const { tools } = await r.client.listTools()
+    const bad = /[㐀-鿿，。：；（）、！？「」・]/
+    for (const tool of tools) {
+      expect(bad.test(toolLabel(tool.name)), `${tool.name}: ${toolLabel(tool.name)}`).toBe(false)
+    }
+    expect(toolLabel('create_shot')).toBe('Create a shot')
+    expect(toolDoingLabel('create_shot')).toBe('Create a shot…')
+    expect(toolLabel('brand_new_tool')).toBe('Did a step')
+    expect(toolLabel('redo')).not.toBe(toolLabel('regenerate_shot'))
   })
 })

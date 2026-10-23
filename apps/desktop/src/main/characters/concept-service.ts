@@ -16,6 +16,7 @@ import {
   type ConceptsState,
   type ReferenceView,
   type ReferencesState,
+  t,
 } from '@svs/schema'
 import {
   QUICK_STYLE_IDS,
@@ -192,7 +193,7 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
     const handle = projects.current()
     const base = { count: CONCEPTS_PER_ROUND, demoMode }
     if (!handle?.repos.characters.get(characterId)) {
-      return { ...base, ok: false, issue: '找不到這個角色。', estimatedUsd: 0 }
+      return { ...base, ok: false, issue: t('chat.couldnTFindThisCharacter2'), estimatedUsd: 0 }
     }
     const { id: model, referenceLimit, withReferences } = modelFor(handle, characterId)
     const references = withReferences
@@ -204,8 +205,8 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
         references,
         ok: false,
         issue: withReferences
-          ? '這個角色有參考圖，但還沒有能「參考圖片再生成」的圖片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。'
-          : '還沒有可用的圖片模型：請到設定填入 fal.ai 的服務金鑰（或打開示範模式）。',
+          ? t('chat.thisCharacterHasReferencePictures')
+          : t('chat.noImageModelIsAvailable'),
         estimatedUsd: 0,
       }
     }
@@ -230,11 +231,11 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
   const generate = (characterId: string): void => {
     const handle = projects.current()
     const character = handle?.repos.characters.get(characterId)
-    if (!handle || !character) throw invalid('找不到這個角色。')
-    if (active.has(characterId)) throw invalid('這個角色的概念圖正在生成中。')
+    if (!handle || !character) throw invalid(t('chat.couldnTFindThisCharacter2'))
+    if (active.has(characterId)) throw invalid(t('chat.thisCharacterSConceptPictures'))
     const checked = check(characterId)
     const { id: model, referenceLimit, withReferences } = modelFor(handle, characterId)
-    if (!checked.ok || !model) throw invalid(checked.issue ?? '現在不能生成概念圖。')
+    if (!checked.ok || !model) throw invalid(checked.issue ?? t('chat.conceptPicturesCanTBe'))
     const used = withReferences ? usableReferences(handle, characterId, referenceLimit) : []
     const references = used.map((u) => u.ref)
     const queue = runtime.queue()
@@ -242,7 +243,7 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
     if (!queue || !tool) {
       throw new AppError({
         code: 'internal_error',
-        userMessage: '生成服務還沒準備好，請重新啟動 App。',
+        userMessage: t('chat.theGenerationServiceIsnT'),
       })
     }
 
@@ -302,7 +303,7 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
         throw new AppError({
           code: failed?.error?.code ?? 'internal_error',
           retryable: failed?.error?.retryable ?? false,
-          userMessage: failed?.error?.userMessage ?? '有一張圖沒有生成成功。',
+          userMessage: failed?.error?.userMessage ?? t('chat.onePictureDidnTGenerate'),
         })
       }
       if (handle.closed) return
@@ -324,11 +325,15 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
         )
         const [first] = failures
         if (failures.length === 0 || run.controller.signal.aborted) return
-        const reason = isAppError(first) ? first.userMessage : '概念圖生成失敗，請再試一次。'
+        const reason = isAppError(first)
+          ? first.userMessage
+          : t('chat.conceptPicturesFailedToGenerate')
         if (!isAppError(first)) log.error(`概念圖生成發生未預期錯誤：${String(first)}`)
         lastErrors.set(
           characterId,
-          run.done > 0 ? `有 ${String(failures.length)} 張沒有成功：${reason}` : reason,
+          run.done > 0
+            ? t('chat.picturesDidnTGenerate', { value: String(failures.length), reason })
+            : reason,
         )
       })
       .finally(() => {
@@ -364,10 +369,10 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
     addReference({ characterId, assetHash, purpose, label }) {
       const handle = projects.current()
       if (!handle || handle.closed || !handle.repos.characters.get(characterId)) {
-        throw invalid('找不到這個角色。')
+        throw invalid(t('chat.couldnTFindThisCharacter2'))
       }
       if (!assetRefOf(handle, assetHash)) {
-        throw invalid('專案裡找不到這張圖片，只能用專案裡已有的圖片當參考圖。')
+        throw invalid(t('chat.couldnTFindThisPicture'))
       }
       handle.repos.characters.addReference({
         characterId,
@@ -380,14 +385,14 @@ export function createConceptService(deps: ConceptServiceDeps): ConceptService {
     removeReference(characterId, referenceId) {
       const handle = projects.current()
       if (!handle || handle.closed || !handle.repos.characters.get(characterId)) {
-        throw invalid('找不到這個角色。')
+        throw invalid(t('chat.couldnTFindThisCharacter2'))
       }
       const found = listReferences(handle, characterId).find((r) => r.id === referenceId)
       if (found?.source === 'canvas') {
-        throw invalid('這張是在畫布上接到角色「參考圖」的圖，請在畫布上剪掉那條線。')
+        throw invalid(t('chat.thisPictureIsConnectedTo'))
       }
       if (!handle.repos.characters.removeReference(characterId, referenceId)) {
-        throw invalid('找不到這張參考圖。')
+        throw invalid(t('chat.couldnTFindThisReference'))
       }
       return { characterId, references: listReferences(handle, characterId) }
     },

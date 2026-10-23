@@ -4,6 +4,7 @@ export {
   formatDate,
   formatNumber,
   lookupMessage,
+  messageVariants,
   msg,
   pseudoLocalize,
   t,

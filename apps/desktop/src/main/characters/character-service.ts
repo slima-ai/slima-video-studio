@@ -8,6 +8,7 @@ import {
   type CharacterPack,
   type CharacterVersion,
   type CharacterView,
+  t,
 } from '@svs/schema'
 
 import { ensureProject } from '../ensure-project'
@@ -71,7 +72,7 @@ export function createCharacterService(deps: CharacterServiceDeps): CharacterSer
     if (!handle) {
       throw new AppError({
         code: 'project_invalid',
-        userMessage: '還沒有開啟專案，請先新增一個角色或開始生成。',
+        userMessage: t('chat.noProjectIsOpenAdd'),
       })
     }
     return handle.repos.characters
@@ -82,7 +83,10 @@ export function createCharacterService(deps: CharacterServiceDeps): CharacterSer
     const characters = repo()
     const character = characters.get(id)
     if (!character) {
-      throw new AppError({ code: 'project_invalid', userMessage: `找不到這個角色（${id}）。` })
+      throw new AppError({
+        code: 'project_invalid',
+        userMessage: t('chat.couldnTFindThisCharacter', { id }),
+      })
     }
     return toCharacterView(character, characters.pack(id))
   }
@@ -95,7 +99,7 @@ export function createCharacterService(deps: CharacterServiceDeps): CharacterSer
 
     create(name) {
       const checked = CharacterNameSchema.parse(name)
-      ensureProject(projects, deps.projectsDir, '我的短片', now())
+      ensureProject(projects, deps.projectsDir, t('chat.myShortFilm'), now())
       return viewOf(repo().create(checked).id)
     },
 
@@ -114,7 +118,7 @@ export function createCharacterService(deps: CharacterServiceDeps): CharacterSer
       if (!character || !deps.suggestAnchor) {
         throw new AppError({
           code: 'internal_error',
-          userMessage: '目前不能用 AI 整理，請自己寫一段固定外觀描述。',
+          userMessage: t('chat.aiCleanupIsnTAvailable'),
         })
       }
       return deps.suggestAnchor(character, view.outfit)
