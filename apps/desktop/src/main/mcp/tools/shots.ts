@@ -158,7 +158,7 @@ export function registerShotTools(ctx: ToolContext): void {
     name: 'set_shot_end_frame',
     title: 'Set the end frame of a shot',
     description:
-      "Tell the video model what the LAST frame of this shot's video should look like: pass the assetHash of a picture already in the project (list_project_images). The video is then drawn from the first frame towards that picture — use it when the shot ends on something specific, e.g. the character landing on the far side with its face intact. It is only sent when the current video model accepts an end frame (get_shot: endFrame.usedByCurrentVideoModel; Kling 3.0 Standard does). Free, but the shot's video then needs regenerating (regenerate_shot what=\"video\"), which costs money: tell the user the price first (estimate_cost). Undo works like the app's own. clear_shot_end_frame removes it.",
+      "Tell the video model what the LAST frame of this shot's video should look like: pass the assetHash of a picture already in the project (list_project_images). The video is then drawn from the first frame towards that picture — use it when the shot ends on something specific, e.g. the character landing on the far side with its face intact. It is only sent when the current video model accepts an end frame (get_shot: endFrame.usedByCurrentVideoModel; Kling 3.0 Standard does). Free, but the shot's video then needs regenerating (regenerate_shot what=\"video\"), which costs money: tell the user the price first (estimate_cost). Undo works like the app's own. Older end frames are never deleted: setting another one (or clearing) only changes which one is in use, and get_shot takes.endFrames lists them all (adopt_version with a takeId goes back, also to one that cost money to generate). clear_shot_end_frame removes it from use.",
     input: {
       shotId: z.string().min(1),
       assetHash: z.string().min(1).describe('An image assetHash from list_project_images'),
@@ -172,7 +172,7 @@ export function registerShotTools(ctx: ToolContext): void {
     name: 'clear_shot_end_frame',
     title: 'Remove the end frame of a shot',
     description:
-      "Remove the end frame set with set_shot_end_frame; the video goes back to being drawn from the first frame alone. Free, but the shot's video then needs regenerating (costs money, see estimate_cost). Undo works like the app's own.",
+      "Stop using the end frame set with set_shot_end_frame or generate_end_frame (the pictures are kept: get_shot takes.endFrames, adopt_version to use one again); the video goes back to being drawn from the first frame alone. Free, but the shot's video then needs regenerating (costs money, see estimate_cost). Undo works like the app's own.",
     input: { shotId: z.string().min(1) },
     hints: { readOnly: false, idempotent: true },
     run: async ({ shotId }) =>
