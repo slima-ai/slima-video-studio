@@ -10,6 +10,7 @@ import {
   ShotSizeSchema,
   defineNode,
   renderCharacterPrompt,
+  storyLanguageNote,
   storyboardGuidePrompt,
   type AssetRef,
   type GenerationOutput,
@@ -217,6 +218,35 @@ const needModel = (modelId: string | undefined, what: string): string => {
 
 // ------------------------------------------------------------------ 拆鏡
 
+/** 拆鏡（故事 → 鏡頭）給文字模型的 system prompt。故事不是中文時多一句「用故事的語言寫」；中文的內容一字不變。 */
+export function breakdownSystemPrompt(input: {
+  story: string
+  narration: boolean
+  durationSec: number
+  knownCharacters: readonly string[]
+  style: QuickStyleId
+  guide: string
+}): string {
+  return (
+    '你是短片的分鏡助手。把使用者的故事拆成幾個連續的鏡頭，每個鏡頭是一段約幾秒的畫面。' +
+    '用白話描述畫面裡看得到的人事物與動作，不要寫抽象的感受。同一個角色在不同鏡頭裡用同一個名字。' +
+    (input.narration
+      ? `description 只寫畫面，不要寫對白。另外每個鏡頭都要有 dialogue：一句給旁白念的短句（中文，白話，不加引號、括號與動作說明），配合這一鏡的情節；每鏡 ${String(input.durationSec)} 秒，dialogue 最多 ${String(narrationMaxChars(input.durationSec))} 個字，要念得完。`
+      : '不要寫對白。') +
+    (input.knownCharacters.length > 0
+      ? `已經建好的角色有：${input.knownCharacters.join('、')}。故事裡出現這些角色時，characters 欄位一定要用一模一樣的名字。`
+      : '') +
+    '每個鏡頭的 angle 預設是 eye_level；只有畫面明顯是從角色側面拍、或只拍到角色背影時，才用 side 或 back。' +
+    `每個鏡頭的 cameraMove 只能是 null（沒特別要求）或下列其中一個：${CAMERA_MOVES.map((c) => `${c.id}（${c.label}）`).join('、')}。` +
+    `畫風是「${QUICK_STYLES[input.style].label}」。只輸出 JSON。` +
+    storyLanguageNote(
+      input.story,
+      '故事不是中文：title、description、dialogue、mood、lighting 這些給人看的文字請用故事使用的語言寫（dialogue 也一樣，不用中文），角色名與地點名照故事原文，不要翻成中文；size、angle、cameraMove 這類固定選項照上面規定的值。',
+    ) +
+    storyboardGuidePrompt(input.guide)
+  )
+}
+
 export const breakdownNode = defineNode({
   type: NODE_TYPES.breakdown,
   version: 5,
@@ -249,19 +279,7 @@ export const breakdownNode = defineNode({
       {
         modelId: model,
         seed: params.variation,
-        system:
-          '你是短片的分鏡助手。把使用者的故事拆成幾個連續的鏡頭，每個鏡頭是一段約幾秒的畫面。' +
-          '用白話描述畫面裡看得到的人事物與動作，不要寫抽象的感受。同一個角色在不同鏡頭裡用同一個名字。' +
-          (params.narration
-            ? `description 只寫畫面，不要寫對白。另外每個鏡頭都要有 dialogue：一句給旁白念的短句（中文，白話，不加引號、括號與動作說明），配合這一鏡的情節；每鏡 ${String(params.durationSec)} 秒，dialogue 最多 ${String(narrationMaxChars(params.durationSec))} 個字，要念得完。`
-            : '不要寫對白。') +
-          (params.knownCharacters.length > 0
-            ? `已經建好的角色有：${params.knownCharacters.join('、')}。故事裡出現這些角色時，characters 欄位一定要用一模一樣的名字。`
-            : '') +
-          '每個鏡頭的 angle 預設是 eye_level；只有畫面明顯是從角色側面拍、或只拍到角色背影時，才用 side 或 back。' +
-          `每個鏡頭的 cameraMove 只能是 null（沒特別要求）或下列其中一個：${CAMERA_MOVES.map((c) => `${c.id}（${c.label}）`).join('、')}。` +
-          `畫風是「${QUICK_STYLES[params.style].label}」。只輸出 JSON。` +
-          storyboardGuidePrompt(params.guide),
+        system: breakdownSystemPrompt(params),
         messages: [
           {
             role: 'user',

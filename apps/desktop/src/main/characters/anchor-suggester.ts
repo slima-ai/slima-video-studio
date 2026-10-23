@@ -1,6 +1,6 @@
 import type { MediaTools } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
-import { AppError, type Character } from '@svs/schema'
+import { AppError, storyLanguageNote, type Character } from '@svs/schema'
 import { generateStructured } from '@svs/workflows'
 import { z } from 'zod'
 
@@ -25,6 +25,20 @@ const SYSTEM =
   '只寫看得到的特徵：年齡感與性別印象、髮型與髮色、眼睛顏色、臉型、身形、膚色、標誌性的小特徵（疤痕、痣、配件）與服裝。' +
   '不要寫個性、動作、表情、背景、情緒。用逗號分隔的短句，30 到 80 個字。' +
   '使用者沒有寫到的特徵不要自己編造。只輸出 JSON：{"anchor": "..."}。'
+
+/**
+ * 整理固定外觀描述給文字模型的 system prompt。使用者寫的長相與服裝不是中文時多一句「用同一種語言寫」；
+ * 中文的內容一字不變。
+ */
+export function anchorSystemPrompt(content: string): string {
+  return (
+    SYSTEM +
+    storyLanguageNote(
+      content,
+      '使用者寫的角色資料不是中文：這段描述請用使用者寫的語言寫，不要翻成中文（長度比照，約 20 到 50 個英文字）。',
+    )
+  )
+}
 
 /** 請 AI 把長相與服裝整理成固定外觀描述（只回傳建議，由使用者決定要不要存）。 */
 export function createAnchorSuggester(
@@ -64,7 +78,12 @@ export function createAnchorSuggester(
     ].filter((line) => line !== undefined)
     const result = await generateStructured(
       studio,
-      { modelId: model, system: SYSTEM, messages: [{ role: 'user', content: lines.join('\n') }] },
+      {
+        modelId: model,
+        // 語言只看使用者寫的長相與服裝（名字不算，也不看 App 加的中文標籤）
+        system: anchorSystemPrompt([character.appearance, outfit].join('\n')),
+        messages: [{ role: 'user', content: lines.join('\n') }],
+      },
       AnchorSchema,
       { signal: new AbortController().signal },
     )

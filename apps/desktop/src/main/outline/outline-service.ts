@@ -6,6 +6,7 @@ import {
   AppError,
   OutlineOpSchema,
   OutlineTextSchema,
+  storyLanguageNote,
   type OutlineOp,
   type OutlineSplitCheck,
   type OutlineSplitResult,
@@ -89,6 +90,25 @@ const SYSTEM =
   '場的標題要短，摘要用白話寫這個場裡看得到的事，不要寫抽象的感受。' +
   '另外列出故事裡出現的角色（只寫文字裡有提到的特徵，沒寫到的不要編造）和地點。' +
   '場的 location 必須是 locations 裡的名字，不確定就填 null。只輸出 JSON。'
+
+/**
+ * 拆大綱給文字模型的 system prompt：SYSTEM ＋ 已經建好的角色；故事不是中文時多一句「用故事的語言寫、名字照原文」
+ * （沒有這一句，英文故事會得到中文的大綱，連角色名都被翻掉）。中文故事的內容一字不變。
+ */
+export function outlineSystemPrompt(text: string, knownCharacters: readonly string[]): string {
+  const known =
+    knownCharacters.length > 0
+      ? `已經建好的角色有：${knownCharacters.join('、')}。故事裡出現他們時請沿用一模一樣的名字，也不用再列在 characters 裡。`
+      : ''
+  return (
+    SYSTEM +
+    known +
+    storyLanguageNote(
+      text,
+      '故事不是中文：幕與場的標題和摘要、角色與地點的名字和描述，請用故事使用的語言寫；角色與地點的名字照故事原文，不要翻成中文。',
+    )
+  )
+}
 
 const invalid = (userMessage: string): AppError =>
   new AppError({ code: 'invalid_request', userMessage })
@@ -245,16 +265,12 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
 
       const { outline, characters } = handle.repos
       const knownCharacters = characters.list().map((c) => c.name)
-      const known =
-        knownCharacters.length > 0
-          ? `已經建好的角色有：${knownCharacters.join('、')}。故事裡出現他們時請沿用一模一樣的名字，也不用再列在 characters 裡。`
-          : ''
       const studio = createStudioServices({ queue, handle, tools: tool, models })
       const result = await generateStructured(
         studio,
         {
           modelId: model,
-          system: SYSTEM + known,
+          system: outlineSystemPrompt(text, knownCharacters),
           messages: [{ role: 'user', content: text }],
         },
         LlmOutlineSchema,

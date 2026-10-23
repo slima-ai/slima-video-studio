@@ -89,6 +89,28 @@ describe('StoryboardService：AI 依場拆鏡頭', () => {
     }
   })
 
+  it('場的內容不是中文：提示多一句「用故事的語言寫」（App 自己加的中文標籤不算）；中文的場沒有這一句', async () => {
+    const systems: string[] = []
+    const h = setup((r) => {
+      systems.push(r.system ?? '')
+      return SHOTS
+    })
+    const { scenes } = outlineOf(h)
+    await h.storyboard.splitScene(scenes[0].id) // 街角：阿鐵撿到小貓（中文）
+    // 這一幕的標題也是使用者寫的（App 預設的標題是「第 N 幕」，那種不算；這裡換成英文）
+    const act = h.outline.get().acts.find((a) => a.scenes.some((s) => s.id === scenes[1].id))
+    if (!act) throw new Error('找不到場所在的幕')
+    h.outline.edit({ op: 'updateAct', actId: act.id, patch: { title: 'Act two' } })
+    h.outline.edit({
+      op: 'updateScene',
+      sceneId: scenes[1].id,
+      patch: { title: 'The bottle', summary: 'Mina finds a green bottle on the doorstep.' },
+    })
+    await h.storyboard.splitScene(scenes[1].id)
+    expect(systems[0]).not.toContain('故事不是中文')
+    expect(systems[1]).toContain('故事不是中文')
+  })
+
   it('分鏡準則會帶進提示：沒自訂用內建預設，有自訂用自訂的，輸出格式的要求還在', async () => {
     let system = ''
     const h = setup((r) => {
