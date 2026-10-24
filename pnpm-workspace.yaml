@@ -13,3 +13,9 @@ onlyBuiltDependencies:
 overrides:
   '@types/node': 22.20.5
   vite: 7.3.7
+  # pnpm audit（high 以上才失敗）：這幾個都是經過 slima-mcp 進來的相依套件，slima-mcp 沒有新版可升，只能在這裡拉到修好的版本
+  # zod：slima-mcp 只收 ^3.23.0，而 zod 的修補（GHSA-mrhx-c7xc-m3w5）只有 4.6.6 以上
+  'slima-mcp>zod': 4.6.6
+  # body-parser（GHSA-27r3-jxmh-p828）、fast-uri（moderate／low）
+  body-parser: ^2.4.0
+  fast-uri: ^3.1.9
