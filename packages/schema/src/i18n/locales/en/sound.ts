@@ -66,6 +66,8 @@ export const sound = {
   'sound.mixAgainFree': 'Mix again (free)',
   'sound.soundTimeline': 'Sound timeline',
   'sound.timeline': 'Timeline',
+  'sound.playCell': 'Shot {number}: select it, then press Space to play the kept part',
+  'sound.playHint': 'Space plays or pauses only the kept {start}–{end} s (shot {number})',
   'sound.ruler': 'Seconds ruler',
   'sound.cutOff': 'Cut off',
   'sound.cutOffTip': 'Shot {number}: {cut} s cut off',

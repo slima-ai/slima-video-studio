@@ -172,6 +172,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
           startSec: start,
           durationSec,
           hasVideo: take !== undefined,
+          ...(take === undefined ? {} : { videoHash: take.assetHash }),
           ...(take !== undefined && videoSec !== undefined && videoSec > 0
             ? {
                 trim: {

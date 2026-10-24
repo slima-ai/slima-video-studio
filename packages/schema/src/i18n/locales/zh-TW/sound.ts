@@ -56,6 +56,8 @@ export const sound = {
   'sound.mixAgainFree': '重新混音（不花錢）',
   'sound.soundTimeline': '聲音時間軸',
   'sound.timeline': '時間軸',
+  'sound.playCell': '鏡 {number}：選取後按空白鍵播放留下的部分',
+  'sound.playHint': '空白鍵播放／暫停：只播留下的 {start}–{end} 秒（鏡 {number}）',
   'sound.ruler': '秒數尺',
   'sound.cutOff': '剪掉',
   'sound.cutOffTip': '鏡 {number} 被剪掉的部分：{cut} 秒',

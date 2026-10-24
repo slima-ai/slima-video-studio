@@ -1,6 +1,6 @@
 import { setLocale, type AppErrorShape, type SoundShotView, type SoundState } from '@svs/schema'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 
 import { IpcCallError } from '../../lib/svs'
 import { SoundTimeline } from './sound-timeline'
@@ -344,5 +344,157 @@ describe('時間軸：格子裡的字放不下就少寫，不切掉數字', () =
       />,
     )
     expect(fitOf(1)).toBe('full')
+  })
+})
+
+describe('時間軸：選一格按空白鍵，播那一鏡自己的影片、只播留下的段落', () => {
+  const HASH = 'a'.repeat(64)
+  const times = new WeakMap<HTMLMediaElement, number>()
+  let play: MockInstance<HTMLMediaElement['play']>
+  let pause: MockInstance<HTMLMediaElement['pause']>
+  let frames: (() => void)[] = []
+
+  function setup() {
+    vi.spyOn(HTMLMediaElement.prototype, 'currentTime', 'get').mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      return times.get(this) ?? 0
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'currentTime', 'set').mockImplementation(function (
+      this: HTMLMediaElement,
+      value: number,
+    ) {
+      times.set(this, value)
+    })
+    play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+    frames = []
+    vi.stubGlobal('requestAnimationFrame', (callback: () => void) => frames.push(callback))
+    vi.stubGlobal('cancelAnimationFrame', () => undefined)
+  }
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+  /** 跑掉排隊中的那一格動畫回呼。 */
+  const runFrame = () => {
+    const queued = frames
+    frames = []
+    act(() => {
+      for (const callback of queued) callback()
+    })
+  }
+
+  // 鏡 1 整支 5 秒；鏡 2 剪成 0.5–3 秒；鏡 3 沒有影片
+  const withVideo = (shot: SoundShotView): SoundShotView => ({ ...shot, videoHash: HASH })
+  const PLAYABLE = [
+    withVideo(shotOf(1, 0, { inSec: 0, outSec: 5 })),
+    withVideo(shotOf(2, 5, { inSec: 0.5, outSec: 3 })),
+    { ...shotOf(3, 7.5, undefined), hasVideo: false },
+  ]
+  const cell = (n: number) => screen.getByTestId(`timeline-shot-${String(n)}`)
+  const video = () => screen.getByTestId<HTMLVideoElement>('timeline-preview')
+
+  it('有影片的格子是可選的按鈕（寫了怎麼播）；沒有影片的格子不是', () => {
+    setup()
+    render(<SoundTimeline state={stateOf(PLAYABLE)} part="film" />)
+    expect(cell(1).getAttribute('role')).toBe('button')
+    expect(cell(1).getAttribute('aria-label')).toBe('鏡 1：選取後按空白鍵播放留下的部分')
+    expect(cell(3).getAttribute('role')).toBeNull()
+    expect(screen.queryByTestId('timeline-preview')).toBeNull()
+  })
+
+  it('點一格：選取，出現那一鏡自己的影片（停在入點）與說明；還沒播', () => {
+    setup()
+    render(<SoundTimeline state={stateOf(PLAYABLE)} part="film" />)
+    fireEvent.click(cell(2))
+    expect(cell(2).dataset.selected).toBe('true')
+    expect(video().getAttribute('src')).toBe(`svs-asset://asset/${HASH}`)
+    expect(video().currentTime).toBe(0.5)
+    expect(screen.getByTestId('timeline-play-hint').textContent).toBe(
+      '空白鍵播放／暫停：只播留下的 0.5–3.0 秒（鏡 2）',
+    )
+    expect(play).not.toHaveBeenCalled()
+  })
+
+  it('沒選的格子按空白鍵：選取並從入點開始播；再按一次暫停；再按從暫停處接著播', async () => {
+    setup()
+    render(<SoundTimeline state={stateOf(PLAYABLE)} part="film" />)
+    fireEvent.keyDown(cell(2), { key: ' ' })
+    await waitFor(() => {
+      expect(play).toHaveBeenCalledTimes(1)
+    })
+    expect(video().currentTime).toBe(0.5)
+    times.set(video(), 1.7)
+    fireEvent.keyDown(cell(2), { key: ' ' })
+    expect(pause).toHaveBeenCalled()
+    fireEvent.keyDown(cell(2), { key: ' ' })
+    await waitFor(() => {
+      expect(play).toHaveBeenCalledTimes(2)
+    })
+    expect(video().currentTime).toBe(1.7)
+  })
+
+  it('只播留下的段落：播到出點（3 秒）就停在出點；再按空白鍵從入點重播', async () => {
+    setup()
+    render(<SoundTimeline state={stateOf(PLAYABLE)} part="film" />)
+    fireEvent.keyDown(cell(2), { key: ' ' })
+    await waitFor(() => {
+      expect(play).toHaveBeenCalledTimes(1)
+    })
+    await waitFor(() => {
+      expect(frames.length).toBeGreaterThan(0)
+    })
+    const pausedBefore = pause.mock.calls.length
+    times.set(video(), 2.5)
+    runFrame()
+    expect(pause.mock.calls.length).toBe(pausedBefore) // 還沒到出點，繼續播
+    times.set(video(), 3.004)
+    runFrame()
+    expect(pause.mock.calls.length).toBe(pausedBefore + 1)
+    expect(video().currentTime).toBe(3)
+    fireEvent.keyDown(cell(2), { key: ' ' })
+    await waitFor(() => {
+      expect(play).toHaveBeenCalledTimes(2)
+    })
+    expect(video().currentTime).toBe(0.5)
+  })
+
+  it('換選另一格：停下、新的那一鏡回到它自己的入點；鏡 1 沒剪（整支 0–5 秒）', async () => {
+    setup()
+    render(<SoundTimeline state={stateOf(PLAYABLE)} part="film" />)
+    fireEvent.keyDown(cell(2), { key: ' ' })
+    await waitFor(() => {
+      expect(play).toHaveBeenCalledTimes(1)
+    })
+    fireEvent.click(cell(1))
+    expect(cell(1).dataset.selected).toBe('true')
+    expect(cell(2).dataset.selected).toBe('false')
+    expect(pause).toHaveBeenCalled()
+    expect(screen.getByTestId('timeline-play-hint').textContent).toBe(
+      '空白鍵播放／暫停：只播留下的 0.0–5.0 秒（鏡 1）',
+    )
+  })
+
+  it('把手上的按鍵（← → 逐格）不會觸發播放；沒有影片的格子按空白鍵沒反應', () => {
+    setup()
+    render(
+      <SoundTimeline
+        state={stateOf(PLAYABLE)}
+        part="film"
+        onTrim={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    fireEvent.keyDown(screen.getByTestId('timeline-edge-out-2'), { key: ' ' })
+    fireEvent.keyDown(cell(3), { key: ' ' })
+    expect(screen.queryByTestId('timeline-preview')).toBeNull()
+    expect(play).not.toHaveBeenCalled()
+  })
+
+  it('part=sound（聲音那一塊）沒有播放功能', () => {
+    setup()
+    render(<SoundTimeline state={stateOf(PLAYABLE)} part="sound" />)
+    expect(screen.queryByTestId('timeline-shot-1')).toBeNull()
+    expect(screen.queryByTestId('timeline-preview')).toBeNull()
   })
 })

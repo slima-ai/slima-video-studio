@@ -21,6 +21,46 @@ async function openCutPanel(page: Page): Promise<void> {
 }
 
 test.describe('成品面板的時間軸：秒數尺與拖格子邊緣剪頭尾（示範模式，每鏡 3 秒的假影片）', () => {
+  test('選一格按空白鍵：播那一鏡自己的影片，只播留下的段落（出點之後不再播）；再按暫停', async ({
+    page,
+  }, testInfo) => {
+    await generateAndOpenCanvas(page)
+    await openCutPanel(page)
+    // 鏡 2 的出點退到約 1 秒：只播入點到出點這 1 秒
+    const edge = await page.getByTestId('timeline-edge-out-2').boundingBox()
+    const cell = await page.getByTestId('timeline-shot-2').boundingBox()
+    if (!edge || !cell) throw new Error('時間軸沒有畫出來')
+    const y = edge.y + edge.height / 2
+    await page.mouse.move(edge.x + edge.width / 2, y)
+    await page.mouse.down()
+    await page.mouse.move(cell.x + cell.width * 0.34, y, { steps: 8 })
+    await page.mouse.up()
+    await expect.poll(async () => (await soundOf(page)).shots[1]?.trim?.trimmed).toBe(true)
+    const outSec = (await soundOf(page)).shots[1]?.trim?.outSec ?? 0
+    expect(outSec).toBeGreaterThan(0.6)
+    expect(outSec).toBeLessThan(1.6)
+
+    // 點一格選取、按空白鍵播
+    await page.getByTestId('timeline-shot-2').focus()
+    await page.keyboard.press('Space')
+    const video = page.getByTestId('timeline-preview')
+    await expect(video).toBeVisible()
+    await expect(page.getByTestId('timeline-play-hint')).toContainText('只播留下的 0.0–')
+    await page.screenshot({ path: testInfo.outputPath('timeline-playing.png') })
+    // 播到出點就停在出點，不會繼續播到影片結尾（影片 3 秒）
+    await expect
+      .poll(() => video.evaluate((el: HTMLVideoElement) => el.paused), { timeout: 15_000 })
+      .toBe(true)
+    const stoppedAt = await video.evaluate((el: HTMLVideoElement) => el.currentTime)
+    expect(stoppedAt).toBeGreaterThan(outSec - 0.1)
+    expect(stoppedAt).toBeLessThan(outSec + 0.1)
+    // 再按空白鍵：從入點重播，播到一半再按就暫停
+    await page.keyboard.press('Space')
+    await expect.poll(() => video.evaluate((el: HTMLVideoElement) => el.paused)).toBe(false)
+    await page.keyboard.press('Space')
+    await expect.poll(() => video.evaluate((el: HTMLVideoElement) => el.paused)).toBe(true)
+  })
+
   test('秒數尺在、每格寫秒數；真的拖鏡 2 的出點邊緣，鏡頭面板、成品長度都跟著變，剪掉的部分出現在「剪掉」那排', async ({
     page,
   }, testInfo) => {
