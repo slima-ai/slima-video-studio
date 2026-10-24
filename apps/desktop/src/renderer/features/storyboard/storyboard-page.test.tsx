@@ -76,6 +76,36 @@ describe('StoryboardPage', () => {
     })
   })
 
+  it('「成品用到」唯讀欄：沒有影片是「—」、沒裁是整支、裁過是留下的那一段；不能編輯', async () => {
+    const video = (extra: Record<string, unknown> = {}) => ({
+      id: `v${String(Math.random())}`,
+      kind: 'video' as const,
+      version: 1,
+      assetHash: 'a'.repeat(64),
+      adopted: true,
+      modelId: 'm',
+      createdAt: '2026-10-24T00:00:00.000Z',
+      videoSec: 5.041667,
+      ...extra,
+    })
+    installFakeSvs({
+      'outline.get': () => outline,
+      'shots.list': () =>
+        snapshot(
+          shot('s1', 1),
+          shot('s2', 2, { videos: [video()] }),
+          shot('s3', 3, { videos: [video({ trim: { outSec: 3.5 } })] }),
+          shot('s4', 4, { videos: [video({ trim: { inSec: 1, outSec: 3.5 } })] }),
+        ),
+    })
+    render(<StoryboardPage />)
+    await screen.findAllByTestId('shot-row')
+    const cells = (await screen.findAllByTestId('shot-used')).map((c) => c.textContent)
+    expect(cells).toEqual(['—', '0.0–5.042', '0.0–3.5', '1.0–3.5'])
+    expect(screen.getAllByTestId('shot-used')[0]?.tagName).toBe('SPAN')
+    expect(screen.getByRole('columnheader', { name: '成品用到' })).toBeTruthy()
+  })
+
   it('欄位離開才存；沒改不送出；Enter 存並跳到下一列同一欄；Esc 放棄', async () => {
     const svs = installFakeSvs({
       'outline.get': () => outline,

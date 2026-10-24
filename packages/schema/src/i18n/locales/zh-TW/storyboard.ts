@@ -83,4 +83,6 @@ export const storyboard = {
   'storyboard.mood': '氣氛',
   'storyboard.status': '狀態',
   'storyboard.actScene': '{act}／{scene}',
+  'storyboard.usedInFilm': '成品用到',
+  'storyboard.usedInFilmTip': '成品實際用到這支影片的哪一段（秒）；要改請打開鏡頭面板剪裁',
 } as const

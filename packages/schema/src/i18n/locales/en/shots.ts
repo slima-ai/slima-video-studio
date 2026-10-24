@@ -46,4 +46,29 @@ export const shots = {
   'shots.finishing': 'Finishing…',
   'shots.failed': 'Failed…',
   'shots.newShot': 'New shot',
+  'shots.trimTitle': 'Part used in the film',
+  'shots.trimTimeline': 'Video timeline',
+  'shots.trimInHandle': 'In point (the video starts being used here)',
+  'shots.trimOutHandle': 'Out point (the video is used up to here)',
+  'shots.trimSetIn': 'Set in point',
+  'shots.trimSetOut': 'Set out point',
+  'shots.trimInField': 'In (s)',
+  'shots.trimOutField': 'Out (s)',
+  'shots.trimReset': 'Reset',
+  'shots.trimPlayKept': 'Play only the kept part',
+  'shots.trimKept': 'Keeping {start}–{end} s: {length} s, {frames} frames',
+  'shots.trimWhole': 'Using the whole video: {length} s, {frames} frames',
+  'shots.trimHelp': '← → step one frame, I sets the in point, O sets the out point',
+  'shots.trimAdjusted': '{asked} s was snapped to the video’s frame grid; using {used} s.',
+  'shots.trimClamped': '{asked} s is past the end of the video; using {used} s.',
+  'shots.trimOtherVersion':
+    'This is a preview of another version; trimming only applies to the version in use.',
+  'shots.trimPreviousVersion':
+    'The previous version was trimmed to {start}–{end} s; this one uses the whole video.',
+  'shots.trimPreviousVersionOwn':
+    'The previous version was trimmed to {start}–{end} s; this one has its own trim: {ownStart}–{ownEnd} s.',
+  'shots.trimBadge': '✂ {kept}/{total}',
+  'shots.trimBadgeTip':
+    'The film uses only {start}–{end} s of this video ({total} s in all); click to open trimming',
+  'shots.trimNotANumber': 'Enter a number of seconds (for example 3.5).',
 } as const

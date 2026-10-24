@@ -88,4 +88,7 @@ export const storyboard = {
   'storyboard.mood': 'Mood',
   'storyboard.status': 'Status',
   'storyboard.actScene': '{act} / {scene}',
+  'storyboard.usedInFilm': 'Used in film',
+  'storyboard.usedInFilmTip':
+    'Which part of the video (in seconds) the film actually uses; open the shot panel to trim',
 } as const

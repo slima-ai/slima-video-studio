@@ -34,10 +34,21 @@ import {
 import { GripVertical } from 'lucide-react'
 import { createContext, useContext, useMemo, type HTMLAttributes } from 'react'
 
+import { fmtSec } from '../shots/trim-math'
 import { SelectCell, TextCell } from './cells'
 import { STATUS_LABELS, angleOptions, cameraMoveOptions, parseNames, sizeOptions } from './labels'
 
 const NONE = ''
+
+/** 「成品用到」那一欄：沒有影片是「—」；沒裁是整支（0.0–5.0）；裁過是留下的那一段（0.0–3.5）。 */
+export function usedInFilm(shot: ShotView): string {
+  const video = shot.videos.find((v) => v.adopted)
+  if (!video) return '—'
+  const total = video.videoSec ?? shot.filmSeconds
+  const start = video.trim?.inSec ?? 0
+  const end = video.trim?.outSec ?? total
+  return end === undefined ? '—' : `${fmtSec(start)}–${fmtSec(end)}`
+}
 
 /** 每一欄的寬度（px）：固定下來，內容太長就用省略號並在滑過時顯示全文，不會把欄位擠成一個字寬。 */
 const ZH_COLUMN_WIDTHS: Record<string, number> = {
@@ -50,6 +61,7 @@ const ZH_COLUMN_WIDTHS: Record<string, number> = {
   angle: 120,
   camera: 120,
   duration: 80,
+  used: 110,
   characters: 150,
   dialogue: 200,
   location: 150,
@@ -281,6 +293,23 @@ export function StoryboardTable({
             }}
           />
         ),
+      },
+      {
+        // 唯讀：成品實際用到這支影片的哪一段（秒）。要改請打開鏡頭面板剪裁
+        id: 'used',
+        header: t('storyboard.usedInFilm'),
+        cell: ({ row }) => {
+          const text = usedInFilm(row.original)
+          return (
+            <span
+              className="block truncate border border-transparent px-2 py-1 text-sm tabular-nums text-fg-muted"
+              data-testid="shot-used"
+              title={t('storyboard.usedInFilmTip')}
+            >
+              {text}
+            </span>
+          )
+        },
       },
       {
         id: 'characters',

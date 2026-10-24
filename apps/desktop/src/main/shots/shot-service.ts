@@ -340,7 +340,7 @@ export type TrimOutcome = Omit<Extract<TrimResult, { ok: true }>, 'ok' | 'trim'>
   fps: number
 }
 
-const toTakeView = (take: Take, usage?: AssetUsage): TakeView => ({
+const toTakeView = (take: Take, usage?: AssetUsage, videoSec?: number): TakeView => ({
   id: take.id,
   kind: take.kind,
   version: take.version,
@@ -350,6 +350,7 @@ const toTakeView = (take: Take, usage?: AssetUsage): TakeView => ({
   ...(take.seed === undefined ? {} : { seed: take.seed }),
   createdAt: take.createdAt,
   ...(trimOfTake(take) === undefined ? {} : { trim: trimOfTake(take) }),
+  ...(take.kind === 'video' && videoSec !== undefined && videoSec > 0 ? { videoSec } : {}),
   ...(usage
     ? {
         durationMs: usage.durationMs,
@@ -476,7 +477,12 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       lockedScenes(s.handle),
     ).videoPrompt
     const usage = s.handle.repos.jobs.usageByAsset(takes.map((t) => t.assetHash))
-    const withUsage = (take: Take): TakeView => toTakeView(take, usage.get(take.assetHash))
+    const withUsage = (take: Take): TakeView =>
+      toTakeView(
+        take,
+        usage.get(take.assetHash),
+        take.kind === 'video' ? s.handle.assets.getMeta(take.assetHash)?.durationSec : undefined,
+      )
     const names = shot.characters.flatMap((c) => (c.name ? [c.name] : []))
     const adoptedVideo = takes.find((t) => t.kind === 'video' && t.adopted)
     const filmSeconds = adoptedVideo

@@ -84,6 +84,8 @@ export interface CanvasSource {
     string,
     { durationMs?: number; costUsd?: number; costEstimated?: boolean; letterboxTrimmed?: boolean }
   >
+  /** 採用中影片的實際長度（秒，依素材雜湊）：卡片上的裁切徽章「✂ 3.5／5.0」用。 */
+  videoSecs?: ReadonlyMap<string, number>
   /** 模型 id → 給人看的名字（例如 mock/image →「示範圖片」）；查不到就顯示 id。 */
   modelNames?: ReadonlyMap<string, string>
   /** 圖或影片需要重跑的鏡頭（生成之後上游改過）。 */
@@ -93,6 +95,19 @@ export interface CanvasSource {
   steps?: ReadonlyMap<string, StepInfo>
   /** 最新接好的成品（剪輯卡顯示）。 */
   final?: CanvasFinalCut | undefined
+}
+
+/** 影片卡片上的裁切徽章要的資料：有裁切、而且知道影片多長才有。 */
+function trimOf(
+  take: Take,
+  videoSec: number | undefined,
+): { trim?: { startSec: number; endSec: number; videoSec: number } } {
+  if (videoSec === undefined || (take.trimInSec === undefined && take.trimOutSec === undefined)) {
+    return {}
+  }
+  return {
+    trim: { startSec: take.trimInSec ?? 0, endSec: take.trimOutSec ?? videoSec, videoSec },
+  }
 }
 
 const STEP_TITLES = {
@@ -332,6 +347,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
               }
             : {}),
           ...(kind === 'video' ? { inCut: shot.inCut } : {}),
+          ...(kind === 'video' && take ? trimOf(take, source.videoSecs?.get(take.assetHash)) : {}),
           // 尾幀：第一張畫面的格子多一張標「尾」的縮圖；影片的格子在「吃：」那一行列出動作與尾幀（沒有就都不帶）
           ...(kind === 'image' && takeEnd ? { endAssetHash: takeEnd.assetHash } : {}),
           ...(kind === 'video' && shot.action.trim() !== '' ? { hasAction: true } : {}),

@@ -28,6 +28,8 @@ export const TakeViewSchema = z.object({
   letterboxTrimmed: z.boolean().optional(),
   /** 影片版本：成品只用這支的哪一段（秒）；沒有裁就沒有這個欄位。 */
   trim: TrimSchema.optional(),
+  /** 影片版本：檔案實際的長度（秒）；量不到就沒有這個欄位。剪裁的把手與數字欄位的範圍用它。 */
+  videoSec: z.number().positive().optional(),
 })
 export type TakeView = z.infer<typeof TakeViewSchema>
 

@@ -17,6 +17,8 @@ import { CharacterDetail } from '../characters/characters-page'
 import { LocationCard } from '../locations/locations-page'
 import { CommitText } from '../outline/fields'
 import { ShotPanel, useModelNames, VersionList } from '../shots/shot-panel'
+import { trimHintOnAdopt } from '../shots/trim-hint'
+import { TrimPlayer } from '../shots/trim-player'
 import type { CanvasNode, NodeKind } from './canvas-model'
 import { FinalCutPanel } from './final-cut-panel'
 import { FloatingPanel, type PanelTab } from './floating-panel'
@@ -201,36 +203,52 @@ function TakesPanel({
   const [previewId, setPreviewId] = useState<string>()
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
+  const [hint, setHint] = useState<string | undefined>()
   const takes = kind === 'video' ? shot.videos : shot.firstFrames
   const adopted = takes.find((t) => t.adopted)
   const shown = takes.find((t) => t.id === previewId) ?? adopted
   const generating = shot.activity !== undefined
   return (
     <section className="space-y-4 p-4" data-testid={`takes-panel-${kind}`}>
-      <div className="aspect-video overflow-hidden rounded-md border border-border bg-black">
-        {shown ? (
-          kind === 'video' ? (
-            <video
-              key={shown.id}
-              data-testid="takes-preview"
-              controls
-              src={assetUrl(shown.assetHash)}
-              className="size-full"
-            />
+      {kind === 'video' && shown && shown.id === adopted?.id ? (
+        // 使用中的影片：預覽加上頭尾裁切
+        <TrimPlayer shot={shot} take={shown} videoTestId="takes-preview" />
+      ) : (
+        <div className="aspect-video overflow-hidden rounded-md border border-border bg-black">
+          {shown ? (
+            kind === 'video' ? (
+              <video
+                key={shown.id}
+                data-testid="takes-preview"
+                controls
+                src={assetUrl(shown.assetHash)}
+                className="size-full"
+              />
+            ) : (
+              <img
+                data-testid="takes-preview"
+                src={assetUrl(shown.assetHash)}
+                alt={t('canvas.version', { value: String(shown.version) })}
+                className="size-full object-cover"
+              />
+            )
           ) : (
-            <img
-              data-testid="takes-preview"
-              src={assetUrl(shown.assetHash)}
-              alt={t('canvas.version', { value: String(shown.version) })}
-              className="size-full object-cover"
-            />
-          )
-        ) : (
-          <p className="flex size-full items-center justify-center text-sm text-fg-muted">
-            {kind === 'video' ? t('canvas.noVideoInUseYet') : t('canvas.noFirstFrameInUse')}
-          </p>
-        )}
-      </div>
+            <p className="flex size-full items-center justify-center text-sm text-fg-muted">
+              {kind === 'video' ? t('canvas.noVideoInUseYet') : t('canvas.noFirstFrameInUse')}
+            </p>
+          )}
+        </div>
+      )}
+      {kind === 'video' && shown && shown.id !== adopted?.id ? (
+        <p className="text-sm text-fg-muted" data-testid="trim-other-version">
+          {t('shots.trimOtherVersion')}
+        </p>
+      ) : null}
+      {hint ? (
+        <p className="text-sm text-fg-muted" role="status" data-testid="trim-version-hint">
+          {hint}
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="text-sm text-danger">
           {error}
@@ -248,9 +266,18 @@ function TakesPanel({
           onAdopt={(takeId) => {
             setBusy(true)
             setError(undefined)
+            // 換版本之後提一句上一版剪過（不擋操作；各版本各自有裁切）
+            const note =
+              kind === 'video'
+                ? trimHintOnAdopt(
+                    adopted,
+                    takes.find((v) => v.id === takeId),
+                  )
+                : undefined
             call('shots.adopt', { takeId })
               .then(() => {
                 setPreviewId(undefined)
+                setHint(note)
               })
               .catch((e: unknown) => {
                 setError(errorText(e))
