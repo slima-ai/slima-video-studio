@@ -333,3 +333,60 @@ describe('ShotPanel 版本', () => {
     expect((await screen.findByTestId('shot-action-error')).textContent).toBe('找不到這個版本。')
   })
 })
+
+describe('ShotPanel 剪裁', () => {
+  const trimmedShot = shot({
+    videos: [
+      take('video', 1, { videoSec: 5.041667 }),
+      take('video', 2, { adopted: true, videoSec: 5.041667, trim: { outSec: 3.5 } }),
+    ],
+  })
+
+  it('使用中的影片有剪裁控制（時間尺、設為入點／出點、欄位）；預覽的是另一個版本就沒有，並說明剪裁只套用在使用中的版本', () => {
+    installFakeSvs()
+    renderPanel(trimmedShot)
+    expect(screen.getByTestId('trim-control')).toBeTruthy()
+    expect(screen.getByTestId('trim-summary').textContent).toBe('留下 0.0–3.5 秒：3.5 秒、84 格')
+    expect(screen.queryByTestId('trim-other-version')).toBeNull()
+    fireEvent.click(
+      within(screen.getByTestId('shot-version-1')).getByRole('button', { name: '預覽' }),
+    )
+    expect(screen.queryByTestId('trim-control')).toBeNull()
+    expect(screen.getByTestId('shot-preview').getAttribute('src')).toContain(HASH('1'))
+    expect(screen.getByTestId('trim-other-version').textContent).toContain('只套用在「使用中」')
+  })
+
+  it('沒有影片只有首幀圖：沒有剪裁控制', () => {
+    installFakeSvs()
+    renderPanel(shot({ videos: [] }))
+    expect(screen.queryByTestId('trim-control')).toBeNull()
+  })
+
+  it('換成另一版影片時，上一版有剪過就提一句（不擋操作、不問確認）；上一版沒剪就不提', async () => {
+    const svs = installFakeSvs({ 'shots.adopt': () => shot() })
+    renderPanel(trimmedShot)
+    fireEvent.click(screen.getByTestId('shot-adopt-1'))
+    await waitFor(() => {
+      expect(svs.payloadsOf('shots.adopt')).toEqual([{ takeId: 'video-1' }])
+    })
+    expect((await screen.findByTestId('trim-version-hint')).textContent).toBe(
+      '上一版剪到 0.0–3.5 秒，這一版是整支。',
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
+    cleanup()
+    installFakeSvs({ 'shots.adopt': () => shot() })
+    renderPanel(
+      shot({
+        videos: [
+          take('video', 1, { videoSec: 5 }),
+          take('video', 2, { adopted: true, videoSec: 5 }),
+        ],
+      }),
+    )
+    fireEvent.click(screen.getByTestId('shot-adopt-1'))
+    await waitFor(() => {
+      expect(screen.getByTestId('shot-adopt-1')).toBeTruthy()
+    })
+    expect(screen.queryByTestId('trim-version-hint')).toBeNull()
+  })
+})

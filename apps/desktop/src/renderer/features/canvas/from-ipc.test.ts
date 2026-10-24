@@ -163,6 +163,39 @@ describe('toFlowGraph', () => {
     expect(node('shot:a:video')?.data.videoSrc).toBeUndefined()
   })
 
+  it('影片節點的裁切資料原樣帶到卡片上（徽章用）；沒裁的沒有', () => {
+    const graph = toFlowGraph({
+      nodes: [
+        {
+          key: 'shot:b:video',
+          kind: 'video',
+          x: 0,
+          y: 0,
+          auto: true,
+          title: '影片',
+          status: 'done',
+          assetHash: HASH,
+          shotKey: 'shot:b',
+          trim: { startSec: 0, endSec: 3.5, videoSec: 5.041667 },
+        },
+        {
+          key: 'shot:c:video',
+          kind: 'video',
+          x: 0,
+          y: 0,
+          auto: true,
+          title: '影片',
+          status: 'done',
+          assetHash: HASH,
+          shotKey: 'shot:c',
+        },
+      ],
+      edges: [],
+    })
+    expect(graph.nodes[0]?.data.trim).toEqual({ startSec: 0, endSec: 3.5, videoSec: 5.041667 })
+    expect(graph.nodes[1]?.data.trim).toBeUndefined()
+  })
+
   it('剪輯的槽標出每場進成品的鏡數，有鏡頭沒放進去就標警示', () => {
     expect(node('cut')?.data.slots).toEqual([
       {

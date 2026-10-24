@@ -73,4 +73,36 @@ describe('「圖片或影片」卡裡的影片', () => {
     expect(screen.queryByTestId('inline-video')).toBeNull()
     expect(screen.queryByTestId('inline-video-play')).toBeNull()
   })
+
+  it('剪過的影片：縮圖左下角有「✂ 3.5／5.0」徽章，點了打開面板；沒剪的沒有徽章', () => {
+    const openPanel = vi.fn()
+    const actions: CanvasActions = { focusNode: vi.fn(), toggleInCut: vi.fn(), openPanel }
+    const data: CanvasNodeData = {
+      kind: 'video',
+      title: '第 5 鏡・影片',
+      summary: '',
+      status: 'done',
+      videoSrc: 'svs-asset://asset/abc',
+      trim: { startSec: 0, endSec: 3.5, videoSec: 5.041667 },
+    }
+    const node: CanvasNode = { id: 'node:v', type: 'card', position: { x: 0, y: 0 }, data }
+    const view = (d: CanvasNodeData) =>
+      render(
+        <CanvasActionsContext.Provider value={actions}>
+          <ReactFlowProvider>
+            <ReactFlow nodes={[{ ...node, data: d }]} edges={[]} nodeTypes={{ card: CardNode }} />
+          </ReactFlowProvider>
+        </CanvasActionsContext.Provider>,
+      )
+    view(data)
+    const badge = screen.getByTestId('trim-badge-node:v')
+    expect(badge.textContent).toBe('✂ 3.5／5.0')
+    expect(badge.getAttribute('title')).toContain('0.0–3.5 秒')
+    expect(badge.className).toContain('nodrag')
+    fireEvent.click(badge)
+    expect(openPanel).toHaveBeenCalledWith('node:v')
+    cleanup()
+    view({ ...data, trim: undefined })
+    expect(screen.queryByTestId('trim-badge-node:v')).toBeNull()
+  })
 })
