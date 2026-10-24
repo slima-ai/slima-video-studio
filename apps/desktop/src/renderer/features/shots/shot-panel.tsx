@@ -19,6 +19,8 @@ import { call, errorText } from '../../lib/svs'
 import { STEP_LABEL } from './step-label'
 import { diffDraft, draftOf, type Draft } from './draft'
 import { ShotSound } from '../sound/shot-sound'
+import { TrimPlayer } from './trim-player'
+import { trimHintOnAdopt } from './trim-hint'
 
 export interface ShotPanelProps {
   shot: ShotView
@@ -289,6 +291,7 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | undefined>()
   const [previewId, setPreviewId] = useState<string | undefined>()
+  const [hint, setHint] = useState<string | undefined>()
   const generating = shot.activity !== undefined
 
   const adopted = shot.videos.find((v) => v.adopted)
@@ -337,28 +340,43 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
         </div>
       ) : null}
 
-      <div className="aspect-video overflow-hidden rounded-md border border-border bg-black">
-        {shown ? (
-          <video
-            key={shown.id}
-            data-testid="shot-preview"
-            controls
-            src={assetUrl(shown.assetHash)}
-            className="size-full"
-          />
-        ) : frame ? (
-          <img
-            data-testid="shot-preview-image"
-            src={assetUrl(frame.assetHash)}
-            alt={t('shots.pictureForShot', { value: String(shot.number) })}
-            className="size-full object-cover"
-          />
-        ) : (
-          <p className="flex size-full items-center justify-center text-sm text-fg-muted">
-            {t('shots.noPictureYet')}
-          </p>
-        )}
-      </div>
+      {shown && shown.id === adopted?.id ? (
+        // 使用中的影片：預覽加上頭尾裁切（時間尺、入點出點、I／O、逐格、只播留下的部分）
+        <TrimPlayer shot={shot} take={shown} videoTestId="shot-preview" />
+      ) : (
+        <div className="aspect-video overflow-hidden rounded-md border border-border bg-black">
+          {shown ? (
+            <video
+              key={shown.id}
+              data-testid="shot-preview"
+              controls
+              src={assetUrl(shown.assetHash)}
+              className="size-full"
+            />
+          ) : frame ? (
+            <img
+              data-testid="shot-preview-image"
+              src={assetUrl(frame.assetHash)}
+              alt={t('shots.pictureForShot', { value: String(shot.number) })}
+              className="size-full object-cover"
+            />
+          ) : (
+            <p className="flex size-full items-center justify-center text-sm text-fg-muted">
+              {t('shots.noPictureYet')}
+            </p>
+          )}
+        </div>
+      )}
+      {shown && shown.id !== adopted?.id ? (
+        <p className="text-sm text-fg-muted" data-testid="trim-other-version">
+          {t('shots.trimOtherVersion')}
+        </p>
+      ) : null}
+      {hint ? (
+        <p className="text-sm text-fg-muted" role="status" data-testid="trim-version-hint">
+          {hint}
+        </p>
+      ) : null}
 
       {generating ? (
         <div
@@ -400,9 +418,13 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
         previewId={shown?.id}
         onPreview={setPreviewId}
         onAdopt={(takeId) => {
+          const next = shot.videos.find((v) => v.id === takeId)
+          const note = trimHintOnAdopt(adopted, next)
           guarded(async () => {
             await call('shots.adopt', { takeId })
             setPreviewId(undefined)
+            // 換版本之後提一句上一版剪過（不擋操作；各版本各自有裁切）
+            setHint(note)
           })
         }}
         locked={busy || generating}

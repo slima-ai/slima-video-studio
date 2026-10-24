@@ -1,5 +1,5 @@
 import type { CanvasRunPlan, OutlineView, ShotView, ShotsSnapshot } from '@svs/schema'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { installFakeSvs } from '../../test/fake-svs'
@@ -125,6 +125,48 @@ describe('浮動面板', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(props.onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it('影片的面板：使用中的影片有剪裁控制；預覽另一版時沒有；換成另一版時，上一版剪過就提一句', async () => {
+    const video = (version: number, extra: Record<string, unknown> = {}) => ({
+      id: `v${String(version)}`,
+      kind: 'video' as const,
+      version,
+      assetHash: HASH(String(version)),
+      adopted: false,
+      modelId: 'fal/kling-3.0-standard',
+      createdAt: `2026-10-12T08:3${String(version)}:00.000Z`,
+      videoSec: 5.041667,
+      ...extra,
+    })
+    const withVideos: ShotsSnapshot = {
+      shots: [
+        {
+          ...shot,
+          videos: [video(1), video(2, { adopted: true, trim: { outSec: 3.5 } })],
+        },
+      ],
+    }
+    const adopt = vi.fn(() => ({}))
+    installFakeSvs({ 'shots.adopt': adopt })
+    renderPanel(panelTargetOf('shot:s1:video'), { snapshot: withVideos })
+    expect(screen.getByTestId('takes-panel-video')).toBeTruthy()
+    expect(screen.getByTestId('trim-summary').textContent).toBe('留下 0.0–3.5 秒：3.5 秒、84 格')
+    expect(screen.getByTestId('takes-preview').getAttribute('src')).toContain(HASH('2'))
+    // 預覽另一版：沒有剪裁控制，說明剪裁只套用在使用中的版本
+    const row = screen.getByTestId('shot-version-1')
+    fireEvent.click(within(row).getByRole('button', { name: '預覽' }))
+    expect(screen.queryByTestId('trim-control')).toBeNull()
+    expect(screen.getByTestId('trim-other-version')).toBeTruthy()
+    // 換成另一版：提一句上一版剪過（不問確認）
+    fireEvent.click(screen.getByTestId('shot-adopt-1'))
+    await waitFor(() => {
+      expect(adopt).toHaveBeenCalledWith({ takeId: 'v1' })
+    })
+    expect((await screen.findByTestId('trim-version-hint')).textContent).toBe(
+      '上一版剪到 0.0–3.5 秒，這一版是整支。',
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('試跑分頁：列出這次會做的步驟與花費，按「執行」照這個計畫開始', async () => {

@@ -52,6 +52,28 @@ describe('剪裁每一鏡的頭尾（示範模式、真的 FFmpeg）', { timeout
     expect(b?.filmSeconds).toBeCloseTo(3, 1)
   })
 
+  it('畫面要用的資料：影片版本帶實際長度（videoSec），畫布上的影片卡剪過才帶裁切（徽章用）', async () => {
+    const { h, ids } = await withShots()
+    const [first, second] = ids
+    if (!first || !second) throw new Error('應該有鏡頭')
+    const videoNode = (shotId: string) =>
+      h.canvas.get().nodes.find((n) => n.key === `shot:${shotId}:video`)
+    expect(h.shots.list().shots[0]?.videos[0]?.videoSec).toBeCloseTo(3, 1)
+    expect(videoNode(first)?.trim).toBeUndefined()
+
+    await trim(h, first, { inSec: 0.5, outSec: 2 })
+    const node = videoNode(first)?.trim
+    expect(node).toMatchObject({ startSec: 0.5, endSec: 2 })
+    expect(node?.videoSec).toBeCloseTo(3, 1)
+    // 別的鏡頭不受影響；只剪頭時出點是影片長度
+    expect(videoNode(second)?.trim).toBeUndefined()
+    await trim(h, second, { inSec: 1 })
+    expect(videoNode(second)?.trim).toMatchObject({ startSec: 1 })
+    expect(videoNode(second)?.trim?.endSec).toBeCloseTo(3, 1)
+    await trim(h, first, { clear: true })
+    expect(videoNode(first)?.trim).toBeUndefined()
+  })
+
   it('聲音時間軸跟著走：後面每一鏡的起點提早、總長變短（旁白、配樂、警示都讀這一份）', async () => {
     const { h, ids } = await withShots()
     const [first] = ids
