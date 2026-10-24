@@ -53,6 +53,8 @@ export interface CanvasNodeData extends Record<string, unknown> {
   lockedTags?: Readonly<Record<string, number>> | undefined
   /** 影片：放不放進成品。 */
   inCut?: boolean | undefined
+  /** 影片：成品只用影片的哪一段（秒；沒裁就沒有）。卡片縮圖上的「✂ 3.5／5.0」徽章。 */
+  trim?: { startSec: number; endSec: number; videoSec: number } | undefined
   /** 場框：拖鏡頭經過時亮起並提示。 */
   hint?: string | undefined
   sceneNo?: number | undefined

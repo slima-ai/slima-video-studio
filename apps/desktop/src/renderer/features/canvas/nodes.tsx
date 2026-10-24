@@ -16,6 +16,7 @@ import {
   useLod,
   type RunEstimate,
 } from './canvas-actions'
+import { fmtSec1 } from '../shots/trim-math'
 import { isRenamable } from './rename-box'
 import { choicesFor } from './connection-rules'
 import { blockedReason, deleteTip } from './delete-plan'
@@ -108,6 +109,40 @@ function useLinkState(id: string): 'valid' | 'invalid' | undefined {
   const linking = useLinking()
   if (!linking || linking.fromNode === id) return undefined
   return linking.validNodes.has(id) ? 'valid' : 'invalid'
+}
+
+/** 影片縮圖左下角的「✂ 3.5／5.0」：成品只用影片的這一段；點一下打開面板剪裁。 */
+function TrimBadge({
+  id,
+  trim,
+}: {
+  id: string
+  trim: { startSec: number; endSec: number; videoSec: number }
+}) {
+  const { openPanel } = useCanvasActions()
+  const label = t('shots.trimBadge', {
+    kept: fmtSec1(trim.endSec - trim.startSec),
+    total: fmtSec1(trim.videoSec),
+  })
+  const tip = t('shots.trimBadgeTip', {
+    start: fmtSec1(trim.startSec),
+    end: fmtSec1(trim.endSec),
+    total: fmtSec1(trim.videoSec),
+  })
+  return (
+    <button
+      type="button"
+      data-testid={`trim-badge-${id}`}
+      aria-label={tip}
+      title={tip}
+      className="nodrag absolute bottom-1 left-1 rounded bg-black/70 px-1.5 text-[11px] leading-[16px] text-white hover:bg-black/85 focus-visible:outline-2 focus-visible:outline-accent"
+      onClick={() => {
+        openPanel?.(id)
+      }}
+    >
+      {label}
+    </button>
+  )
 }
 
 /** 開啟詳情面板（鏡頭、圖、影片、剪輯）。 */
@@ -421,7 +456,7 @@ function Title({ id, data }: { id: string; data: CanvasNodeData }) {
 }
 
 /** 16:9 縮圖：影片用 `<video>` 的第一格，圖用背景圖；還沒生成的是虛線空殼。 */
-function Thumb({ data, ghost }: { data: CanvasNodeData; ghost: boolean }) {
+function Thumb({ id, data, ghost }: { id: string; data: CanvasNodeData; ghost: boolean }) {
   const lod = useLod()
   const busy = data.status === 'running' || data.status === 'queued'
   if (lod === 'low') return null
@@ -471,14 +506,17 @@ function Thumb({ data, ghost }: { data: CanvasNodeData; ghost: boolean }) {
       )
     }
     return (
-      <video
-        src={data.videoSrc}
-        muted
-        playsInline
-        preload="metadata"
-        aria-label={t('canvas.previewOf', { title: data.title })}
-        className="lod-mid aspect-video w-full shrink-0 rounded-md bg-black object-cover"
-      />
+      <div className="lod-mid relative aspect-video w-full shrink-0">
+        <video
+          src={data.videoSrc}
+          muted
+          playsInline
+          preload="metadata"
+          aria-label={t('canvas.previewOf', { title: data.title })}
+          className="size-full rounded-md bg-black object-cover"
+        />
+        {data.trim ? <TrimBadge id={id} trim={data.trim} /> : null}
+      </div>
     )
   }
   if (!data.thumb) return null
@@ -772,7 +810,9 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
             <p className="lod-full line-clamp-2 text-xs text-fg-muted">{data.summary}</p>
           ) : null}
           {data.kind === 'note' ? <NoteBody id={id} text={data.summary ?? ''} /> : null}
-          {generating || data.thumb || data.videoSrc ? <Thumb data={data} ghost={ghost} /> : null}
+          {generating || data.thumb || data.videoSrc ? (
+            <Thumb id={id} data={data} ghost={ghost} />
+          ) : null}
           {data.kind !== 'shot' && data.kind !== 'oneliner' && data.kind !== 'note' ? (
             <IoLine id={id} data={data} bottom />
           ) : null}

@@ -205,6 +205,14 @@ export const CanvasNodeSchema = z.object({
   modelName: z.string().optional(),
   /** 影片節點的「放進成品」。 */
   inCut: z.boolean().optional(),
+  /** 影片節點：成品只用影片的哪一段（秒；沒裁就沒有這個欄位）。卡片上的「✂ 3.5／5.0」用它。 */
+  trim: z
+    .object({
+      startSec: z.number().nonnegative(),
+      endSec: z.number().positive(),
+      videoSec: z.number().positive(),
+    })
+    .optional(),
   /** 這個節點屬於哪個場（場框裡的鏡頭、圖、影片）。 */
   sceneKey: z.string().optional(),
   /** 同一個鏡頭的那一串（鏡頭、圖、影片）共用的鏡頭節點鍵。 */

@@ -82,6 +82,7 @@ function toNode(n: IpcNode): CanvasNode {
     tags: n.tags,
     lockedTags: n.lockedTags,
     inCut: n.inCut,
+    trim: n.trim,
     color: n.color,
     sceneNo: n.sceneNo,
     step: n.step,

@@ -320,6 +320,15 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
           }),
         ),
         usage: handle.repos.jobs.usageByAsset(shots.adoptedTakes().map((take) => take.assetHash)),
+        videoSecs: new Map(
+          shots
+            .adoptedTakes()
+            .filter((take) => take.kind === 'video')
+            .flatMap((take) => {
+              const sec = handle.assets.getMeta(take.assetHash)?.durationSec
+              return sec === undefined ? [] : [[take.assetHash, sec] as const]
+            }),
+        ),
         viewport,
         final: deps.shots.finalCut(),
         ...(steps.size > 0 ? { steps } : {}),
