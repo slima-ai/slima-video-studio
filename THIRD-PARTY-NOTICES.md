@@ -212,7 +212,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### BSD-3-Clause
 
-fast-uri@3.1.8
+fast-uri@3.1.9
 
 ```text
 Copyright (c) 2011-2021, Gary Court until https://github.com/garycourt/uri-js/commit/a1acf730b4bba3f1097c9f52e7d9d3aba8cdcaae
@@ -251,7 +251,7 @@ The complete list of contributors can be found at:
 
 ### BSD-3-Clause
 
-qs@6.16.0
+qs@6.16.0, 6.16.1
 
 ```text
 BSD 3-Clause License
@@ -1339,7 +1339,7 @@ SOFTWARE.
 
 ### MIT
 
-body-parser@2.3.0, type-is@2.1.0
+body-parser@2.4.0, type-is@2.1.0
 
 ```text
 (The MIT License)
@@ -3359,7 +3359,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### MIT
 
-slima-mcp@0.3.2
+slima-mcp@0.3.3
 
 ```text
 MIT License
@@ -3588,7 +3588,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 ### MIT
 
-zod@3.25.76
+zod@4.6.7
 
 ```text
 MIT License
