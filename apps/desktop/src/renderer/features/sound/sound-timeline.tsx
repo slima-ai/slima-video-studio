@@ -1,13 +1,85 @@
 import type { SoundShotView, SoundState, TrimEdit } from '@svs/schema'
 import { t } from '@svs/schema'
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 
 import { errorText } from '../../lib/svs'
 import { TRIM_DEFAULT_FPS, clampIn, clampOut, fmtSec, fmtSec1, snapSec } from '../shots/trim-math'
-import { secOfPixels, tickLabel, tickMarks } from './timeline-math'
+import {
+  EDGE_RESERVED,
+  LABEL_PADDING,
+  labelFit,
+  secOfPixels,
+  tickLabel,
+  tickMarks,
+  type LabelFit,
+} from './timeline-math'
 
 const pct = (value: number, total: number): string =>
   `${String(Math.max(0, Math.min(100, (value / total) * 100)))}%`
+
+/**
+ * 格子裡的字：鏡號 ＋ 秒數。放不下完整的「鏡號 秒數」就只寫鏡號，連鏡號都放不下就不寫（提示裡有）——
+ * 不會把數字切掉半個。用實際量到的寬度判斷（格子寬度、兩段字各自的寬度），格子改變大小時重量。
+ */
+function CellLabel({
+  number,
+  secs,
+  reserved,
+}: {
+  number: number
+  secs: string
+  /** 格子左右要留給把手與內距的寬度（px）。 */
+  reserved: number
+}) {
+  const wrapRef = useRef<HTMLSpanElement>(null)
+  const numberRef = useRef<HTMLSpanElement>(null)
+  const secsRef = useRef<HTMLSpanElement>(null)
+  const [fit, setFit] = useState<LabelFit>('full')
+  useLayoutEffect(() => {
+    const cell = wrapRef.current?.parentElement
+    const measure = (): void => {
+      if (!cell || !numberRef.current || !secsRef.current) return
+      setFit(
+        labelFit({
+          cellWidth: cell.clientWidth,
+          numberWidth: numberRef.current.getBoundingClientRect().width,
+          secsWidth: secsRef.current.getBoundingClientRect().width,
+          reserved,
+        }),
+      )
+    }
+    measure()
+    if (!cell || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(cell)
+    return () => {
+      observer.disconnect()
+    }
+  })
+  return (
+    <span
+      ref={wrapRef}
+      className="relative block overflow-hidden whitespace-nowrap"
+      data-fit={fit}
+      data-testid={`timeline-label-${String(number)}`}
+    >
+      <span ref={numberRef} className={fit === 'none' ? 'invisible' : undefined}>
+        {number}
+      </span>
+      <span
+        ref={secsRef}
+        className={
+          fit === 'full'
+            ? 'ml-1 text-fg-muted'
+            : 'invisible absolute left-0 top-0 ml-1 text-fg-muted'
+        }
+        data-testid={`timeline-secs-${String(number)}`}
+      >
+        {secs}
+      </span>
+    </span>
+  )
+}
 
 type Edge = 'in' | 'out'
 
@@ -30,13 +102,16 @@ interface EdgeDrag {
 export function SoundTimeline({
   state,
   onTrim,
-  soundLanes = true,
+  part = 'all',
 }: {
   state: SoundState
   /** 存剪裁；成功就 resolve（時間軸會跟著新的長度重畫），失敗丟出錯誤。 */
   onTrim?: (shotId: string, edit: TrimEdit) => Promise<void>
-  /** false＝只畫秒數尺、鏡頭、剪掉的部分（還沒有旁白與配樂時，原聲／旁白／配樂三條是空的，不畫）。 */
-  soundLanes?: boolean
+  /**
+   * all＝全部（預設）；film＝秒數尺、鏡頭、剪掉（放在「時間軸」小標下）；
+   * sound＝原聲、旁白、配樂（放在「聲音」小標下，欄位寬度與 film 一樣，所以位置對得齊）。
+   */
+  part?: 'all' | 'film' | 'sound'
 }) {
   const laneRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<EdgeDrag | undefined>()
@@ -48,6 +123,8 @@ export function SoundTimeline({
     state.warnings.filter((w) => w.kind === 'narration_too_long').map((w) => w.shotId),
   )
   const lane = 'relative h-5 rounded bg-surface-overlay'
+  const film = part !== 'sound'
+  const sound = part !== 'film'
   const fps = TRIM_DEFAULT_FPS
 
   const commit = (shotId: string, edit: TrimEdit): void => {
@@ -121,122 +198,126 @@ export function SoundTimeline({
   const anyCut = state.shots.some((shot) => shot.trim?.trimmed)
   const marks = tickMarks(total)
   return (
-    <div className="space-y-1" data-testid="sound-timeline" aria-label={t('sound.soundTimeline')}>
+    <div
+      className="space-y-1"
+      data-testid={part === 'film' ? 'film-timeline' : 'sound-timeline'}
+      aria-label={part === 'film' ? t('sound.timeline') : t('sound.soundTimeline')}
+    >
       <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-2 text-[11px]">
-        <span aria-hidden="true" />
-        <div
-          className="relative h-4 text-[10px] text-fg-muted"
-          data-testid="timeline-ruler"
-          aria-label={t('sound.ruler')}
-        >
-          {marks.map((sec) => (
-            <span
-              key={sec}
-              data-testid={`timeline-tick-${String(sec)}`}
-              className="absolute inset-y-0 border-l border-border pl-0.5 leading-4"
-              style={{ left: pct(sec, total) }}
-            >
-              {tickLabel(sec, total)}
-            </span>
-          ))}
-        </div>
-        <span className="text-fg-muted">{t('sound.shots')}</span>
-        <div className={lane} ref={laneRef}>
-          {state.shots.map((shot) => {
-            const preview = previewOf(shot)
-            const length = preview ? preview.end - preview.start : shot.durationSec
-            return (
-              <div
-                key={shot.shotId}
-                data-testid={`timeline-shot-${String(shot.number)}`}
-                className="@container absolute inset-y-0 border-l border-border text-center leading-5"
-                style={{ left: pct(shot.startSec, total), width: pct(length, total) }}
-                title={
-                  shot.trim
-                    ? t('sound.shotCellTip', {
-                        number: String(shot.number),
-                        kept: fmtSec1(length),
-                        total: fmtSec1(shot.trim.videoSec),
-                      })
-                    : undefined
-                }
-              >
-                <span className="block overflow-hidden whitespace-nowrap px-1">
-                  {shot.number}
-                  <span
-                    className="ml-1 hidden text-fg-muted @[4.5rem]:inline"
-                    data-testid={`timeline-secs-${String(shot.number)}`}
-                  >
-                    {fmtSec1(length)}
-                  </span>
-                </span>
-                {onTrim && shot.trim ? (
-                  <>
-                    <button
-                      type="button"
-                      role="slider"
-                      data-testid={`timeline-edge-in-${String(shot.number)}`}
-                      aria-label={t('sound.edgeIn', { number: String(shot.number) })}
-                      aria-valuemin={0}
-                      aria-valuemax={shot.trim.videoSec}
-                      aria-valuenow={preview?.start ?? shot.trim.inSec}
-                      aria-valuetext={fmtSec(preview?.start ?? shot.trim.inSec)}
-                      disabled={busy}
-                      className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-ew-resize rounded-sm bg-accent/40 hover:bg-accent focus-visible:outline-2 focus-visible:outline-fg"
-                      onPointerDown={down(shot, 'in')}
-                      onPointerMove={move(shot, 'in')}
-                      onPointerUp={up(shot, 'in')}
-                      onKeyDown={key(shot, 'in')}
-                    />
-                    <button
-                      type="button"
-                      role="slider"
-                      data-testid={`timeline-edge-out-${String(shot.number)}`}
-                      aria-label={t('sound.edgeOut', { number: String(shot.number) })}
-                      aria-valuemin={0}
-                      aria-valuemax={shot.trim.videoSec}
-                      aria-valuenow={preview?.end ?? shot.trim.outSec}
-                      aria-valuetext={fmtSec(preview?.end ?? shot.trim.outSec)}
-                      disabled={busy}
-                      className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-ew-resize rounded-sm bg-accent/40 hover:bg-accent focus-visible:outline-2 focus-visible:outline-fg"
-                      onPointerDown={down(shot, 'out')}
-                      onPointerMove={move(shot, 'out')}
-                      onPointerUp={up(shot, 'out')}
-                      onKeyDown={key(shot, 'out')}
-                    />
-                  </>
-                ) : null}
-              </div>
-            )
-          })}
-        </div>
-        {anyCut ? (
+        {film ? (
           <>
-            <span className="text-fg-muted">{t('sound.cutOff')}</span>
-            <div className={lane}>
+            <span aria-hidden="true" />
+            <div
+              className="relative h-4 text-[10px] text-fg-muted"
+              data-testid="timeline-ruler"
+              aria-label={t('sound.ruler')}
+            >
+              {marks.map((sec) => (
+                <span
+                  key={sec}
+                  data-testid={`timeline-tick-${String(sec)}`}
+                  className="absolute inset-y-0 border-l border-border pl-0.5 leading-4"
+                  style={{ left: pct(sec, total) }}
+                >
+                  {tickLabel(sec, total)}
+                </span>
+              ))}
+            </div>
+            <span className="text-fg-muted">{t('sound.shots')}</span>
+            <div className={lane} ref={laneRef}>
               {state.shots.map((shot) => {
-                if (!shot.trim?.trimmed) return null
-                const cut = shot.trim.videoSec - (shot.trim.outSec - shot.trim.inSec)
+                const preview = previewOf(shot)
+                const length = preview ? preview.end - preview.start : shot.durationSec
                 return (
                   <div
                     key={shot.shotId}
-                    data-testid={`timeline-cut-${String(shot.number)}`}
-                    title={t('sound.cutOffTip', {
-                      number: String(shot.number),
-                      cut: fmtSec1(cut),
-                    })}
-                    className="absolute inset-y-1 rounded border border-border bg-[repeating-linear-gradient(135deg,transparent_0_3px,var(--color-border)_3px_4px)] opacity-70"
-                    style={{
-                      left: pct(shot.startSec + shot.durationSec, total),
-                      width: pct(cut, total),
-                    }}
-                  />
+                    data-testid={`timeline-shot-${String(shot.number)}`}
+                    className="absolute inset-y-0 border-l border-border text-center leading-5"
+                    style={{ left: pct(shot.startSec, total), width: pct(length, total) }}
+                    title={
+                      shot.trim
+                        ? t('sound.shotCellTip', {
+                            number: String(shot.number),
+                            kept: fmtSec1(length),
+                            total: fmtSec1(shot.trim.videoSec),
+                          })
+                        : undefined
+                    }
+                  >
+                    <CellLabel
+                      number={shot.number}
+                      secs={fmtSec1(length)}
+                      reserved={onTrim && shot.trim ? EDGE_RESERVED : LABEL_PADDING}
+                    />
+                    {onTrim && shot.trim ? (
+                      <>
+                        <button
+                          type="button"
+                          role="slider"
+                          data-testid={`timeline-edge-in-${String(shot.number)}`}
+                          aria-label={t('sound.edgeIn', { number: String(shot.number) })}
+                          aria-valuemin={0}
+                          aria-valuemax={shot.trim.videoSec}
+                          aria-valuenow={preview?.start ?? shot.trim.inSec}
+                          aria-valuetext={fmtSec(preview?.start ?? shot.trim.inSec)}
+                          disabled={busy}
+                          className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-ew-resize rounded-sm bg-accent/40 hover:bg-accent focus-visible:outline-2 focus-visible:outline-fg"
+                          onPointerDown={down(shot, 'in')}
+                          onPointerMove={move(shot, 'in')}
+                          onPointerUp={up(shot, 'in')}
+                          onKeyDown={key(shot, 'in')}
+                        />
+                        <button
+                          type="button"
+                          role="slider"
+                          data-testid={`timeline-edge-out-${String(shot.number)}`}
+                          aria-label={t('sound.edgeOut', { number: String(shot.number) })}
+                          aria-valuemin={0}
+                          aria-valuemax={shot.trim.videoSec}
+                          aria-valuenow={preview?.end ?? shot.trim.outSec}
+                          aria-valuetext={fmtSec(preview?.end ?? shot.trim.outSec)}
+                          disabled={busy}
+                          className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-ew-resize rounded-sm bg-accent/40 hover:bg-accent focus-visible:outline-2 focus-visible:outline-fg"
+                          onPointerDown={down(shot, 'out')}
+                          onPointerMove={move(shot, 'out')}
+                          onPointerUp={up(shot, 'out')}
+                          onKeyDown={key(shot, 'out')}
+                        />
+                      </>
+                    ) : null}
+                  </div>
                 )
               })}
             </div>
+            {anyCut ? (
+              <>
+                <span className="text-fg-muted">{t('sound.cutOff')}</span>
+                <div className={lane}>
+                  {state.shots.map((shot) => {
+                    if (!shot.trim?.trimmed) return null
+                    const cut = shot.trim.videoSec - (shot.trim.outSec - shot.trim.inSec)
+                    return (
+                      <div
+                        key={shot.shotId}
+                        data-testid={`timeline-cut-${String(shot.number)}`}
+                        title={t('sound.cutOffTip', {
+                          number: String(shot.number),
+                          cut: fmtSec1(cut),
+                        })}
+                        className="absolute inset-y-0.5 min-w-1 rounded-sm border border-fg/50 bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--color-fg)_55%,transparent)_0_2px,transparent_2px_5px)]"
+                        style={{
+                          left: pct(shot.startSec + shot.durationSec, total),
+                          width: pct(cut, total),
+                        }}
+                      />
+                    )
+                  })}
+                </div>
+              </>
+            ) : null}
           </>
         ) : null}
-        {soundLanes ? (
+        {sound ? (
           <>
             <span className="text-fg-muted">{t('sound.videoSound2')}</span>
             <div className={lane}>
@@ -288,7 +369,7 @@ export function SoundTimeline({
           </>
         ) : null}
       </div>
-      {draggedPreview && dragged ? (
+      {film && draggedPreview && dragged ? (
         <p className="text-xs text-fg-muted" data-testid="timeline-edge-readout" role="status">
           {t('sound.edgeReadout', {
             number: String(dragged.number),
@@ -298,7 +379,7 @@ export function SoundTimeline({
           })}
         </p>
       ) : null}
-      {error ? (
+      {film && error ? (
         <p className="text-xs text-danger" role="alert" data-testid="timeline-edge-error">
           {error}
         </p>

@@ -65,6 +65,7 @@ export const sound = {
     'There’s no narration and no music. Changing the volume is free and re-mixes automatically.',
   'sound.mixAgainFree': 'Mix again (free)',
   'sound.soundTimeline': 'Sound timeline',
+  'sound.timeline': 'Timeline',
   'sound.ruler': 'Seconds ruler',
   'sound.cutOff': 'Cut off',
   'sound.cutOffTip': 'Shot {number}: {cut} s cut off',

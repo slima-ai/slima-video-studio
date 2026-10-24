@@ -115,12 +115,30 @@ describe('時間軸：秒數尺、格子的秒數、被剪掉的部分', () => {
     expect(screen.getByTestId('timeline-cut-2').getAttribute('title')).toBe('Shot 2: 2.0 s cut off')
   })
 
-  it('soundLanes=false（還沒有旁白與配樂）：只有尺、鏡頭、剪掉三條，沒有原聲／旁白／配樂', () => {
-    render(<SoundTimeline state={stateOf(SHOTS)} soundLanes={false} />)
+  it('part=film（時間軸小標下）：只有尺、鏡頭、剪掉三條；part=sound（聲音小標下）：只有原聲、旁白、配樂', () => {
+    const film = render(<SoundTimeline state={stateOf(SHOTS)} part="film" />)
+    expect(screen.getByTestId('film-timeline').getAttribute('aria-label')).toBe('時間軸')
+    expect(screen.getByTestId('timeline-ruler')).not.toBeNull()
     expect(screen.getByTestId('timeline-shot-1')).not.toBeNull()
     expect(screen.getByTestId('timeline-cut-2')).not.toBeNull()
     expect(screen.queryByTestId('timeline-native-1')).toBeNull()
     expect(screen.queryByText('原聲')).toBeNull()
+    film.unmount()
+    render(<SoundTimeline state={stateOf(SHOTS)} part="sound" onTrim={vi.fn()} />)
+    expect(screen.getByTestId('sound-timeline')).not.toBeNull()
+    expect(screen.getByTestId('timeline-native-1')).not.toBeNull()
+    expect(screen.queryByTestId('timeline-ruler')).toBeNull()
+    expect(screen.queryByTestId('timeline-shot-1')).toBeNull()
+    expect(screen.queryByTestId('timeline-edge-out-2')).toBeNull()
+  })
+
+  it('「剪掉」的斜線塊對比夠：用前景色混出的粗條紋加 50% 前景色的框，不是淡淡的邊框色', () => {
+    render(<SoundTimeline state={stateOf(SHOTS)} part="film" />)
+    const cls = screen.getByTestId('timeline-cut-2').className
+    expect(cls).toContain('var(--color-fg)')
+    expect(cls).toContain('border-fg/50')
+    expect(cls).not.toContain('var(--color-border)')
+    expect(cls).not.toContain('opacity-')
   })
 
   it('一分鐘以上的片子刻度寫「分:秒」', () => {
@@ -242,5 +260,89 @@ describe('時間軸：拖格子邊緣剪頭尾', () => {
     fireEvent.pointerUp(edge, { pointerId: 1 })
     expect((await screen.findByTestId('timeline-edge-error')).textContent).toBe('剪完不到一格')
     expect(screen.getByTestId<HTMLButtonElement>('timeline-edge-out-2').disabled).toBe(false)
+  })
+})
+
+describe('時間軸：格子裡的字放不下就少寫，不切掉數字', () => {
+  /** jsdom 沒有版面：依元素（格子或兩段字）回報我們指定的寬度。 */
+  function withSizes(sizes: { cell: Record<string, number>; number: number; secs: number }) {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const id = this.dataset.testid ?? ''
+      const n = /^timeline-shot-(\d+)$/.exec(id)?.[1]
+      return n ? (sizes.cell[n] ?? 0) : 0
+    })
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const id = this.dataset.testid ?? ''
+      const width = id.startsWith('timeline-secs-')
+        ? sizes.secs
+        : this.parentElement?.dataset.testid?.startsWith('timeline-label-')
+          ? sizes.number
+          : 0
+      return {
+        width,
+        height: 20,
+        top: 0,
+        left: 0,
+        right: width,
+        bottom: 20,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }
+    })
+  }
+  const fitOf = (n: number) => screen.getByTestId(`timeline-label-${String(n)}`).dataset.fit
+
+  it('夠寬：鏡號與秒數都寫；放不下秒數：只寫鏡號；連鏡號都放不下：都不寫（兩段字照量到的寬度算）', () => {
+    // 鏡號 8 px、秒數 20 px、中間空 4 px → 全寫要 32 px，再加左右把手與內距 16 px ＝ 格子至少 48 px
+    withSizes({ cell: { '1': 80, '2': 47, '3': 24, '4': 23 }, number: 8, secs: 20 })
+    const shots = [1, 2, 3, 4].map((n) => shotOf(n, (n - 1) * 3, { inSec: 0, outSec: 3 }, 3))
+    render(<SoundTimeline state={stateOf(shots)} part="film" onTrim={vi.fn()} />)
+    expect(fitOf(1)).toBe('full')
+    expect(fitOf(2)).toBe('number') // 47 px：全寫差 1 px，寧可只寫鏡號也不切掉秒數
+    expect(fitOf(3)).toBe('number') // 24 px：鏡號 8 px ＋ 16 px 剛好放得下
+    expect(fitOf(4)).toBe('none') // 23 px：差 1 px 連鏡號都放不下
+  })
+
+  it('沒寫出來的那段字只是看不見（invisible），內容還在，提示（title）照樣有完整秒數', () => {
+    withSizes({ cell: { '1': 30, '2': 30 }, number: 8, secs: 20 })
+    render(
+      <SoundTimeline
+        state={stateOf([
+          shotOf(1, 0, { inSec: 0, outSec: 3 }, 3),
+          shotOf(2, 3, { inSec: 0, outSec: 2 }, 3),
+        ])}
+        part="film"
+        onTrim={vi.fn()}
+      />,
+    )
+    expect(fitOf(2)).toBe('number')
+    const secs = screen.getByTestId('timeline-secs-2')
+    expect(secs.className).toContain('invisible')
+    expect(secs.textContent).toBe('2.0')
+    expect(screen.getByTestId('timeline-shot-2').getAttribute('title')).toBe(
+      '鏡 2：成品用 2.0 秒（整支 3.0 秒）',
+    )
+  })
+
+  it('格子變寬就重新量：從放不下變成放得下', () => {
+    withSizes({ cell: { '1': 30 }, number: 8, secs: 20 })
+    const shots = [shotOf(1, 0, { inSec: 0, outSec: 3 }, 3)]
+    const view = render(<SoundTimeline state={stateOf(shots)} part="film" onTrim={vi.fn()} />)
+    expect(fitOf(1)).toBe('number')
+    vi.restoreAllMocks()
+    withSizes({ cell: { '1': 200 }, number: 8, secs: 20 })
+    view.rerender(
+      <SoundTimeline
+        state={stateOf([shotOf(1, 0, { inSec: 0, outSec: 2.5 }, 3)])}
+        part="film"
+        onTrim={vi.fn()}
+      />,
+    )
+    expect(fitOf(1)).toBe('full')
   })
 })

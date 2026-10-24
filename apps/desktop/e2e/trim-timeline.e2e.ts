@@ -16,8 +16,8 @@ async function openCutPanel(page: Page): Promise<void> {
   await centerOn(page, 'cut')
   await page.getByTestId('open-cut').click()
   await expect(page.getByTestId('final-cut-panel')).toBeVisible()
-  await page.getByTestId('sound-panel').scrollIntoViewIfNeeded()
-  await expect(page.getByTestId('sound-timeline')).toBeVisible()
+  await page.getByTestId('timeline-panel').scrollIntoViewIfNeeded()
+  await expect(page.getByTestId('film-timeline')).toBeVisible()
 }
 
 test.describe('成品面板的時間軸：秒數尺與拖格子邊緣剪頭尾（示範模式，每鏡 3 秒的假影片）', () => {
@@ -30,7 +30,7 @@ test.describe('成品面板的時間軸：秒數尺與拖格子邊緣剪頭尾�
     await expect(page.getByTestId('timeline-tick-0')).toBeVisible()
     await expect(page.getByTestId('timeline-secs-2')).toHaveText('3.0')
     await expect(page.getByTestId('timeline-cut-2')).toHaveCount(0)
-    await page.getByTestId('sound-timeline').screenshot({
+    await page.getByTestId('film-timeline').screenshot({
       path: testInfo.outputPath('timeline-before.png'),
     })
 
@@ -66,7 +66,7 @@ test.describe('成品面板的時間軸：秒數尺與拖格子邊緣剪頭尾�
       (trimmed?.durationSec ?? 0).toFixed(1),
     )
     await expect(page.getByTestId('timeline-cut-2')).toBeVisible()
-    await page.getByTestId('sound-timeline').screenshot({
+    await page.getByTestId('film-timeline').screenshot({
       path: testInfo.outputPath('timeline-after.png'),
     })
 
@@ -171,7 +171,7 @@ for (const locale of ['en', 'en-XA'] as const) {
         expect(inEdge?.left).toBeGreaterThanOrEqual(cell.left - 1)
         expect(outEdge?.right).toBeLessThanOrEqual(cell.right + 1)
       })
-      await page.getByTestId('sound-timeline').screenshot({
+      await page.getByTestId('film-timeline').screenshot({
         path: testInfo.outputPath(`timeline-${locale}.png`),
       })
     })

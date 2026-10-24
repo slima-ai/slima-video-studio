@@ -55,6 +55,7 @@ export const sound = {
   'sound.thereSNoNarrationAnd': '沒有旁白、沒有配樂。調整音量不花錢，會自動重混。',
   'sound.mixAgainFree': '重新混音（不花錢）',
   'sound.soundTimeline': '聲音時間軸',
+  'sound.timeline': '時間軸',
   'sound.ruler': '秒數尺',
   'sound.cutOff': '剪掉',
   'sound.cutOffTip': '鏡 {number} 被剪掉的部分：{cut} 秒',

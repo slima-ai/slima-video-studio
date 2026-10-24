@@ -27,3 +27,29 @@ export function tickLabel(sec: number, totalSec: number): string {
 /** 拖格子邊緣時，把滑鼠移動的像素換成影片裡的秒數（用拖之前那一刻的比例，拖的過程中不會跟著變）。 */
 export const secOfPixels = (pixels: number, laneWidth: number, totalSec: number): number =>
   laneWidth > 0 ? (pixels / laneWidth) * totalSec : 0
+
+/** 鏡頭格子裡的字能寫多少。 */
+export type LabelFit = 'full' | 'number' | 'none'
+
+/** 格子左右要留給兩個邊緣把手（各 6 px）與內距的寬度。 */
+export const EDGE_RESERVED = 16
+/** 沒有把手（只讀）的格子只留內距。 */
+export const LABEL_PADDING = 4
+/** 鏡號與秒數之間的空隙（px）。 */
+const LABEL_GAP = 4
+
+/**
+ * 量到的寬度放得下什麼：「鏡號 秒數」都放得下就全寫；只放得下鏡號就只寫鏡號；都放不下就都不寫。
+ * 寧可少寫也不切掉數字。
+ */
+export function labelFit(input: {
+  cellWidth: number
+  numberWidth: number
+  secsWidth: number
+  reserved: number
+}): LabelFit {
+  const room = input.cellWidth - input.reserved
+  if (input.numberWidth + LABEL_GAP + input.secsWidth <= room) return 'full'
+  if (input.numberWidth <= room) return 'number'
+  return 'none'
+}

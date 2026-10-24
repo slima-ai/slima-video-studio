@@ -302,12 +302,7 @@ export function SoundPanel() {
               }
             : {})}
         />
-        <SoundTimeline
-          state={state}
-          onTrim={async (shotId, edit) => {
-            await call('shots.trim', { shotId, edit })
-          }}
-        />
+        <SoundTimeline state={state} part="sound" />
         <p className="text-xs text-fg-muted" data-testid="sound-summary">
           {narrationCount > 0
             ? state.music
@@ -341,36 +336,45 @@ export function SoundPanel() {
     )
   }
 
-  // 還沒有旁白與配樂：混音那一塊沒有東西可調，但鏡頭的秒數尺還是要有（拖格子邊緣剪頭尾）
-  const timelineOnly = state.final !== undefined && !hasClips && add.step !== 'running'
+  // 接過成品就有「時間軸」：秒數尺、鏡頭、剪掉（拖格子邊緣剪頭尾）；跟有沒有旁白與配樂無關
+  const showTimeline = state.final !== undefined && state.totalSec > 0 && state.shots.length > 0
 
   return (
-    <section
-      className="space-y-2 border-t border-border pt-3"
-      data-testid="sound-panel"
-      aria-label={t('sound.sound')}
-    >
-      <h3 className="text-sm font-semibold">{t('sound.sound')}</h3>
-      {timelineOnly ? (
-        <SoundTimeline
-          state={state}
-          soundLanes={false}
-          onTrim={async (shotId, edit) => {
-            await call('shots.trim', { shotId, edit })
-          }}
-        />
+    <>
+      {showTimeline ? (
+        <section
+          className="space-y-2 border-t border-border pt-3"
+          data-testid="timeline-panel"
+          aria-label={t('sound.timeline')}
+        >
+          <h3 className="text-sm font-semibold">{t('sound.timeline')}</h3>
+          <SoundTimeline
+            state={state}
+            part="film"
+            onTrim={async (shotId, edit) => {
+              await call('shots.trim', { shotId, edit })
+            }}
+          />
+        </section>
       ) : null}
-      {body}
-      {mixError ? (
-        <p role="alert" className="text-sm text-danger" data-testid="sound-mix-error">
-          {mixError}
-        </p>
-      ) : null}
-      {actionError ? (
-        <p role="alert" className="text-sm text-danger" data-testid="sound-error">
-          {actionError}
-        </p>
-      ) : null}
-    </section>
+      <section
+        className="space-y-2 border-t border-border pt-3"
+        data-testid="sound-panel"
+        aria-label={t('sound.sound')}
+      >
+        <h3 className="text-sm font-semibold">{t('sound.sound')}</h3>
+        {body}
+        {mixError ? (
+          <p role="alert" className="text-sm text-danger" data-testid="sound-mix-error">
+            {mixError}
+          </p>
+        ) : null}
+        {actionError ? (
+          <p role="alert" className="text-sm text-danger" data-testid="sound-error">
+            {actionError}
+          </p>
+        ) : null}
+      </section>
+    </>
   )
 }

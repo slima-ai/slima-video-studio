@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { secOfPixels, tickLabel, tickMarks, tickStep } from './timeline-math'
+import { labelFit, secOfPixels, tickLabel, tickMarks, tickStep } from './timeline-math'
 
 describe('秒數尺的刻度', () => {
   it('間隔隨片長變：37 秒的片子每 5 秒一格、3 分鐘的片子每 30 秒一格', () => {
@@ -25,5 +25,20 @@ describe('秒數尺的刻度', () => {
     expect(secOfPixels(60, 600, 30)).toBe(3)
     expect(secOfPixels(-30, 600, 30)).toBe(-1.5)
     expect(secOfPixels(10, 0, 30)).toBe(0)
+  })
+})
+
+describe('格子裡的字寫多少（labelFit）', () => {
+  const base = { numberWidth: 8, secsWidth: 20, reserved: 16 }
+  it('全寫需要 鏡號＋4＋秒數＋留白 ＝ 48 px：差 1 px 就只寫鏡號', () => {
+    expect(labelFit({ ...base, cellWidth: 48 })).toBe('full')
+    expect(labelFit({ ...base, cellWidth: 47 })).toBe('number')
+  })
+  it('鏡號都放不下（24 px 要 8＋16）就都不寫', () => {
+    expect(labelFit({ ...base, cellWidth: 24 })).toBe('number')
+    expect(labelFit({ ...base, cellWidth: 23 })).toBe('none')
+  })
+  it('只讀（沒把手）的格子只留 4 px 內距', () => {
+    expect(labelFit({ ...base, reserved: 4, cellWidth: 36 })).toBe('full')
   })
 })
