@@ -1,4 +1,4 @@
-import type { ShotView, TakeView } from '@svs/schema'
+import { setLocale, type ShotView, type TakeView } from '@svs/schema'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -95,6 +95,19 @@ describe('TrimPlayer：頭尾裁切', () => {
     await waitFor(() => {
       expect(trims(svs)).toEqual([{ shotId: 's5', edit: { inSec: 1 } }])
     })
+  })
+
+  it('快捷鍵的小標籤寫成「I 鍵」「O 鍵」（單寫 O 會被看成數字 0）；英文是 Key I、Key O', () => {
+    setup()
+    const label = (id: string) => screen.getByTestId(id).querySelector('kbd')?.textContent
+    expect(label('trim-set-in')).toBe('I 鍵')
+    expect(label('trim-set-out')).toBe('O 鍵')
+    cleanup()
+    setLocale('en')
+    setup()
+    expect(label('trim-set-in')).toBe('Key I')
+    expect(label('trim-set-out')).toBe('Key O')
+    setLocale('zh-TW')
   })
 
   it('I、O 快捷鍵：焦點在影片上按 i／o 等於按那兩顆按鈕；打字的時候不攔', async () => {

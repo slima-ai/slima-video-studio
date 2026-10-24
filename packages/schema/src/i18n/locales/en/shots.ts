@@ -58,6 +58,7 @@ export const shots = {
   'shots.trimPlayKept': 'Play only the kept part',
   'shots.trimKept': 'Keeping {start}–{end} s: {length} s, {frames} frames',
   'shots.trimWhole': 'Using the whole video: {length} s, {frames} frames',
+  'shots.trimKey': 'Key {key}',
   'shots.trimHelp': '← → step one frame, I sets the in point, O sets the out point',
   'shots.trimAdjusted': '{asked} s was snapped to the video’s frame grid; using {used} s.',
   'shots.trimClamped': '{asked} s is past the end of the video; using {used} s.',

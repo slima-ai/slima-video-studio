@@ -163,16 +163,25 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       .map((shot) => {
         const take = shots.listTakes(shot.id, 'video').find((t) => t.adopted)
         const meta = take ? handle.assets.getMeta(take.assetHash) : undefined
-        const durationSec = trimmedLengthSec(
-          trimOfTake(take),
-          meta?.durationSec ?? shot.durationSec,
-        )
+        const trim = trimOfTake(take)
+        const durationSec = trimmedLengthSec(trim, meta?.durationSec ?? shot.durationSec)
+        const videoSec = meta?.durationSec
         const view: SoundShotView = {
           shotId: shot.id,
           number: shot.number,
           startSec: start,
           durationSec,
           hasVideo: take !== undefined,
+          ...(take !== undefined && videoSec !== undefined && videoSec > 0
+            ? {
+                trim: {
+                  videoSec,
+                  inSec: trim?.inSec ?? 0,
+                  outSec: trim?.outSec ?? videoSec,
+                  trimmed: trim !== undefined,
+                },
+              }
+            : {}),
           dialogue: shot.dialogue,
           nativeMuted: muted.has(shot.id),
           ...(clips.find((c) => c.kind === 'narration' && c.shotId === shot.id)

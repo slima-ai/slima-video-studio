@@ -251,5 +251,48 @@ describe('剪裁每一鏡的頭尾（示範模式、真的 FFmpeg）', { timeout
     // 秒數：鏡 8 從 32.2083 秒開始（名義的 32 秒會讓旁白早 0.21 秒）
     expect(state.shots[7]?.startSec).toBeCloseTo(773 / 24, 4)
     expect(state.shots[4]?.durationSec).toBe(3.5)
+    // 時間軸拖邊緣要用的資料：剪過的鏡頭帶影片長度與留下的段落，沒剪的整支都用
+    expect(state.shots[4]?.trim).toEqual({
+      videoSec: 121 / 24,
+      inSec: 0,
+      outSec: 3.5,
+      trimmed: true,
+    })
+    expect(state.shots[0]?.trim).toEqual({
+      videoSec: 121 / 24,
+      inSec: 0,
+      outSec: 121 / 24,
+      trimmed: false,
+    })
+  })
+
+  it('時間軸的資料：入點、出點都剪時各自帶出；還沒量到影片長度的鏡頭不帶 trim（畫面上不給拖）', async () => {
+    const h = createStudioHarness()
+    open.push(h)
+    h.projects.create(join(h.root, 'film.svsproj'), '時間軸')
+    const handle = h.projects.current()
+    if (!handle) throw new Error('沒有專案')
+    const make = async (n: number, durationSec: number | undefined) => {
+      const shot = handle.repos.shots.create({ description: `鏡 ${String(n)}`, durationSec: 5 })
+      const asset = await handle.assets.put(
+        new TextEncoder().encode(`tl-${String(n)}`),
+        'video/mp4',
+        durationSec === undefined ? {} : { durationSec },
+      )
+      return handle.repos.shots.addTake({
+        shotId: shot.id,
+        kind: 'video',
+        assetHash: asset.hash,
+        modelId: 'kling',
+      })
+    }
+    const first = await make(1, 5)
+    await make(2, undefined)
+    handle.repos.shots.setTakeTrim(first.id, { inSec: 0.5, outSec: 4 })
+    const [a, b] = h.sound.state().shots
+    expect(a?.trim).toEqual({ videoSec: 5, inSec: 0.5, outSec: 4, trimmed: true })
+    expect(a?.durationSec).toBe(3.5)
+    expect(b?.trim).toBeUndefined()
+    expect(b?.durationSec).toBe(5)
   })
 })

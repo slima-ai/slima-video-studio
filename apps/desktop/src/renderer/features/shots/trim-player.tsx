@@ -362,7 +362,9 @@ export function TrimPlayer({ shot, take, videoTestId }: TrimPlayerProps) {
             onClick={setIn}
           >
             {t('shots.trimSetIn')}
-            <kbd className="rounded border border-border px-1 text-xs">I</kbd>
+            <kbd className="rounded border border-border px-1.5 font-sans text-sm font-semibold">
+              {t('shots.trimKey', { key: 'I' })}
+            </kbd>
           </Button>
           <Button
             size="sm"
@@ -371,7 +373,9 @@ export function TrimPlayer({ shot, take, videoTestId }: TrimPlayerProps) {
             onClick={setOut}
           >
             {t('shots.trimSetOut')}
-            <kbd className="rounded border border-border px-1 text-xs">O</kbd>
+            <kbd className="rounded border border-border px-1.5 font-sans text-sm font-semibold">
+              {t('shots.trimKey', { key: 'O' })}
+            </kbd>
           </Button>
           <label className="flex items-center gap-1 text-sm">
             {t('shots.trimInField')}

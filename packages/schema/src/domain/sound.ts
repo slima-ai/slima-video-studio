@@ -94,6 +94,18 @@ export const SoundShotViewSchema = z.object({
   /** 這一鏡的長度：採用中的影片實際長度，還沒有影片就用鏡頭設定的秒數。 */
   durationSec: z.number().min(0),
   hasVideo: z.boolean(),
+  /**
+   * 採用中的影片實際長度與成品用到的段落（秒）；沒有影片或還沒量到長度就沒有。
+   * 沒裁切時 inSec 是 0、outSec 等於 videoSec、trimmed 是 false。時間軸拖格子邊緣剪裁用的就是這幾個數字。
+   */
+  trim: z
+    .object({
+      videoSec: z.number().positive(),
+      inSec: z.number().min(0),
+      outSec: z.number().positive(),
+      trimmed: z.boolean(),
+    })
+    .optional(),
   /** 這一鏡的台詞（旁白念的就是它）。 */
   dialogue: z.string(),
   /** 影片原聲被靜音（設定裡的 muteNativeShotIds）。 */
