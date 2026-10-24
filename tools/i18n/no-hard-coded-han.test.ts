@@ -148,5 +148,6 @@ describe('例外清單：每一條都有理由、而且都還需要', () => {
       if ((result?.messages ?? []).some((m) => m.ruleId === 'no-restricted-syntax')) bad.push(file)
     }
     expect(bad).toEqual([])
-  })
+    // 要逐一檢查每一個有中文的檔案：CI 負載高時超過預設的 20 秒會逾時（跟上面每條例外的測試同樣給 120 秒）
+  }, 120_000)
 })
