@@ -113,6 +113,9 @@ describe('時間軸：秒數尺、格子的秒數、被剪掉的部分', () => {
     render(<SoundTimeline state={stateOf(SHOTS)} />)
     expect(screen.getByTestId('timeline-ruler').getAttribute('aria-label')).toBe('Seconds ruler')
     expect(screen.getByTestId('timeline-cut-2').getAttribute('title')).toBe('Shot 2: 2.0 s cut off')
+    // 「Cut off」會被讀成「被截斷」，改叫 Trimmed
+    expect(screen.getByText('Trimmed')).toBeTruthy()
+    expect(screen.queryByText('Cut off')).toBeNull()
   })
 
   it('part=film（時間軸小標下）：只有尺、鏡頭、剪掉三條；part=sound（聲音小標下）：只有原聲、旁白、配樂', () => {
@@ -489,6 +492,20 @@ describe('時間軸：選一格按空白鍵，播那一鏡自己的影片、只�
     fireEvent.keyDown(cell(3), { key: ' ' })
     expect(screen.queryByTestId('timeline-preview')).toBeNull()
     expect(play).not.toHaveBeenCalled()
+  })
+
+  it('說明句的秒數一律一位小數：沒剪的鏡出點是影片實際長度 5.042 秒，寫成 5.0（跟面板的「留下 0.0–3.5 秒」一致）', () => {
+    setup()
+    render(
+      <SoundTimeline
+        state={stateOf([withVideo(shotOf(1, 0, { inSec: 0, outSec: 5.042 }))])}
+        part="film"
+      />,
+    )
+    fireEvent.click(cell(1))
+    expect(screen.getByTestId('timeline-play-hint').textContent).toBe(
+      '空白鍵播放／暫停：只播留下的 0.0–5.0 秒（鏡 1）',
+    )
   })
 
   it('點一下預覽 = 按空白鍵：游標是手指；點一下播（從入點）、再點暫停、播到出點停住後再點從入點重播', async () => {

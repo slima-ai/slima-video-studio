@@ -511,8 +511,8 @@ export function SoundTimeline({
           <p className="text-xs text-fg-muted" data-testid="timeline-play-hint">
             {t('sound.playHint', {
               number: String(selected.number),
-              start: fmtSec(selected.trim?.inSec ?? 0),
-              end: fmtSec(selected.trim?.outSec ?? selected.durationSec),
+              start: fmtSec1(selected.trim?.inSec ?? 0),
+              end: fmtSec1(selected.trim?.outSec ?? selected.durationSec),
             })}
           </p>
         </div>
