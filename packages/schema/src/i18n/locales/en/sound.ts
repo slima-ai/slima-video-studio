@@ -70,7 +70,7 @@ export const sound = {
   'sound.playHint': 'Space plays or pauses only the kept {start}–{end} s (shot {number})',
   'sound.ruler': 'Seconds ruler',
   'sound.cutOff': 'Trimmed',
-  'sound.cutOffTip': 'Shot {number}: {cut} s cut off',
+  'sound.cutOffTip': 'Shot {number}: {cut} s trimmed',
   'sound.shotCellTip': 'Shot {number}: {kept} s used in the film (whole video {total} s)',
   'sound.edgeIn': 'Shot {number} in point (drag to change where it starts being used)',
   'sound.edgeOut': 'Shot {number} out point (drag to change where it stops being used)',

@@ -101,7 +101,7 @@ describe('StoryboardPage', () => {
     render(<StoryboardPage />)
     await screen.findAllByTestId('shot-row')
     const cells = (await screen.findAllByTestId('shot-used')).map((c) => c.textContent)
-    expect(cells).toEqual(['—', '0.0–5.042', '0.0–3.5', '1.0–3.5'])
+    expect(cells).toEqual(['—', '0.0–5.0', '0.0–3.5', '1.0–3.5'])
     expect(screen.getAllByTestId('shot-used')[0]?.tagName).toBe('SPAN')
     expect(screen.getByRole('columnheader', { name: '成品用到' })).toBeTruthy()
   })

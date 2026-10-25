@@ -112,7 +112,7 @@ describe('時間軸：秒數尺、格子的秒數、被剪掉的部分', () => {
     setLocale('en')
     render(<SoundTimeline state={stateOf(SHOTS)} />)
     expect(screen.getByTestId('timeline-ruler').getAttribute('aria-label')).toBe('Seconds ruler')
-    expect(screen.getByTestId('timeline-cut-2').getAttribute('title')).toBe('Shot 2: 2.0 s cut off')
+    expect(screen.getByTestId('timeline-cut-2').getAttribute('title')).toBe('Shot 2: 2.0 s trimmed')
     // 「Cut off」會被讀成「被截斷」，改叫 Trimmed
     expect(screen.getByText('Trimmed')).toBeTruthy()
     expect(screen.queryByText('Cut off')).toBeNull()

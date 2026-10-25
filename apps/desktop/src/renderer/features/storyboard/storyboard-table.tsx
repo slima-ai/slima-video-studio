@@ -34,7 +34,7 @@ import {
 import { GripVertical } from 'lucide-react'
 import { createContext, useContext, useMemo, type HTMLAttributes } from 'react'
 
-import { fmtSec } from '../shots/trim-math'
+import { fmtSec1 } from '../shots/trim-math'
 import { SelectCell, TextCell } from './cells'
 import { STATUS_LABELS, angleOptions, cameraMoveOptions, parseNames, sizeOptions } from './labels'
 
@@ -47,7 +47,7 @@ export function usedInFilm(shot: ShotView): string {
   const total = video.videoSec ?? shot.filmSeconds
   const start = video.trim?.inSec ?? 0
   const end = video.trim?.outSec ?? total
-  return end === undefined ? '—' : `${fmtSec(start)}–${fmtSec(end)}`
+  return end === undefined ? '—' : `${fmtSec1(start)}–${fmtSec1(end)}`
 }
 
 /** 每一欄的寬度（px）：固定下來，內容太長就用省略號並在滑過時顯示全文，不會把欄位擠成一個字寬。 */
