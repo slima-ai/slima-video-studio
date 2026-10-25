@@ -483,7 +483,24 @@ export function SoundTimeline({
             data-testid="timeline-preview"
             src={assetUrl(selected.videoHash ?? '')}
             preload="auto"
-            className="h-28 rounded border border-border bg-black"
+            className="h-28 cursor-pointer rounded border border-border bg-black"
+            // 點一下預覽 = 按空白鍵：同一個播放／暫停，一樣經過出點檢查
+            onClick={togglePlay}
+            // 右鍵選單的「播放」、媒體鍵不經過 togglePlay：從這裡接住，在出點或範圍外就退回入點
+            onPlay={() => {
+              const video = videoRef.current
+              if (video && (video.currentTime >= rangeOut - 1e-3 || video.currentTime < rangeIn)) {
+                video.currentTime = rangeIn
+              }
+              setPlaying(true)
+            }}
+            // 媒體鍵快轉、倒轉也不能跳出留下的範圍
+            onSeeked={() => {
+              const video = videoRef.current
+              if (!video) return
+              if (video.currentTime > rangeOut + 1e-3) video.currentTime = rangeOut
+              else if (video.currentTime < rangeIn - 1e-3) video.currentTime = rangeIn
+            }}
             onPause={() => {
               setPlaying(false)
             }}

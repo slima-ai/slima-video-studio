@@ -491,6 +491,62 @@ describe('時間軸：選一格按空白鍵，播那一鏡自己的影片、只�
     expect(play).not.toHaveBeenCalled()
   })
 
+  it('點一下預覽 = 按空白鍵：游標是手指；點一下播（從入點）、再點暫停、播到出點停住後再點從入點重播', async () => {
+    setup()
+    render(<SoundTimeline state={stateOf(PLAYABLE)} part="film" />)
+    fireEvent.click(cell(2))
+    expect(video().className).toContain('cursor-pointer')
+    expect(video().hasAttribute('controls')).toBe(false)
+    fireEvent.click(video())
+    await waitFor(() => {
+      expect(play).toHaveBeenCalledTimes(1)
+    })
+    expect(video().currentTime).toBe(0.5)
+    await waitFor(() => {
+      expect(frames.length).toBeGreaterThan(0)
+    })
+    fireEvent.click(video())
+    expect(pause).toHaveBeenCalled()
+    // 播到出點：停在出點；再點預覽從入點重播（跟空白鍵一樣）
+    fireEvent.click(video())
+    await waitFor(() => {
+      expect(play).toHaveBeenCalledTimes(2)
+    })
+    await waitFor(() => {
+      expect(frames.length).toBeGreaterThan(0)
+    })
+    times.set(video(), 3.004)
+    runFrame()
+    expect(video().currentTime).toBe(3)
+    fireEvent.click(video())
+    await waitFor(() => {
+      expect(play).toHaveBeenCalledTimes(3)
+    })
+    expect(video().currentTime).toBe(0.5)
+  })
+
+  it('右鍵選單的「播放」、媒體鍵（不經過 togglePlay 的 play）在出點或範圍外也退回入點；快轉不能超過出點、倒轉不能低過入點', () => {
+    setup()
+    render(<SoundTimeline state={stateOf(PLAYABLE)} part="film" />)
+    fireEvent.click(cell(2))
+    // 停在出點時從瀏覽器自己的「播放」開始
+    times.set(video(), 3)
+    fireEvent.play(video())
+    expect(video().currentTime).toBe(0.5)
+    // 媒體鍵快轉到範圍外
+    times.set(video(), 4.2)
+    fireEvent.seeked(video())
+    expect(video().currentTime).toBe(3)
+    // 倒轉到入點之前
+    times.set(video(), 0.1)
+    fireEvent.seeked(video())
+    expect(video().currentTime).toBe(0.5)
+    // 範圍內不動
+    times.set(video(), 1.5)
+    fireEvent.seeked(video())
+    expect(video().currentTime).toBe(1.5)
+  })
+
   it('part=sound（聲音那一塊）沒有播放功能', () => {
     setup()
     render(<SoundTimeline state={stateOf(PLAYABLE)} part="sound" />)
