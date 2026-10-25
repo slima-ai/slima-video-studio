@@ -94,6 +94,8 @@ export const SoundShotViewSchema = z.object({
   /** 這一鏡的長度：採用中的影片實際長度，還沒有影片就用鏡頭設定的秒數。 */
   durationSec: z.number().min(0),
   hasVideo: z.boolean(),
+  /** 採用中的影片素材（時間軸選一格按空白鍵播的就是它）；沒有影片就沒有。 */
+  videoHash: z.string().optional(),
   /**
    * 採用中的影片實際長度與成品用到的段落（秒）；沒有影片或還沒量到長度就沒有。
    * 沒裁切時 inSec 是 0、outSec 等於 videoSec、trimmed 是 false。時間軸拖格子邊緣剪裁用的就是這幾個數字。

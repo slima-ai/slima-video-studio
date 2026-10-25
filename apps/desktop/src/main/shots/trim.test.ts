@@ -292,6 +292,10 @@ describe('剪裁每一鏡的頭尾（示範模式、真的 FFmpeg）', { timeout
     const [a, b] = h.sound.state().shots
     expect(a?.trim).toEqual({ videoSec: 5, inSec: 0.5, outSec: 4, trimmed: true })
     expect(a?.durationSec).toBe(3.5)
+    // 選一格按空白鍵播的就是採用中的那支影片（有影片就帶 hash，沒量到長度也一樣）
+    expect(a?.videoHash).toBe(handle.repos.shots.listTakes(a?.shotId ?? '', 'video')[0]?.assetHash)
+    expect(b?.videoHash).toBe(handle.repos.shots.listTakes(b?.shotId ?? '', 'video')[0]?.assetHash)
+    expect(a?.videoHash).not.toBeUndefined()
     expect(b?.trim).toBeUndefined()
     expect(b?.durationSec).toBe(5)
   })

@@ -1,7 +1,15 @@
 import type { SoundShotView, SoundState, TrimEdit } from '@svs/schema'
 import { t } from '@svs/schema'
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react'
 
+import { assetUrl } from '../../lib/asset'
 import { errorText } from '../../lib/svs'
 import { TRIM_DEFAULT_FPS, clampIn, clampOut, fmtSec, fmtSec1, snapSec } from '../shots/trim-math'
 import {
@@ -117,6 +125,88 @@ export function SoundTimeline({
   const [drag, setDrag] = useState<EdgeDrag | undefined>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | undefined>()
+  // 選一格按空白鍵：播那一鏡自己的影片，只播留下的段落（入點到出點）
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [selectedId, setSelectedId] = useState<string | undefined>()
+  const [playing, setPlaying] = useState(false)
+  const playOnSelect = useRef(false)
+  const selected =
+    part === 'sound' ? undefined : state.shots.find((s) => s.shotId === selectedId && s.videoHash)
+  const rangeIn = selected?.trim?.inSec ?? 0
+  const rangeOut = selected?.trim?.outSec ?? Infinity
+
+  // 換了選的那一格（或它的影片、裁切變了）：停下、回到入點；是按空白鍵選的就接著播
+  useEffect(() => {
+    const video = videoRef.current
+    setPlaying(false)
+    if (!video) return
+    video.pause()
+    video.currentTime = rangeIn
+    if (playOnSelect.current) {
+      playOnSelect.current = false
+      video
+        .play()
+        .then(() => {
+          setPlaying(true)
+        })
+        .catch(() => {
+          setPlaying(false)
+        })
+    }
+  }, [selected?.shotId, selected?.videoHash, rangeIn, rangeOut])
+
+  // 播到出點就停（每一格都查，timeupdate 一秒只有四次，會多播一段）
+  useEffect(() => {
+    if (!playing) return
+    let frame = 0
+    const tick = (): void => {
+      const video = videoRef.current
+      if (video && video.currentTime >= rangeOut - 1e-3) {
+        video.pause()
+        video.currentTime = rangeOut
+        setPlaying(false)
+        return
+      }
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [playing, rangeOut])
+
+  const togglePlay = (): void => {
+    const video = videoRef.current
+    if (!video) return
+    if (playing) {
+      video.pause()
+      setPlaying(false)
+      return
+    }
+    // 已經在出點（或在入點之前）：從入點重播
+    if (video.currentTime >= rangeOut - 1e-3 || video.currentTime < rangeIn) {
+      video.currentTime = rangeIn
+    }
+    video
+      .play()
+      .then(() => {
+        setPlaying(true)
+      })
+      .catch(() => {
+        setPlaying(false)
+      })
+  }
+  const cellKey = (shot: SoundShotView) => (event: KeyboardEvent<HTMLElement>) => {
+    // 把手自己的按鍵（← →）不歸格子管
+    if (event.target !== event.currentTarget || !shot.videoHash) return
+    if (event.key !== ' ' && event.key !== 'Enter') return
+    event.preventDefault()
+    if (shot.shotId === selectedId) togglePlay()
+    else {
+      playOnSelect.current = true
+      setSelectedId(shot.shotId)
+    }
+  }
   const total = state.totalSec
   if (!(total > 0) || state.shots.length === 0) return null
   const overflow = new Set(
@@ -232,7 +322,24 @@ export function SoundTimeline({
                   <div
                     key={shot.shotId}
                     data-testid={`timeline-shot-${String(shot.number)}`}
-                    className="absolute inset-y-0 border-l border-border text-center leading-5"
+                    {...(shot.videoHash
+                      ? {
+                          role: 'button',
+                          tabIndex: 0,
+                          'aria-pressed': shot.shotId === selected?.shotId,
+                          'aria-label': t('sound.playCell', { number: String(shot.number) }),
+                          onClick: () => {
+                            setSelectedId(shot.shotId)
+                          },
+                          onKeyDown: cellKey(shot),
+                        }
+                      : {})}
+                    data-selected={shot.shotId === selected?.shotId}
+                    className={
+                      shot.shotId === selected?.shotId
+                        ? 'absolute inset-y-0 border-l border-border bg-accent/20 text-center leading-5 outline-2 outline-accent'
+                        : 'absolute inset-y-0 border-l border-border text-center leading-5 focus-visible:outline-2 focus-visible:outline-fg'
+                    }
                     style={{ left: pct(shot.startSec, total), width: pct(length, total) }}
                     title={
                       shot.trim
@@ -369,6 +476,47 @@ export function SoundTimeline({
           </>
         ) : null}
       </div>
+      {film && selected ? (
+        <div className="space-y-1" data-testid="timeline-player">
+          <video
+            ref={videoRef}
+            data-testid="timeline-preview"
+            src={assetUrl(selected.videoHash ?? '')}
+            preload="auto"
+            className="h-28 cursor-pointer rounded border border-border bg-black"
+            // 點一下預覽 = 按空白鍵：同一個播放／暫停，一樣經過出點檢查
+            onClick={togglePlay}
+            // 右鍵選單的「播放」、媒體鍵不經過 togglePlay：從這裡接住，在出點或範圍外就退回入點
+            onPlay={() => {
+              const video = videoRef.current
+              if (video && (video.currentTime >= rangeOut - 1e-3 || video.currentTime < rangeIn)) {
+                video.currentTime = rangeIn
+              }
+              setPlaying(true)
+            }}
+            // 媒體鍵快轉、倒轉也不能跳出留下的範圍
+            onSeeked={() => {
+              const video = videoRef.current
+              if (!video) return
+              if (video.currentTime > rangeOut + 1e-3) video.currentTime = rangeOut
+              else if (video.currentTime < rangeIn - 1e-3) video.currentTime = rangeIn
+            }}
+            onPause={() => {
+              setPlaying(false)
+            }}
+            onEnded={() => {
+              setPlaying(false)
+            }}
+          />
+          <p className="text-xs text-fg-muted" data-testid="timeline-play-hint">
+            {t('sound.playHint', {
+              number: String(selected.number),
+              start: fmtSec1(selected.trim?.inSec ?? 0),
+              end: fmtSec1(selected.trim?.outSec ?? selected.durationSec),
+            })}
+          </p>
+        </div>
+      ) : null}
       {film && draggedPreview && dragged ? (
         <p className="text-xs text-fg-muted" data-testid="timeline-edge-readout" role="status">
           {t('sound.edgeReadout', {
