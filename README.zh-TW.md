@@ -201,6 +201,18 @@ pnpm --filter @svs/desktop dist                             # 打包安裝檔（
 
 需要 Node 22 與 pnpm 10。這是一個 pnpm workspace：`apps/desktop`（Electron App、React 介面）把 `packages/` 裡的套件（`schema`、`db`、`engine`、`providers`、`media`、`workflows`、`slima`）組起來，這些套件只依賴 `@svs/schema`。macOS 的 FFmpeg 由 [`tools/ffmpeg/build-macos.sh`](tools/ffmpeg/README.md) 從原始碼編譯。參與貢獻請看 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+## 隱私
+
+App 把什麼留在你的電腦上、又把什麼送出去（以下是 0.4.0 版的情況；程式碼就在這個 repo，可以自己核對）：
+
+- **你的作品留在你的電腦上。** 專案、圖片、影片、聲音與匯出的檔案都是專案資料夾裡的檔案；接片、混音、匯出都在你的電腦上用內建的 FFmpeg 做。
+- **示範模式什麼都不會送出去。** 假的服務不需要金鑰、也不需要網路。
+- **用真的 AI 時，你寫的和做出來的東西會送給你設定的 AI 服務**，因為圖片、影片、旁白和配樂就是這樣做出來的：包括故事與鏡頭描述、角色的描述與圖片、當作輸入的第一張畫面與影片，以及旁白的文字。App 連的是 **OpenRouter**（`openrouter.ai`），以及——只有你另外放了金鑰才會——**fal.ai**（`queue.fal.run`）。這些服務怎麼處理你的資料，依它們自己的條款與隱私權政策，不是這個專案管得到的。
+- **從 Slima 匯入是選用的、而且是唯讀。** 只有你連了自己的 Slima 帳號，App 才會透過官方的 `slima-mcp` 向 `api.slima.ai` 讀取你的故事，不會寫回去。
+- **你的服務金鑰**由作業系統的鑰匙圈加密保存（macOS 鑰匙圈、Windows DPAPI），不會再完整顯示；只會送給它所屬的那個服務。
+- **沒有遙測。** App 沒有分析、沒有使用追蹤、沒有當機回報、也不會自動檢查更新；除了你從 Slima 匯入時連的 `api.slima.ai`，不會連到我們的任何伺服器。另一條連線是給 AI 助理用的本機伺服器，只聽 `127.0.0.1`（只有你的電腦連得到），而且要你打開才會啟動。
+- App 裡的費用數字是在你的電腦上算的估計；實際收費以你的 AI 服務的帳單為準。
+
 ## 授權
 
 Apache License 2.0，見 [LICENSE](LICENSE) 與 [NOTICE](NOTICE)。「Slima」與「Slima Video Studio」的名稱、Logo，以及小饅頭（Little Bun／Mochi）美術**不在**這個授權裡。安裝檔內含 FFmpeg（GPL v2 或更新版，只開 libx264，當成獨立程式執行），它的授權全文與原始碼取得方式隨安裝檔附上；其他第三方授權在 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。AI 服務金鑰與產生的費用由你自己負責。軟體依現況提供，不附任何保證。
