@@ -201,6 +201,18 @@ On macOS, packaging checks that the installer carries the FFmpeg built by `tools
 
 Requirements: Node 22 and pnpm 10. It is a pnpm workspace: `apps/desktop` (Electron app, React renderer) wires together the packages in `packages/` (`schema`, `db`, `engine`, `providers`, `media`, `workflows`, `slima`), which depend only on `@svs/schema`. The macOS FFmpeg is built from source by [`tools/ffmpeg/build-macos.sh`](tools/ffmpeg/README.md). See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Privacy
+
+What the app keeps on your computer and what it sends out (this describes version 0.4.0; the code is in this repository, so you can check it):
+
+- **Your work stays on your computer.** Projects, pictures, videos, sound and exports are files in your project folder. Joining, mixing and exporting run on your computer with the bundled FFmpeg.
+- **In demo mode nothing leaves your computer.** The fake providers need no key and no network.
+- **With real AI, what you write and make is sent to the AI service you set up**, because that is how the pictures, videos, narration and music get made: your story and shot descriptions, the characters' descriptions and pictures, the first frames and videos used as input, and the narration text. The app talks to **OpenRouter** (`openrouter.ai`) and, only if you add a key for it, **fal.ai** (`queue.fal.run`). What those services do with your data is governed by their own terms and privacy policies, not by this project.
+- **Importing from Slima is optional and read-only.** Only if you connect your Slima account, the app reads your stories from `api.slima.ai` through the official `slima-mcp`; nothing is written back.
+- **Your service keys** are stored encrypted by your operating system's keychain (macOS Keychain, Windows DPAPI) and are never shown again in full. They are sent only to the service they belong to.
+- **No telemetry.** The app has no analytics, no usage tracking, no crash reporting and no automatic update check; it contacts no server of ours except `api.slima.ai` when you import from Slima. The only other connection is the local server for AI assistants, which listens on `127.0.0.1` (your computer only) and only when you switch it on.
+- The cost figures in the app are estimates calculated on your computer; the real charge is whatever your AI service bills you.
+
 ## License
 
 Apache License 2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). The names "Slima" and "Slima Video Studio", the logos and the Little Bun / Mochi artwork are **not** covered by that license. The installers bundle FFmpeg (GPL v2 or later, built with libx264 only, run as a separate program); its license text and source instructions ship with it, and the other third-party licenses are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). You are responsible for your own AI service keys and for any charges they incur. The software is provided "as is", without warranty.
