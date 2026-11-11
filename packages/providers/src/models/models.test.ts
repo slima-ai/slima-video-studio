@@ -560,9 +560,9 @@ describe('ModelRegistry', () => {
     )
   })
 
-  it('估算：OpenRouter 的 Veo 3.1 Lite 6 秒＝6 × 0.05（無聲是 2026-10-18 實測，有聲取規格表）；Kling Standard 無聲 5 秒＝5 × 0.084', () => {
+  it('估算：OpenRouter 的 Veo 3.1 Lite 無聲 6 秒＝6 × 0.05（2026-10-18 實測）、有聲 6 秒＝6 × 0.08（規格表未指定解析度的有聲價，寧可高估）；Kling Standard 無聲 5 秒＝5 × 0.084', () => {
     expect(registry.estimate('openrouter/veo-3.1-lite', { seconds: 6, audio: true })).toBeCloseTo(
-      0.3,
+      0.48,
     )
     expect(registry.estimate('openrouter/veo-3.1-lite', { seconds: 6 })).toBeCloseTo(0.3)
     expect(registry.estimate('openrouter/kling-3.0-standard', { seconds: 5 })).toBeCloseTo(0.42)
