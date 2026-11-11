@@ -4,6 +4,7 @@ import claudeOpus5_5 from '../../models/claude-opus-5.5.json'
 import claudeSonnet5_5 from '../../models/claude-sonnet-5.5.json'
 import eleven3 from '../../models/eleven-v3.json'
 import gemini3ProImage from '../../models/gemini-3-pro-image.json'
+import geminiOmni1_2Flash from '../../models/gemini-omni-1.2-flash.json'
 import gpt5_5 from '../../models/gpt-5.5.json'
 import gptImage2 from '../../models/gpt-image-2.json'
 import gptImage2High from '../../models/gpt-image-2-high.json'
@@ -28,6 +29,7 @@ const RAW_SPECS: readonly unknown[] = [
   claudeSonnet5_5,
   eleven3,
   gemini3ProImage,
+  geminiOmni1_2Flash,
   gpt5_5,
   gptImage2,
   gptImage2High,
@@ -52,6 +54,7 @@ export const BUILTIN_MODEL_FILES: readonly string[] = [
   'claude-sonnet-5.5.json',
   'eleven-v3.json',
   'gemini-3-pro-image.json',
+  'gemini-omni-1.2-flash.json',
   'gpt-5.5.json',
   'gpt-image-2.json',
   'gpt-image-2-high.json',

@@ -92,6 +92,6 @@ describe('toModelOption：漢字算多個計費單位的旁白模型', () => {
     if (!minimax || !eleven) throw new Error('找不到旁白卡')
     expect(toModelOption(minimax).priceShort).toBe('每萬字約 US$2.00')
     expect(toModelOption(minimax).priceLabel).toBe('約 US$200／百萬字元')
-    expect(toModelOption(eleven).priceShort).toBe('每萬字約 US$0.40')
+    expect(toModelOption(eleven).priceShort).toBe('每萬字約 US$0.80')
   })
 })
