@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { AppError } from '../errors'
-import { ModelCardSchema, estimateCostUsd, type ModelCard } from './models'
+import { ModelCardSchema, alignVideoSeconds, estimateCostUsd, type ModelCard } from './models'
 
 const base = {
   id: 'fal/kling-3.0',
@@ -120,5 +120,39 @@ describe('estimateCostUsd', () => {
       expect(() => estimateCostUsd(card({ pricing }), {}), pricing.unit).toThrow(AppError)
     }
     expect(() => estimateCostUsd(card({ pricing: units[4] }), { inputTokens: 10 })).toThrow(/token/)
+  })
+})
+
+describe('alignVideoSeconds：送給影片模型的秒數，取模型允許的、大於等於格長的最小值', () => {
+  it('3～15 秒任選的模型：2.5 → 3、0.5 → 3（不低於最小）、剛好 3 → 3、整數不動', () => {
+    const range = { min: 3, max: 15 }
+    expect(alignVideoSeconds(range, 2.5)).toEqual({ sec: 3, clamped: false })
+    expect(alignVideoSeconds(range, 0.5)).toEqual({ sec: 3, clamped: false })
+    expect(alignVideoSeconds(range, 3)).toEqual({ sec: 3, clamped: false })
+    expect(alignVideoSeconds(range, 7)).toEqual({ sec: 7, clamped: false })
+    expect(alignVideoSeconds(range, 7.04)).toEqual({ sec: 8, clamped: false })
+    // 浮點誤差不會多進一秒
+    expect(alignVideoSeconds(range, 0.1 + 0.2 + 2.7)).toEqual({ sec: 3, clamped: false })
+  })
+
+  it('只收 4、6、8 的模型：2.5 → 4、5 → 6、6 → 6', () => {
+    const range = { min: 4, max: 8, steps: [4, 6, 8] }
+    expect(alignVideoSeconds(range, 2.5)).toEqual({ sec: 4, clamped: false })
+    expect(alignVideoSeconds(range, 5)).toEqual({ sec: 6, clamped: false })
+    expect(alignVideoSeconds(range, 6)).toEqual({ sec: 6, clamped: false })
+  })
+
+  it('超過最大值：用最大值，並標 clamped（呼叫的人要提醒）；只收固定秒數的模型也一樣', () => {
+    expect(alignVideoSeconds({ min: 3, max: 15 }, 20)).toEqual({ sec: 15, clamped: true })
+    expect(alignVideoSeconds({ min: 4, max: 8, steps: [4, 6, 8] }, 9)).toEqual({
+      sec: 8,
+      clamped: true,
+    })
+  })
+
+  it('模型卡沒寫秒數範圍：進位到整數秒（跟送給供應商的整數秒一致），不夾', () => {
+    expect(alignVideoSeconds(undefined, 2.5)).toEqual({ sec: 3, clamped: false })
+    expect(alignVideoSeconds(undefined, 3)).toEqual({ sec: 3, clamped: false })
+    expect(alignVideoSeconds(undefined, 0.2)).toEqual({ sec: 1, clamped: false })
   })
 })

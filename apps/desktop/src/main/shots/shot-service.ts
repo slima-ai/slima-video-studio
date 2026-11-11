@@ -40,7 +40,9 @@ import {
   type TrimEdit,
   type TrimResult,
   type Workflow,
+  alignVideoSeconds,
   resolveTrim,
+  snapToFrame,
   TrailerSettingsSchema,
   stillMotionOf,
   trimmedLengthSec,
@@ -78,7 +80,7 @@ import { SHOT_NODE } from '../quickstart/progress-tracker'
 import { createDraftCharacters } from '../quickstart/draft-characters'
 import { sceneKey, shotKey } from '../canvas/projection'
 import { currentFinal, cutTrimKeyOf } from './current-final'
-import { measureVideoAssets } from './measure-videos'
+import { measureVideoAsset, measureVideoAssets } from './measure-videos'
 import { trimOfTake } from './trim'
 import { isAiCall } from '../history/ai-origin'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
@@ -411,6 +413,8 @@ interface Session {
   quick?: QuickStartContext | undefined
   /** 快速開始的第幾個鏡頭 → 鏡頭 id。 */
   quickShotIds: string[]
+  /** 影片存進來後正在自動剪到格長的工作（預告片專案）；接片、剪裁、量長度之前要等它們。 */
+  trims: Set<Promise<void>>
 }
 
 /**
@@ -450,7 +454,14 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     if (session && session.handle === handle) return
     for (const controller of session?.regens.values() ?? []) controller.abort()
     session = handle
-      ? { handle, regens: new Map(), activity: new Map(), errors: new Map(), quickShotIds: [] }
+      ? {
+          handle,
+          regens: new Map(),
+          activity: new Map(),
+          errors: new Map(),
+          quickShotIds: [],
+          trims: new Set(),
+        }
       : undefined
   }
 
@@ -464,6 +475,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     if ((await measureVideoAssets(handle, tool)) > 0 && session?.handle === handle) {
       broadcast('shots.changed', snapshot())
     }
+    // 預告片專案：剛生好的影片還在自動剪到格長，等它們剪完，後面接片與算長度才用得到正確的裁切
+    if (session?.handle === handle) await Promise.all([...session.trims])
   }
   open(projects.current())
   if (session) void ensureMeasured(session.handle)
@@ -771,6 +784,49 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
 
   // ── 重新生成單一鏡頭 ──
 
+  const isClosed = (handle: ProjectHandle): boolean => handle.closed
+
+  /**
+   * 預告片專案：影片存進來，比格長長就自動剪到格長（模型只收整數秒或固定幾檔，要 2.5 秒只能要 3 秒）。
+   * 入點沿用上一支採用中影片的入點（使用者挑好的那一段不會因為重生就掉回開頭），出點＝入點＋格長。
+   * 量不到長度就不動，影片維持整支（照舊，不丟錯）。
+   */
+  const autoTrim = async (
+    s: Session,
+    shotId: string,
+    takeId: string,
+    carryInSec: number,
+  ): Promise<void> => {
+    const tool = tools()
+    if (!tool || s.handle.closed) return
+    const { shots } = s.handle.repos
+    const { assets } = s.handle
+    const take = shots.listTakes(shotId, 'video').find((x) => x.id === takeId)
+    const shot = shots.get(shotId)
+    if (!take || !shot || trimOfTake(take) !== undefined) return
+    const measured = await measureVideoAsset(s.handle, tool, take.assetHash)
+    // 量的時候專案可能被關了（lint 的流程分析看不出 await 之間會變，所以用函式讀）
+    if (isClosed(s.handle)) return
+    const videoSec = measured?.durationSec ?? assets.getMeta(take.assetHash)?.durationSec
+    if (videoSec === undefined) return
+    const fps = await filmFps(s.handle, tool)
+    const cellSec = snapToFrame(shot.durationSec, fps)
+    if (videoSec <= cellSec + 1e-6) return
+    const inSec = Math.min(carryInSec, Math.max(0, videoSec - cellSec))
+    const result = resolveTrim({
+      current: undefined,
+      edit: { inSec, outSec: inSec + cellSec },
+      durationSec: videoSec,
+      fps,
+    })
+    if (!result.ok || result.trim === undefined) return
+    // 等的這段時間使用者若已自己剪過，用使用者的
+    const latest = shots.listTakes(shotId, 'video').find((x) => x.id === takeId)
+    if (!latest || trimOfTake(latest) !== undefined) return
+    shots.setTakeTrim(takeId, result.trim)
+    changed(s)
+  }
+
   /** 單鏡頭工作流的引擎事件（節點編號是 prompt / image / video，沒有 each[n]/ 前綴）。 */
   const recordRegen = (
     s: Session,
@@ -812,6 +868,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     } else if (event.nodeId === 'video' && isDone(event.nodeRun)) {
       const out = VideoOutputSchema.safeParse(event.nodeRun.output)
       if (out.success) {
+        // 重生前採用中的影片入點（預告片專案：新影片沿用，使用者挑的那一段不會掉回開頭）
+        const carryInSec = shots.listTakes(shotId, 'video').find((x) => x.adopted)?.trimInSec ?? 0
         const take = saveTake(s, shotId, 'video', out.data.video, {
           modelId: ctx.models.video,
           seed: ctx.videoVariation,
@@ -820,6 +878,14 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         })
         shots.adoptTake(take.id)
         shots.update(shotId, { status: 'done' })
+        if (s.handle.repos.trailer.get() !== undefined) {
+          const pending: Promise<void> = autoTrim(s, shotId, take.id, carryInSec)
+            .catch((error: unknown) => {
+              log.warn(`Auto-trim failed for shot ${shotId}: ${String(error)}`)
+            })
+            .finally(() => s.trims.delete(pending))
+          s.trims.add(pending)
+        }
         s.errors.delete(shotId)
         changed(s)
       }
@@ -1058,9 +1124,20 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         ? assetRefOf(handle, endTake.assetHash)
         : undefined
     const local = localKindOf(shot)
+    // 預告片專案的影片格：格長（可以是 2.5 秒）要換成模型真的收的秒數（3 秒）才送、才估價；
+    // 多出來的由自動剪裁剪掉。一般專案與本機格子照舊送格長（節點參數與快取不變）
+    const aligned =
+      local === undefined && handle.repos.trailer.get() !== undefined
+        ? alignVideoSeconds(models.get(picked.video)?.durationSec, shot.durationSec)
+        : undefined
+    if (aligned?.clamped === true) {
+      log.warn(
+        `Shot ${String(shot.number)} wants ${String(shot.durationSec)}s but ${picked.video} stops at ${String(aligned.sec)}s`,
+      )
+    }
     const full = buildShotWorkflow({
       style: toStyle(project.defaultStyleId),
-      durationSec: shot.durationSec,
+      durationSec: aligned?.sec ?? shot.durationSec,
       aspectRatio: project.aspectRatio,
       // 影片要不要帶原聲：專案的聲音設定（預設開）
       audio: handle.repos.sound.getSettings().nativeAudio,
@@ -2226,7 +2303,22 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         (tool ? (await probe(tool, found.path)).durationSec : shot.durationSec)
       // 對齊用成品的輸出幀率＝接片時第一段影片的幀率（沒有 FFmpeg 或量不到就是 24）
       const fps = tool ? await filmFps(s.handle, tool) : 24
-      const result = resolveTrim({ current: trimOfTake(take), edit, durationSec: videoSec, fps })
+      // 預告片專案：只改入點時，出點跟著走、剪出來還是一個格長（不然入點往後移，這一格就變短了）
+      const keepCell =
+        s.handle.repos.trailer.get() !== undefined &&
+        edit.inSec !== undefined &&
+        edit.outSec === undefined &&
+        edit.clear !== true
+      const followed: TrimEdit =
+        keepCell && edit.inSec !== undefined
+          ? { ...edit, outSec: snapToFrame(edit.inSec, fps) + snapToFrame(shot.durationSec, fps) }
+          : edit
+      const result = resolveTrim({
+        current: trimOfTake(take),
+        edit: followed,
+        durationSec: videoSec,
+        fps,
+      })
       if (!result.ok) {
         throw invalid(
           t('services.theTrimLeavesNothing', {

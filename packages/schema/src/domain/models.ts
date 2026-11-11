@@ -495,6 +495,27 @@ export function billableChars(card: Pick<ModelCard, 'cjkCharWeight'>, text: stri
   return total
 }
 
+/**
+ * 送給影片模型的秒數：模型允許的秒數裡、大於等於格長的最小值（格長 2.5 秒就送 3 秒，不是四捨五入）。
+ * 有固定幾個秒數（`steps`）就取其中夠長的最小一個；否則進位到整數秒、不低於最小。超過最大值就用最大值並標 `clamped`
+ * （呼叫的人要提醒使用者：影片比格子短，會補滿）。模型卡沒寫範圍：只進位到整數秒（供應商收的是整數秒）。
+ */
+export function alignVideoSeconds(
+  range: z.infer<typeof DurationRangeSchema> | undefined,
+  wantSec: number,
+): { sec: number; clamped: boolean } {
+  // 0.1+0.2+2.7 這類浮點誤差不能多進一秒
+  const rounded = Math.ceil(wantSec - 1e-9)
+  if (range === undefined) return { sec: Math.max(1, rounded), clamped: false }
+  if (range.steps !== undefined) {
+    const fit = range.steps.find((step) => step >= wantSec - 1e-9)
+    if (fit !== undefined) return { sec: fit, clamped: false }
+    return { sec: range.steps.at(-1) ?? range.max, clamped: true }
+  }
+  if (rounded > range.max) return { sec: range.max, clamped: true }
+  return { sec: Math.max(range.min, rounded), clamped: false }
+}
+
 /** 依 ModelCard 的價格與用量估算花費（美金）。缺少需要的用量欄位時丟錯，不會悄悄少算。 */
 export function estimateCostUsd(card: ModelCard, usage: UsageEstimate): number {
   const p = card.pricing
