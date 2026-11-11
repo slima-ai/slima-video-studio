@@ -1,4 +1,6 @@
 export const nodes = {
+  'nodes.stillToVideo': '把畫面做成有運鏡的影片，不花錢',
+  'nodes.cardToVideo': '把字卡做成影片，不花錢',
   'nodes.characterConceptPicture': '角色概念圖',
   'nodes.characterTurnaround': '角色三視圖',
   'nodes.locationConceptPicture': '場景概念圖',

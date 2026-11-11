@@ -3,6 +3,7 @@ import {
   t,
   type AspectRatio,
   type BeatKind,
+  type CardJob,
   type ShotCard,
   type TrailerSettings,
 } from '@svs/schema'
@@ -38,19 +39,6 @@ export interface CardAssets {
   ) => Promise<{ hash: string; path: string; mime: string; bytes: number; created: boolean }>
   find: (hash: string) => { path: string; mime: string } | undefined
 }
-
-/** 要畫哪一種卡。 */
-export type CardJob =
-  | { kind: 'card'; text: string; subtext?: string | undefined }
-  | {
-      kind: 'title'
-      title: string
-      author?: string | undefined
-      endLine?: string | undefined
-      coverAssetHash?: string | undefined
-      /** 最底下一行小字（給匯出的 AI 服務標註，T9）。 */
-      footnote?: string | undefined
-    }
 
 export interface CardResult {
   assetHash: string

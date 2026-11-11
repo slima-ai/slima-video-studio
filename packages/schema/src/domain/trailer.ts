@@ -24,6 +24,40 @@ export const ShotCardSchema = z.object({
 })
 export type ShotCard = z.infer<typeof ShotCardSchema>
 
+// ---- 本機格子（靜態鏡頭、字卡、片名卡）：運鏡與要畫的卡 ----
+
+/** 靜態圖的運鏡：慢推近、慢拉遠、鏡頭左移、鏡頭右移、不動。 */
+export const STILL_MOTIONS = ['zoom_in', 'zoom_out', 'pan_left', 'pan_right', 'none'] as const
+export const StillMotionSchema = z.enum(STILL_MOTIONS)
+export type StillMotion = z.infer<typeof StillMotionSchema>
+
+/** 鏡頭上的運鏡預設（`shot.cameraMove`）→ 靜態圖的運鏡：推近、拉遠、搖鏡有對應，其他都是不動。 */
+export function stillMotionOf(cameraMove: string | null | undefined): StillMotion {
+  if (cameraMove === 'push_in') return 'zoom_in'
+  if (cameraMove === 'pull_out') return 'zoom_out'
+  if (cameraMove === 'pan') return 'pan_right'
+  return 'none'
+}
+
+/** 要畫哪一種卡：字卡（文字加副文字）、片名卡（書名、作者、片尾那一行、封面素材、最底下一行小字）。 */
+export const CardJobSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('card'),
+    text: z.string(),
+    subtext: z.string().optional(),
+  }),
+  z.object({
+    kind: z.literal('title'),
+    title: z.string(),
+    author: z.string().optional(),
+    endLine: z.string().optional(),
+    coverAssetHash: z.string().optional(),
+    /** 最底下一行小字（匯出時的 AI 服務標註，T9）。 */
+    footnote: z.string().optional(),
+  }),
+])
+export type CardJob = z.infer<typeof CardJobSchema>
+
 // ---- 預告片設定 ----
 
 /** 類型：story＝劇情型（小說、故事）、teaser＝懸念短版（15～30 秒，社群用）。知識觀點型（idea）留到第三階段。 */

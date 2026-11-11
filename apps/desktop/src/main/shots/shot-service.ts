@@ -22,6 +22,7 @@ import {
   type NodeRun,
   type QuickStyleId,
   type RegenerateMode,
+  type CardJob,
   type Shot,
   type ShotBatchCheck,
   type ShotBatchRequest,
@@ -40,6 +41,8 @@ import {
   type TrimResult,
   type Workflow,
   resolveTrim,
+  TrailerSettingsSchema,
+  stillMotionOf,
   trimmedLengthSec,
   t,
   displayNameOf,
@@ -81,6 +84,8 @@ import { isAiCall } from '../history/ai-origin'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
+import { cardJobFor } from '../cards/card-service'
+import type { CardService } from '../cards/card-service'
 import { createStudioServices } from '../studio-services'
 import { newShotDescription } from './defaults'
 import { pinnedForFlow, referencePlan } from './shot-references'
@@ -95,6 +100,8 @@ export interface ShotServiceDeps {
   log: Pick<Logger, 'info' | 'warn' | 'error'>
   /** 找 FFmpeg（接片用）。預設到系統找。 */
   tools?: () => MediaTools | undefined
+  /** 某個專案的字卡服務（字卡、片名卡格）；沒給就做不出字卡。 */
+  cardsFor?: (handle: ProjectHandle) => CardService | undefined
   /** 還沒有開啟專案時，新增鏡頭會自動建一個，放在這個資料夾（沒給就不自動建）。 */
   projectsDir?: string
   /**
@@ -293,6 +300,12 @@ const isDone = (run: NodeRun): boolean => run.status === 'succeeded' || run.stat
 
 /** 接上來的圖（上傳的）當第一張畫面時，版本記的「模型」。 */
 export const UPLOAD_MODEL = 'upload'
+/** 本機格子（靜態鏡頭、字卡、片名卡）的影片版本記的「模型」：在這台電腦上做，不花錢。 */
+export const LOCAL_STILL_MODEL = 'local-still'
+export const LOCAL_CARD_MODEL = 'local-card'
+/** 這一格是不是本機格子：still＝靜態鏡頭（要首幀圖）、card＝字卡與片名卡（不要圖）；一般鏡頭是 undefined。 */
+const localKindOf = (shot: Pick<Shot, 'beatKind'>): 'still' | 'card' | undefined =>
+  shot.beatKind === 'still' ? 'still' : shot.beatKind === 'video' ? undefined : 'card'
 /** 接上來的圖的輸入指紋：就是那張圖。 */
 const uploadFingerprint = (assetHash: string): string => hashValue({ upload: assetHash })
 /** 這一鏡採用中的第一張畫面是不是接上來的圖。 */
@@ -627,6 +640,23 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     }
   }
 
+  /** 字卡格要畫的內容（不丟錯：沒有字或沒有書名的檢查在開始生成時做）。 */
+  const cardJobOf = (handle: ProjectHandle, shot: Shot): CardJob => {
+    if (shot.beatKind === 'title') {
+      const settings = handle.repos.trailer.get()
+      return {
+        kind: 'title',
+        title: settings?.title ?? '',
+        author: settings?.author ?? '',
+        endLine: settings?.endLine ?? '',
+        ...(settings?.coverAssetHash === undefined
+          ? {}
+          : { coverAssetHash: settings.coverAssetHash }),
+      }
+    }
+    return { kind: 'card', text: shot.card?.text ?? '', subtext: shot.card?.subtext ?? '' }
+  }
+
   const fingerprintsOf = (
     handle: ProjectHandle,
     shot: Shot,
@@ -643,6 +673,19 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       promptOverride: full.promptOverride,
     }
     const { cameraMove, durationSec, action } = full
+    // 本機格子（預告片）：指紋另外算；一般鏡頭（舊專案的全部）走下面原本的算法，一個字都沒變
+    const local = localKindOf(shot)
+    if (local === 'card') {
+      return {
+        image: hashValue({ beat: 'card' }),
+        video: hashValue({
+          beat: 'card',
+          card: cardJobOf(handle, shot),
+          aspectRatio: context.aspectRatio,
+          durationSec,
+        }),
+      }
+    }
     // 接了上傳的圖：第一張畫面就是那張圖（換一張，影片就要重跑）
     const uploaded = uploadedFrameOf(handle, shot.id)
     const image = uploaded
@@ -660,6 +703,19 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const endFrame = handle.repos.shots
       .listTakes(shot.id, 'last_frame')
       .find((t) => t.adopted)?.assetHash
+    if (local === 'still') {
+      // 靜態鏡頭：影片是本機做的，只看首幀、運鏡、格長與畫面比例（改運鏡或格長要重做；動作與尾幀不影響）
+      return {
+        image,
+        video: hashValue({
+          beat: 'still',
+          image,
+          motion: stillMotionOf(cameraMove),
+          durationSec,
+          aspectRatio: context.aspectRatio,
+        }),
+      }
+    }
     return {
       image,
       video: hashValue({
@@ -1001,6 +1057,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       endTake && models.get(picked.video)?.endFrame === true
         ? assetRefOf(handle, endTake.assetHash)
         : undefined
+    const local = localKindOf(shot)
     const full = buildShotWorkflow({
       style: toStyle(project.defaultStyleId),
       durationSec: shot.durationSec,
@@ -1018,6 +1075,12 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(pinned.length > 0 && editModel ? { pinned } : {}),
       ...(firstFrame ? { firstFrame } : {}),
       ...(endFrame ? { endFrame } : {}),
+      // 本機格子：字卡一個本機節點、靜態鏡頭的影片本機做；一般鏡頭不給這個欄位，流程跟以前逐字相同
+      ...(local === 'card'
+        ? { beat: { kind: 'card' as const, job: cardJobOf(handle, shot) } }
+        : local === 'still'
+          ? { beat: { kind: 'still' as const, motion: stillMotionOf(shot.cameraMove) } }
+          : {}),
       ...variations,
     })
     // 只生成首幀圖：拿掉影片節點，輸出改成首幀圖（花費預估與執行都不含影片）
@@ -1039,7 +1102,16 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     return {
       flow,
       ctx: {
-        models: picked,
+        // 本機格子的影片版本記「local-…」，不是影片模型
+        models: {
+          image: picked.image,
+          video:
+            local === 'card'
+              ? LOCAL_CARD_MODEL
+              : local === 'still'
+                ? LOCAL_STILL_MODEL
+                : picked.video,
+        },
         ...variations,
         fingerprint: fingerprintsOf(handle, shot),
         fixedFrame: firstFrame !== undefined,
@@ -1191,6 +1263,22 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       const hasFrame = shots.listTakes(shot.id, 'first_frame').some((t) => t.adopted)
       const hasVideo = shots.listTakes(shot.id, 'video').some((t) => t.adopted)
       const stale = staleNow.get(shot.id)
+      if (localKindOf(shot) === 'card') {
+        // 字卡、片名卡：沒有首幀圖，只有一個本機影片步驟（不花錢）。缺的補、標了需要重跑的重做；
+        // 明確按在這一格上（exact／redo）就重畫
+        const asked = item.exact !== undefined || (item.redo !== undefined && !stale?.video)
+        const need =
+          item.exact !== undefined ||
+          (item.fill === 'empty'
+            ? !hasVideo
+            : item.fill === 'stale'
+              ? stale?.video === true
+              : asked || !hasVideo || stale?.video === true)
+        if (need) {
+          entries.push({ shot, mode: 'apply', image: false, video: true, redo: asked && hasVideo })
+        }
+        continue
+      }
       if (item.exact) {
         if (item.exact === 'frame') {
           entries.push({ shot, mode: 'frame', image: true, video: false, redo: hasFrame })
@@ -1264,13 +1352,19 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         ? fail(t('services.theseShotsAreAllBeing'))
         : { ...base, ok: true, estimatedUsd: 0, estimateIsLowerBound: false }
     }
-    if (!image || !video) {
+    // 一般鏡頭要圖片與影片模型（跟以前一樣）；靜態鏡頭只要圖片模型；字卡不要任何模型
+    const needsBoth = entries.some((e) => localKindOf(e.shot) === undefined)
+    const needsImage = needsBoth || entries.some((e) => localKindOf(e.shot) === 'still')
+    if ((needsImage && !image) || (needsBoth && !video)) {
       return fail(t('services.noImageOrVideoModel'))
     }
     let estimatedUsd = 0
     let lowerBound = false
     for (const entry of entries) {
-      const { flow } = flowFor(handle, entry.shot, entry.mode, { image, video })
+      const { flow } = flowFor(handle, entry.shot, entry.mode, {
+        image: image ?? '',
+        video: video ?? '',
+      })
       const estimate = estimateWorkflowCost(flow, registry, {
         priceLookup: (id, usage) => models.estimate(id, usage),
       })
@@ -1313,8 +1407,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const stage = request.stage ?? 'full'
     const wanted = new Set(request.shotIds)
     const picked = shots.list().filter((shot) => wanted.has(shot.id))
+    // 字卡、片名卡沒有首幀圖：只有「影片」這一步（本機做）
     const hasFrame = (shot: Shot): boolean =>
-      shots.listTakes(shot.id, 'first_frame').some((t) => t.adopted)
+      localKindOf(shot) === 'card' || shots.listTakes(shot.id, 'first_frame').some((t) => t.adopted)
     const hasVideo = (shot: Shot): boolean => shots.listTakes(shot.id, 'video').length > 0
     let skippedBusy = 0
     let skippedGenerated = 0
@@ -1324,6 +1419,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       if (s.regens.has(shot.id)) skippedBusy++
       else if (request.skipGenerated && (stage === 'frame' ? hasFrame(shot) : hasVideo(shot)))
         skippedGenerated++
+      // 字卡沒有首幀圖要生：只生首幀這一步對它沒事可做
+      else if (stage === 'frame' && localKindOf(shot) === 'card') skippedGenerated++
       else if (stage === 'video' && !hasFrame(shot)) skippedNoFrame++
       else toRun.push(shot)
     }
@@ -1344,8 +1441,11 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
 
     if (picked.length === 0) return fail(t('services.canTFindTheSelected'))
     if (s.quick) return fail(t('services.theFilmIsBeingGenerated2'))
-    // 只生首幀圖不需要影片模型
-    if (!image || (stage !== 'frame' && !video)) {
+    // 只生首幀圖不需要影片模型；全是字卡的話連圖片模型都不用
+    const batchNeedsImage = toRun.length === 0 || toRun.some((shot) => localKindOf(shot) !== 'card')
+    const batchNeedsVideo =
+      toRun.length === 0 || toRun.some((shot) => localKindOf(shot) === undefined)
+    if ((batchNeedsImage && !image) || (stage !== 'frame' && batchNeedsVideo && !video)) {
       return fail(
         stage === 'frame'
           ? t('services.noImageModelIsAvailable2')
@@ -1369,7 +1469,10 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     let lowerBound = false
     for (const shot of toRun) {
       const mode = batchModeOf(handle, shot, stage)
-      const { flow } = flowFor(handle, shot, mode, { image, video: video ?? image })
+      const { flow } = flowFor(handle, shot, mode, {
+        image: image ?? '',
+        video: video ?? image ?? '',
+      })
       const estimate = estimateWorkflowCost(flow, registry, {
         priceLookup: (id, usage) => models.estimate(id, usage),
       })
@@ -1400,19 +1503,26 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   async function launch(
     s: Session,
     shot: Shot,
-    mode: RegenerateMode,
+    requestedMode: RegenerateMode,
     quality?: ModelTier,
   ): Promise<void> {
     const { handle } = s
     const shotId = shot.id
+    let mode = requestedMode
     // 誰叫的：AI 工具（MCP）進來的呼叫才標「AI 剛改」；使用者自己按 ▶ 的不標。
     // 這裡還在呼叫的同一串非同步裡，所以現在看得到；等背景做完才問就來不及了
     const fromAi = isAiCall()
     if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated3'))
     if (s.regens.has(shotId)) throw invalid(t('services.thisShotIsAlreadyBeing'))
 
+    const local = localKindOf(shot)
+    // 字卡、片名卡：開始前先檢查（沒有字、沒有書名就是白話錯誤）；不需要任何模型，不管是哪一種「重新生成」都是重畫這一張
+    if (local === 'card')
+      cardJobFor(shot, handle.repos.trailer.get() ?? TrailerSettingsSchema.parse({}))
+    if (local === 'card') mode = 'apply'
     // 只做影片要有採用中的首幀（不會替你重生）：沒有就說明，不偷偷生一張
     if (
+      local !== 'card' &&
       mode === 'video' &&
       !handle.repos.shots.listTakes(shotId, 'first_frame').some((take) => take.adopted)
     ) {
@@ -1421,7 +1531,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const image = settingsService.resolveModel('t2i', quality)
     // 只生首幀圖不需要影片模型
     const video = mode === 'frame' ? image : settingsService.resolveModel('i2v', quality)
-    if (!image || !video) {
+    // 字卡不要任何模型；靜態鏡頭只要圖片模型（影片本機做）；一般鏡頭兩個都要（跟以前一樣）
+    if ((local !== 'card' && !image) || (local === undefined && !video)) {
       throw invalid(t('services.noImageOrVideoModel'))
     }
     const queue = runtime.queue()
@@ -1433,7 +1544,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       })
     }
 
-    const { flow, ctx } = flowFor(handle, shot, mode, { image, video })
+    const { flow, ctx } = flowFor(handle, shot, mode, { image: image ?? '', video: video ?? '' })
 
     const controller = new AbortController()
     s.regens.set(shotId, controller)
@@ -1447,7 +1558,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       {
         registry,
         services: {
-          [STUDIO_SERVICE_KEY]: createStudioServices({ queue, handle, tools: tool, models }),
+          [STUDIO_SERVICE_KEY]: createStudioServices({
+            queue,
+            handle,
+            tools: tool,
+            models,
+            cards: deps.cardsFor?.(handle),
+          }),
         },
         priceLookup: (id, usage) => models.estimate(id, usage),
         onEvent: (event) => {
