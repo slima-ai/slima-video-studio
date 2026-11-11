@@ -1,4 +1,11 @@
 export const trailer = {
+  'trailer.cardNoText': '字卡還沒有字，請先寫上要顯示的文字。',
+  'trailer.titleCardNoName': '預告片設定裡還沒有書名，片名卡不知道要放什麼。',
+  'trailer.notACardShot': '這一格不是字卡或片名卡。',
+  'trailer.coverMissing': '找不到封面圖，請重新選一張封面。',
+  'trailer.coverNotAnImage': '封面要是圖片檔（png、jpg 或 webp）。',
+  'trailer.coverTooBig': '封面圖的檔案太大了，請換一張小一點的（20 MB 以內）。',
+  'trailer.cardRenderFailed': '畫字卡的時候出錯了，請再試一次。',
   'trailer.invalidSettings': '預告片設定的格式不對（長度要在 10～120 秒之間，封面要是素材）。',
   'trailer.ruleEmpty': '腳本裡還沒有任何一格。',
   'trailer.ruleLength':

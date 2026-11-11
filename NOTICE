@@ -21,6 +21,8 @@ The installers bundle FFmpeg (GNU GPL v2 or later, built with libx264 only, no n
 separate executable that the app starts as an external program. Its license text and the way to
 obtain its corresponding source code ship next to it (resources/ffmpeg/COPYING.GPLv3, SOURCE.txt);
 the build recipe is tools/ffmpeg/build-macos.sh.
+The installers also bundle the font Noto Sans TC Bold (SIL Open Font License 1.1, unmodified) as a data file
+in resources/fonts/ together with its license text (OFL.txt); see THIRD-PARTY-NOTICES.md.
 
 Your AI service keys and costs
 ------------------------------

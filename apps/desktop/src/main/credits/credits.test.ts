@@ -3,7 +3,7 @@ import { ModelRegistry, loadBuiltinModelCards } from '@svs/providers'
 import { describe, expect, it } from 'vitest'
 
 import { MADE_WITH, collectAttributions, creditLines } from './credits'
-import { creditsHtml } from './render-card-electron'
+import { creditsHtml } from '../cards/card-html'
 
 const registry = new ModelRegistry(loadBuiltinModelCards())
 

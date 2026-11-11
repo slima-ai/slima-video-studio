@@ -75,4 +75,8 @@ echo "== 驗證"
 if "$OUT/ffmpeg" -hide_banner -version | grep -q -- "--enable-nonfree"; then echo "含 nonfree，不可散布" >&2; exit 1; fi
 "$OUT/ffmpeg" -hide_banner -encoders 2>/dev/null | grep -qE " libx264 " || { echo "沒有 libx264" >&2; exit 1; }
 "$OUT/ffmpeg" -hide_banner -encoders 2>/dev/null | grep -qE " aac " || { echo "沒有 aac" >&2; exit 1; }
+# 預告片：靜態鏡頭的運鏡要 zoompan、每段淡入淡出要 fade（afterPack 打包時也會再查一次）
+for f in zoompan fade; do
+  "$OUT/ffmpeg" -hide_banner -filters 2>/dev/null | grep -qE "^ [A-Z.]+ +${f} +" || { echo "沒有 ${f} 濾鏡" >&2; exit 1; }
+done
 echo "完成：$OUT/ffmpeg"

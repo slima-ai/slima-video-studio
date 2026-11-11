@@ -2,7 +2,10 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const { checkResources } = createRequire(import.meta.url)('./check-bundled-ffmpeg.cjs') as {
+const { checkResources, checkFilters } = createRequire(import.meta.url)(
+  './check-bundled-ffmpeg.cjs',
+) as {
+  checkFilters: (filtersOutput: string) => string[]
   checkResources: (
     dir: string,
     platform: 'darwin' | 'win32',
@@ -100,5 +103,39 @@ describe('ffmpeg-static 的二進位不分名稱都不能夾帶（Windows 包裡
       withFiles(...own(R, 'ffmpeg'), staticAt(R, 'ffmpeg.exe')),
     )
     expect(problems).toHaveLength(1)
+  })
+})
+
+describe('內建 FFmpeg 的濾鏡檢查（預告片的運鏡與淡入淡出）', () => {
+  const LISTING = `Filters:
+  T.. = Timeline support
+ ... acrossfade        AA->A      Cross fade two input audio streams.
+ TS. fade              V->V       Fade in/out input video.
+ ... zoompan           V->V       Apply Zoom & Pan effect.
+ T.. afade             A->A       Fade in/out input audio.
+`
+  it('有 zoompan 與 fade → 沒有問題', () => {
+    expect(checkFilters(LISTING)).toEqual([])
+  })
+
+  it('少了 zoompan → 一條問題，指向編譯腳本', () => {
+    const problems = checkFilters(
+      LISTING.replace(' ... zoompan           V->V       Apply Zoom & Pan effect.\n', ''),
+    )
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain('zoompan')
+    expect(problems[0]).toContain('build-macos.sh')
+  })
+
+  it('少了 fade（只有名字裡含 fade 的 acrossfade、afade 不算）→ 一條問題', () => {
+    const problems = checkFilters(
+      LISTING.replace(' TS. fade              V->V       Fade in/out input video.\n', ''),
+    )
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain('fade 濾鏡')
+  })
+
+  it('輸出是空的（ffmpeg 讀不出來）→ 兩個都算缺', () => {
+    expect(checkFilters('')).toHaveLength(2)
   })
 })

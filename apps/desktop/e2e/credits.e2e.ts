@@ -3,7 +3,7 @@ import { existsSync, writeFileSync } from 'node:fs'
 
 import ffmpegPath from 'ffmpeg-static'
 
-import { creditsHtml } from '../src/main/credits/render-card-electron'
+import { creditsHtml } from '../src/main/cards/card-html'
 import { centerOn, generateAndOpenCanvas } from './canvas-helpers'
 import { expect, test } from './fixtures'
 
