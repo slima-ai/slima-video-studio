@@ -20,6 +20,7 @@ import { CanvasRepository } from './repositories/canvas'
 import { CostRepository } from './repositories/costs'
 import { FinalCutRepository } from './repositories/final-cuts'
 import { SoundRepository } from './repositories/sound'
+import { TrailerRepository } from './repositories/trailer'
 import { JobsRepository } from './repositories/jobs'
 import { LocationCardsRepository } from './repositories/location-cards'
 import { OutlineRepository } from './repositories/outline'
@@ -63,6 +64,7 @@ export interface ProjectHandle {
     readonly canvas: CanvasRepository
     readonly finalCuts: FinalCutRepository
     readonly sound: SoundRepository
+    readonly trailer: TrailerRepository
   }
   /** 資料庫層級的 project id。 */
   readonly projectId: string
@@ -172,6 +174,7 @@ function build(dir: string, env: ProjectEnv, create?: { name: string }): Project
         canvas: new CanvasRepository(db, project.id, now),
         finalCuts: new FinalCutRepository(db, project.id, now),
         sound: new SoundRepository(db, project.id, now),
+        trailer: new TrailerRepository(db, project.id),
       },
       get closed() {
         return closed

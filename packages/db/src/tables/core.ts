@@ -4,6 +4,7 @@ import type {
   CharacterAppearance,
   Costume,
   PickableCapability,
+  ShotCard,
   Turnaround,
 } from '@svs/schema'
 
@@ -86,6 +87,10 @@ export const shots = sqliteTable(
     activeTakeId: text('active_take_id'),
     // 畫布上影片節點的「放進成品」開關
     inCut: integer('in_cut', { mode: 'boolean' }).notNull().default(true),
+    // 格子種類（預告片）：video／still／card／title；舊專案的鏡頭全是 video
+    beatKind: text('beat_kind').notNull().default('video'),
+    // 字卡內容 { text, subtext }；不是字卡就是 null
+    card: text('card', { mode: 'json' }).$type<ShotCard | null>(),
   },
   (t) => [index('shots_project_idx').on(t.projectId, t.position)],
 )

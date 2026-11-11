@@ -28,6 +28,7 @@ import { errors } from './errors'
 import { mock } from './mock'
 import { nodes } from './nodes'
 import { mcp } from './mcp'
+import { trailer } from './trailer'
 // <i18n:imports>
 
 export const zhTW = {
@@ -60,5 +61,6 @@ export const zhTW = {
   ...mock,
   ...nodes,
   ...mcp,
+  ...trailer,
   // <i18n:spread>
 } as const

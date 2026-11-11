@@ -518,6 +518,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(lockedCharacters.length > 0 ? { lockedCharacters } : {}),
       ...(shot.prompt ? { prompt: shot.prompt } : {}),
       ...(shot.inCut ? {} : { inCut: false }),
+      ...(shot.beatKind === 'video' ? {} : { beatKind: shot.beatKind }),
+      ...(shot.card === undefined ? {} : { card: shot.card }),
       ...(filmSeconds === undefined ? {} : { filmSeconds }),
       autoPrompt: auto,
       status: step ? 'generating' : shot.status,
@@ -1626,6 +1628,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         ...(edit.timeOfDay === undefined ? {} : { timeOfDay: text(edit.timeOfDay) }),
         ...(edit.mood === undefined ? {} : { mood: text(edit.mood) }),
         ...(edit.inCut === undefined ? {} : { inCut: edit.inCut }),
+        ...(edit.beatKind === undefined ? {} : { beatKind: edit.beatKind }),
+        // null＝清掉字卡
+        ...(edit.card === undefined ? {} : { card: edit.card ?? undefined }),
       })
       changed(s)
       return view(s, updated)
@@ -1686,6 +1691,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         dialogue: source.dialogue,
         characters: source.characters,
         inCut: source.inCut,
+        beatKind: source.beatKind,
+        ...(source.card === undefined ? {} : { card: source.card }),
         ...(source.prompt === undefined ? {} : { prompt: source.prompt }),
         ...(source.locationId === undefined ? {} : { locationId: source.locationId }),
         ...(source.lighting === undefined ? {} : { lighting: source.lighting }),

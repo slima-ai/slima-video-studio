@@ -51,6 +51,7 @@ export const HAN_EXCEPTIONS = [
       'packages/schema/src/domain/camera.ts',
       'packages/schema/src/domain/character-prompts.ts',
       'packages/schema/src/domain/storyboard-guide.ts',
+      'packages/schema/src/domain/trailer.ts',
     ],
     reason:
       '送給圖片／影片／文字模型的提示詞與組裝片段：語言是模型看的，不隨介面語言變（README 與 docs/i18n.md 有說明）；輸出用 SHA-256 釘住，改一個字測試就紅。',

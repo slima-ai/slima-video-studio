@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from 'node:util'
 import type { AppDb } from './database'
 import { canvasEdges, canvasLayout, canvasNodes } from './tables/canvas'
 import { soundClips } from './tables/sound'
+import { trailerSettings } from './tables/trailer'
 import {
   acts,
   characterConcepts,
@@ -152,6 +153,10 @@ const TABLES: readonly TrackedTable[] = [
   // 聲音（旁白、配樂的各個版本）：整次生成含聲音時，復原要一起退回、重做要一起回來（旁白屬於鏡頭，排在鏡頭之後）
   track('soundClips', soundClips, soundClips.id, (db, projectId) =>
     db.select().from(soundClips).where(eq(soundClips.projectId, projectId)).all(),
+  ),
+  // 預告片設定：每個專案一列（id＝專案 id），改長度、書名都能復原
+  track('trailerSettings', trailerSettings, trailerSettings.id, (db, projectId) =>
+    db.select().from(trailerSettings).where(eq(trailerSettings.projectId, projectId)).all(),
   ),
   track('shotPins', shotPins, shotPins.id, (db, projectId) =>
     db

@@ -336,6 +336,8 @@ function toShotRow(shot: Shot): ShotRow {
     status: shot.status,
     activeTakeId: shot.activeTakeId ?? null,
     inCut: shot.inCut,
+    beatKind: shot.beatKind,
+    card: shot.card ?? null,
   }
 }
 
