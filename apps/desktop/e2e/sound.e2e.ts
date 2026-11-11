@@ -193,6 +193,9 @@ test.describe('成品的聲音（示範模式）', () => {
 
     // 復原：旁白回來，成品立刻就是舊的那一版——一回來就對得上（沒有「對不上」的空窗），沒有重混
     await page.getByTestId('toast-action').click()
+    // 復原之後馬上看提示條：寫著「重做」（提示條上的重做按鈕本身在 history.e2e.ts:29 按過；這裡不按它，因為下面要驗的是
+    // 4 秒之後的重做，提示條那時已經消失了）
+    await expect(page.getByTestId('toast-action')).toHaveText('重做')
     await expect
       .poll(async () => (await soundOf(page)).shots.filter((s) => s.narration).length, {
         timeout: 30_000,
@@ -213,9 +216,10 @@ test.describe('成品的聲音（示範模式）', () => {
     await page.screenshot({ path: testInfo.outputPath('undo-back-to-old-version.png') })
 
     // 重做：回到刪旁白那一版，一樣不重混、不加版本號
-    // 提示條上的「重做」（不用快捷鍵：Mac 與 Linux 的重做快捷鍵不一樣）
-    await expect(page.getByTestId('toast-action')).toHaveText('重做')
-    await page.getByTestId('toast-action').click()
+    // 用工具列的「重做」按鈕（等它可以按就按）：提示條上的「重做」只停留 5 秒，上面那段 4 秒的觀察加上機器忙的時候
+    // 一定會超過，提示條已經消失了（以前這裡就是這樣偶發失敗）。也不用快捷鍵：Mac 與 Linux 的重做快捷鍵不一樣
+    await expect(page.getByTestId('redo')).toBeEnabled()
+    await page.getByTestId('redo').click()
     await expect
       .poll(async () => (await soundOf(page)).shots.filter((s) => s.narration).length, {
         timeout: 30_000,
