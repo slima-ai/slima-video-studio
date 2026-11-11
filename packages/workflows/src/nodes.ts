@@ -5,9 +5,11 @@ import {
   CHARACTER_REFERENCE_PURPOSE_LABELS,
   CAMERA_MOVE_IDS,
   AssetRefSchema,
+  CardJobSchema,
   DEFAULT_CHARACTER_PROMPTS,
   ShotAngleSchema,
   ShotSizeSchema,
+  StillMotionSchema,
   defineNode,
   renderCharacterPrompt,
   storyLanguageNote,
@@ -24,7 +26,7 @@ import {
 import { z } from 'zod'
 
 import { generateStructured } from './structured'
-import { getStudio } from './services'
+import { getStudio, type StudioServices } from './services'
 import { QUICK_STYLES, QUICK_STYLE_IDS, type QuickStyleId } from './styles'
 
 export const NODE_TYPES = {
@@ -41,6 +43,8 @@ export const NODE_TYPES = {
   locationAnglePrompt: 'location.anglePrompt',
   fixedImage: 'image.fixed',
   endFramePrompt: 'shot.endFramePrompt',
+  stillVideo: 'video.still',
+  cardVideo: 'video.card',
 } as const
 
 /** 節點在節點圖上的白話名稱（用的時候 `t(title)`，跟著介面語言）與色條分類。 */
@@ -54,6 +58,8 @@ export const NODE_INFO: Readonly<Record<string, { title: MessageRef; category: G
   [NODE_TYPES.fixedImage]: { title: msg('nodes.useAnUploadedPictureAs'), category: 'image' },
   [NODE_TYPES.imageEdit]: { title: msg('nodes.editAPictureUsingReferences'), category: 'image' },
   [NODE_TYPES.video]: { title: msg('nodes.imageToVideo'), category: 'video' },
+  [NODE_TYPES.stillVideo]: { title: msg('nodes.stillToVideo'), category: 'video' },
+  [NODE_TYPES.cardVideo]: { title: msg('nodes.cardToVideo'), category: 'video' },
   [NODE_TYPES.concat]: { title: msg('nodes.joinIntoOneVideo'), category: 'join' },
   [NODE_TYPES.conceptPrompt]: { title: msg('nodes.characterConceptPrompt'), category: 'prompt' },
   [NODE_TYPES.conceptRefPrompt]: {
@@ -1061,6 +1067,82 @@ export const videoNode = defineNode({
   },
 })
 
+// ------------------------------------------------------------------ 本機格子（不花錢）
+
+/** 本機格子的影片幀率（接片時各段會統一到成品的幀率）。 */
+export const LOCAL_BEAT_FPS = 24
+
+const needLocal = <K extends 'stillToVideo' | 'cardToVideo'>(
+  studio: StudioServices,
+  key: K,
+): NonNullable<StudioServices[K]> => {
+  const fn = studio[key]
+  if (!fn) {
+    throw new AppError({
+      code: 'internal_error',
+      userMessage: t('nodes.theGenerationServiceIsnT'),
+    })
+  }
+  return fn
+}
+
+/**
+ * 靜態鏡頭：首幀圖加運鏡變成影片，在本機做，不呼叫供應商、不花錢（沒有 estimateCost）。
+ * 長度就是格長（整數格）；換運鏡或格長，快取鍵跟著變。
+ */
+export const stillVideoNode = defineNode({
+  type: NODE_TYPES.stillVideo,
+  version: 1,
+  inputs: { image: { type: 'image' } },
+  outputs: { video: 'video' },
+  params: z.object({
+    durationSec: z.number().positive(),
+    aspectRatio: AspectRatioSchema.default('16:9'),
+    motion: StillMotionSchema.default('none'),
+    fps: z.number().int().positive().default(LOCAL_BEAT_FPS),
+  }),
+  run: async ({ inputs, params, signal, services }) => {
+    const studio = getStudio(services)
+    const stillToVideo = needLocal(studio, 'stillToVideo')
+    const frame = AssetRefSchema.parse(inputs.image)
+    const video = await stillToVideo(
+      frame,
+      {
+        durationSec: params.durationSec,
+        aspectRatio: params.aspectRatio,
+        motion: params.motion,
+        fps: params.fps,
+      },
+      { signal },
+    )
+    return { video }
+  },
+})
+
+/** 字卡、片名卡：在本機畫成圖再變成影片，不呼叫供應商、不花錢（沒有 estimateCost）。 */
+export const cardVideoNode = defineNode({
+  type: NODE_TYPES.cardVideo,
+  version: 1,
+  inputs: {},
+  outputs: { video: 'video' },
+  params: z.object({
+    card: CardJobSchema,
+    durationSec: z.number().positive(),
+    aspectRatio: AspectRatioSchema.default('16:9'),
+    fps: z.number().int().positive().default(LOCAL_BEAT_FPS),
+  }),
+  run: async ({ params, signal, services }) => {
+    const studio = getStudio(services)
+    const cardToVideo = needLocal(studio, 'cardToVideo')
+    const video = await cardToVideo(
+      params.card,
+      { durationSec: params.durationSec, aspectRatio: params.aspectRatio, fps: params.fps },
+      { signal },
+    )
+    return { video }
+  },
+})
+
 // ------------------------------------------------------------------ 接片
 
 export const concatNode = defineNode({
@@ -1099,5 +1181,7 @@ export const QUICK_START_NODES: readonly NodeDefinition[] = [
   imageNode,
   fixedImageNode,
   videoNode,
+  stillVideoNode,
+  cardVideoNode,
   concatNode,
 ]

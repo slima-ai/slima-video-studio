@@ -150,7 +150,26 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
   })
   // 聲音服務在鏡頭服務之後才建（它需要鏡頭服務推送快照），接片時再用 soundRef 呼叫它
   const soundRef: { current?: SoundService } = {}
+  // 字卡服務：每個專案一個（同樣的字卡不重畫的記憶跟著專案走）
+  const cardServices = new WeakMap<ProjectHandle, CardService>()
+  const cardsFor = (handle: ProjectHandle): CardService | undefined => {
+    const render = options.renderCardHtml
+    if (render === undefined) return undefined
+    const existing = cardServices.get(handle)
+    if (existing) return existing
+    const created = createCardService({
+      render,
+      assets: handle.assets,
+      ...(options.cardFontUrl === undefined ? {} : { fontUrl: options.cardFontUrl }),
+      log: (message) => {
+        log.info(message)
+      },
+    })
+    cardServices.set(handle, created)
+    return created
+  }
   const shots = createShotService({
+    cardsFor,
     projectsDir: options.projectsDir,
     projects,
     runtime,
@@ -257,24 +276,6 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     log,
     ...toolsOption,
   })
-  // 字卡服務：每個專案一個（同樣的字卡不重畫的記憶跟著專案走）
-  const cardServices = new WeakMap<ProjectHandle, CardService>()
-  const cardsFor = (handle: ProjectHandle): CardService | undefined => {
-    const render = options.renderCardHtml
-    if (render === undefined) return undefined
-    const existing = cardServices.get(handle)
-    if (existing) return existing
-    const created = createCardService({
-      render,
-      assets: handle.assets,
-      ...(options.cardFontUrl === undefined ? {} : { fontUrl: options.cardFontUrl }),
-      log: (message) => {
-        log.info(message)
-      },
-    })
-    cardServices.set(handle, created)
-    return created
-  }
   const library = createProjectLibrary({
     projects,
     projectsDir: options.projectsDir,

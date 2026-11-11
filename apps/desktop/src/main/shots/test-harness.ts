@@ -27,6 +27,8 @@ export interface HarnessOptions {
   renderCreditsCard?: StudioAppOptions['renderCreditsCard']
   /** 畫字卡最多等幾毫秒（測試縮短用）。 */
   creditsTimeoutMs?: number
+  /** 文字卡、片名卡的畫法；沒給就用假的（每次回一張 1×1 的 PNG，並把頁面 HTML 記在 cardPages）。 */
+  renderCardHtml?: StudioAppOptions['renderCardHtml']
   /** 讓示範影片模型也接受負面提示（內建清單是這個字串），用來驗證負面提示真的跟著請求送出。 */
   mockVideoNegativePrompt?: string
   /** 讓示範影片模型接受尾幀（模型卡 endFrame），用來驗證尾幀真的跟著請求送出。 */
@@ -34,6 +36,14 @@ export interface HarnessOptions {
 }
 
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+
+/** 1×1 的 PNG：假的字卡畫法回它（接成影片時 FFmpeg 會放大到專案的大小）。 */
+const TINY_PNG = Uint8Array.from(
+  Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+    'base64',
+  ),
+)
 
 /**
  * 測試用的整套主行程服務（示範模式、不連網、不用 Key）：專案管理、任務佇列、快速開始、鏡頭服務。
@@ -62,6 +72,8 @@ export function createStudioHarness(options: HarnessOptions = {}) {
       : { budget: { perRunLimitUsd: options.perRunLimitUsd } }),
   })
   const events: { name: IpcEventName; payload: unknown }[] = []
+  /** 假的字卡畫法收到的頁面（每畫一張記一筆）。 */
+  const cardPages: string[] = []
   /** 「在資料夾中顯示」被要求打開的路徑。 */
   const revealed: string[] = []
   const broadcast = (name: IpcEventName, payload: unknown): void => {
@@ -96,6 +108,12 @@ export function createStudioHarness(options: HarnessOptions = {}) {
     log,
     projectsDir: join(root, 'projects'),
     pollIntervalMs: 5,
+    renderCardHtml:
+      options.renderCardHtml ??
+      ((request) => {
+        cardPages.push(request.html)
+        return Promise.resolve({ png: TINY_PNG })
+      }),
     reveal: (path) => {
       revealed.push(path)
     },
@@ -183,6 +201,7 @@ export function createStudioHarness(options: HarnessOptions = {}) {
     history,
     library,
     events,
+    cardPages,
     revealed,
     progress,
     finished,

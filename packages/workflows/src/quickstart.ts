@@ -1,6 +1,8 @@
 import {
   type AspectRatio,
   type AssetRef,
+  type CardJob,
+  type StillMotion,
   type Workflow,
   type WorkflowEdge,
   type WorkflowNode,
@@ -8,11 +10,14 @@ import {
 } from '@svs/schema'
 
 import {
+  LOCAL_BEAT_FPS,
   NODE_TYPES,
   breakdownNode,
+  cardVideoNode,
   fixedImageNode,
   imageNode,
   shotPromptNode,
+  stillVideoNode,
   videoNode,
   type CharacterAnchor,
   type CharacterAvoid,
@@ -109,12 +114,45 @@ export interface ShotWorkflowOptions {
   firstFrame?: AssetRef
   /** 尾幀（影片最後一格要長成這張圖）：只有接受尾幀的影片模型才傳；沒傳就和以前完全一樣。 */
   endFrame?: AssetRef
+  /**
+   * 本機格子（預告片）：card＝字卡或片名卡（一個本機節點，沒有圖片、影片模型）、still＝靜態鏡頭
+   * （組提示 → 首幀圖 → 本機運鏡，不要影片模型）。沒傳或 kind 是 video 就是一般流程（逐字和以前相同）。
+   */
+  beat?: { kind: 'video' } | { kind: 'still'; motion: StillMotion } | { kind: 'card'; job: CardJob }
   now?: string
 }
 
 /** 單一鏡頭的子流程：[組 Prompt → 首幀圖 → 圖生影片]。快速開始的「對每個鏡頭執行」與單鏡重生共用。 */
 export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
   const stamp = options.now ?? new Date().toISOString()
+  const beat = options.beat
+  // 字卡、片名卡：只有一個本機節點（節點編號仍叫 video，影片版本的記錄才接得上）
+  if (beat?.kind === 'card') {
+    return {
+      id: 'quickstart-shot',
+      name: t('nodes.singleShot'),
+      version: 1,
+      createdAt: stamp,
+      updatedAt: stamp,
+      nodes: [
+        node(
+          'video',
+          NODE_TYPES.cardVideo,
+          {
+            card: beat.job,
+            durationSec: options.durationSec,
+            aspectRatio: options.aspectRatio,
+            fps: LOCAL_BEAT_FPS,
+          },
+          undefined,
+          cardVideoNode.version,
+        ),
+        node('out', '$output'),
+      ],
+      edges: [edge('b5', ['video', 'video'], ['out', 'value'])],
+    }
+  }
+  const still = beat?.kind === 'still' ? beat : undefined
   return {
     id: 'quickstart-shot',
     name: t('nodes.singleShot'),
@@ -159,22 +197,35 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
             options.models.image,
             imageNode.version,
           ),
-      node(
-        'video',
-        NODE_TYPES.video,
-        {
-          durationSec: options.durationSec,
-          aspectRatio: options.aspectRatio,
-          audio: options.audio ?? false,
-          variation: options.videoVariation ?? 0,
-          // 沒改過就不放進參數，舊專案的節點參數（與快取）完全不變
-          ...(options.negativePrompt ? { negativePrompt: options.negativePrompt } : {}),
-        },
-        options.models.video,
-        videoNode.version,
-      ),
+      still
+        ? node(
+            'video',
+            NODE_TYPES.stillVideo,
+            {
+              durationSec: options.durationSec,
+              aspectRatio: options.aspectRatio,
+              motion: still.motion,
+              fps: LOCAL_BEAT_FPS,
+            },
+            undefined,
+            stillVideoNode.version,
+          )
+        : node(
+            'video',
+            NODE_TYPES.video,
+            {
+              durationSec: options.durationSec,
+              aspectRatio: options.aspectRatio,
+              audio: options.audio ?? false,
+              variation: options.videoVariation ?? 0,
+              // 沒改過就不放進參數，舊專案的節點參數（與快取）完全不變
+              ...(options.negativePrompt ? { negativePrompt: options.negativePrompt } : {}),
+            },
+            options.models.video,
+            videoNode.version,
+          ),
       // 尾幀：固定的一張圖接到影片節點的 endImage（沒有尾幀就沒有這個節點，流程與以前完全一樣）
-      ...(options.endFrame
+      ...(options.endFrame && !still
         ? [
             node(
               'endImage',
@@ -194,13 +245,18 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
         ? [edge('b7', ['prompt', 'references'], ['image', 'references'])]
         : []),
       edge('b3', ['image', 'image'], ['video', 'image']),
-      edge('b4', ['prompt', 'videoPrompt'], ['video', 'prompt']),
-      edge('b6', ['prompt', 'cameraMove'], ['video', 'cameraMove']),
-      ...(options.endFrame ? [edge('b9', ['endImage', 'image'], ['video', 'endImage'])] : []),
-      // 有角色寫了「不要出現的特徵」才接這條線；沒有的話流程與以前完全一樣
-      ...(options.characterAvoids && options.characterAvoids.length > 0
-        ? [edge('b8', ['prompt', 'negativeExtra'], ['video', 'negativeExtra'])]
-        : []),
+      // 靜態鏡頭的本機節點只吃首幀圖（運鏡由節點參數給），不接影片提示、運鏡、尾幀與負面提示
+      ...(still
+        ? []
+        : [
+            edge('b4', ['prompt', 'videoPrompt'], ['video', 'prompt']),
+            edge('b6', ['prompt', 'cameraMove'], ['video', 'cameraMove']),
+            ...(options.endFrame ? [edge('b9', ['endImage', 'image'], ['video', 'endImage'])] : []),
+            // 有角色寫了「不要出現的特徵」才接這條線；沒有的話流程與以前完全一樣
+            ...(options.characterAvoids && options.characterAvoids.length > 0
+              ? [edge('b8', ['prompt', 'negativeExtra'], ['video', 'negativeExtra'])]
+              : []),
+          ]),
       edge('b5', ['video', 'video'], ['out', 'value']),
     ],
   }

@@ -1,4 +1,7 @@
 export const nodes = {
+  'nodes.stillToVideo':
+    'Turn the picture into a video with a camera move (free, made on this computer)',
+  'nodes.cardToVideo': 'Turn the text card into a video (free, made on this computer)',
   'nodes.characterConceptPicture': 'Character concept picture',
   'nodes.characterTurnaround': 'Character turnaround',
   'nodes.locationConceptPicture': 'Location concept picture',

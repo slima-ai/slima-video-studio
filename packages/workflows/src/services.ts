@@ -1,9 +1,12 @@
 import {
   AppError,
   type AssetRef,
+  type AspectRatio,
+  type CardJob,
   type GenerationOutput,
   type GenerationRequest,
   type NodeServices,
+  type StillMotion,
   type Trim,
   t,
 } from '@svs/schema'
@@ -37,6 +40,21 @@ export interface StudioServices {
     videos: readonly AssetRef[],
     ctx: { signal: AbortSignal },
     trims?: readonly (Trim | undefined)[],
+  ) => Promise<AssetRef>
+  /**
+   * 本機格子（不花錢、不呼叫供應商）：一張圖變成一段指定長度、有運鏡的影片，存進素材庫。
+   * 沒有的環境（例如沒有字卡服務的測試）就是 undefined，節點會回白話錯誤。
+   */
+  stillToVideo?: (
+    image: AssetRef,
+    options: { durationSec: number; aspectRatio: AspectRatio; motion: StillMotion; fps: number },
+    ctx: { signal: AbortSignal },
+  ) => Promise<AssetRef>
+  /** 本機格子：畫一張字卡或片名卡，再變成指定長度的影片，存進素材庫。 */
+  cardToVideo?: (
+    job: CardJob,
+    options: { durationSec: number; aspectRatio: AspectRatio; fps: number },
+    ctx: { signal: AbortSignal },
   ) => Promise<AssetRef>
 }
 

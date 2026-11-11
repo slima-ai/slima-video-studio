@@ -1,15 +1,17 @@
 import type { ProjectHandle } from '@svs/db'
 import type { JobQueue } from '@svs/engine'
-import { concatVideos, probe, type MediaTools } from '@svs/media'
+import { concatVideos, probe, stillToVideo, type MediaTools } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
   GenerationOutputSchema,
+  type AspectRatio,
   type AssetRef,
   type GenerationRequest,
   type Job,
   type JobKind,
   type ModelCard,
+  type StillMotion,
   type VideoRequest,
   t,
 } from '@svs/schema'
@@ -20,6 +22,9 @@ import {
   type StudioServices,
 } from '@svs/workflows'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
+
+import { cardSizeFor } from './cards/card-html'
+import type { CardService } from './cards/card-service'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -92,11 +97,69 @@ export interface StudioDeps {
   tools: MediaTools
   /** 查模型的運鏡設定與偏好語言；沒給就一律把運鏡加進 Prompt。 */
   models?: Pick<ModelRegistry, 'get'>
+  /** 字卡服務（字卡、片名卡）；沒給就做不出字卡（節點會回白話錯誤）。 */
+  cards?: CardService | undefined
 }
 
 /** 把任務佇列與媒體工具包成節點用的 StudioServices。 */
-export function createStudioServices({ queue, handle, tools, models }: StudioDeps): StudioServices {
+export function createStudioServices({
+  queue,
+  handle,
+  tools,
+  models,
+  cards,
+}: StudioDeps): StudioServices {
+  /** 一張圖做成影片存進素材庫（靜態鏡頭、字卡共用）。 */
+  const imageToStoredVideo = async (
+    imageHash: string,
+    options: { durationSec: number; aspectRatio: AspectRatio; fps: number; motion: StillMotion },
+    signal: AbortSignal,
+  ): Promise<AssetRef> => {
+    const found = handle.assets.find(imageHash)
+    if (!found) {
+      throw new AppError({ code: 'invalid_request', userMessage: t('services.canTFindOneOf') })
+    }
+    const { width, height } = cardSizeFor(options.aspectRatio)
+    const dir = await mkdtemp(join(tmpdir(), 'svs-beat-'))
+    try {
+      const out = join(dir, 'beat.mp4')
+      await stillToVideo(tools, found.path, out, {
+        durationSec: options.durationSec,
+        width,
+        height,
+        fps: options.fps,
+        motion: options.motion,
+        signal,
+      })
+      const info = await probe(tools, out, { signal })
+      const meta = {
+        ...(info.width ? { width: info.width } : {}),
+        ...(info.height ? { height: info.height } : {}),
+        durationSec: info.durationSec,
+      }
+      const stored = await handle.assets.put(new Uint8Array(await readFile(out)), 'video/mp4', meta)
+      return { hash: stored.hash, kind: 'video', mime: 'video/mp4', bytes: stored.bytes, ...meta }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  }
+
   return {
+    async stillToVideo(image, options, ctx): Promise<AssetRef> {
+      return imageToStoredVideo(image.hash, options, ctx.signal)
+    },
+
+    async cardToVideo(job, options, ctx): Promise<AssetRef> {
+      if (!cards) {
+        throw new AppError({
+          code: 'internal_error',
+          userMessage: t('nodes.theGenerationServiceIsnT'),
+        })
+      }
+      const card = await cards.render(job, options.aspectRatio, ctx.signal)
+      return imageToStoredVideo(card.assetHash, { ...options, motion: 'none' }, ctx.signal)
+    },
+
     async generate(original, ctx: GenerateContext): Promise<GenerateResult> {
       // 影片的運鏡在這裡換成模型看得懂的形式：原生參數，或加進 Prompt
       const request =

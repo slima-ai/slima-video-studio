@@ -1,4 +1,4 @@
-import { AppError, t } from '@svs/schema'
+import { AppError, STILL_MOTIONS, t, type StillMotion } from '@svs/schema'
 
 import { probe, type MediaInfo } from './probe'
 import { runTool, type MediaTools, type RunOptions } from './run'
@@ -255,9 +255,7 @@ export async function imageToVideo(
   await runTool(tools.ffmpegPath, args, options)
 }
 
-/** 靜態圖的運鏡：慢推近、慢拉遠、鏡頭左移、鏡頭右移、不動。 */
-export const STILL_MOTIONS = ['zoom_in', 'zoom_out', 'pan_left', 'pan_right', 'none'] as const
-export type StillMotion = (typeof STILL_MOTIONS)[number]
+export { STILL_MOTIONS, type StillMotion }
 
 /** 推近、拉遠、左右移動的幅度：畫面最多放大到 1.12 倍（慢推到最後比第一格大 12%）。 */
 const STILL_ZOOM = 0.12
