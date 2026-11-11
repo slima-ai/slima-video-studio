@@ -11,6 +11,8 @@
   "tasks": ["t2i", "edit"],
   "tier": "premium",
   "recommended": false,
+  "status": "deprecated",
+  "sunsetDate": "2027-02-10",
   "features": {
     "characterMechanism": "reference"
   },
@@ -42,7 +44,7 @@
       "referenceLimits": {
         "images": 5
       },
-      "notes": "和「GPT Image 2」是同一個模型，只是品質檔位開到 high，每張貴約 3.5 倍、出圖約 80～95 秒。適合定稿的首幀。"
+      "notes": "和「GPT Image 2」是同一個模型，只是品質檔位開到 high，每張貴約 3.5 倍、出圖約 80～95 秒。適合定稿的首幀。 OpenAI 官方 deprecations 頁（2026-11-12 查）：gpt-image-2 於 2026-11-10 標為 deprecated，2027-02-10 自 OpenAI API 移除，建議改用 gpt-image-2.6-sunburst 或 gpt-image-2.6-flare；OpenRouter 的清單目前仍列 openai/gpt-image-2、沒有標下架日。下架日取 OpenAI 的移除日，到期後選單自動隱藏；在那之前仍可用但不再推薦。"
     }
   ]
 }

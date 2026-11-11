@@ -168,11 +168,11 @@ With only an OpenRouter key the defaults are:
 | --------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Story breakdown and descriptions        | Claude Sonnet 5.5                                                                          |
 | Images (character images, first frames) | Gemini 3 Pro Image                                                                         |
-| Video                                   | Kling 3.0 Standard (Veo 3.1 Lite as a cheap draft model)                                   |
+| Video                                   | Kling 3.0 Standard (Veo 3.1 Lite or Gemini Omni 1.2 Flash as cheap draft models)           |
 | Narration (reads each shot's line)      | MiniMax Speech 2.8 HD (ElevenLabs Eleven v3 as an alternative; pick the voice in Settings) |
 | Music (one instrumental track)          | Google Lyria 3 Pro                                                                         |
 
-GPT Image 2 (standard and high quality) is available as an image model through OpenRouter. Adding a [fal.ai](https://fal.ai) key unlocks more models and character-locking video. Measured prices, endpoints and what we actually observed are in [docs/models.md](docs/models.md).
+GPT Image 2 (standard and high quality) is available as an image model through OpenRouter; OpenAI has deprecated it (removal 2027-02-10), so it will leave the menu on that date. Adding a [fal.ai](https://fal.ai) key unlocks more models and character-locking video. Measured prices, endpoints and what we actually observed are in [docs/models.md](docs/models.md).
 
 ## Known limitations
 

@@ -1,0 +1,47 @@
+{
+  "key": "gemini-omni-1.2-flash",
+  "displayName": "Gemini Omni 1.2 Flash",
+  "userNote": "有聲音的草稿影片，3 到 15 秒都能選，價格低",
+  "en": {
+    "userNote": "Draft video with sound; any length from 3 to 15 seconds, low price",
+    "badges": ["Sound", "Draft"]
+  },
+  "attribution": "Video generated with Google Gemini Omni",
+  "tasks": ["t2v", "i2v"],
+  "tier": "budget",
+  "recommended": false,
+  "features": {
+    "nativeAudio": true,
+    "characterMechanism": "reference"
+  },
+  "badges": ["有聲", "草稿"],
+  "prompt": {
+    "language": "en"
+  },
+  "channels": [
+    {
+      "provider": "openrouter",
+      "endpoints": {
+        "t2v": "google/gemini-omni-1.2-flash",
+        "i2v": "google/gemini-omni-1.2-flash"
+      },
+      "pricing": {
+        "unit": "second",
+        "usd": 0.104256,
+        "usdWithAudio": 0.104256
+      },
+      "verification": {
+        "endpoint": true,
+        "pricing": false,
+        "source": "2026-11-12 讀 OpenRouter 公開清單 /api/v1/videos/models：支援 3～15 秒（每個整數秒）、720p／1080p／4K／360p、9:16 與 16:9、首幀與尾幀；只有「有聲」計費項，沒有無聲價。Google 官方 deprecations 頁把 Veo 3.1 預覽端點的替代品寫成 gemini-omni-1.2-flash（2026-11-12 讀）。只讀文件，沒有實際呼叫",
+        "checkedAt": "2026-11-12"
+      },
+      "durationSec": {
+        "min": 3,
+        "max": 15
+      },
+      "resolutions": ["720p"],
+      "notes": "草稿與預覽用。2026-11-12 規格表單價：720p 有聲每秒 US$0.069504、1080p（未指定解析度的那一檔）0.104256、4K 0.208512、360p 0.023172。App 的 OpenRouter 請求不帶解析度；Veo 3.1 Lite 的實測是「沒指定時收較貴那一檔」（無聲實收 0.05 而不是 720p 的 0.03），所以這裡取較貴的 0.104256 估算，寧可多估不少估；真實收費未測。沒有無聲價，無聲也照有聲估。尾幀規格表有列 last_frame，但沒查文件也沒實測，所以不標接受尾幀。標註字句（attribution）是照 Veo 的寫法推的，Google 對 Omni 輸出有沒有規定字樣沒查。未實測。"
+    }
+  ]
+}

@@ -22,7 +22,7 @@
       },
       "pricing": {
         "unit": "million_chars",
-        "usd": 40
+        "usd": 80
       },
       "voices": [
         {
@@ -35,8 +35,8 @@
       "verification": {
         "endpoint": true,
         "pricing": false,
-        "source": "實測：用真的 OpenRouter 金鑰呼叫 POST /api/v1/audio/speech，voice「Adam」成功（中文句子 6.3 秒）；實收金額查不到（回應沒帶、/generation 查無）。牌價 US$0.00004／字元取自 OpenRouter 模型清單（該清單同時標了 discount 0.5，意義未確認）",
-        "checkedAt": "2026-10-19"
+        "source": "實測：用真的 OpenRouter 金鑰呼叫 POST /api/v1/audio/speech，voice「Adam」成功（中文句子 6.3 秒）；實收金額查不到（回應沒帶、/generation 查無）。牌價 2026-11-12 重讀 OpenRouter 公開模型清單（/api/v1/models?output_modalities=speech）：US$0.00008／字元＝US$80／百萬字元（2026-10-19 是 US$40，漲了一倍）；實收金額仍沒量到",
+        "checkedAt": "2026-11-12"
       },
       "notes": "多語言備案。voice 要用 ElevenLabs 的聲音名稱：實測 Adam 可用、Rachel 被拒（Unknown voice）；OpenRouter 沒有聲音清單，其他聲音要實測才能加進來。單次文字上限 5,000 字元（助理研究，未實測）。"
     }

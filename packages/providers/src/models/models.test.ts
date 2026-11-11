@@ -343,6 +343,88 @@ describe('內建 ModelCard', () => {
   })
 })
 
+describe('2026-11 模型卡核對（T0）', () => {
+  const at = (iso: string) => new ModelRegistry(cards, () => new Date(`${iso}T00:00:00Z`))
+  const OR_ONLY = { configuredProviders: new Set(['openrouter']) }
+  const need = (id: string): ModelCard => {
+    const found = registry.get(id)
+    if (!found) throw new Error(`找不到模型卡 ${id}`)
+    return found
+  }
+
+  it('fal 的 Veo 3.1 Lite：fal 頁面寫「2026-11-17 移除」（不是 10-22）；到期前還在，當天起隱藏', () => {
+    const veo = need('fal/veo-3.1-lite')
+    expect(veo.sunsetDate).toBe('2026-11-17')
+    expect(at('2026-11-16').isSunset(veo)).toBe(false)
+    expect(at('2026-11-17').isSunset(veo)).toBe(true)
+  })
+
+  it('OpenRouter 的 Veo 3.1 Lite 沒有下架日，選單還在（Google 直連的預覽端點 2026-10-22 關閉不影響這條）', () => {
+    const veo = registry.get('openrouter/veo-3.1-lite')
+    expect(veo?.sunsetDate).toBeUndefined()
+    expect(
+      at('2026-11-12')
+        .available(OR_ONLY)
+        .map((c) => c.id),
+    ).toContain('openrouter/veo-3.1-lite')
+  })
+
+  it('Eleven v3 牌價 US$80／百萬字元（OpenRouter 2026-11-12 清單 0.00008／字元），仍標「未實測實收」', () => {
+    const eleven = registry.get('openrouter/eleven-v3')
+    expect(eleven?.pricing).toEqual({ unit: 'million_chars', usd: 80 })
+    expect(eleven?.verification.checkedAt).toBe('2026-11-12')
+    expect(eleven?.verification.pricing).toBe(false)
+    expect(registry.estimate('openrouter/eleven-v3', { chars: 1000 })).toBeCloseTo(0.08)
+  })
+
+  it('GPT Image 2（標準與高畫質）：OpenAI 2026-11-10 標 deprecated、2027-02-10 移除；現在還能用，到期日起隱藏', () => {
+    for (const id of ['openrouter/gpt-image-2', 'openrouter/gpt-image-2-high']) {
+      const card = need(id)
+      expect(card.status, id).toBe('deprecated')
+      expect(card.sunsetDate, id).toBe('2027-02-10')
+      expect(
+        at('2026-11-12')
+          .available(OR_ONLY)
+          .map((c) => c.id),
+        id,
+      ).toContain(id)
+      expect(at('2027-02-09').isSunset(card), id).toBe(false)
+      expect(at('2027-02-10').isSunset(card), id).toBe(true)
+    }
+  })
+
+  it('Gemini Omni 1.2 Flash：OpenRouter、3～15 秒任選、有聲，單價取較貴的（未指定解析度），不是預設模型', () => {
+    const omni = registry.get('openrouter/gemini-omni-1.2-flash')
+    if (!omni) throw new Error('沒有 Gemini Omni 1.2 Flash')
+    expect(omni.endpoints).toEqual({
+      t2v: 'google/gemini-omni-1.2-flash',
+      i2v: 'google/gemini-omni-1.2-flash',
+    })
+    expect(omni.tier).toBe('budget')
+    expect(omni.recommended).toBe(false)
+    expect(omni.durationSec).toEqual({ min: 3, max: 15 })
+    expect(omni.pricing).toEqual({ unit: 'second', usd: 0.104256, usdWithAudio: 0.104256 })
+    expect(omni.verification.endpoint).toBe(true)
+    // 單價是我們推的（取較貴那一檔），不是實收：選單要標「估算」
+    expect(omni.verification.pricing).toBe(false)
+    expect(omni.verification.checkedAt).toBe('2026-11-12')
+    // 沒實測過：不能標成實測
+    expect(omni.verification.tested ?? []).toEqual([])
+    expect(registry.estimate(omni.id, { seconds: 3, audio: true })).toBeCloseTo(0.312768)
+    // 只填 OpenRouter 金鑰：草稿影片（經濟實惠）有東西可選，預設模型不變
+    for (const capability of ['t2v', 'i2v'] as const) {
+      const ids = at('2026-11-12')
+        .available({ ...OR_ONLY, capability })
+        .map((c) => c.id)
+      expect(ids).toContain('openrouter/gemini-omni-1.2-flash')
+      expect(ids).toContain('openrouter/veo-3.1-lite')
+      expect(at('2026-11-12').defaultFor({ ...OR_ONLY, capability })?.id).toBe(
+        'openrouter/kling-3.0-standard',
+      )
+    }
+  })
+})
+
 describe('ModelRegistry：多管道', () => {
   it('同一個模型兩家都有時走較便宜的；一樣價錢就用選的那家，選單上照模型檔的順序（fal 在前）', () => {
     const seedance = registry.get('fal/seedance-2.0')
@@ -365,8 +447,8 @@ describe('ModelRegistry：多管道', () => {
     expect(ids.filter((id) => id.endsWith('/seedance-2.0'))).toEqual(['openrouter/seedance-2.0'])
   })
 
-  it('fal 上的 Veo 3.1 Lite 2026-10-22 下架：兩把 Key 都有就改走 OpenRouter；只有 fal 就沒得走，換同組的下一個', () => {
-    const later = new ModelRegistry(cards, () => new Date('2026-10-22T00:00:00Z'))
+  it('fal 上的 Veo 3.1 Lite 2026-11-17 下架：兩把 Key 都有就改走 OpenRouter；只有 fal 就沒得走，換同組的下一個', () => {
+    const later = new ModelRegistry(cards, () => new Date('2026-11-17T00:00:00Z'))
     const veo = later.get('fal/veo-3.1-lite')
     if (!veo) throw new Error('沒有 Veo')
     expect(later.isSunset(veo)).toBe(true)
@@ -438,7 +520,10 @@ describe('ModelRegistry', () => {
       'openrouter/seedance-2.0',
     ])
     expect(groups.balanced.map((c) => c.id)).toEqual(['fal/kling-3.0-standard'])
-    expect(groups.budget.map((c) => c.id)).toEqual(['fal/veo-3.1-lite'])
+    expect(groups.budget.map((c) => c.id)).toEqual([
+      'openrouter/gemini-omni-1.2-flash',
+      'fal/veo-3.1-lite',
+    ])
   })
 
   it('預設選「平衡」裡推薦的；沒有就往其他組找；完全沒有就是 undefined', () => {
@@ -475,9 +560,9 @@ describe('ModelRegistry', () => {
     )
   })
 
-  it('估算：OpenRouter 的 Veo 3.1 Lite 6 秒＝6 × 0.05（無聲是 2026-10-18 實測，有聲取規格表）；Kling Standard 無聲 5 秒＝5 × 0.084', () => {
+  it('估算：OpenRouter 的 Veo 3.1 Lite 無聲 6 秒＝6 × 0.05（2026-10-18 實測）、有聲 6 秒＝6 × 0.08（規格表未指定解析度的有聲價，寧可高估）；Kling Standard 無聲 5 秒＝5 × 0.084', () => {
     expect(registry.estimate('openrouter/veo-3.1-lite', { seconds: 6, audio: true })).toBeCloseTo(
-      0.3,
+      0.48,
     )
     expect(registry.estimate('openrouter/veo-3.1-lite', { seconds: 6 })).toBeCloseTo(0.3)
     expect(registry.estimate('openrouter/kling-3.0-standard', { seconds: 5 })).toBeCloseTo(0.42)

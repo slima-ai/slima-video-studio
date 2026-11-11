@@ -164,15 +164,15 @@ _App 成品面板真實的聲音區（只有介面）。這裡旁白那一列是
 
 只填一把 OpenRouter 金鑰時的預設：
 
-| 用途                       | 預設                                                                |
-| -------------------------- | ------------------------------------------------------------------- |
-| 拆鏡與描述                 | Claude Sonnet 5.5                                                   |
-| 圖片（角色圖、第一張畫面） | Gemini 3 Pro Image                                                  |
-| 影片                       | Kling 3.0 Standard（Veo 3.1 Lite 當便宜的草稿模型）                 |
-| 旁白（念每一鏡的台詞）     | MiniMax Speech 2.8 HD（備選：ElevenLabs Eleven v3；聲音在設定裡選） |
-| 配樂（一首純音樂）         | Google Lyria 3 Pro                                                  |
+| 用途                       | 預設                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| 拆鏡與描述                 | Claude Sonnet 5.5                                                            |
+| 圖片（角色圖、第一張畫面） | Gemini 3 Pro Image                                                           |
+| 影片                       | Kling 3.0 Standard（Veo 3.1 Lite 或 Gemini Omni 1.2 Flash 當便宜的草稿模型） |
+| 旁白（念每一鏡的台詞）     | MiniMax Speech 2.8 HD（備選：ElevenLabs Eleven v3；聲音在設定裡選）          |
+| 配樂（一首純音樂）         | Google Lyria 3 Pro                                                           |
 
-GPT Image 2（標準與高畫質兩檔）可以透過 OpenRouter 當圖片模型。再填一把 [fal.ai](https://fal.ai) 金鑰會多出更多模型與角色鎖定影片。實測的價格、endpoint 和我們實際觀察到的結果在 [docs/models.md](docs/models.md)。
+GPT Image 2（標準與高畫質兩檔）可以透過 OpenRouter 當圖片模型；OpenAI 已將它標為 deprecated（2027-02-10 移除），到那天會自動從選單消失。再填一把 [fal.ai](https://fal.ai) 金鑰會多出更多模型與角色鎖定影片。實測的價格、endpoint 和我們實際觀察到的結果在 [docs/models.md](docs/models.md)。
 
 ## 已知限制
 

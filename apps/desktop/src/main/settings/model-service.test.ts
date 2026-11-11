@@ -7,9 +7,9 @@ import { createMemorySettingsStore } from './settings-store'
 
 const KEY = 'abcdefgh12345678'
 
-/** 固定日期：fal 上的 Veo 3.1 Lite 2026-10-22 下架，測試不能跟著真實日期變。 */
+/** 固定日期：fal 上的 Veo 3.1 Lite 2026-11-17 移除，測試不能跟著真實日期變。 */
 const BEFORE_SUNSET = '2026-10-13T00:00:00Z'
-const AFTER_SUNSET = '2026-10-22T00:00:00Z'
+const AFTER_SUNSET = '2026-11-17T00:00:00Z'
 
 function setup(
   options: { keys?: string[]; demoMode?: boolean; now?: string; project?: boolean } = {},
