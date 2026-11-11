@@ -15,6 +15,9 @@ extraResources:
     to: NOTICE.txt
   - from: ../../THIRD-PARTY-NOTICES.md
     to: THIRD-PARTY-NOTICES.md
+  # 預告片字卡的內建字型（Noto Sans TC Bold，SIL OFL 1.1）與它的授權全文、來源說明
+  - from: resources/fonts
+    to: fonts
 # 原生模組（better-sqlite3 的 .node 預編譯檔）不能留在 asar 裡
 asarUnpack:
   - node_modules/better-sqlite3/**

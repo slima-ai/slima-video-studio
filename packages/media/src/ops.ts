@@ -63,9 +63,34 @@ export interface ConcatInput {
   path: string
   inSec?: number | undefined
   outSec?: number | undefined
+  /** 這一段開頭淡入（畫面從黑、聲音從無聲）幾秒；沒給或 0 就沒有淡入。 */
+  fadeInSec?: number | undefined
+  /** 這一段結尾淡出（畫面變黑、聲音漸弱）幾秒；沒給或 0 就沒有淡出。 */
+  fadeOutSec?: number | undefined
 }
 
 const sec6 = (n: number): string => n.toFixed(6)
+
+/**
+ * 這一段的淡入淡出（秒）：沒給或 ≤ 0 就是 0；各自最多是片段長度的一半（太長就縮短，淡入淡出不會重疊、起點不會是負的）。
+ */
+function fadeSecs(input: ConcatInput, lengthSec: number): { in: number; out: number } {
+  const cap = lengthSec / 2
+  const clean = (n: number | undefined): number => (n !== undefined && n > 0 ? Math.min(n, cap) : 0)
+  return { in: clean(input.fadeInSec), out: clean(input.fadeOutSec) }
+}
+
+/** 淡入淡出接在濾鏡鏈最後面；沒有淡入淡出就是空字串（濾鏡字串跟加這個功能之前逐字相同）。 */
+function fadeTail(
+  kind: 'fade' | 'afade',
+  fade: { in: number; out: number },
+  lengthSec: number,
+): string {
+  return (
+    (fade.in > 0 ? `,${kind}=t=in:st=0:d=${sec6(fade.in)}` : '') +
+    (fade.out > 0 ? `,${kind}=t=out:st=${sec6(lengthSec - fade.out)}:d=${sec6(fade.out)}` : '')
+  )
+}
 
 export interface ConcatOptions extends RunOptions {
   /** 輸出解析度；沒給就用第一段的。所有片段會等比縮放並補黑邊到這個大小。 */
@@ -95,9 +120,14 @@ export function buildConcatFilters(
       `pad=${String(width)}:${String(height)}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${String(fps)}`
     const audioFormat = 'aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo'
     if (input.inSec === undefined && input.outSec === undefined) {
-      filters.push(`[${String(i)}:v]${scale},format=yuv420p[v${String(i)}]`)
+      const fade = fadeSecs(input, info.durationSec)
+      filters.push(
+        `[${String(i)}:v]${scale},format=yuv420p${fadeTail('fade', fade, info.durationSec)}[v${String(i)}]`,
+      )
       if (info.hasAudio) {
-        filters.push(`[${String(i)}:a]${audioFormat}[a${String(i)}]`)
+        filters.push(
+          `[${String(i)}:a]${audioFormat}${fadeTail('afade', fade, info.durationSec)}[a${String(i)}]`,
+        )
       } else {
         // 沒有聲音的片段補一段同長度的靜音，concat 濾鏡才接得起來
         filters.push(
@@ -109,14 +139,15 @@ export function buildConcatFilters(
       const end = input.outSec ?? info.durationSec
       const frames = Math.max(1, Math.round((end - start) * fps))
       const length = frames / fps
+      const fade = fadeSecs(input, length)
       filters.push(
         `[${String(i)}:v]trim=start=${sec6(start)}:end=${sec6(end)},setpts=PTS-STARTPTS,${scale},` +
-          `tpad=stop_mode=clone:stop_duration=0.5,trim=end_frame=${String(frames)},setpts=PTS-STARTPTS,format=yuv420p[v${String(i)}]`,
+          `tpad=stop_mode=clone:stop_duration=0.5,trim=end_frame=${String(frames)},setpts=PTS-STARTPTS,format=yuv420p${fadeTail('fade', fade, length)}[v${String(i)}]`,
       )
       if (info.hasAudio) {
         filters.push(
           `[${String(i)}:a]atrim=start=${sec6(start)}:end=${sec6(end)},asetpts=PTS-STARTPTS,${audioFormat},` +
-            `apad,atrim=duration=${sec6(length)}[a${String(i)}]`,
+            `apad,atrim=duration=${sec6(length)}${fadeTail('afade', fade, length)}[a${String(i)}]`,
         )
       } else {
         filters.push(`anullsrc=r=44100:cl=stereo,atrim=duration=${sec6(length)}[a${String(i)}]`)
@@ -222,6 +253,117 @@ export async function imageToVideo(
   if (options.silentAudio) args.push('-c:a', 'aac', '-shortest')
   args.push('-movflags', '+faststart', output)
   await runTool(tools.ffmpegPath, args, options)
+}
+
+/** 靜態圖的運鏡：慢推近、慢拉遠、鏡頭左移、鏡頭右移、不動。 */
+export const STILL_MOTIONS = ['zoom_in', 'zoom_out', 'pan_left', 'pan_right', 'none'] as const
+export type StillMotion = (typeof STILL_MOTIONS)[number]
+
+/** 推近、拉遠、左右移動的幅度：畫面最多放大到 1.12 倍（慢推到最後比第一格大 12%）。 */
+const STILL_ZOOM = 0.12
+
+export interface StillFilterOptions {
+  width: number
+  height: number
+  fps: number
+  /** 輸出幾格。 */
+  frames: number
+  motion: StillMotion
+}
+
+/**
+ * 一張圖變成運鏡影片的濾鏡（`-vf`）。先把圖放大（4 倍，輸出很大時 2 倍）、等比例填滿再 zoompan：
+ * zoompan 的位置只能算到整數像素，不先放大，慢推時畫面會一格一格地抖。圖片比例和輸出不同時，等比例放大並裁掉多的邊（不留黑邊）。
+ */
+export function buildStillFilter(options: StillFilterOptions): string {
+  const { width, height, fps, frames, motion } = options
+  const factor = Math.max(2, Math.min(4, Math.floor(4096 / width)))
+  const bigW = width * factor
+  const bigH = height * factor
+  // on＝第幾格（從 0 起）；最後一格剛好走完全程
+  const progress = frames > 1 ? `on/${String(frames - 1)}` : '0'
+  const centerX = 'iw/2-(iw/zoom/2)'
+  const centerY = 'ih/2-(ih/zoom/2)'
+  const zoom = String(1 + STILL_ZOOM)
+  const motions: Record<StillMotion, { z: string; x: string; y: string }> = {
+    zoom_in: { z: `1+${String(STILL_ZOOM)}*${progress}`, x: centerX, y: centerY },
+    zoom_out: { z: `${zoom}-${String(STILL_ZOOM)}*${progress}`, x: centerX, y: centerY },
+    pan_right: { z: zoom, x: `(iw-iw/zoom)*${progress}`, y: centerY },
+    pan_left: { z: zoom, x: `(iw-iw/zoom)*(1-${progress})`, y: centerY },
+    none: { z: '1', x: '0', y: '0' },
+  }
+  const m = motions[motion]
+  return (
+    `scale=${String(bigW)}:${String(bigH)}:force_original_aspect_ratio=increase,crop=${String(bigW)}:${String(bigH)},` +
+    `zoompan=z='${m.z}':x='${m.x}':y='${m.y}':d=${String(frames)}:s=${String(width)}x${String(height)}:fps=${String(fps)},` +
+    'format=yuv420p'
+  )
+}
+
+export interface StillToVideoOptions extends RunOptions {
+  durationSec: number
+  /** 輸出的寬高（要是偶數）。 */
+  width: number
+  height: number
+  fps?: number
+  /** 預設不動。 */
+  motion?: StillMotion
+}
+
+/**
+ * 一張圖變成一段有運鏡的影片（靜態鏡頭、字卡、片名卡都靠它）。長度是整數格：round(秒數 × fps) 格，
+ * 帶一條靜音音軌（接片時各段聲音規格一致）。輸出 H.264 + AAC 的 MP4。
+ */
+export async function stillToVideo(
+  tools: MediaTools,
+  image: string,
+  output: string,
+  options: StillToVideoOptions,
+): Promise<void> {
+  if (!(options.durationSec > 0)) {
+    throw new AppError({ code: 'invalid_request', userMessage: t('errors.theVideoLengthMustBe') })
+  }
+  const fps = options.fps ?? 24
+  const frames = Math.max(1, Math.round(options.durationSec * fps))
+  const filter = buildStillFilter({
+    width: even(options.width),
+    height: even(options.height),
+    fps,
+    frames,
+    motion: options.motion ?? 'none',
+  })
+  await runTool(
+    tools.ffmpegPath,
+    [
+      ...BASE,
+      '-i',
+      image,
+      '-f',
+      'lavfi',
+      '-i',
+      'anullsrc=r=44100:cl=stereo',
+      '-vf',
+      filter,
+      '-frames:v',
+      String(frames),
+      '-t',
+      sec6(frames / fps),
+      '-c:v',
+      'libx264',
+      '-preset',
+      'veryfast',
+      '-pix_fmt',
+      'yuv420p',
+      '-r',
+      String(fps),
+      '-c:a',
+      'aac',
+      '-movflags',
+      '+faststart',
+      output,
+    ],
+    options,
+  )
 }
 
 const even = (n: number): number => Math.max(2, Math.round(n / 2) * 2)

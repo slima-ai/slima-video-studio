@@ -1,4 +1,13 @@
 export const trailer = {
+  'trailer.cardNoText': 'The text card has no text yet. Write the words to show first.',
+  'trailer.titleCardNoName':
+    'The trailer settings have no book title yet, so the title card has nothing to show.',
+  'trailer.notACardShot': 'This shot is not a text card or the title card.',
+  'trailer.coverMissing': 'Could not find the cover picture. Please pick a cover again.',
+  'trailer.coverNotAnImage': 'The cover has to be a picture file (png, jpg or webp).',
+  'trailer.coverTooBig':
+    'The cover picture file is too big. Please use a smaller one (under 20 MB).',
+  'trailer.cardRenderFailed': 'Something went wrong while drawing the card. Please try again.',
   'trailer.invalidSettings':
     'The trailer settings are not valid (the length must be between 10 and 120 seconds, and the cover must be an asset).',
   'trailer.ruleEmpty': 'The script has no shots yet.',

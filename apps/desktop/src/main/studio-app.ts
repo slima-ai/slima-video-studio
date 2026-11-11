@@ -9,6 +9,8 @@ import { createLocationService, type LocationService } from './locations/locatio
 import { createTurnaroundService, type TurnaroundService } from './characters/turnaround-service'
 import { createConceptService, type ConceptService } from './characters/concept-service'
 import type { CardRenderer } from './credits/credits'
+import { createCardService, type CardService, type HtmlRenderer } from './cards/card-service'
+import type { ProjectHandle } from '@svs/db'
 import { createSoundService, type SoundService } from './sound/sound-service'
 import { createCharacterService, type CharacterService } from './characters/character-service'
 import type { KeyVault } from './keys/key-vault'
@@ -71,6 +73,10 @@ export interface StudioAppOptions {
   renderCreditsCard?: CardRenderer
   /** 畫字卡最多等幾毫秒；沒給用預設（20 秒）。測試縮短用。 */
   creditsTimeoutMs?: number
+  /** 把一段 HTML 畫成 PNG（文字卡、片名卡；Electron 離屏視窗）；沒給就沒有字卡服務。 */
+  renderCardHtml?: HtmlRenderer
+  /** 內建字型（Noto Sans TC Bold）的 file:// 網址；沒給或檔案不見就用系統字型。 */
+  cardFontUrl?: string
 }
 
 export interface StudioApp {
@@ -95,6 +101,8 @@ export interface StudioApp {
   library: ProjectLibrary
   /** 效能自測的示範專案。 */
   demo: DemoSeeder
+  /** 某個專案的字卡服務（文字卡、片名卡畫成 PNG 素材）；沒有畫圖的一方（測試、沒給 renderCardHtml）就是 undefined。 */
+  cardsFor: (handle: ProjectHandle) => CardService | undefined
 }
 
 /**
@@ -249,6 +257,24 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     log,
     ...toolsOption,
   })
+  // 字卡服務：每個專案一個（同樣的字卡不重畫的記憶跟著專案走）
+  const cardServices = new WeakMap<ProjectHandle, CardService>()
+  const cardsFor = (handle: ProjectHandle): CardService | undefined => {
+    const render = options.renderCardHtml
+    if (render === undefined) return undefined
+    const existing = cardServices.get(handle)
+    if (existing) return existing
+    const created = createCardService({
+      render,
+      assets: handle.assets,
+      ...(options.cardFontUrl === undefined ? {} : { fontUrl: options.cardFontUrl }),
+      log: (message) => {
+        log.info(message)
+      },
+    })
+    cardServices.set(handle, created)
+    return created
+  }
   const library = createProjectLibrary({
     projects,
     projectsDir: options.projectsDir,
@@ -272,6 +298,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     quickstart,
     upgrade,
     graph: createGraphService({ projects, shots, models }),
+    cardsFor,
     canvas: createCanvasService({
       projects,
       broadcast,

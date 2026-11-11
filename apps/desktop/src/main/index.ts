@@ -1,6 +1,7 @@
 import { onLocaleChange, t } from '@svs/schema'
 import { app, BrowserWindow, dialog, Menu, safeStorage, shell } from 'electron'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { CSP_VIOLATION_PREFIX } from '../shared/csp'
 import { installAssetProtocol, registerAssetScheme } from './asset-protocol'
@@ -35,7 +36,8 @@ import { createSlimaService, slimaLaunchFor, type SlimaService } from './slima/s
 import { appMenuTemplate } from './app-menu'
 import { startLocaleService } from './locale-service'
 import { createMockFrameRenderer } from './mock-frame'
-import { renderCardWithElectron } from './credits/render-card-electron'
+import { cardFontPath } from './cards/card-service'
+import { renderCardWithElectron, renderHtmlWithElectron } from './cards/render-electron'
 import { createStudioApp } from './studio-app'
 import { claudeBinOverride, openrouterBaseUrlOverride, startsOnHome } from './test-overrides'
 import { isInternalUrl, isSafeExternalUrl } from './navigation'
@@ -230,6 +232,14 @@ void app.whenReady().then(() => {
       ? process.env.SVS_PROJECTS_DIR
       : join(app.getPath('documents'), 'Slima Video Studio')
   const recent = createRecentStore(join(userData, 'recent-projects.json'), log)
+  // 預告片字卡的內建字型；找不到檔案（或壞了）就不給網址，字卡退回系統字型
+  const fontPath = cardFontPath({
+    resourcesPath: (process as { resourcesPath?: string }).resourcesPath,
+    appPath: app.getAppPath(),
+  })
+  const cardFont = fontPath === undefined ? {} : { cardFontUrl: pathToFileURL(fontPath).href }
+  if (fontPath === undefined)
+    log.warn('The built-in card font was not found; cards use the system font')
   const studio = createStudioApp({
     recent,
     projects,
@@ -241,6 +251,9 @@ void app.whenReady().then(() => {
     projectsDir,
     // 匯出時的片尾字卡：用 Electron 離屏視窗畫成圖（自編的 FFmpeg 沒有 drawtext）
     renderCreditsCard: renderCardWithElectron,
+    // 文字卡、片名卡（預告片）：同一個離屏視窗，內建字型 Noto Sans TC Bold（OFL）
+    renderCardHtml: renderHtmlWithElectron,
+    ...cardFont,
     reveal: (path) => {
       shell.showItemInFolder(path)
     },

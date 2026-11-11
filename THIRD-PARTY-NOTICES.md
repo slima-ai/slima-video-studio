@@ -27,6 +27,13 @@ statically linked libraries is not provided by us yet (see `tools/ffmpeg/README.
 The app runs on Electron (MIT) which includes Chromium and other components. Their license texts are installed with the app
 as `LICENSE.electron.txt` and `LICENSES.chromium.html`.
 
+## Noto Sans TC Bold (bundled font)
+
+The installers include the font file `fonts/NotoSansTC-Bold.otf` (Noto Sans TC, Bold, version 2.004, © 2014-2021 Adobe), used to
+draw text cards and the title card of trailers. It is unmodified and licensed under the **SIL Open Font License 1.1**
+(the full text is installed next to it as `fonts/OFL.txt`). Source: https://github.com/notofonts/noto-cjk (`Sans/SubsetOTF/TC/NotoSansTC-Bold.otf`,
+commit `165c01b46ea533872e002e0785ff17e44f6d97d8`). The font is not sold by itself; it ships as a data file for the cards.
+
 ## SQLite
 
 `better-sqlite3` embeds SQLite, which is in the public domain.
