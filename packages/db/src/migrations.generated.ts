@@ -171,5 +171,14 @@ export const MIGRATIONS: readonly Migration[] = [
       "ALTER TABLE `takes` ADD `trim_out_sec` real;",
       "ALTER TABLE `final_cuts` ADD `trim_key` text;"
     ]
+  },
+  {
+    "tag": "0019_trailer",
+    "statements": [
+      "CREATE TABLE `trailer_settings` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`project_id` text NOT NULL,\n\t`settings` text NOT NULL,\n\tFOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade\n);",
+      "CREATE UNIQUE INDEX `trailer_settings_project_id_unique` ON `trailer_settings` (`project_id`);",
+      "ALTER TABLE `shots` ADD `beat_kind` text DEFAULT 'video' NOT NULL;",
+      "ALTER TABLE `shots` ADD `card` text;"
+    ]
   }
 ]

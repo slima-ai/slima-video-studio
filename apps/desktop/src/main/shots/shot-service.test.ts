@@ -159,6 +159,51 @@ describe('shots.update', { timeout: 30_000 }, () => {
   })
 })
 
+describe('預告片：格子種類 beatKind 與字卡 card', () => {
+  it('舊的鏡頭（沒設過）看起來跟以前一樣：view 沒有 beatKind 與 card 欄位', () => {
+    const h = setup()
+    h.shots.create({})
+    const [shot] = h.shots.list().shots
+    expect(shot).toBeDefined()
+    expect(shot).not.toHaveProperty('beatKind')
+    expect(shot).not.toHaveProperty('card')
+  })
+
+  it('改成字卡：trim 掉空白；改回影片再清掉字卡；改字卡不影響別的欄位', () => {
+    const h = setup()
+    const created = h.shots.create({})
+    const card = h.shots.update(created.id, {
+      beatKind: 'card',
+      card: { text: '  他回來了  ', subtext: '第一章' },
+    })
+    expect(card).toMatchObject({ beatKind: 'card', card: { text: '他回來了', subtext: '第一章' } })
+    expect(card.durationSec).toBe(created.durationSec)
+
+    const again = h.shots.update(created.id, { card: { text: '這一次', subtext: '' } })
+    expect(again.card).toEqual({ text: '這一次', subtext: '' })
+    expect(again.beatKind).toBe('card')
+
+    const back = h.shots.update(created.id, { beatKind: 'video', card: null })
+    expect(back).not.toHaveProperty('beatKind')
+    expect(back).not.toHaveProperty('card')
+  })
+
+  it('不合格的字卡（沒有字、太長）擋在門口', () => {
+    const h = setup()
+    const created = h.shots.create({})
+    expect(() => h.shots.update(created.id, { card: { text: '', subtext: '' } })).toThrow()
+    expect(() => h.shots.update(created.id, { beatKind: 'poster' as never })).toThrow()
+  })
+
+  it('複製鏡頭：格子種類與字卡一起帶過去', () => {
+    const h = setup()
+    const created = h.shots.create({})
+    h.shots.update(created.id, { beatKind: 'card', card: { text: '他回來了', subtext: '' } })
+    const copy = h.shots.duplicate(created.id)
+    expect(copy).toMatchObject({ beatKind: 'card', card: { text: '他回來了', subtext: '' } })
+  })
+})
+
 describe('shots.regenerate', { timeout: 30_000 }, () => {
   it('只換影片：多一個影片版本並自動採用，首幀圖與其他鏡頭都不動', async () => {
     const { shots, runQuickStart, idle } = setup()

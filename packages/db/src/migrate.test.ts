@@ -238,3 +238,35 @@ describe('0008 畫布首頁：takes 改成依擁有者', () => {
     }
   })
 })
+
+describe('0019 預告片：鏡頭多 beat_kind 與 card、新增 trailer_settings', () => {
+  it('舊版（0018）資料庫升上來：舊鏡頭的 beat_kind 是 video、card 是空的；沒有預告片設定', () => {
+    const sqlite = new BetterSqlite3(':memory:')
+    const cut = MIGRATIONS.findIndex((m) => m.tag.startsWith('0019'))
+    expect(cut).toBeGreaterThan(0)
+    runMigrations(sqlite, MIGRATIONS.slice(0, cut))
+    expect(
+      sqlite
+        .prepare("select count(*) from pragma_table_info('shots') where name='beat_kind'")
+        .pluck()
+        .get(),
+    ).toBe(0)
+    sqlite
+      .prepare(
+        "insert into projects (id, name, schema_version, aspect_ratio, budget, created_at, updated_at) values ('p', '舊專案', 1, '16:9', '{\"perRunLimitUsd\":5}', 'x', 'x')",
+      )
+      .run()
+    sqlite
+      .prepare(
+        "insert into shots (id, project_id, number, position, size, angle, duration_sec, characters, status) values ('s1', 'p', 1, 0, 'wide', 'eye_level', 3, '[]', 'draft')",
+      )
+      .run()
+
+    expect(runMigrations(sqlite, MIGRATIONS)).toEqual({ from: cut, to: MIGRATIONS.length })
+    expect(sqlite.prepare("select beat_kind, card from shots where id='s1'").get()).toEqual({
+      beat_kind: 'video',
+      card: null,
+    })
+    expect(sqlite.prepare('select count(*) from trailer_settings').pluck().get()).toBe(0)
+  })
+})

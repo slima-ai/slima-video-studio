@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { ContentHashSchema, IdSchema, IsoDateTimeSchema } from './common'
 import { ShotAngleSchema, ShotSizeSchema, ShotStatusSchema, TakeKindSchema } from './story'
+import { BeatKindSchema, ShotCardSchema } from './trailer'
 import { TrimSchema } from './trim'
 
 /** 一個鏡頭的生成結果版本（首幀圖或影片）。 */
@@ -69,6 +70,10 @@ export const ShotViewSchema = z.object({
     .optional(),
   /** 要不要放進成品（沒有這個欄位就是要）。 */
   inCut: z.boolean().optional(),
+  /** 格子種類（預告片）；沒有這個欄位就是 video（一般的影片鏡頭）。 */
+  beatKind: BeatKindSchema.optional(),
+  /** 字卡內容（beatKind 是 card）；沒有就沒有這個欄位。 */
+  card: ShotCardSchema.optional(),
   /** 使用者手動改過的 Prompt；沒改過就沒有這個欄位。 */
   prompt: z.string().optional(),
   /** 由鏡頭內容自動組出的 Prompt（沒有手動改過時實際送出的內容）。 */
@@ -120,6 +125,10 @@ export const ShotEditSchema = z.object({
   mood: z.string().max(100).nullable().optional(),
   /** 要不要放進成品。 */
   inCut: z.boolean().optional(),
+  /** 格子種類（預告片）。 */
+  beatKind: BeatKindSchema.optional(),
+  /** 字卡內容；null 代表清掉。 */
+  card: ShotCardSchema.nullable().optional(),
 })
 export type ShotEdit = z.infer<typeof ShotEditSchema>
 

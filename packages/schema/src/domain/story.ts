@@ -8,6 +8,7 @@ import {
   UsdSchema,
 } from './common'
 import { PickableCapabilitySchema } from './settings'
+import { BeatKindSchema, ShotCardSchema } from './trailer'
 import { t } from '../i18n'
 
 export const BudgetSchema = z.object({
@@ -154,6 +155,10 @@ export const ShotSchema = z.object({
   activeTakeId: IdSchema.optional(),
   /** 這個鏡頭要不要放進成品（畫布上影片節點的「放進成品」開關）。 */
   inCut: z.boolean().default(true),
+  /** 格子種類（預告片）：video、still、card、title；預設 video，舊專案的鏡頭全是 video。 */
+  beatKind: BeatKindSchema.default('video'),
+  /** 字卡內容（只有 beatKind 是 card 才有）；片名卡用預告片設定的書名與封面，不用這個欄位。 */
+  card: ShotCardSchema.optional(),
 })
 export type Shot = z.infer<typeof ShotSchema>
 

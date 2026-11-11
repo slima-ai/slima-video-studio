@@ -9,6 +9,7 @@ export default defineConfig({
     './src/tables/execution.ts',
     './src/tables/canvas.ts',
     './src/tables/sound.ts',
+    './src/tables/trailer.ts',
   ],
   out: './drizzle',
 })

@@ -1,0 +1,35 @@
+export const trailer = {
+  'trailer.invalidSettings':
+    'The trailer settings are not valid (the length must be between 10 and 120 seconds, and the cover must be an asset).',
+  'trailer.ruleEmpty': 'The script has no shots yet.',
+  'trailer.ruleLength':
+    'The trailer is {total} seconds long but the target is {target} seconds, {diff} seconds off. Adjust the seconds of each shot so they add up to the target (within 0.05 seconds).',
+  'trailer.ruleFirstNotPicture':
+    'The first shot must be a picture (video or a still), not a text card or the title card.',
+  'trailer.ruleFirstTooLong':
+    'The first shot is {sec} seconds long; it can be at most {max} seconds. Hook people right at the start.',
+  'trailer.ruleNarrationDense':
+    'The narration of shot {n} has {units} characters (or words) but the shot is only {sec} seconds, which fits at most {limit}. Shorten the line.',
+  'trailer.ruleNarrationShare':
+    'The shots with narration add up to {sec} seconds, over 60% of the film ({limit} seconds). Leave some shots silent and give the time to the pictures and the music.',
+  'trailer.ruleNarrationOneSentence':
+    'The narration of shot {n} is more than one sentence. Put one sentence per shot and do not let a sentence run across shots.',
+  'trailer.ruleCardEmpty': 'Shot {n} is a text card but has no text.',
+  'trailer.ruleCardTooLong':
+    'The text card in shot {n} has {units} characters (or words); the limit is {limit}. Shorten it.',
+  'trailer.ruleCardTooShort':
+    'The text card in shot {n} stays only {sec} seconds; it needs at least {min} seconds to be read (0.8 seconds plus 0.2 seconds per character).',
+  'trailer.ruleTooManyCards':
+    'There are more than {limit} text cards (the title card does not count). Remove some.',
+  'trailer.ruleNoTitle': 'There is no title card. End with one title card.',
+  'trailer.ruleTitleTooShort':
+    'The title card in shot {n} is only {sec} seconds long; it needs at least {min} seconds.',
+  'trailer.ruleTitleMissingName':
+    'The trailer settings have no book title yet, so the title card has nothing to show.',
+  'trailer.ruleTitleNoAction':
+    'The trailer settings have no closing line (release date, where to buy), so the title card will show only the book title.',
+  'trailer.ruleUnverifiedClaim':
+    'Shot {n} mentions a bestseller, award or blurb claim that you did not provide. Blurbs, awards and sales figures may only use text you provided; remove it if you have none.',
+  'trailer.ruleNoEscalation':
+    'The last third of the shots is not shorter than the first third (average {last} seconds against {first} seconds). Trailers usually cut faster toward the end. This is only a reminder and does not block anything.',
+} as const

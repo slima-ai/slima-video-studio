@@ -6,6 +6,8 @@ import {
   DEFAULT_CHARACTER_PROMPTS,
   DEFAULT_STORYBOARD_GUIDE,
   DEFAULT_STORYBOARD_GUIDE_EN,
+  DEFAULT_TRAILER_GUIDE,
+  DEFAULT_TRAILER_GUIDE_EN,
   LOCATION_REFERENCE_PURPOSE_LABELS,
   QUICK_STYLE_LABELS,
   SHOT_ANGLE_LABELS,
@@ -79,6 +81,8 @@ const GOLDEN: Record<string, string> = {
   '角色圖範本（4 種）': '5f9b4ec3610dd41632adf093a5d64b139dd1a624a4e248a3d6f1bbf140d8105e',
   '預設分鏡準則（中文）': '4d36d37ce47c183cf6a19911682d1a4810482e9a1171047f504930d45fb2365e',
   '預設分鏡準則（英文）': '62d44d5e348ab11fbc5a46c99f9b036d7e24e926660cbd0bf499e4d1b6ddd820',
+  '預設預告片準則（中文）': 'd09292fdabeb0aab5d05ddeb321ab58d97b3462602847e4654657379f5b247c7',
+  '預設預告片準則（英文）': '75f33c656fd09f4070c6fee7daf9c4350072939b5e8e38932869c64e4b4818d8',
 }
 
 const shot = (patch: Record<string, unknown> = {}) =>
@@ -154,6 +158,8 @@ const OUTPUTS: Record<string, () => unknown> = {
   '角色圖範本（4 種）': () => DEFAULT_CHARACTER_PROMPTS,
   '預設分鏡準則（中文）': () => DEFAULT_STORYBOARD_GUIDE,
   '預設分鏡準則（英文）': () => DEFAULT_STORYBOARD_GUIDE_EN,
+  '預設預告片準則（中文）': () => DEFAULT_TRAILER_GUIDE,
+  '預設預告片準則（英文）': () => DEFAULT_TRAILER_GUIDE_EN,
 }
 
 describe('送給模型的 Prompt 與中文片段：輸出用雜湊釘住', () => {
