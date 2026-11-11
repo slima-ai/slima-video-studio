@@ -66,6 +66,7 @@ function toNode(n: IpcNode): CanvasNode {
     shotId: n.shotKey,
     summary: n.summary,
     action: n.action,
+    beat: n.beat,
     endThumb: thumbOf(n.endAssetHash),
     hasAction: n.hasAction,
     hasEndFrame: n.hasEndFrame,

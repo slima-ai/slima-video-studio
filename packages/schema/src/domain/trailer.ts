@@ -17,6 +17,22 @@ import { ContentHashSchema } from './common'
 export const BeatKindSchema = z.enum(['video', 'still', 'card', 'title'])
 export type BeatKind = z.infer<typeof BeatKindSchema>
 
+/** 本機格子（靜態鏡頭、字卡、片名卡）的影片版本記的「模型」：在這台電腦上做，不花錢。 */
+export const LOCAL_STILL_MODEL = 'local-still'
+export const LOCAL_CARD_MODEL = 'local-card'
+/** 格子種類的白話名稱（卡片、面板、分鏡表都用同一組字）。 */
+export const beatKindLabel = (kind: BeatKind): string =>
+  kind === 'still'
+    ? t('trailer.beatStill')
+    : kind === 'card'
+      ? t('trailer.beatCard')
+      : kind === 'title'
+        ? t('trailer.beatTitle')
+        : t('trailer.beatVideo')
+
+export const isLocalModel = (modelId: string): boolean =>
+  modelId === LOCAL_STILL_MODEL || modelId === LOCAL_CARD_MODEL
+
 /** 字卡的內容：主文字、副文字（可以沒有）。 */
 export const ShotCardSchema = z.object({
   text: z.string().trim().min(1).max(60),

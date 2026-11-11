@@ -27,6 +27,7 @@ import {
   t,
   cardNameOf,
   displayNameOf,
+  isLocalModel,
 } from '@svs/schema'
 
 import { createReadStream } from 'node:fs'
@@ -315,7 +316,9 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
             const name =
               take.modelId === UPLOAD_MODEL
                 ? t('canvas.connectedPicture')
-                : cardNameOf(deps.models?.get(take.modelId))
+                : isLocalModel(take.modelId)
+                  ? t('trailer.localFree')
+                  : cardNameOf(deps.models?.get(take.modelId))
             return name === undefined ? [] : [[take.modelId, name] as const]
           }),
         ),

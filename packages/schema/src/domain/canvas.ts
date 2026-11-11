@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { ContentHashSchema } from './common'
 import { ModelTierSchema } from './models'
+import { BeatKindSchema } from './trailer'
 import { QUICK_START_LIMITS, QuickStartSoundSchema, QuickStyleIdSchema } from './quickstart'
 import { t } from '../i18n'
 
@@ -170,6 +171,8 @@ export const CanvasNodeSchema = z.object({
   /** 影片的格子：這一鏡有寫動作／有指定尾幀（卡片上「吃：」那一行才列出來）。 */
   hasAction: z.boolean().optional(),
   hasEndFrame: z.boolean().optional(),
+  /** 預告片的格子種類（still／card／title；一般影片鏡頭沒有這個欄位）：鏡頭與影片的卡片標「不動」「字卡」。 */
+  beat: BeatKindSchema.exclude(['video']).optional(),
   /** 鏡頭的旁白台詞（沒有就不帶）：卡片上寫「旁白：…」，雙擊可以改。 */
   dialogue: z.string().optional(),
   /** 卡片上的一行小字，例如「中景・平視・5 秒」。 */
@@ -551,6 +554,8 @@ export const CanvasRunPlanSchema = z.object({
   estimateIsLowerBound: z.boolean(),
   demoMode: z.boolean(),
   models: z.object({ image: z.string().optional(), video: z.string().optional() }),
+  /** 這次執行要提醒的事（例如某一鏡的格長超過影片模型的上限）；沒有就沒有這個欄位。 */
+  warnings: z.array(z.string()).optional(),
   /** 生成完之後會自動接片（按在剪輯節點上，或「全部生成」時成品還沒接或對不上）。 */
   rejoin: z.boolean(),
   /** 接片時會接幾段（放進成品的鏡頭數）。 */

@@ -28,6 +28,7 @@ import {
   type ShotEdit,
   type ShotSize,
   type ShotView,
+  beatKindLabel,
   t,
   getLocale,
 } from '@svs/schema'
@@ -61,6 +62,7 @@ const ZH_COLUMN_WIDTHS: Record<string, number> = {
   angle: 120,
   camera: 120,
   duration: 80,
+  beat: 84,
   used: 110,
   characters: 150,
   dialogue: 200,
@@ -295,6 +297,21 @@ export function StoryboardTable({
         ),
       },
       {
+        // 唯讀：這一格是會動的影片、不動的畫面還是字卡（要改請打開鏡頭面板）
+        id: 'beat',
+        header: t('storyboard.beatKind'),
+        cell: ({ row }) => (
+          <span
+            className="block truncate border border-transparent px-2 py-1 text-sm text-fg-muted"
+            data-testid="shot-beat-kind"
+            data-beat={row.original.beatKind ?? 'video'}
+            title={t('storyboard.beatKindTip')}
+          >
+            {beatKindLabel(row.original.beatKind ?? 'video')}
+          </span>
+        ),
+      },
+      {
         // 唯讀：成品實際用到這支影片的哪一段（秒）。要改請打開鏡頭面板剪裁
         id: 'used',
         header: t('storyboard.usedInFilm'),
@@ -416,13 +433,17 @@ export function StoryboardTable({
     [sceneOptions, locationOptions, sizeChoices, angleChoices, cameraOptions, onEdit],
   )
 
-  const widths = columnWidths()
+  // 「種類」欄只有專案裡有不動的畫面或字卡時才出現：一般專案的分鏡表跟以前一樣
+  const showBeat = shots.some((shot) => shot.beatKind !== undefined && shot.beatKind !== 'video')
+  const widths = Object.fromEntries(
+    Object.entries(columnWidths()).filter(([id]) => id !== 'beat' || showBeat),
+  )
   const table = useReactTable({
     data: shots,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (shot) => shot.id,
-    state: { rowSelection: selected },
+    state: { rowSelection: selected, columnVisibility: { beat: showBeat } },
     onRowSelectionChange: (updater) => {
       onSelect(typeof updater === 'function' ? updater(selected) : updater)
     },

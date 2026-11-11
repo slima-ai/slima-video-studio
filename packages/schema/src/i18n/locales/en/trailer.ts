@@ -41,4 +41,24 @@ export const trailer = {
     'Shot {n} mentions a bestseller, award or blurb claim that you did not provide. Blurbs, awards and sales figures may only use text you provided; remove it if you have none.',
   'trailer.ruleNoEscalation':
     'The last third of the shots is not shorter than the first third (average {last} seconds against {first} seconds). Trailers usually cut faster toward the end. This is only a reminder and does not block anything.',
+  'trailer.beatVideo': 'Moving',
+  'trailer.beatStill': 'Still',
+  'trailer.beatCard': 'Text card',
+  'trailer.beatTitle': 'Title card',
+  'trailer.beatKindLabel': 'This shot is',
+  'trailer.beatKindHint':
+    'Moving: an AI-generated video. Still: one picture slowly pushed in or pulled out, made on this computer. Text card: a shot with only words, made on this computer. The last two are free.',
+  'trailer.titleCardNote':
+    'This shot is the title card. Its content (book title, cover, closing line) is edited in the trailer settings.',
+  'trailer.cardText': 'Card text',
+  'trailer.cardSubtext': 'Small text (optional)',
+  'trailer.cardTextPlaceholder': 'For example: Some light, and someone to keep it with you',
+  'trailer.localFree': 'On this computer · free',
+  'trailer.stepStill': '{no}: still picture (on this computer, free)',
+  'trailer.stepCard': '{no}: text card (on this computer, free)',
+  'trailer.stepTitle': '{no}: title card (on this computer, free)',
+  'trailer.lengthOverMax':
+    'This shot needs {want} seconds, but the current video model makes at most {max} seconds per video. The video will be {max} seconds, shorter than the shot. Split the shot in two, or pick another model.',
+  'trailer.runOverMax':
+    '{no}: wants {want} seconds, over the video model limit of {max} seconds. The video will be {max} seconds.',
 } as const

@@ -85,4 +85,6 @@ export const storyboard = {
   'storyboard.actScene': '{act}／{scene}',
   'storyboard.usedInFilm': '成品用到',
   'storyboard.usedInFilmTip': '成品實際用到這支影片的哪一段（秒）；要改請打開鏡頭面板剪裁',
+  'storyboard.beatKind': '種類',
+  'storyboard.beatKindTip': '這一格是會動的影片、不動的畫面，還是字卡。要改請打開鏡頭面板。',
 } as const

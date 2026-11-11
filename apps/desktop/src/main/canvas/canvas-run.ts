@@ -195,13 +195,35 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
           steps.push({
             key: `${shotKey(id)}:video`,
             kind: 'video',
-            label: t('canvas.video', { no }),
+            label:
+              view?.beatKind === 'still'
+                ? t('trailer.stepStill', { no })
+                : view?.beatKind === 'card'
+                  ? t('trailer.stepCard', { no })
+                  : view?.beatKind === 'title'
+                    ? t('trailer.stepTitle', { no })
+                    : t('canvas.video', { no }),
             redo: entry.redo,
             ...redoVersions('videos'),
           })
           highlight.add(`${shotKey(id)}:video`)
         }
       }
+      // 格長超過影片模型上限的影片格：先說，免得做出來比格長短才發現
+      const warnings = check.entries.flatMap((entry) => {
+        const over = entry.video
+          ? views.find((v) => v.id === entry.shot.id)?.lengthOverMax
+          : undefined
+        return over
+          ? [
+              t('trailer.runOverMax', {
+                no: t('canvas.shot', { value: String(entry.shot.number) }),
+                want: String(over.wantSec),
+                max: String(over.maxSec),
+              }),
+            ]
+          : []
+      })
       const segments = views.filter((v) => v.inCut !== false).length
       if (rejoin) {
         steps.push({
@@ -245,6 +267,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         rejoin,
         segments,
         ...(missing > 0 ? { joinSkipped: missing } : {}),
+        ...(warnings.length > 0 ? { warnings } : {}),
       }
     },
 

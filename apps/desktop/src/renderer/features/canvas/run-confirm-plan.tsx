@@ -165,6 +165,7 @@ export function runPinnedLines(plan: CanvasRunPlan): string[] {
     ...(plan.skippedBusy > 0
       ? [t('canvas.shotsAreBeingGeneratedSkipping', { value: String(plan.skippedBusy) })]
       : []),
+    ...(plan.warnings ?? []),
     ...(plan.demoMode && plan.shotCount > 0 ? [t('canvas.demoModeNothingIsCharged')] : []),
   ]
 }

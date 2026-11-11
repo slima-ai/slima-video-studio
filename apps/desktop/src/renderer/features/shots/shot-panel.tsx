@@ -7,8 +7,11 @@ import {
   type ShotEdit,
   type ShotView,
   type TakeView,
+  beatKindLabel,
   formatDate,
+  isLocalModel,
   t,
+  type BeatKind,
 } from '@svs/schema'
 import { useEffect, useState } from 'react'
 
@@ -17,7 +20,7 @@ import { SimpleSelect } from '../../components/list-select'
 import { assetUrl } from '../../lib/asset'
 import { call, errorText } from '../../lib/svs'
 import { STEP_LABEL } from './step-label'
-import { diffDraft, draftOf, type Draft } from './draft'
+import { diffDraft, draftOf, hasPicture, type Draft } from './draft'
 import { ShotSound } from '../sound/shot-sound'
 import { TrimPlayer } from './trim-player'
 import { trimHintOnAdopt } from './trim-hint'
@@ -44,7 +47,8 @@ export function useModelNames(): (id: string) => string {
       alive = false
     }
   }, [])
-  return (id) => names.get(id) ?? id
+  // 本機做的格子（不動的畫面、字卡）：不是模型，寫「本機・不花錢」
+  return (id) => (isLocalModel(id) ? t('trailer.localFree') : (names.get(id) ?? id))
 }
 
 const timeText = (iso: string): string => formatDate(iso, 'timeShort')
@@ -69,49 +73,113 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
     ? DURATIONS
     : [...DURATIONS, draft.durationSec].sort((a, b) => a - b)
 
+  const picture = hasPicture(draft.beatKind)
+  // 字卡沒有字就不能存（也不能生成）
+  const emptyCard = draft.beatKind === 'card' && draft.cardText.trim() === ''
+  const blocked = picture ? draft.description.trim() === '' : emptyCard
+
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium">
-        {t('shots.whatHappensInThisShot')}
-        <textarea
-          data-testid="shot-description"
-          rows={3}
-          value={draft.description}
-          onChange={(event) => {
-            set({ description: event.target.value })
-          }}
-          className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal"
-        />
-      </label>
-      <div className="grid grid-cols-2 gap-3">
+      {shot.beatKind === 'title' ? (
+        <p className="text-sm text-fg-muted" data-testid="shot-beat-title-note">
+          {t('trailer.titleCardNote')}
+        </p>
+      ) : (
         <div>
-          <span className="block text-sm font-medium">{t('shots.cameraMove')}</span>
+          <span className="block text-sm font-medium">{t('trailer.beatKindLabel')}</span>
           <div className="mt-1">
             <SimpleSelect
-              label={t('shots.cameraMove')}
-              testId="shot-camera"
-              value={draft.cameraMove}
-              options={[
-                { value: '', label: t('shots.notSet') },
-                ...CAMERA_MOVES.map((move) => ({
-                  value: move.id,
-                  label: cameraMoveLabel(move.id),
-                })),
-                ...(draft.cameraMove !== '' && !cameraMoveById(draft.cameraMove)
-                  ? [
-                      {
-                        value: draft.cameraMove,
-                        label: t('shots.custom', { cameraMove: draft.cameraMove }),
-                      },
-                    ]
-                  : []),
-              ]}
+              label={t('trailer.beatKindLabel')}
+              testId="shot-beat"
+              value={draft.beatKind}
+              options={(['video', 'still', 'card'] as const).map((kind) => ({
+                value: kind,
+                label: beatKindLabel(kind),
+              }))}
               onChange={(value) => {
-                set({ cameraMove: value })
+                set({ beatKind: value as BeatKind })
               }}
             />
           </div>
+          <p className="mt-1 text-xs text-fg-muted">{t('trailer.beatKindHint')}</p>
         </div>
+      )}
+      {draft.beatKind === 'card' ? (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">
+            {t('trailer.cardText')}
+            <input
+              data-testid="shot-card-text"
+              type="text"
+              maxLength={60}
+              value={draft.cardText}
+              placeholder={t('trailer.cardTextPlaceholder')}
+              onChange={(event) => {
+                set({ cardText: event.target.value })
+              }}
+              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal"
+            />
+          </label>
+          <label className="block text-sm font-medium">
+            {t('trailer.cardSubtext')}
+            <input
+              data-testid="shot-card-subtext"
+              type="text"
+              maxLength={120}
+              value={draft.cardSubtext}
+              onChange={(event) => {
+                set({ cardSubtext: event.target.value })
+              }}
+              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal"
+            />
+          </label>
+        </div>
+      ) : null}
+      {picture ? (
+        <label className="block text-sm font-medium">
+          {t('shots.whatHappensInThisShot')}
+          <textarea
+            data-testid="shot-description"
+            rows={3}
+            value={draft.description}
+            onChange={(event) => {
+              set({ description: event.target.value })
+            }}
+            className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal"
+          />
+        </label>
+      ) : null}
+      <div className="grid grid-cols-2 gap-3">
+        {picture ? (
+          <div>
+            <span className="block text-sm font-medium">{t('shots.cameraMove')}</span>
+            <div className="mt-1">
+              <SimpleSelect
+                label={t('shots.cameraMove')}
+                testId="shot-camera"
+                value={draft.cameraMove}
+                options={[
+                  { value: '', label: t('shots.notSet') },
+                  ...CAMERA_MOVES.map((move) => ({
+                    value: move.id,
+                    label: cameraMoveLabel(move.id),
+                  })),
+                  ...(draft.cameraMove !== '' && !cameraMoveById(draft.cameraMove)
+                    ? [
+                        {
+                          value: draft.cameraMove,
+                          label: t('shots.custom', { cameraMove: draft.cameraMove }),
+                        },
+                      ]
+                    : []),
+                ]}
+                onChange={(value) => {
+                  set({ cameraMove: value })
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
         <div>
           <span className="block text-sm font-medium">{t('shots.length')}</span>
           <div className="mt-1">
@@ -130,45 +198,57 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
           </div>
         </div>
       </div>
-      <p className="-mt-1 text-xs text-fg-muted" data-testid="shot-camera-hint">
-        {cameraMoveHint(draft.cameraMove) ?? t('shots.whenNotSetTheModel')}
-      </p>
-      <div>
-        <label className="block text-sm font-medium" htmlFor="shot-prompt">
-          {t('shots.promptSentToTheModel')}
-          <span className="ml-2 text-xs font-normal text-fg-muted">
-            {shot.prompt ? t('shots.yourEditedVersion') : t('shots.madeAutomatically')}
-          </span>
-        </label>
-        <textarea
-          id="shot-prompt"
-          data-testid="shot-prompt"
-          rows={4}
-          value={draft.prompt}
-          onChange={(event) => {
-            set({ prompt: event.target.value })
-          }}
-          className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
-        />
-        {shot.prompt || draft.prompt.trim() !== shot.autoPrompt ? (
-          <button
-            type="button"
-            data-testid="shot-prompt-reset"
-            className="mt-1 text-xs text-accent hover:underline"
-            onClick={() => {
-              set({ prompt: shot.autoPrompt })
+      {shot.lengthOverMax ? (
+        <p role="status" className="text-xs text-warning" data-testid="shot-over-max">
+          {t('trailer.lengthOverMax', {
+            want: String(shot.lengthOverMax.wantSec),
+            max: String(shot.lengthOverMax.maxSec),
+          })}
+        </p>
+      ) : null}
+      {picture ? (
+        <p className="-mt-1 text-xs text-fg-muted" data-testid="shot-camera-hint">
+          {cameraMoveHint(draft.cameraMove) ?? t('shots.whenNotSetTheModel')}
+        </p>
+      ) : null}
+      {picture ? (
+        <div>
+          <label className="block text-sm font-medium" htmlFor="shot-prompt">
+            {t('shots.promptSentToTheModel')}
+            <span className="ml-2 text-xs font-normal text-fg-muted">
+              {shot.prompt ? t('shots.yourEditedVersion') : t('shots.madeAutomatically')}
+            </span>
+          </label>
+          <textarea
+            id="shot-prompt"
+            data-testid="shot-prompt"
+            rows={4}
+            value={draft.prompt}
+            onChange={(event) => {
+              set({ prompt: event.target.value })
             }}
-          >
-            {t('shots.restoreTheAutomaticText')}
-          </button>
-        ) : null}
-      </div>
+            className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+          />
+          {shot.prompt || draft.prompt.trim() !== shot.autoPrompt ? (
+            <button
+              type="button"
+              data-testid="shot-prompt-reset"
+              className="mt-1 text-xs text-accent hover:underline"
+              onClick={() => {
+                set({ prompt: shot.autoPrompt })
+              }}
+            >
+              {t('shots.restoreTheAutomaticText')}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <Button
           variant="primary"
           data-testid="shot-apply"
-          disabled={locked || draft.description.trim() === ''}
+          disabled={locked || blocked}
           onClick={() => {
             onRun('apply', edit)
           }}
@@ -177,7 +257,7 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
         </Button>
         <Button
           data-testid="shot-save"
-          disabled={locked || !dirty || draft.description.trim() === ''}
+          disabled={locked || !dirty || blocked}
           onClick={() => {
             onRun('save', edit)
           }}
@@ -187,31 +267,33 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
       </div>
       <p className="text-xs text-fg-muted">{t('shots.generatingAgainOnlyRedoesWhat')}</p>
 
-      <div className="space-y-2 border-t border-border pt-3">
-        <p className="text-sm font-medium">{t('shots.wantADifferentResult')}</p>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            data-testid="shot-regen-video"
-            disabled={locked}
-            onClick={() => {
-              onRun('video', edit)
-            }}
-          >
-            {t('shots.newVideoOnly')}
-          </Button>
-          <Button
-            size="sm"
-            data-testid="shot-regen-all"
-            disabled={locked}
-            onClick={() => {
-              onRun('all', edit)
-            }}
-          >
-            {t('shots.redoTheWholeShot')}
-          </Button>
+      {picture ? (
+        <div className="space-y-2 border-t border-border pt-3">
+          <p className="text-sm font-medium">{t('shots.wantADifferentResult')}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              data-testid="shot-regen-video"
+              disabled={locked}
+              onClick={() => {
+                onRun('video', edit)
+              }}
+            >
+              {t('shots.newVideoOnly')}
+            </Button>
+            <Button
+              size="sm"
+              data-testid="shot-regen-all"
+              disabled={locked}
+              onClick={() => {
+                onRun('all', edit)
+              }}
+            >
+              {t('shots.redoTheWholeShot')}
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   )
 }
@@ -323,6 +405,8 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
     shot.durationSec,
     shot.prompt,
     shot.autoPrompt,
+    shot.beatKind,
+    shot.card,
   ])
 
   return (

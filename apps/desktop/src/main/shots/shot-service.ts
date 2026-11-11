@@ -41,6 +41,8 @@ import {
   type TrimResult,
   type Workflow,
   alignVideoSeconds,
+  LOCAL_CARD_MODEL,
+  LOCAL_STILL_MODEL,
   resolveTrim,
   snapToFrame,
   TrailerSettingsSchema,
@@ -303,8 +305,6 @@ const isDone = (run: NodeRun): boolean => run.status === 'succeeded' || run.stat
 /** 接上來的圖（上傳的）當第一張畫面時，版本記的「模型」。 */
 export const UPLOAD_MODEL = 'upload'
 /** 本機格子（靜態鏡頭、字卡、片名卡）的影片版本記的「模型」：在這台電腦上做，不花錢。 */
-export const LOCAL_STILL_MODEL = 'local-still'
-export const LOCAL_CARD_MODEL = 'local-card'
 /** 這一格是不是本機格子：still＝靜態鏡頭（要首幀圖）、card＝字卡與片名卡（不要圖）；一般鏡頭是 undefined。 */
 const localKindOf = (shot: Pick<Shot, 'beatKind'>): 'still' | 'card' | undefined =>
   shot.beatKind === 'still' ? 'still' : shot.beatKind === 'video' ? undefined : 'card'
@@ -490,7 +490,22 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   const styleOf = (handle: ProjectHandle): QuickStyleId =>
     toStyle(handle.repos.projects.get().defaultStyleId)
 
+  /** 預告片專案的影片格：格長超過現在影片模型的上限（只有這種情況才有值）。 */
+  const overMaxOf = (
+    handle: ProjectHandle,
+    shot: Shot,
+  ): { wantSec: number; maxSec: number } | undefined => {
+    if (shot.beatKind !== 'video' || handle.repos.trailer.get() === undefined) return undefined
+    const id = settingsService.resolveModel('i2v')
+    const aligned = alignVideoSeconds(
+      id === undefined ? undefined : models.get(id)?.durationSec,
+      shot.durationSec,
+    )
+    return aligned.clamped ? { wantSec: shot.durationSec, maxSec: aligned.sec } : undefined
+  }
+
   const view = (s: Session, shot: Shot): ShotView => {
+    const overMax = overMaxOf(s.handle, shot)
     const { shots } = s.handle.repos
     const takes = shots.listTakes(shot.id)
     const step = s.activity.get(shot.id)
@@ -546,6 +561,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(shot.inCut ? {} : { inCut: false }),
       ...(shot.beatKind === 'video' ? {} : { beatKind: shot.beatKind }),
       ...(shot.card === undefined ? {} : { card: shot.card }),
+      ...(overMax ? { lengthOverMax: overMax } : {}),
       ...(filmSeconds === undefined ? {} : { filmSeconds }),
       autoPrompt: auto,
       status: step ? 'generating' : shot.status,
