@@ -91,4 +91,7 @@ export const storyboard = {
   'storyboard.usedInFilm': 'Used in film',
   'storyboard.usedInFilmTip':
     'Which part of the video (in seconds) the film actually uses; open the shot panel to trim',
+  'storyboard.beatKind': 'Kind',
+  'storyboard.beatKindTip':
+    'Whether this shot is a moving video, a still picture or a text card. Open the shot panel to change it.',
 } as const

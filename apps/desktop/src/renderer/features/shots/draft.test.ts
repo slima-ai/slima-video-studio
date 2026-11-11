@@ -57,3 +57,37 @@ describe('diffDraft', () => {
     expect(diffDraft(manual, { ...draftOf(manual), prompt: '   ' })).toEqual({ prompt: null })
   })
 })
+
+describe('diffDraft：格子種類與字卡（預告片）', () => {
+  it('沒改種類 → 沒有 beatKind／card；一般鏡頭的草稿帶 video', () => {
+    expect(draftOf(shot).beatKind).toBe('video')
+    expect(diffDraft(shot, draftOf(shot))).toEqual({})
+  })
+
+  it('改成字卡並填字 → beatKind 與 card（字前後的空白去掉）', () => {
+    const draft = {
+      ...draftOf(shot),
+      beatKind: 'card' as const,
+      cardText: '  他回來了 ',
+      cardSubtext: '',
+    }
+    expect(diffDraft(shot, draft)).toEqual({
+      beatKind: 'card',
+      card: { text: '他回來了', subtext: '' },
+    })
+  })
+
+  it('字卡沒有字 → 不送 card（按鈕也會擋）；字卡改回會動 → 只送 beatKind', () => {
+    const empty = { ...draftOf(shot), beatKind: 'card' as const }
+    expect(diffDraft(shot, empty)).toEqual({ beatKind: 'card' })
+    const cardShot: ShotView = {
+      ...shot,
+      beatKind: 'card',
+      card: { text: '他回來了', subtext: '' },
+    }
+    expect(diffDraft(cardShot, { ...draftOf(cardShot), beatKind: 'video' })).toEqual({
+      beatKind: 'video',
+    })
+    expect(diffDraft(cardShot, draftOf(cardShot))).toEqual({})
+  })
+})

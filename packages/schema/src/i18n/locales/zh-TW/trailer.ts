@@ -31,4 +31,22 @@ export const trailer = {
     '第 {n} 格提到了暢銷、獎項、推薦語之類的說法，但這不是你提供的。推薦語、獎項、銷量只能用你自己提供的原文；沒有就拿掉。',
   'trailer.ruleNoEscalation':
     '後面三分之一的格子沒有比前面三分之一短（平均 {last} 秒對 {first} 秒）。預告片通常越到後面剪得越快；這只是提醒，不會擋下。',
+  'trailer.beatVideo': '會動',
+  'trailer.beatStill': '不動',
+  'trailer.beatCard': '字卡',
+  'trailer.beatTitle': '片名卡',
+  'trailer.beatKindLabel': '這一格是',
+  'trailer.beatKindHint':
+    '會動：AI 生成的影片。不動：一張圖慢慢推近或拉遠，在這台電腦上做。字卡：只有文字的一格，在這台電腦上做。後兩種不花錢。',
+  'trailer.titleCardNote': '這一格是片名卡。內容（書名、封面、片尾那一行）在預告片設定裡改。',
+  'trailer.cardText': '字卡上的字',
+  'trailer.cardSubtext': '小字（可以不填）',
+  'trailer.cardTextPlaceholder': '例如：有些光，要有人陪你一起守',
+  'trailer.localFree': '本機・不花錢',
+  'trailer.stepStill': '{no}：不動的畫面（本機，不花錢）',
+  'trailer.stepCard': '{no}：字卡（本機，不花錢）',
+  'trailer.stepTitle': '{no}：片名卡（本機，不花錢）',
+  'trailer.lengthOverMax':
+    '這一格要 {want} 秒，但現在的影片模型一支最多 {max} 秒：影片只會有 {max} 秒，比格長短。請把這一格拆成兩格，或換一個模型。',
+  'trailer.runOverMax': '{no}：要 {want} 秒，超過影片模型的上限 {max} 秒，影片只會有 {max} 秒。',
 } as const

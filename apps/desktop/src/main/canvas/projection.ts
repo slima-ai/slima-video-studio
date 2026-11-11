@@ -262,8 +262,11 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
     let extra = 0
     group.forEach((shot, row) => {
       const slot = { x: origin.x + PAD.x, y: origin.y + PAD.top + row * ROW_PITCH + extra }
-      const stepInfo = source.steps?.get(shot.id)
+      // 字卡與片名卡沒有「第一張畫面」，也就沒有展開的步驟
+      const noFrame = shot.beatKind === 'card' || shot.beatKind === 'title'
+      const stepInfo = noFrame ? undefined : source.steps?.get(shot.id)
       if (stepInfo) extra += STEPS_EXTRA
+      const beat = shot.beatKind === 'video' ? undefined : shot.beatKind
       const key = shotKey(shot.id)
       const savedShot = source.positions.get(key)
       const at = savedShot ?? slot
@@ -294,7 +297,9 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
         auto: savedShot === undefined,
         title: t('canvas.shot', { value: String(shot.number) }),
         ...(stepInfo ? { expanded: true } : {}),
-        summary: shot.description,
+        // 字卡的鏡頭卡上寫字卡的字（畫面描述對字卡沒有用）
+        summary: shot.beatKind === 'card' && shot.card ? shot.card.text : shot.description,
+        ...(beat === undefined ? {} : { beat }),
         ...(shot.action.trim() === '' ? {} : { action: shot.action }),
         ...(shot.dialogue.trim() === '' ? {} : { dialogue: shot.dialogue }),
         meta: t('canvas.sec', {
@@ -347,6 +352,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
               }
             : {}),
           ...(kind === 'video' ? { inCut: shot.inCut } : {}),
+          ...(kind === 'video' && beat !== undefined ? { beat } : {}),
           ...(kind === 'video' && take ? trimOf(take, source.videoSecs?.get(take.assetHash)) : {}),
           // 尾幀：第一張畫面的格子多一張標「尾」的縮圖；影片的格子在「吃：」那一行列出動作與尾幀（沒有就都不帶）
           ...(kind === 'image' && takeEnd ? { endAssetHash: takeEnd.assetHash } : {}),
@@ -356,10 +362,9 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
       }
       // 圖和影片的標題帶鏡頭號（「第 1 鏡・第一張畫面」）：一次長出十幾個節點時才分得出誰是誰
       const shotTitle = t('canvas.shot', { value: String(shot.number) })
-      nodes.push(
-        derived('image', takeImage, t('canvas.firstFrame2', { shotTitle })),
-        derived('video', takeVideo, t('canvas.video2', { shotTitle })),
-      )
+      // 字卡與片名卡不要圖：鏡頭直接接影片格（沒有「第一張畫面」那一格）
+      if (!noFrame) nodes.push(derived('image', takeImage, t('canvas.firstFrame2', { shotTitle })))
+      nodes.push(derived('video', takeVideo, t('canvas.video2', { shotTitle })))
       if (stepInfo) {
         // 鏡頭 → 整理 Prompt → 挑參考圖 → 送出模型 → 圖：鏡頭和圖之間的線改走這三格
         let y = at.y + STEP_TOP
@@ -392,10 +397,12 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
           y += STEP_H[stage] + STEP_GAP
         }
         pushEdge(from.key, from.port, `${key}:image`, 'img-in', 'data')
+      } else if (noFrame) {
+        pushEdge(key, 'shot-out', `${key}:video`, 'vid-in', 'data')
       } else {
         pushEdge(key, 'shot-out', `${key}:image`, 'img-in', 'data')
       }
-      pushEdge(`${key}:image`, 'img-out', `${key}:video`, 'vid-in', 'data')
+      if (!noFrame) pushEdge(`${key}:image`, 'img-out', `${key}:video`, 'vid-in', 'data')
       for (const c of shot.characters) {
         const id = c.characterId ?? (c.name === undefined ? undefined : idOfName.get(c.name))
         if (id !== undefined && nameOf.has(id)) {

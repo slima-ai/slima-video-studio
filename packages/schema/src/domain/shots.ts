@@ -74,6 +74,11 @@ export const ShotViewSchema = z.object({
   beatKind: BeatKindSchema.optional(),
   /** 字卡內容（beatKind 是 card）；沒有就沒有這個欄位。 */
   card: ShotCardSchema.optional(),
+  /**
+   * 預告片專案的影片格：格長超過現在影片模型一支影片的上限（影片只會有上限那麼長，比格長短）。
+   * 其他情況沒有這個欄位。
+   */
+  lengthOverMax: z.object({ wantSec: z.number(), maxSec: z.number() }).optional(),
   /** 使用者手動改過的 Prompt；沒改過就沒有這個欄位。 */
   prompt: z.string().optional(),
   /** 由鏡頭內容自動組出的 Prompt（沒有手動改過時實際送出的內容）。 */
