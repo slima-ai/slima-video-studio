@@ -107,6 +107,8 @@ export interface TrailerBeatInput {
   angle: ShotAngle
   cameraMove: string | null
   characters: readonly string[]
+  /** 這一格發生的地點（大綱裡的地點 id）。 */
+  locationId?: string | undefined
   dialogue: string
   card?: { text: string; subtext: string } | undefined
 }
@@ -2127,6 +2129,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           durationSec: beat.durationSec,
           characters: beat.characters.map((name) => ({ name })),
           dialogue: beat.dialogue,
+          ...(beat.locationId ? { locationId: beat.locationId } : {}),
           ...(beat.card ? { card: beat.card } : {}),
         }),
       )

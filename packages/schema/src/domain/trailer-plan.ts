@@ -20,6 +20,8 @@ export const TrailerScriptBeatSchema = z.object({
   cameraMove: z.enum(CAMERA_MOVE_IDS).nullable().default(null),
   /** 出場角色（用同一個名字）。 */
   characters: z.array(z.string()).default([]),
+  /** 這一格發生的地點（名字，同一個地點用同一個名字；字卡與片名卡留空）。 */
+  location: z.string().default(''),
   /** 旁白念的那一句（沒有就空字串）。 */
   dialogue: z.string().default(''),
   /** 字卡上的字（只有 card 才用）；副文字可以空。 */

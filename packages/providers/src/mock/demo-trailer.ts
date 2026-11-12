@@ -22,6 +22,8 @@ interface DemoBeat extends TrailerBeat {
   cardText: string
   /** 旁白的原句（之後依秒數截短）。 */
   clause: string
+  characters?: string[]
+  location?: string
 }
 
 /** 規則 11 會擋的字眼：示範用的旁白與描述不能帶（使用者貼的文本可能有）。 */
@@ -29,6 +31,32 @@ const CLAIMISH =
   /暢銷|銷量|萬冊|榜首|排行榜|得獎|獲獎|金獎|大獎|獎項|入圍|盛讚|好評如潮|名人推薦|best-?sell|award|prize|winner|million copies|#\s?1\b/i
 
 const MOTIONS = ['push_in', 'pull_out', 'pan'] as const
+
+/** 示範的畫面描述與旁白句（互相不重複；介面語言跟著變）。 */
+const SHOT_KEYS = [
+  'mock.trailerShot1',
+  'mock.trailerShot2',
+  'mock.trailerShot3',
+  'mock.trailerShot4',
+  'mock.trailerShot5',
+  'mock.trailerShot6',
+  'mock.trailerShot7',
+  'mock.trailerShot8',
+  'mock.trailerShot9',
+  'mock.trailerShot10',
+  'mock.trailerShot11',
+  'mock.trailerShot12',
+] as const
+const LINE_KEYS = [
+  'mock.trailerLine1',
+  'mock.trailerLine2',
+  'mock.trailerLine3',
+  'mock.trailerLine4',
+  'mock.trailerLine5',
+  'mock.trailerLine6',
+  'mock.trailerLine7',
+  'mock.trailerLine8',
+] as const
 
 const cut = (text: string, max: number): string => {
   const cjk = /\p{Script=Han}/u.test(text)
@@ -61,8 +89,14 @@ export function demoTrailerScript(request: LlmRequest): unknown {
     .split(/[，。！？；、,.!?;\n]+/u)
     .map((c) => c.trim())
     .filter((c) => c !== '' && !CLAIMISH.test(c))
-  const pick = (i: number): string =>
-    clauses.length > 0 ? (clauses[i % clauses.length] ?? '') : t('mock.demoPicture')
+  // 每一格的字都不一樣：先用文本裡的句子（第一句留給書名，不重複用），用完了接示範的畫面與旁白句
+  const unique = (list: readonly string[]): string[] => [...new Set(list)]
+  const descriptions = unique([...clauses.slice(1), ...SHOT_KEYS.map((key) => t(key))])
+  const lines = LINE_KEYS.map((key) => t(key))
+  const heroes = [t('mock.trailerChar1'), t('mock.trailerChar2')]
+  const places = [t('mock.trailerPlace1'), t('mock.trailerPlace2')]
+  const pick = (i: number): string => descriptions[i % descriptions.length] ?? t('mock.demoPicture')
+  let talked = 0
   const cards = [
     t('mock.trailerCard1'),
     t('mock.trailerCard2'),
@@ -84,7 +118,10 @@ export function demoTrailerScript(request: LlmRequest): unknown {
         description: pick(i),
         cameraMove: still ? (MOTIONS[i % MOTIONS.length] ?? null) : null,
         cardText: '',
-        clause: talk && narration ? pick(i) : '',
+        clause: talk && narration ? (lines[talked++ % lines.length] ?? '') : '',
+        // 1～2 個角色、1～2 個地點：第一個角色每格都在，第二個角色隔一格才出場；前半在第一個地點、後半在第二個
+        characters: i % 2 === 0 ? [heroes[0] ?? ''] : [heroes[0] ?? '', heroes[1] ?? ''],
+        location: (i < 4 ? places[0] : places[1]) ?? '',
       })
     }
     const card = (segment: string, weight: number, text: string): void => {
@@ -166,7 +203,8 @@ export function demoTrailerScript(request: LlmRequest): unknown {
       size: i % 3 === 0 ? 'wide' : i % 3 === 1 ? 'medium' : 'full',
       angle: 'eye_level',
       cameraMove: beat.cameraMove,
-      characters: [],
+      characters: beat.characters ?? [],
+      location: beat.location ?? '',
       dialogue,
       cardText: cut(beat.cardText, CARD_MAX_CJK),
       cardSubtext: '',
@@ -177,7 +215,7 @@ export function demoTrailerScript(request: LlmRequest): unknown {
     out[0] = { ...first, beatKind: 'card', description: '', cardText: cards[1] ?? '', dialogue: '' }
   }
   return {
-    title: story === '' ? t('mock.trailerTitle') : cut(pick(0), 16),
+    title: story === '' ? t('mock.trailerTitle') : cut(clauses[0] ?? t('mock.trailerTitle'), 16),
     music: t('mock.trailerMusic'),
     beats: out,
   }

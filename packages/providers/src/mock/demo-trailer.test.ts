@@ -72,6 +72,47 @@ describe('示範模式的假腳本', () => {
     }
   }
 
+  for (const [kind, sec] of [
+    ['story', 30],
+    ['story', 60],
+    ['story', 120],
+    ['teaser', 15],
+    ['teaser', 30],
+    ['teaser', 90],
+  ] as const) {
+    it(`${kind}、${String(sec)} 秒：每一格的畫面描述、旁白、字卡都不重複（看起來不像壞掉）`, () => {
+      const script = TrailerScriptSchema.parse(demoTrailerScript(request(STORY, kind, sec)))
+      const texts = (pick: (b: (typeof script.beats)[number]) => string) =>
+        script.beats.map(pick).filter((x) => x !== '')
+      for (const list of [
+        texts((b) => b.description),
+        texts((b) => b.dialogue),
+        texts((b) => b.cardText),
+      ]) {
+        expect(new Set(list).size).toBe(list.length)
+      }
+      // 書名也不跟任何一格的描述一樣
+      expect(texts((b) => b.description)).not.toContain(script.title)
+    })
+  }
+
+  it('帶 1～2 個角色、1～2 個地點；字卡與片名卡沒有地點', () => {
+    const script = TrailerScriptSchema.parse(demoTrailerScript(request(STORY, 'story', 30)))
+    const pictures = script.beats.filter((b) => b.beatKind === 'video' || b.beatKind === 'still')
+    const heroes = new Set(pictures.flatMap((b) => b.characters))
+    const places = new Set(pictures.map((b) => b.location))
+    expect(heroes.size).toBeGreaterThanOrEqual(1)
+    expect(heroes.size).toBeLessThanOrEqual(2)
+    expect(places.size).toBeGreaterThanOrEqual(1)
+    expect(places.size).toBeLessThanOrEqual(2)
+    expect(places.has('')).toBe(false)
+    expect(
+      script.beats
+        .filter((b) => b.beatKind === 'card' || b.beatKind === 'title')
+        .every((b) => b.location === ''),
+    ).toBe(true)
+  })
+
   it('不要旁白：每一格的旁白都是空的', () => {
     const script = TrailerScriptSchema.parse(demoTrailerScript(request(STORY, 'story', 30, false)))
     expect(script.beats.every((b) => b.dialogue === '')).toBe(true)

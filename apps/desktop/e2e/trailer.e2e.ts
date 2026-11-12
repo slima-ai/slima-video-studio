@@ -20,6 +20,55 @@ const plan = (page: Page, text: string, extra: Record<string, unknown> = {}) =>
   ] as const)
 
 test.describe('預告片：寫腳本（示範模式，假腳本，不花錢）', () => {
+  test('角色與地點草稿卡：分鏡表看得到出場角色與地點；角色頁、場景卡頁有草稿卡；每格的字不重複', async ({
+    page,
+  }, testInfo) => {
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    const result = await plan(page, STORY)
+    if (!result.ok) throw new Error(result.error.userMessage)
+    const listed = await page.evaluate(() => window.svs.invoke('shots.list', {}))
+    if (!listed.ok) throw new Error(listed.error.userMessage)
+    const shots = listed.data.shots
+    // 每一格的字不重複
+    const texts = (pick: (s: (typeof shots)[number]) => string) =>
+      shots.map(pick).filter((x) => x !== '')
+    for (const list of [
+      texts((s) => s.description),
+      texts((s) => s.dialogue),
+      texts((s) => s.card?.text ?? ''),
+    ]) {
+      expect(new Set(list).size).toBe(list.length)
+    }
+    // 草稿卡：1～2 個角色、1～2 個地點
+    const chars = await page.evaluate(() => window.svs.invoke('characters.list', {}))
+    const outline = await page.evaluate(() => window.svs.invoke('outline.get', {}))
+    if (!chars.ok || !outline.ok) throw new Error('讀不到角色或地點')
+    expect(chars.data.characters.map((c) => c.name).sort()).toEqual(['小葉', '老鐘'])
+    expect(outline.data.locations.map((l) => l.name).sort()).toEqual(['斷橋', '河岸'])
+
+    // 分鏡表：出場角色與地點兩欄看得到名字（表很寬，捲到右邊）
+    await page.getByRole('button', { name: '分鏡表' }).click()
+    await expect(page.getByTestId('shot-row')).toHaveCount(shots.length)
+    await expect(page.getByRole('button', { name: '預告片', exact: true }).first()).toBeVisible()
+    await page.getByTestId('storyboard-table').evaluate((el) => {
+      el.parentElement?.scrollTo({ left: el.parentElement.scrollWidth })
+    })
+    const row = page.getByTestId('shot-row').first()
+    await expect(row.getByTestId('cell-characters')).toHaveValue('小葉')
+    await expect(row.getByTestId('cell-location')).toHaveAttribute('title', '斷橋')
+    await page.screenshot({ path: testInfo.outputPath('storyboard-characters-places.png') })
+
+    // 角色頁與場景卡頁：有草稿卡
+    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await expect(page.getByText('小葉').first()).toBeVisible()
+    await expect(page.getByText('老鐘').first()).toBeVisible()
+    await page.screenshot({ path: testInfo.outputPath('characters-page.png') })
+    await page.getByRole('button', { name: '場景卡', exact: true }).click()
+    await expect(page.getByText('斷橋').first()).toBeVisible()
+    await expect(page.getByText('河岸').first()).toBeVisible()
+    await page.screenshot({ path: testInfo.outputPath('locations-page.png') })
+  })
+
   test('貼一段故事 → 寫腳本：預設 30 秒；畫布長出「預告片」場與鏡頭；分鏡表看得到腳本；加總 30.0／目標 30', async ({
     page,
   }, testInfo) => {
