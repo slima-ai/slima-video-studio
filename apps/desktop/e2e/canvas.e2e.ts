@@ -226,7 +226,7 @@ test.describe('畫布首頁（示範模式）', () => {
   }) => {
     const root = await page.getByTestId('canvas-root').boundingBox()
     if (!root) throw new Error('沒有畫布')
-    // 空畫布中央有三張起點卡片：雙擊它們上方的空白處
+    // 空畫布中央有四張起點卡片：雙擊它們上方的空白處
     const at = { x: root.x + root.width - 300, y: root.y + 130 }
     await page.mouse.dblclick(at.x, at.y)
     await expect(page.getByTestId('add-menu')).toBeVisible()

@@ -95,7 +95,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
   return (
     <section
       data-testid="trailer-start"
-      className="flex w-[264px] flex-col gap-2.5 rounded-2xl border border-border bg-surface-raised p-5 shadow-panel"
+      className="pointer-events-auto flex w-[264px] flex-col gap-2.5 rounded-2xl border border-border bg-surface-raised p-5 shadow-panel"
     >
       <h3 className="flex items-center gap-2 text-base font-semibold">
         <Clapperboard className="size-4 text-accent" aria-hidden />

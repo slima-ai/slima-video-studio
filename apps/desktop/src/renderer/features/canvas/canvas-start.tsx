@@ -25,7 +25,7 @@ function StartCard({
   children: ReactNode
 }) {
   return (
-    <section className="flex w-[264px] flex-col gap-2.5 rounded-2xl border border-border bg-surface-raised p-5 shadow-panel">
+    <section className="pointer-events-auto flex w-[264px] flex-col gap-2.5 rounded-2xl border border-border bg-surface-raised p-5 shadow-panel">
       <h3 className="flex items-center gap-2 text-base font-semibold">
         {icon}
         {title}
@@ -64,7 +64,8 @@ export function StartCards({
       data-testid="canvas-empty"
       className="pointer-events-none absolute inset-0 z-10 flex overflow-auto pl-[264px]"
     >
-      <div className="pointer-events-auto m-auto flex flex-col items-center gap-4 pb-4 pt-16">
+      {/* 只有卡片本身接收滑鼠；卡片旁邊的空白讓給畫布（雙擊新增、右下角的按鈕點得到） */}
+      <div className="m-auto flex flex-col items-center gap-4 pb-4 pt-16">
         <div className="flex flex-col items-center gap-1 text-center">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Mascot size={32} mood="idle" />
