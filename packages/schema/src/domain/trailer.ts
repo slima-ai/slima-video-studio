@@ -20,6 +20,19 @@ export type BeatKind = z.infer<typeof BeatKindSchema>
 /** 本機格子（靜態鏡頭、字卡、片名卡）的影片版本記的「模型」：在這台電腦上做，不花錢。 */
 export const LOCAL_STILL_MODEL = 'local-still'
 export const LOCAL_CARD_MODEL = 'local-card'
+/**
+ * 示範模式的記號：文本裡有這段字，假腳本就故意寫壞（第一格是字卡，程式修不了），
+ * 讓示範模式看得到「檢查器擋下、專案沒被改」的畫面。
+ */
+export const DEMO_BAD_SCRIPT_MARK = '【腳本不合格】'
+
+/** 寫腳本的使用者訊息裡的固定字樣（示範模式的假腳本靠它認出請求、讀出旁白開關）。 */
+export const TRAILER_REQUEST_MARK = '請寫預告片腳本'
+export const TRAILER_NARRATION_OFF_MARK = '旁白：關'
+
+/** 秒數顯示用：最多兩位小數（腳本的秒數是 1/24 秒的整數倍，例如 2.0833…，畫面上寫 2.08）。 */
+export const secLabel = (sec: number): string => String(Math.round(sec * 100) / 100)
+
 /** 格子種類的白話名稱（卡片、面板、分鏡表都用同一組字）。 */
 export const beatKindLabel = (kind: BeatKind): string =>
   kind === 'still'
@@ -108,6 +121,10 @@ export const TrailerSettingsSchema = z.object({
   music: z.boolean().default(true),
   /** 配樂情緒（自由文字，例如「緊張、壓迫」）。 */
   musicMood: LineSchema.default(''),
+  /** 腳本附的配樂說明（有時間碼：開場留白、推進、片名前靜音、重音收尾）；寫腳本時產生，T6 做配樂時用。 */
+  musicBrief: z.string().trim().max(2000).default(''),
+  /** 腳本所在的場（寫腳本時建的「預告片」場）；重新寫腳本時取代這個場的鏡頭，其他鏡頭不動。 */
+  sceneId: z.string().min(1).optional(),
   /**
    * 使用者自己提供的推薦語、獎項、銷量、名人背書的原文。字卡與旁白提到這類說法時，只能是這裡（或標語、片尾那一行）的原文
    * （規則 11：不編造）。
@@ -128,6 +145,8 @@ export const TrailerSettingsPatchSchema = z.object({
   narration: z.boolean().optional(),
   music: z.boolean().optional(),
   musicMood: LineSchema.optional(),
+  musicBrief: z.string().trim().max(2000).optional(),
+  sceneId: z.string().min(1).nullable().optional(),
   claims: ClaimsSchema.optional(),
 })
 export type TrailerSettingsPatch = z.infer<typeof TrailerSettingsPatchSchema>

@@ -49,4 +49,16 @@ export const trailer = {
   'trailer.lengthOverMax':
     '這一格要 {want} 秒，但現在的影片模型一支最多 {max} 秒：影片只會有 {max} 秒，比格長短。請把這一格拆成兩格，或換一個模型。',
   'trailer.runOverMax': '{no}：要 {want} 秒，超過影片模型的上限 {max} 秒，影片只會有 {max} 秒。',
+  'trailer.fixCardCut': '第 {n} 格的字卡太長，已截短。',
+  'trailer.fixNarrationRemoved': '第 {n} 格的旁白拿掉了（這一支不要旁白，或這一格不是畫面）。',
+  'trailer.fixNarrationCut': '第 {n} 格的旁白太長，已截短成一句。',
+  'trailer.fixFirstShortened': '第一格縮短到 4 秒。',
+  'trailer.fixLengthFitted': '各格秒數已調整，加總剛好是 {target} 秒。',
+  'trailer.scriptRejected':
+    '寫出來的腳本沒有通過檢查，專案沒有被改。{problems} 請再試一次，或把文本縮短一點。',
+  'trailer.sceneTitle': '預告片',
+  'trailer.noScript': '還沒有預告片腳本。請先寫腳本。',
+  'trailer.refitImpossible':
+    '目標太短：字卡與片名卡的最短停留秒數加起來就超過了，放不下。請把目標拉長，或拿掉幾張字卡。',
+  'trailer.noTextModel': '現在沒有可用的文字模型，沒辦法寫腳本。請到設定選一個文字模型。',
 } as const

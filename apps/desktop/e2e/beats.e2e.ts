@@ -92,6 +92,12 @@ test.describe('預告片的格子：會動、不動、字卡（示範模式）',
       expect(done.ok).toBe(true)
     }
 
+    // 畫布跟著資料更新要一點時間（毫秒級）：等三個鏡頭都畫出來再操作
+    await expect
+      .poll(async () => (await canvasNodes(page)).filter((n) => n.data.kind === 'shot').length, {
+        timeout: 20000,
+      })
+      .toBe(3)
     // 第 2 鏡選「不動」、第 3 鏡選「字卡」並填字（都在鏡頭面板，只存檔不生成）
     await openShot(page, 2)
     await pick(page, 'shot-beat', 'still')

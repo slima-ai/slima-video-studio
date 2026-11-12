@@ -14,6 +14,11 @@ const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 /** 每個 channel 一組合法的呼叫參數。新增 channel 時這裡一定要補，否則下面的測試會失敗。 */
 const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'app.ping': [{ message: 'hi' }],
+  'trailer.get': [{}],
+  'trailer.check': [{}],
+  'trailer.plan': [{ text: '一個故事' }],
+  'trailer.update': [{ patch: {} }],
+  'trailer.status': [{}],
   'app.locale': [{}],
   'app.getInfo': [{}],
   'project.create': [{ dir: '/nonexistent/dir/x.svsproj', name: 'x' }],

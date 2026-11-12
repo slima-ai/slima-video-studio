@@ -60,6 +60,21 @@ describe('畫布：預告片格子的標記與節點', () => {
   })
 })
 
+describe('畫布：腳本的秒數（1/24 秒的整數倍）顯示成兩位小數', () => {
+  it('2.0833… 秒寫成 2.08；整數秒、2.5 秒照舊', () => {
+    const h = setup()
+    const a = h.shots.create({})
+    const b = h.shots.create({})
+    const c = h.shots.create({})
+    h.shots.update(a.id, { durationSec: 50 / 24 })
+    h.shots.update(b.id, { durationSec: 2.5 })
+    h.shots.update(c.id, { durationSec: 3 })
+    expect(nodeOf(h, `shot:${a.id}`)?.meta).toBe('中景・平視・2.08 秒')
+    expect(nodeOf(h, `shot:${b.id}`)?.meta).toBe('中景・平視・2.5 秒')
+    expect(nodeOf(h, `shot:${c.id}`)?.meta).toBe('中景・平視・3 秒')
+  })
+})
+
 describe('畫布：執行前的確認（本機的格子寫明不花錢）', () => {
   it('「生成空的」：一般鏡頭列首幀與影片、不動的畫面、字卡各一行；不動與字卡不花錢', () => {
     const h = setup()

@@ -10,6 +10,7 @@ import {
   beatKindLabel,
   formatDate,
   isLocalModel,
+  secLabel,
   t,
   type BeatKind,
 } from '@svs/schema'
@@ -189,7 +190,7 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
               value={String(draft.durationSec)}
               options={durations.map((n) => ({
                 value: String(n),
-                label: t('shots.sec', { value: String(n) }),
+                label: t('shots.sec', { value: secLabel(n) }),
               }))}
               onChange={(value) => {
                 set({ durationSec: Number(value) })

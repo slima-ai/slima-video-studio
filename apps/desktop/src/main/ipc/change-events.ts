@@ -32,6 +32,9 @@ export const CHANGE_EVENTS: Partial<Record<IpcChannel, readonly DataEvent[]>> = 
   'outline.edit': ['outline.changed', 'locations.changed'],
   'outline.split': ALL,
   'storyboard.splitScene': ['outline.changed'],
+  // 寫腳本會建場、鏡頭、角色草稿卡，整個動作可以復原
+  'trailer.plan': ALL,
+  'trailer.update': ['outline.changed'],
   'shots.assignScene': ALL,
   'canvas.add': ALL,
   'canvas.remove': ALL,

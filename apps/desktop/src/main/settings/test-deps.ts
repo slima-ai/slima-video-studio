@@ -170,6 +170,7 @@ export function testSettingsDeps(
         throw new Error('測試用的鏡頭服務沒有流程')
       },
       replaceSceneShots: () => ({ shots: [] }),
+      placeTrailerBeats: () => ({ shots: [] }),
       update: () => {
         throw new Error('測試用的鏡頭服務不能修改')
       },
