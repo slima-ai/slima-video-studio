@@ -174,6 +174,74 @@ describe('trailer.plan：示範模式（假腳本）', () => {
   })
 })
 
+describe('trailer.plan：角色與地點的草稿卡', () => {
+  it('建角色與地點草稿卡，鏡頭掛上地點與角色名字；字卡與片名卡沒有地點', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    const places = h.outline.get().locations
+    expect(places.map((l) => l.name).sort()).toEqual(['斷橋', '河岸'])
+    expect(
+      h.characters
+        .list()
+        .map((c) => c.name)
+        .sort(),
+    ).toEqual(['小葉', '老鐘'])
+    const shots = h.shots.list().shots
+    const pictures = shots.filter(
+      (s) => (s.beatKind ?? 'video') === 'video' || s.beatKind === 'still',
+    )
+    expect(pictures.every((s) => s.characters.length >= 1)).toBe(true)
+    expect(pictures.every((s) => s.locationId !== undefined)).toBe(true)
+    expect(
+      shots
+        .filter((s) => s.beatKind === 'card' || s.beatKind === 'title')
+        .every((s) => s.locationId === undefined),
+    ).toBe(true)
+  })
+
+  it('名字跟既有的場景卡一樣：用既有的那張，不重複建（再寫一次也不會越建越多）', async () => {
+    const h = setup()
+    h.shots.create({})
+    h.outline.edit({ op: 'addLocation' })
+    const created = h.outline.get().locations[0]
+    if (!created) throw new Error('沒有建出地點')
+    h.outline.edit({
+      op: 'updateLocation',
+      locationId: created.id,
+      patch: { name: '斷橋', description: '我自己的斷橋' },
+    })
+    const before = h.outline.get().locations.find((l) => l.name === '斷橋')
+    await h.trailer.plan({ text: STORY })
+    await h.trailer.plan({ text: STORY })
+    const places = h.outline.get().locations
+    expect(places.filter((l) => l.name === '斷橋')).toHaveLength(1)
+    expect(places.find((l) => l.name === '斷橋')?.description).toBe('我自己的斷橋')
+    expect(places.map((l) => l.name).sort()).toEqual(['斷橋', '河岸'])
+    const onBridge = h.shots.list().shots.filter((s) => s.locationId === before?.id)
+    expect(onBridge.length).toBeGreaterThan(0)
+  })
+
+  it('復原：地點與角色草稿卡一起退回', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    h.history.undo()
+    expect(h.outline.get().locations).toEqual([])
+    expect(h.characters.list()).toEqual([])
+  })
+
+  it('寫腳本的提示帶著既有的場景卡名字（要求沿用）', async () => {
+    const llm = scripted(good(30))
+    const h = setup({ mockLlm: llm.llm })
+    h.shots.create({})
+    h.outline.edit({ op: 'addLocation' })
+    const made = h.outline.get().locations[0]
+    if (!made) throw new Error('沒有建出地點')
+    h.outline.edit({ op: 'updateLocation', locationId: made.id, patch: { name: '舊車站' } })
+    await h.trailer.plan({ text: STORY })
+    expect(llm.calls[0]?.system).toContain('舊車站')
+  })
+})
+
 describe('trailer.plan：檢查器接在寫腳本後面', () => {
   it('加總差 2 秒：退回重寫一次（還是差）→ 程式修正，最後加總剛好', async () => {
     const llm = scripted(

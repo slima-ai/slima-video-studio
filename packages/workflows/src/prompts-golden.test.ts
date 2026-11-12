@@ -47,11 +47,11 @@ const sha = (value: unknown): string =>
  */
 const GOLDEN: Record<string, string> = {
   '寫預告片腳本 system prompt：劇情型 30 秒、中文故事、有旁白':
-    '40ffae495c327ce7ada657c1544d223eca342c39ed1086501db19b8c427574d9',
+    '44af993187e01c2a0967a198d798e0ef583e129e1a5c4a331fcbf6228b7d6e60',
   '寫預告片腳本 system prompt：懸念短版 15 秒、不要旁白':
-    '90f4a521181263cc796e16e88ef39fe2a60306984eb7a9e600e00584c64d4b46',
+    'b214356b991e45c3ebe65318506139f07d3626f7e92d9edf6b73b70b74928adb',
   '寫預告片腳本 system prompt：英文故事（多一句用故事的語言寫）':
-    '3ea2604aa4307bdca6b778d9199be2998cf1df6914209f083e7958fceab7a523',
+    '6762ffb22fd980b3d73dc5aa51e674cffc7bff690fea9b41b477b4f827c569e3',
   寫預告片腳本的使用者訊息: '918dcf011f5ea370bb4484e2a76a9d8c91d41caaad9fd226aa19b831b49fe6ba',
   'shot：簡單': '6d959f112edf28ef834b0e681ec0361162b6dbd85041f1a505d2e53bfca4ec5f',
   'shot：角色、氣氛、外觀、場景':
@@ -175,6 +175,7 @@ const OUTPUTS: Record<string, () => unknown> = {
       settings: TrailerSettingsSchema.parse({ title: '黑藤裂谷', tagline: '有些光，要守著' }),
       guide: DEFAULT_TRAILER_GUIDE,
       knownCharacters: ['阿鐵'],
+      knownLocations: ['斷橋', '河岸'],
       style: 'realistic',
     }),
   '寫預告片腳本 system prompt：懸念短版 15 秒、不要旁白': () =>

@@ -214,6 +214,7 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
           settings: merged,
           guide: defaultTrailerGuide(),
           knownCharacters: handle.repos.characters.list().map((c) => c.name),
+          knownLocations: handle.repos.outline.listLocations().map((l) => l.name),
           style: toStyle(handle.repos.projects.get().defaultStyleId),
         },
         { signal: new AbortController().signal },
@@ -241,6 +242,19 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
             outline.addAct({ title: t('services.act', { value: String(1) }) })
           sceneId = outline.addScene(act.id, { title: t('trailer.sceneTitle') }).id
         }
+        // 地點：名字跟既有的場景卡一樣（不分大小寫、頭尾空白）就用既有的那張，沒有才建草稿卡
+        const placeIds = new Map<string, string>()
+        const placeOf = (name: string, hint: string): string | undefined => {
+          const key = name.trim().toLowerCase()
+          if (key === '') return undefined
+          const known = placeIds.get(key)
+          if (known !== undefined) return known
+          const existing = outline.listLocations().find((l) => l.name.trim().toLowerCase() === key)
+          const id =
+            existing?.id ?? outline.addLocation({ name: name.trim(), description: hint }).id
+          placeIds.set(key, id)
+          return id
+        }
         const beats: TrailerBeatInput[] = written.script.beats.map((beat) => ({
           beatKind: beat.beatKind,
           durationSec: beat.durationSec,
@@ -259,6 +273,9 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
           angle: beat.angle,
           cameraMove: beat.cameraMove,
           characters: beat.characters,
+          ...(beat.beatKind === 'video' || beat.beatKind === 'still'
+            ? { locationId: placeOf(beat.location, beat.description.trim()) }
+            : {}),
           dialogue:
             merged.narration && (beat.beatKind === 'video' || beat.beatKind === 'still')
               ? beat.dialogue.trim()

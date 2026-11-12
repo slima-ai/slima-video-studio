@@ -66,6 +66,8 @@ export function trailerSystemPrompt(input: {
   settings: TrailerSettings
   guide: string
   knownCharacters: readonly string[]
+  /** 已經建好的場景卡名字：同一個地方要用一模一樣的名字（沿用既有的卡）。 */
+  knownLocations?: readonly string[]
   style: QuickStyleId
 }): string {
   const { settings } = input
@@ -100,6 +102,10 @@ export function trailerSystemPrompt(input: {
     (input.knownCharacters.length > 0
       ? `已經建好的角色有：${input.knownCharacters.join('、')}。出現這些角色時，characters 一定要用一模一樣的名字。`
       : '同一個角色在不同格子用同一個名字。') +
+    `location 欄位：這一格發生的地點名字（短，例如「斷橋」「河岸」），整支用 1 到 3 個地點，同一個地方每次用同一個名字；字卡與片名卡留空。` +
+    ((input.knownLocations ?? []).length > 0
+      ? `已經建好的場景卡有：${(input.knownLocations ?? []).join('、')}。發生在這些地方時，location 一定要用一模一樣的名字。`
+      : '') +
     `music 欄位：一段配樂說明，照腳本的時間寫成有時間碼的描述（開場留白、推進、片名前的短暫靜音、重音收尾），純音樂、不要人聲。` +
     `title 欄位：書名${settings.title ? '（使用者已提供，照寫）' : '（使用者沒提供，從文本取）'}。` +
     (given.length > 0 ? `使用者提供的資訊：${given.join('；')}。` : '') +
@@ -292,6 +298,7 @@ export interface WriteTrailerInput {
   settings: TrailerSettings
   guide: string
   knownCharacters: readonly string[]
+  knownLocations?: readonly string[]
   style: QuickStyleId
 }
 

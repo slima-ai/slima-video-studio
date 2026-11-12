@@ -25,6 +25,7 @@ const beat = (extra: Record<string, unknown> = {}) => ({
   angle: 'eye_level' as const,
   cameraMove: null,
   characters: [],
+  location: '',
   dialogue: '',
   cardText: '',
   cardSubtext: '',
