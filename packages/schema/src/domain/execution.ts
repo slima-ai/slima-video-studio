@@ -106,6 +106,12 @@ export const JobSchema = z.object({
 export type Job = z.infer<typeof JobSchema>
 
 /** 花費帳本。優先用供應商回傳的金額，沒有時用估算值並標記 estimated。 */
+/**
+ * 花費紀錄的 runId：這筆錢不是這個專案花的，是之前沒做成的呼叫（例如寫預告片腳本失敗、剛建的空專案被刪掉）
+ * 留在 App 層帳本，由「下一個建出來的專案」移進自己的帳本時用的標記。
+ */
+export const CARRIED_OVER_RUN_ID = 'carried-over'
+
 export const CostEntrySchema = z.object({
   id: IdSchema,
   projectId: IdSchema,

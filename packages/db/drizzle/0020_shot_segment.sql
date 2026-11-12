@@ -1,0 +1,1 @@
+ALTER TABLE `shots` ADD `beat_segment` text;

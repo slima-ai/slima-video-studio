@@ -57,6 +57,8 @@ export const projects = {
   'projects.realAiNoKeyYet': '真的 AI・還沒填金鑰',
   'projects.realAi': '真的 AI',
   'projects.whatThisProjectHasCost': '這個專案到目前為止花的錢（示範模式不花錢）',
+  'projects.whatThisProjectHasCostWithLeftover':
+    '這個專案到目前為止花的錢（示範模式不花錢）。含之前沒寫成的腳本 US${usd}。',
   'projects.spent': '已花',
   'projects.newProjectName': '專案的新名字',
   'projects.project': '專案',

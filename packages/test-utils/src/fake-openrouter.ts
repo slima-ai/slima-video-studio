@@ -98,8 +98,8 @@ function lastUserText(body: Record<string, unknown>): string {
     : ''
 }
 
-function chatResponse(body: Record<string, unknown>): unknown {
-  const usage = { prompt_tokens: 120, completion_tokens: 80, cost: 0.002 }
+function chatResponse(body: Record<string, unknown>, chatCostUsd: number): unknown {
+  const usage = { prompt_tokens: 120, completion_tokens: 80, cost: chatCostUsd }
   const modalities: unknown = body.modalities
   if (Array.isArray(modalities) && modalities.includes('image')) {
     const png = makePng({ width: 64, height: 36, color: [90, 70, 160] }).toString('base64')
@@ -168,7 +168,13 @@ function imagesResponse(body: Record<string, unknown>): unknown {
  * 只能證明接線與流程對；回應長相是依 OpenRouter 文件與 client 的 Zod schema 寫的，真實 API 是不是這樣，
  * 還是要真的 Key 才驗得到。
  */
-export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
+export async function startFakeOpenRouter(
+  options: {
+    /** 每次文字請求（拆鏡、寫腳本）回報的花費（美元）；預設 0.002。測「花了錢」的畫面時調大，免得被四捨五入成 0。 */
+    chatCostUsd?: number
+  } = {},
+): Promise<FakeOpenRouter> {
+  const chatCostUsd = options.chatCostUsd ?? 0.002
   const requests: RecordedRequest[] = []
   const videoPolls = new Map<string, number>()
   let nextJob = 1
@@ -203,7 +209,7 @@ export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
           sendJson(res, 501, { error: { code: 501, message: '假伺服器不支援串流' } })
           return
         }
-        sendJson(res, 200, chatResponse(isRecord(body) ? body : {}))
+        sendJson(res, 200, chatResponse(isRecord(body) ? body : {}, chatCostUsd))
       } else if (method === 'POST' && path === '/audio/speech') {
         // 不是真的音訊（只有 mp3 的開頭標記），只證明旁白這條路接通；沒給 voice 照真的 API 回 400
         if (!isRecord(body) || typeof body.voice !== 'string' || body.voice === '') {

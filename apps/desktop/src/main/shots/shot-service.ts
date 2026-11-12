@@ -111,6 +111,8 @@ export interface TrailerBeatInput {
   locationId?: string | undefined
   dialogue: string
   card?: { text: string; subtext: string } | undefined
+  /** 這一格屬於模板的哪一段（存進專案，之後的節奏檢查才認得「懸念」那一格）。 */
+  segment?: string | undefined
 }
 
 export interface ShotServiceDeps {
@@ -1927,6 +1929,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         inCut: source.inCut,
         beatKind: source.beatKind,
         ...(source.card === undefined ? {} : { card: source.card }),
+        ...(source.segment === undefined ? {} : { segment: source.segment }),
         ...(source.prompt === undefined ? {} : { prompt: source.prompt }),
         ...(source.locationId === undefined ? {} : { locationId: source.locationId }),
         ...(source.lighting === undefined ? {} : { lighting: source.lighting }),
@@ -2131,6 +2134,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           dialogue: beat.dialogue,
           ...(beat.locationId ? { locationId: beat.locationId } : {}),
           ...(beat.card ? { card: beat.card } : {}),
+          ...(beat.segment ? { segment: beat.segment } : {}),
         }),
       )
       const ids = rest.map((x) => x.id)

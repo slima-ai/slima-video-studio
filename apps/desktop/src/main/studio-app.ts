@@ -34,12 +34,15 @@ import { createSettingsService, type SettingsService } from './settings/model-se
 import type { SettingsStore } from './settings/settings-store'
 import { createShotService, type ShotService } from './shots/shot-service'
 import { createStoryboardService, type StoryboardService } from './storyboard/storyboard-service'
+import { createAppLedger, type AppSpendLedger } from './costs/app-ledger'
 import { createTrailerService, type TrailerService } from './trailer/trailer-service'
 
 export interface StudioAppOptions {
   projects: ProjectManager
   keys: KeyVault
   settings: SettingsStore
+  /** App 層的花費帳本（花了錢、專案卻已經不在的那些）；要跟 ProjectManager 用同一個。沒給就只放記憶體。 */
+  appLedger?: AppSpendLedger
   /** 沒給就載入內建的 ModelCard。 */
   models?: ModelRegistry
   broadcast: Broadcast
@@ -113,6 +116,7 @@ export interface StudioApp {
  */
 export function createStudioApp(options: StudioAppOptions): StudioApp {
   const { projects, keys, settings, broadcast, log } = options
+  const appLedger = options.appLedger ?? createAppLedger({})
   const models = options.models ?? new ModelRegistry(loadBuiltinModelCards())
   const settingsService = createSettingsService({
     store: settings,
@@ -282,6 +286,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
   const trailer = createTrailerService({
     projects,
     projectsDir: options.projectsDir,
+    appLedger,
     runtime,
     settings,
     settingsService,
