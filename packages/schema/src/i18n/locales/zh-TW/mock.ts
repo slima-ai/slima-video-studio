@@ -61,4 +61,7 @@ export const mock = {
   'mock.trailerLine6': '一切從今夜起',
   'mock.trailerLine7': '沒有人知道',
   'mock.trailerLine8': '還有一個秘密',
+  'mock.trailerPlaceLook1':
+    '一座爬滿黑藤的舊石橋，石面潮濕發亮，只有一盞燈懸在橋中央，四周是低低的霧',
+  'mock.trailerPlaceLook2': '長滿蘆葦的河岸，泥土鬆軟，水面映著灰藍色的天光，風很輕',
 } as const

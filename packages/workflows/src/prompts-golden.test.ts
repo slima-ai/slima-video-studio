@@ -31,7 +31,7 @@ import {
   referenceNoteOf,
 } from './nodes'
 import { QUICK_STYLES } from './styles'
-import { trailerSystemPrompt, trailerUserMessage } from './trailer'
+import { PLACE_LOOK_INSTRUCTION, trailerSystemPrompt, trailerUserMessage } from './trailer'
 
 const sha = (value: unknown): string =>
   createHash('sha256')
@@ -46,12 +46,14 @@ const sha = (value: unknown): string =>
  * （另有 4 個 system prompt 的雜湊在 apps/desktop/src/main/story-language-prompts.test.ts。）
  */
 const GOLDEN: Record<string, string> = {
+  '寫預告片腳本：地點外觀的要求（只寫地方本身，不寫人與動作）':
+    '88c94e7aa1f05905d82ba240a14417b1de7c6760c62ae95761af3ef1324f9fed',
   '寫預告片腳本 system prompt：劇情型 30 秒、中文故事、有旁白':
-    '44af993187e01c2a0967a198d798e0ef583e129e1a5c4a331fcbf6228b7d6e60',
+    '165ce9985119dcb178aec5897a4091a7b5f99e4b48cf8a5de21a6451867cf472',
   '寫預告片腳本 system prompt：懸念短版 15 秒、不要旁白':
-    'b214356b991e45c3ebe65318506139f07d3626f7e92d9edf6b73b70b74928adb',
+    '1e72f13a56fea4d8a544280bc0cff2a37e63f4d5f3887c77c9702a953c2a321f',
   '寫預告片腳本 system prompt：英文故事（多一句用故事的語言寫）':
-    '6762ffb22fd980b3d73dc5aa51e674cffc7bff690fea9b41b477b4f827c569e3',
+    '5c68bbbebdc143ff2dab35225a2f802b9a32250d8dd8a3fa490d3efda2d7447d',
   寫預告片腳本的使用者訊息: '918dcf011f5ea370bb4484e2a76a9d8c91d41caaad9fd226aa19b831b49fe6ba',
   'shot：簡單': '6d959f112edf28ef834b0e681ec0361162b6dbd85041f1a505d2e53bfca4ec5f',
   'shot：角色、氣氛、外觀、場景':
@@ -194,6 +196,7 @@ const OUTPUTS: Record<string, () => unknown> = {
       knownCharacters: [],
       style: 'realistic',
     }),
+  '寫預告片腳本：地點外觀的要求（只寫地方本身，不寫人與動作）': () => PLACE_LOOK_INSTRUCTION,
   寫預告片腳本的使用者訊息: () =>
     trailerUserMessage('黑藤爬滿了斷橋。', TrailerSettingsSchema.parse({ targetSec: 45 })),
 }

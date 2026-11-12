@@ -30,11 +30,20 @@ export const TrailerScriptBeatSchema = z.object({
 })
 export type TrailerScriptBeat = z.infer<typeof TrailerScriptBeatSchema>
 
+/** 腳本裡一個地點的外觀：只寫地方本身（材質、光、氣氛），不寫人、不寫動作。 */
+export const TrailerPlaceSchema = z.object({
+  name: z.string(),
+  look: z.string().default(''),
+})
+export type TrailerPlace = z.infer<typeof TrailerPlaceSchema>
+
 export const TrailerScriptSchema = z.object({
   /** 書名（使用者沒給時由 AI 從文本取）。 */
   title: z.string().default(''),
   /** 配樂說明：照腳本的時間寫成有時間碼的描述，純音樂、不要人聲。 */
   music: z.string().default(''),
+  /** 每個用到的地點的外觀描述（場景卡的說明用）；沒寫的地點，場景卡的說明留空。 */
+  places: z.array(TrailerPlaceSchema).default([]),
   beats: z.array(TrailerScriptBeatSchema).min(1).max(40),
 })
 export type TrailerScript = z.infer<typeof TrailerScriptSchema>

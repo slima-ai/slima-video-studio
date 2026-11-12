@@ -64,4 +64,8 @@ export const mock = {
   'mock.trailerLine6': 'It starts tonight',
   'mock.trailerLine7': 'No one knows',
   'mock.trailerLine8': 'One secret remains',
+  'mock.trailerPlaceLook1':
+    'An old stone bridge covered in black vines, the stone wet and gleaming, one lamp hanging at its centre, low mist all around',
+  'mock.trailerPlaceLook2':
+    'A reed-lined riverbank with soft mud, the water reflecting a grey-blue sky, the air barely moving',
 } as const

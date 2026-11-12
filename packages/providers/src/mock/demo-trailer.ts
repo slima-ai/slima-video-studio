@@ -217,6 +217,10 @@ export function demoTrailerScript(request: LlmRequest): unknown {
   return {
     title: story === '' ? t('mock.trailerTitle') : cut(clauses[0] ?? t('mock.trailerTitle'), 16),
     music: t('mock.trailerMusic'),
+    places: [
+      { name: places[0] ?? '', look: t('mock.trailerPlaceLook1') },
+      { name: places[1] ?? '', look: t('mock.trailerPlaceLook2') },
+    ],
     beats: out,
   }
 }

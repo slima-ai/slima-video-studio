@@ -36,6 +36,13 @@ import { generateStructured } from './structured'
 // 流程：AI 寫 → 檢查器檢查 → 有錯就把錯誤退回重寫一次 → 還有錯就用程式修正（截字、調秒數）→ 再檢查，還不過就丟白話錯誤。
 // 不管走哪條路，回傳的腳本加總一定等於目標（過不了就不回傳）。
 
+/**
+ * 地點外觀的要求（寫進 system prompt；用雜湊釘住）。場景卡的說明會帶進發生在這個地點的每一鏡，
+ * 所以只能寫地方本身：寫了人或動作，每一鏡都會多出那個人在做那件事。
+ */
+export const PLACE_LOOK_INSTRUCTION =
+  'places 欄位：location 裡用到的每個地點各寫一筆 { name, look }，name 跟 location 一模一樣；look 是這個地方本身的外觀（材質、光線、氣氛，一兩句），絕對不要寫人、角色、動作或正在發生的事，也不要寫畫面裡的文字。'
+
 const SEGMENT_NAMES: Readonly<Record<string, string>> = {
   hook: '鉤子（全片最強的畫面，第一格不放字卡）',
   world: '世界與主角（誰、在哪裡、平常的樣子）',
@@ -103,6 +110,7 @@ export function trailerSystemPrompt(input: {
       ? `已經建好的角色有：${input.knownCharacters.join('、')}。出現這些角色時，characters 一定要用一模一樣的名字。`
       : '同一個角色在不同格子用同一個名字。') +
     `location 欄位：這一格發生的地點名字（短，例如「斷橋」「河岸」），整支用 1 到 3 個地點，同一個地方每次用同一個名字；字卡與片名卡留空。` +
+    PLACE_LOOK_INSTRUCTION +
     ((input.knownLocations ?? []).length > 0
       ? `已經建好的場景卡有：${(input.knownLocations ?? []).join('、')}。發生在這些地方時，location 一定要用一模一樣的名字。`
       : '') +

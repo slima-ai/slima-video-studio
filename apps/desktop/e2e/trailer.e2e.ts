@@ -66,6 +66,12 @@ test.describe('預告片：寫腳本（示範模式，假腳本，不花錢）',
     await page.getByRole('button', { name: '場景卡', exact: true }).click()
     await expect(page.getByText('斷橋').first()).toBeVisible()
     await expect(page.getByText('河岸').first()).toBeVisible()
+    // 場景卡的「故事裡的說明」只寫地方本身：沒有角色名字、沒有人的動作
+    const note = page.getByText(/^故事裡的說明：/).first()
+    await expect(note).toContainText('黑藤')
+    await expect(note).not.toContainText('小葉')
+    await expect(note).not.toContainText('老鐘')
+    await expect(note).not.toContainText('她')
     await page.screenshot({ path: testInfo.outputPath('locations-page.png') })
   })
 

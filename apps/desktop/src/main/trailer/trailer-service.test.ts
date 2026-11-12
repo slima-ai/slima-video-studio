@@ -221,6 +221,48 @@ describe('trailer.plan：角色與地點的草稿卡', () => {
     expect(onBridge.length).toBeGreaterThan(0)
   })
 
+  it('地點草稿卡的說明只寫地方本身：不出現任何角色名字，也不等於任何一格的畫面描述', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    const names = h.characters.list().map((c) => c.name)
+    const descriptions = new Set(h.shots.list().shots.map((s) => s.description))
+    const places = h.outline.get().locations
+    expect(places).toHaveLength(2)
+    for (const place of places) {
+      expect(place.description).not.toBe('')
+      expect(descriptions.has(place.description)).toBe(false)
+      for (const name of names) expect(place.description).not.toContain(name)
+    }
+    expect(places.find((p) => p.name === '斷橋')?.description).toContain('橋')
+  })
+
+  it('腳本沒寫地點外觀：說明留空（不拿畫面描述來填）', async () => {
+    const llm = scripted(
+      withBeats((script) => {
+        ;(script as unknown as { places: unknown[] }).places = []
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY })
+    expect(h.outline.get().locations.map((l) => l.description)).toEqual(['', ''])
+  })
+
+  it('模型把人與動作寫進地點外觀（有角色名字、或抄了某一格的畫面描述）：當作沒寫，說明留空', async () => {
+    const llm = scripted(
+      withBeats((script) => {
+        const beats = script.beats
+        const first = beats.find((b) => b.beatKind === 'video')
+        ;(script as unknown as { places: unknown[] }).places = [
+          { name: '斷橋', look: '小葉站在橋上守著燈' },
+          { name: '河岸', look: typeof first?.description === 'string' ? first.description : '' },
+        ]
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY })
+    expect(h.outline.get().locations.map((l) => l.description)).toEqual(['', ''])
+  })
+
   it('復原：地點與角色草稿卡一起退回', async () => {
     const h = setup()
     await h.trailer.plan({ text: STORY })

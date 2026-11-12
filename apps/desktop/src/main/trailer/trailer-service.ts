@@ -242,16 +242,34 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
             outline.addAct({ title: t('services.act', { value: String(1) }) })
           sceneId = outline.addScene(act.id, { title: t('trailer.sceneTitle') }).id
         }
-        // 地點：名字跟既有的場景卡一樣（不分大小寫、頭尾空白）就用既有的那張，沒有才建草稿卡
+        // 地點：名字跟既有的場景卡一樣（不分大小寫、頭尾空白）就用既有的那張，沒有才建草稿卡。
+        // 草稿卡的說明只用腳本另外寫的「地點外觀」（只寫地方本身）；沒有就留空，不拿某一格的畫面描述來填
+        // （那句寫的是人在做什麼，鎖定場景卡後會被帶進發生在這裡的每一鏡）。外觀裡出現角色名字、或跟某一格的畫面描述
+        // 一樣，就當沒寫。
+        const peopleNames = new Set([
+          ...handle.repos.characters.list().map((c) => c.name),
+          ...written.script.beats.flatMap((b) => b.characters),
+        ])
+        const pictureTexts = new Set(written.script.beats.map((b) => b.description.trim()))
+        const lookOf = (name: string): string => {
+          const key = name.trim().toLowerCase()
+          const look =
+            written.script.places.find((p) => p.name.trim().toLowerCase() === key)?.look.trim() ??
+            ''
+          if (look === '' || pictureTexts.has(look)) return ''
+          return [...peopleNames].some((person) => person !== '' && look.includes(person))
+            ? ''
+            : look
+        }
         const placeIds = new Map<string, string>()
-        const placeOf = (name: string, hint: string): string | undefined => {
+        const placeOf = (name: string): string | undefined => {
           const key = name.trim().toLowerCase()
           if (key === '') return undefined
           const known = placeIds.get(key)
           if (known !== undefined) return known
           const existing = outline.listLocations().find((l) => l.name.trim().toLowerCase() === key)
           const id =
-            existing?.id ?? outline.addLocation({ name: name.trim(), description: hint }).id
+            existing?.id ?? outline.addLocation({ name: name.trim(), description: lookOf(name) }).id
           placeIds.set(key, id)
           return id
         }
@@ -274,7 +292,7 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
           cameraMove: beat.cameraMove,
           characters: beat.characters,
           ...(beat.beatKind === 'video' || beat.beatKind === 'still'
-            ? { locationId: placeOf(beat.location, beat.description.trim()) }
+            ? { locationId: placeOf(beat.location) }
             : {}),
           dialogue:
             merged.narration && (beat.beatKind === 'video' || beat.beatKind === 'still')
