@@ -140,6 +140,9 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
 
   if (!status?.exists) return null
   const { settings } = status
+  // 旁白念不完的格子收成一行（不一格一格列）；其他錯誤照列
+  const narrationCount = status.errors.filter((e) => e.code === 'narration_too_dense').length
+  const otherErrors = status.errors.filter((e) => e.code !== 'narration_too_dense')
   const lengths: number[] = TRAILER_LENGTHS.includes(settings.targetSec as 15)
     ? [...TRAILER_LENGTHS]
     : [...TRAILER_LENGTHS, settings.targetSec].sort((a, b) => a - b)
@@ -388,7 +391,7 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
                     <Button
                       variant="secondary"
                       data-testid="trailer-rewrite"
-                      disabled={busy !== undefined || (check !== undefined && !check.ok)}
+                      disabled={busy !== undefined || !check?.ok}
                       onClick={onRewrite}
                     >
                       {busy === 'rewrite'
@@ -406,18 +409,38 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
                 )}
               </div>
               {status.errors.length + status.warnings.length > 0 ? (
-                <ul data-testid="trailer-issues" className="flex flex-col gap-1 text-xs">
-                  {status.errors.map((issue, i) => (
-                    <li key={`e${String(i)}`} className="text-danger">
-                      {issue.message}
-                    </li>
-                  ))}
-                  {status.warnings.map((issue, i) => (
-                    <li key={`w${String(i)}`} className="text-warning">
-                      {t('trailer.panel.warningLine', { message: issue.message })}
-                    </li>
-                  ))}
-                </ul>
+                <div data-testid="trailer-issues-box" className="flex flex-col gap-2 text-xs">
+                  {narrationCount > 0 ? (
+                    // 改短長度之後常有好幾格旁白念不完：收成一行，旁邊放重寫鈕（不擋）
+                    <div
+                      data-testid="trailer-narration-summary"
+                      className="flex flex-col gap-1.5 rounded-lg border border-warning/50 bg-warning/10 p-2.5 text-warning"
+                    >
+                      <p>{t('trailer.panel.narrationTooLong', { count: narrationCount })}</p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        data-testid="trailer-narration-rewrite"
+                        disabled={busy !== undefined || source === '' || check === undefined}
+                        onClick={onRewrite}
+                      >
+                        {t('trailer.panel.narrationRewrite')}
+                      </Button>
+                    </div>
+                  ) : null}
+                  <ul data-testid="trailer-issues" className="flex flex-col gap-1">
+                    {otherErrors.map((issue, i) => (
+                      <li key={`e${String(i)}`} className="text-danger">
+                        {issue.message}
+                      </li>
+                    ))}
+                    {status.warnings.map((issue, i) => (
+                      <li key={`w${String(i)}`} className="text-warning">
+                        {t('trailer.panel.warningLine', { message: issue.message })}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
               {error !== undefined ? (
                 <p

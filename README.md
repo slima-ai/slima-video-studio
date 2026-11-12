@@ -10,7 +10,7 @@ It is **bring-your-own-key**: the app has no server and provides no models. You 
 
 ## What you can do
 
-- **Story to film on one canvas.** An empty canvas offers three ways to start: add shots one by one yourself, paste a story and let the AI split it into shots, or write one sentence (and pick a style, the number of shots and seconds per shot). With the sentence you can press **Write the storyboard first** (先產生分鏡) to write only the storyboard, look at it and fix it before generating anything, or press **Whole film in one go** (一次做完整支). The canvas grows scenes, shots, first frames, video clips and a cut.
+- **Story to film on one canvas.** An empty canvas offers four ways to start: add shots one by one yourself, paste a story and let the AI split it into shots, write one sentence (and pick a style, the number of shots and seconds per shot), or make a book trailer (paste text from the book, pick a length, and the AI writes a script whose shots add up to exactly that length). With the sentence you can press **Write the storyboard first** (先產生分鏡) to write only the storyboard, look at it and fix it before generating anything, or press **Whole film in one go** (一次做完整支). The canvas grows scenes, shots, first frames, video clips and a cut.
 - **Fix one shot, not the whole film.** Edit a shot's description or its characters and only the affected picture and clip nodes are marked **Needs a rerun** (需要重跑). Every shot keeps its versions. Next to a node's ▶ there is a small arrow with **Just this one** (只跑這個), **This one and what follows** (這個和後面的) and **The whole chain** (整條); each lists the steps and the estimated cost first.
 - **Characters and locations.** Character cards with a locked appearance description, concept images and three-view turnarounds, so the same character can be reused across shots.
 - **See the cost first.** Every run shows an estimate and asks for confirmation; a spending limit per run (**Per-run spending limit**, 單次花費上限, default US$5) protects you from surprises.
@@ -71,7 +71,7 @@ The settings page has a row of small tags at the top that jump to each area: **G
 
 ### Make a film on the canvas
 
-![The empty canvas and its three ways to start: step by step, paste a story, one sentence](docs/images/11-canvas-start.png)
+![The empty canvas and its four ways to start: step by step, paste a story, one sentence, make a trailer](docs/images/11-canvas-start.png)
 
 An empty canvas has three cards; pick whichever suits you (they are only starting points, and you can always add scenes, shots, characters and locations from **Add** (新增) on the left, or upload material with **Picture or video** (圖片或影片)):
 

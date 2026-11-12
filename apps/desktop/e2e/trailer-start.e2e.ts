@@ -41,6 +41,18 @@ const statusOf = async (page: Page) => {
   return result.data
 }
 
+const projectsOf = async (page: Page) => {
+  const result = await page.evaluate(() => window.svs.invoke('project.list', {}))
+  if (!result.ok) throw new Error(result.error.userMessage)
+  return result.data.projects.map((p) => p.dir)
+}
+
+const currentProject = async (page: Page) => {
+  const result = await page.evaluate(() => window.svs.invoke('project.current', {}))
+  if (!result.ok) throw new Error(result.error.userMessage)
+  return result.data
+}
+
 /** 匯出檔有幾格（用 ffprobe 數，不是看影片長度）。 */
 function exportedFrames(userDataDir: string): number {
   const projects = join(userDataDir, 'projects')
@@ -103,6 +115,8 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     const first = await statusOf(page)
     expect(first.scriptSec).toBeCloseTo(30, 6)
     expect(first.settings.sourceText).toBe(STORY)
+    // 示範腳本先過自己的準則：越到後面越短，沒有「後面三分之一沒比前面短」的節奏提醒
+    expect(first.warnings.map((w) => w.code)).not.toContain('no_escalation')
     await expect.poll(() => kindCount(page, 'shot')).toBe(first.beatCount)
     const scene = (await canvasNodes(page)).find((n) => n.data.kind === 'scene')
     expect(scene?.data.title).toContain('預告片')
@@ -114,6 +128,7 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     await expect(page.getByTestId('trailer-panel')).toBeVisible()
     await expect(page.getByTestId('trailer-panel-title')).toHaveValue('斷橋')
     await expect(page.getByTestId('trailer-mismatch')).toHaveCount(0)
+    await expect(page.getByTestId('trailer-panel')).not.toContainText('後面三分之一')
     await shoot(page, testInfo, '04-badge-panel.png')
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('trailer-panel')).toHaveCount(0)
@@ -141,7 +156,14 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     await pick(page, 'trailer-panel-length', '15')
     await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 15／15 秒')
     expect((await statusOf(page)).matches).toBe(true)
-    await expect(page.getByTestId('trailer-issues')).toContainText('請把這句縮短')
+    // 好幾格旁白念不完：只有一行提醒＋重寫鈕，不是一格一格列
+    await expect(page.getByTestId('trailer-narration-summary')).toHaveCount(1)
+    await expect(page.getByTestId('trailer-narration-summary')).toContainText(
+      /有 \d+ 格的旁白會念不完，建議重寫腳本/,
+    )
+    await expect(page.getByTestId('trailer-panel')).not.toContainText('這一格只有')
+    await expect(page.getByTestId('trailer-narration-rewrite')).toBeEnabled()
+    await shoot(page, testInfo, '05b-one-line-reminder.png')
     expect((await page.getByTestId('canvas-topbar').boundingBox())?.y).toBe(barTop)
 
     // 7. 用存著的原文重寫（示範模式不花錢）：已有生成過的格子，先確認；寫完還是 15／15
@@ -156,6 +178,12 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     expect(rewritten.scriptSec).toBeCloseTo(15, 6)
     expect(rewritten.matches).toBe(true)
     expect(rewritten.settings.sourceText).toBe(STORY)
+    // 重寫出來的 15 秒示範腳本是照節奏排的：沒有節奏提醒、也沒有旁白念不完（自動調整只是等比壓縮，會把節奏壓平）
+    expect(rewritten.warnings.map((w) => w.code)).not.toContain('no_escalation')
+    expect(rewritten.errors).toEqual([])
+    await expect(page.getByTestId('trailer-narration-summary')).toHaveCount(0)
+    await expect(page.getByTestId('trailer-panel')).not.toContainText('後面三分之一')
+    await shoot(page, testInfo, '05c-after-rewrite-15s.png')
     await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 15／15 秒')
     expect((await shotsOf(page)).every((s) => s.videos.length === 0)).toBe(true)
 
@@ -175,6 +203,8 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     page,
   }, testInfo) => {
     await openCanvas(page)
+    const projectsBefore = await projectsOf(page)
+    expect(await currentProject(page)).toBeNull()
     await page.getByTestId('trailer-text').fill(`${STORY}${BAD_MARK}`)
     await expect(page.getByTestId('trailer-go')).toBeEnabled()
     await page.getByTestId('trailer-go').click()
@@ -187,10 +217,17 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     // 專案沒被改：還在空白畫布，沒有預告片標籤、沒有鏡頭
     await expect(page.getByTestId('canvas-empty')).toBeVisible()
     await expect(page.getByTestId('trailer-badge')).toHaveCount(0)
-    expect(await shotsOf(page)).toHaveLength(0)
+    // 這次自己建的空專案不留下：沒有開著的專案，專案清單跟按之前一樣
+    expect(await currentProject(page)).toBeNull()
+    expect(await projectsOf(page)).toEqual(projectsBefore)
     // 按鈕回來了，可以改了文字再試
     await expect(page.getByTestId('trailer-go')).toBeEnabled()
     await shoot(page, testInfo, '07-checker-blocked-short-text.png')
+    // 專案頁：沒有多出一個空專案
+    await page.getByRole('button', { name: '專案', exact: true }).click()
+    await expect(page.getByTestId('home-current')).toHaveCount(0)
+    await shoot(page, testInfo, '07c-project-page-no-leftover.png')
+    await openCanvas(page)
 
     // 文字很長（超過 12,000 字）才多加一句「縮短一點」
     await page.getByTestId('trailer-text').fill(`${STORY.repeat(300)}${BAD_MARK}`)

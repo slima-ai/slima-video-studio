@@ -102,6 +102,8 @@ export const trailer = {
   'trailer.panel.rewriteHint': '重寫會整份取代這一版腳本；整個動作可以復原。',
   'trailer.panel.noSource': '這份腳本沒有留下原文，沒辦法重寫。',
   'trailer.panel.warningLine': '提醒：{message}',
+  'trailer.panel.narrationTooLong': '有 {count} 格的旁白會念不完，建議重寫腳本。',
+  'trailer.panel.narrationRewrite': '重寫腳本',
   'trailer.filmLength': '成品 {sec} 秒（目標 {target} 秒）',
   'trailer.panel.length': '長度',
   'trailer.panel.cancel': '先不要',

@@ -120,6 +120,62 @@ describe('TrailerBadge：頂列的預告片標籤', () => {
     expect(issues).toContain('還沒有上市日期。')
   })
 
+  it('改短長度後好幾格旁白念不完：只留一行「有 N 格的旁白會念不完，建議重寫腳本」＋重寫鈕，不一格一格列；其他錯誤照列', async () => {
+    const plan = vi.fn(() => ({ ...status(), retried: false, fixes: [] }))
+    installFakeSvs({ 'trailer.check': () => CHECK, 'trailer.plan': plan })
+    const tooDense = [0, 1, 2, 3, 4, 5].map((index) => ({
+      code: 'narration_too_dense',
+      index,
+      message: `第 ${String(index + 1)} 格的旁白有 5 個字，這一格只有 0.6 秒，請把這句縮短。`,
+    }))
+    render(
+      <TrailerBadge
+        status={status({
+          errors: [...tooDense, { code: 'first_beat_card', message: '第一格不能是字卡。' }],
+        })}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('trailer-badge'))
+    const line = screen.getByTestId('trailer-narration-summary')
+    expect(line.textContent).toContain('有 6 格的旁白會念不完，建議重寫腳本')
+    const issues = screen.getByTestId('trailer-issues').textContent
+    expect(issues).not.toContain('這一格只有 0.6 秒')
+    expect(issues).toContain('第一格不能是字卡。')
+    // 旁邊的重寫鈕：已有腳本先確認，確認後用存著的原文重寫
+    // 估價回來之前停用（沒有「會取代幾格」就不能略過確認）
+    expect(screen.getByTestId<HTMLButtonElement>('trailer-narration-rewrite').disabled).toBe(true)
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-narration-rewrite').disabled).toBe(
+        false,
+      )
+    })
+    fireEvent.click(screen.getByTestId('trailer-narration-rewrite'))
+    await waitFor(() => {
+      expect(screen.getByTestId('trailer-rewrite-confirm')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByTestId('trailer-rewrite-ok'))
+    await waitFor(() => {
+      expect(plan).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('只有一格旁白念不完：也是一行（N＝1）；沒有這種錯誤就沒有這一行', () => {
+    installFakeSvs({ 'trailer.check': () => CHECK })
+    const one = render(
+      <TrailerBadge
+        status={status({
+          errors: [{ code: 'narration_too_dense', index: 2, message: '第 3 格的旁白太長。' }],
+        })}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('trailer-badge'))
+    expect(screen.getByTestId('trailer-narration-summary').textContent).toContain('有 1 格的旁白')
+    one.unmount()
+    render(<TrailerBadge status={status()} />)
+    fireEvent.click(screen.getByTestId('trailer-badge'))
+    expect(screen.queryByTestId('trailer-narration-summary')).toBeNull()
+  })
+
   it('重寫腳本：用存著的原文與目前設定；已有腳本先確認（寫出會取代幾格、幾格已生成）', async () => {
     const plan = vi.fn(() => ({ ...status(), retried: false, fixes: [] }))
     installFakeSvs({

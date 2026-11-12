@@ -122,6 +122,9 @@ export const trailer = {
     'Rewriting replaces this whole script; the whole action can be undone.',
   'trailer.panel.noSource': 'The original text was not kept, so this script cannot be rewritten.',
   'trailer.panel.warningLine': 'Reminder: {message}',
+  'trailer.panel.narrationTooLong':
+    '{count} shots have narration that will not fit; rewriting the script is recommended.',
+  'trailer.panel.narrationRewrite': 'Rewrite the script',
   'trailer.filmLength': 'Film {sec} s (target {target} s)',
   'trailer.panel.length': 'Length',
   'trailer.panel.cancel': 'Not now',

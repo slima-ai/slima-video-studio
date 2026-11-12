@@ -564,7 +564,8 @@ test.describe('README 用的圖', () => {
     await page.getByTestId('home-current').getByRole('button').first().click()
     await page.getByRole('button', { name: '畫布', exact: true }).click()
     await expect(page.getByTestId('canvas-empty')).toBeVisible()
-    await page.setViewportSize({ width: 1600, height: 760 })
+    // 四張起點卡（含「做預告片」）：視窗要夠高，卡片才不會被切掉
+    await page.setViewportSize({ width: 1600, height: 900 })
     await viewportSettled(page)
     await shoot(page, testInfo, '11-canvas-start.png')
   })
