@@ -31,7 +31,14 @@ import {
   referenceNoteOf,
 } from './nodes'
 import { QUICK_STYLES } from './styles'
-import { PLACE_LOOK_INSTRUCTION, trailerSystemPrompt, trailerUserMessage } from './trailer'
+import { NARRATION_SHORTEN_SYSTEM, narrationShortenMessage } from './narration'
+import {
+  PLACE_LOOK_INSTRUCTION,
+  musicSpansOf,
+  trailerMusicPrompt,
+  trailerSystemPrompt,
+  trailerUserMessage,
+} from './trailer'
 
 const sha = (value: unknown): string =>
   createHash('sha256')
@@ -55,6 +62,14 @@ const GOLDEN: Record<string, string> = {
   '寫預告片腳本 system prompt：英文故事（多一句用故事的語言寫）':
     '5c68bbbebdc143ff2dab35225a2f802b9a32250d8dd8a3fa490d3efda2d7447d',
   寫預告片腳本的使用者訊息: '918dcf011f5ea370bb4484e2a76a9d8c91d41caaad9fd226aa19b831b49fe6ba',
+  '旁白改短 system prompt': '93540aa3e1416bab242263b06180124cc96b717b8abff2a2f0d9f22713f68dd6',
+  旁白改短的使用者訊息: 'c23f9f39329bc4147e7e2e0e7fe3f324207c5e10abcfdc6e893baf7c6648900d',
+  '配樂描述：預告片三段式腳本（有畫風、使用者情緒）':
+    '82eff4b8b51c173681c21dbd39567c38e43f09731dc9a13f5cfb0d7217536ff1',
+  '配樂描述：劇情型六段全上（照模板排 30 秒）':
+    '0f5ea88f4b3172fd742c6564b5a97f6a787b20aafbe0a82dfd32c548f92b1ec8',
+  '配樂描述：預告片沒有段落時照模板排（懸念短版 15 秒）':
+    'e2861a5a4e74374abd8791e4b848b05cfc2fc5c8fc2a949b3c2e4cc4c0ad2520',
   'shot：簡單': '6d959f112edf28ef834b0e681ec0361162b6dbd85041f1a505d2e53bfca4ec5f',
   'shot：角色、氣氛、外觀、場景':
     '8c24685f15f40b148861aba972dd95ebd61f41a4ada812eebd3169c6eef60298',
@@ -199,6 +214,36 @@ const OUTPUTS: Record<string, () => unknown> = {
   '寫預告片腳本：地點外觀的要求（只寫地方本身，不寫人與動作）': () => PLACE_LOOK_INSTRUCTION,
   寫預告片腳本的使用者訊息: () =>
     trailerUserMessage('黑藤爬滿了斷橋。', TrailerSettingsSchema.parse({ targetSec: 45 })),
+  '旁白改短 system prompt': () => NARRATION_SHORTEN_SYSTEM,
+  旁白改短的使用者訊息: () =>
+    narrationShortenMessage({
+      line: '黑藤爬滿了斷橋，她一個人守著最後一盞燈。',
+      roomSec: 1.6,
+      maxChars: 12,
+    }),
+  '配樂描述：預告片三段式腳本（有畫風、使用者情緒）': () =>
+    trailerMusicPrompt({
+      settings: TrailerSettingsSchema.parse({ musicMood: '緊張、壓迫' }),
+      spans: [
+        { key: 'hook', startSec: 0, endSec: 6 },
+        { key: 'escalate', startSec: 6, endSec: 26 },
+        { key: 'title', startSec: 26, endSec: 30 },
+      ],
+      filmSec: 30,
+      style: 'realistic',
+    }),
+  '配樂描述：劇情型六段全上（照模板排 30 秒）': () =>
+    trailerMusicPrompt({
+      settings: TrailerSettingsSchema.parse({}),
+      spans: musicSpansOf(undefined, 'story', 30),
+      filmSec: 30,
+    }),
+  '配樂描述：預告片沒有段落時照模板排（懸念短版 15 秒）': () =>
+    trailerMusicPrompt({
+      settings: TrailerSettingsSchema.parse({ kind: 'teaser', targetSec: 15 }),
+      spans: musicSpansOf(undefined, 'teaser', 15),
+      filmSec: 15,
+    }),
 }
 
 describe('送給模型的 Prompt 與中文片段：輸出用雜湊釘住', () => {

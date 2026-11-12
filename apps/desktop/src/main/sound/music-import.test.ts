@@ -184,6 +184,67 @@ describe('匯入自己的音樂（SoundService.importMusic）', () => {
     expect(h.sound.state().music).toBeUndefined()
   })
 
+  it('常見的怪檔：帶封面圖的 mp3、ALAC（無損）的 m4a——都能匯入、有長度，混音後成品有聲音、長度沒變', async () => {
+    const dir = tempDir()
+    // 帶封面圖的 mp3：檔案裡有一條「畫面」（封面），探測不能被它騙去當成沒有聲音或量成 0 秒
+    const withCover = join(dir, '有封面.mp3')
+    await runTool(tools.ffmpegPath, [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-y',
+      '-f',
+      'lavfi',
+      '-i',
+      'sine=frequency=440:duration=12',
+      '-f',
+      'lavfi',
+      '-i',
+      'color=c=red:s=64x64:d=1',
+      '-map',
+      '0:a',
+      '-map',
+      '1:v',
+      '-c:a',
+      'libmp3lame',
+      '-c:v',
+      'mjpeg',
+      '-id3v2_version',
+      '3',
+      '-disposition:v:0',
+      'attached_pic',
+      withCover,
+    ])
+    // ALAC：蘋果的無損編碼，放在 m4a 裡
+    const alac = join(dir, '無損.m4a')
+    await runTool(tools.ffmpegPath, [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-y',
+      '-f',
+      'lavfi',
+      '-i',
+      'sine=frequency=550:duration=12',
+      '-c:a',
+      'alac',
+      alac,
+    ])
+    const h = setup([withCover, alac])
+    await withShots(h)
+    await h.shots.rejoin()
+    const beforeSec = h.projects.current()?.repos.finalCuts.latest()?.durationSec ?? 0
+    for (const name of ['有封面.mp3', '無損.m4a']) {
+      const clip = await h.sound.importMusic()
+      expect(clip).toMatchObject({ text: name, source: 'imported', costUsd: 0 })
+      expect(clip?.durationSec).toBeCloseTo(12, 0)
+      const { videoHash } = await h.sound.mix()
+      const mixed = h.projects.current()?.assets.getMeta(videoHash)
+      expect(mixed?.durationSec).toBeCloseTo(beforeSec, 1)
+      expect(h.sound.state().final).toMatchObject({ hasSound: true, soundStale: false })
+    }
+  })
+
   it('沒有開專案：請先開專案', async () => {
     const h = setup([])
     await expect(h.sound.importMusic()).rejects.toMatchObject({

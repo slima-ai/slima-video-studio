@@ -152,6 +152,49 @@ describe('ShotSound：一個鏡頭的聲音', () => {
     })
   })
 
+  it('旁白放不進這一格、被改短重念：提示說第幾格、改成哪一句（台詞也換了）；沒改短就沒有提示', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let shortened = true
+    installFakeSvs({
+      'sound.get': () => state(),
+      'sound.plan': () => ({
+        ok: true,
+        totalUsd: 0.0018,
+        items: [{ kind: 'narration', shotId: 's1', modelId: 'm', estimatedUsd: 0.0018 }],
+      }),
+      'sound.generateNarration': () => ({
+        clip: narration('s1'),
+        ...(shortened
+          ? { shortened: { shotNumber: 1, from: '很長很長的一句話', to: '短的一句。' } }
+          : {}),
+      }),
+      'sound.mix': () => ({ videoHash: 'h', version: 2 }),
+    })
+    const run = async () => {
+      fireEvent.click(await screen.findByTestId('shot-sound-narrate'))
+      fireEvent.click(await screen.findByTestId('shot-sound-go'))
+    }
+    render(
+      <ToastProvider>
+        <ShotSound shotId="s1" />
+      </ToastProvider>,
+    )
+    await run()
+    expect(
+      await screen.findByText(/第 1 格的旁白太長，已改短成「短的一句。」，台詞也換成這句/),
+    ).toBeTruthy()
+    cleanup()
+    shortened = false
+    render(
+      <ToastProvider>
+        <ShotSound shotId="s1" />
+      </ToastProvider>,
+    )
+    await run()
+    await vi.advanceTimersByTimeAsync(700)
+    expect(screen.queryByText(/旁白太長/)).toBeNull()
+  })
+
   it('「用影片原聲」取消勾選就把這一鏡加進靜音名單；再勾回來就移除；然後自動重混', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const updates: unknown[] = []

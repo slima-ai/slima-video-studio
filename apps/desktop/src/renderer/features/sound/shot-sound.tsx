@@ -2,6 +2,7 @@ import type { SoundPlan } from '@svs/schema'
 import { useState } from 'react'
 
 import { Button } from '../../components/button'
+import { LONG_TOAST_MS, useToast } from '../../components/toast'
 import { call, errorText } from '../../lib/svs'
 import { useAutoMix } from './use-auto-mix'
 import { useRemoveSound } from './use-remove-sound'
@@ -82,6 +83,7 @@ function DialogueEditor({
  */
 export function ShotSound({ shotId }: { shotId: string }) {
   const { state, reload } = useSound()
+  const toast = useToast()
   const [flow, setFlow] = useState<Step>({ step: 'idle' })
   const [error, setError] = useState<string>()
   const [dialogueDirty, setDialogueDirty] = useState(false)
@@ -140,8 +142,19 @@ export function ShotSound({ shotId }: { shotId: string }) {
   const runNarration = (): void => {
     setFlow({ step: 'running' })
     call('sound.generateNarration', { shotId })
-      .then(() => {
+      .then(({ shortened }) => {
         schedule()
+        // 旁白放不進這一格：已改短重念，台詞也換成改短的，要讓使用者知道
+        if (shortened) {
+          toast.show({
+            key: 'sound-shortened',
+            message: t('sound.narrationShortened', {
+              value: String(shortened.shotNumber),
+              text: shortened.to,
+            }),
+            ms: LONG_TOAST_MS,
+          })
+        }
       })
       .catch(fail)
       .finally(() => {

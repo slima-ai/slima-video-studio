@@ -123,8 +123,12 @@ describe('SoundService（示範模式）', () => {
     await running
   })
 
-  it('旁白比鏡頭長很多：state 給白話警示，說是第幾鏡', async () => {
-    const h = setup()
+  it('旁白比鏡頭長很多（文字模型沒幫上忙、沒改短）：state 給白話警示，說是第幾鏡', async () => {
+    // 旁白放不進格子時會先請文字模型改短；這裡模型回空白，改短不成，警示照舊
+    const h = setup({
+      mockLlm: (r) =>
+        r.messages.some((m) => m.content.includes('請把這句旁白改短')) ? '  ' : undefined,
+    })
     const [first] = await withShots(h)
     if (!first) throw new Error('應該有鏡頭')
     h.shots.update(first, { dialogue: '很長的台詞'.repeat(20) })

@@ -112,6 +112,56 @@ describe('SoundPanel：加聲音', () => {
     })
   })
 
+  it('「加上旁白與配樂」途中有旁白被改短重念：做完用一則提示說（一句就寫出新句、好幾句就說有幾格）', async () => {
+    const plan = {
+      ok: true,
+      totalUsd: 0.01,
+      items: [
+        { kind: 'narration', shotId: 's1', modelId: 'm', estimatedUsd: 0.001 },
+        { kind: 'narration', shotId: 's2', modelId: 'm', estimatedUsd: 0.001 },
+      ],
+    }
+    const run = async (shortenedShots: string[]) => {
+      installFakeSvs({
+        'sound.get': () => state(),
+        'sound.plan': () => plan,
+        'sound.generateNarration': (p: { shotId: string }) => ({
+          clip: clip('narration', p.shotId),
+          ...(shortenedShots.includes(p.shotId)
+            ? {
+                shortened: {
+                  shotNumber: Number(p.shotId.slice(1)),
+                  from: '很長的一句',
+                  to: `短句${p.shotId}。`,
+                },
+              }
+            : {}),
+        }),
+        'sound.mix': () => ({ videoHash: 'h', version: 2 }),
+      })
+      render(
+        <ToastProvider>
+          <SoundPanel />
+        </ToastProvider>,
+      )
+      fireEvent.click(await screen.findByTestId('sound-add'))
+      fireEvent.click(await screen.findByTestId('sound-add-go'))
+    }
+    await run(['s2'])
+    expect(await screen.findByText(/第 2 格的旁白太長，已改短成「短句s2。」/)).toBeTruthy()
+    cleanup()
+    await run(['s1', 's2'])
+    expect(
+      await screen.findByText('有 2 格的旁白太長，已改短並重念，台詞也換成改短的。'),
+    ).toBeTruthy()
+    cleanup()
+    await run([])
+    await waitFor(() => {
+      expect(screen.queryByTestId('sound-progress')).toBeNull()
+    })
+    expect(screen.queryByText(/旁白太長/)).toBeNull()
+  })
+
   it('取消就什麼都不做；預估說不能做（超過預算）時顯示原因', async () => {
     const generate = vi.fn()
     installFakeSvs({
