@@ -34,6 +34,7 @@ import { createSettingsService, type SettingsService } from './settings/model-se
 import type { SettingsStore } from './settings/settings-store'
 import { createShotService, type ShotService } from './shots/shot-service'
 import { createStoryboardService, type StoryboardService } from './storyboard/storyboard-service'
+import { createTrailerService, type TrailerService } from './trailer/trailer-service'
 
 export interface StudioAppOptions {
   projects: ProjectManager
@@ -91,6 +92,7 @@ export interface StudioApp {
   locations: LocationService
   outline: OutlineService
   storyboard: StoryboardService
+  trailer: TrailerService
   history: HistoryService
   quickstart: QuickStartService
   upgrade: UpgradeService
@@ -276,6 +278,20 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     log,
     ...toolsOption,
   })
+  const history = createHistoryService({ projects, broadcast })
+  const trailer = createTrailerService({
+    projects,
+    projectsDir: options.projectsDir,
+    runtime,
+    settings,
+    settingsService,
+    models,
+    shots,
+    record: history.record,
+    broadcast,
+    log,
+    ...toolsOption,
+  })
   const library = createProjectLibrary({
     projects,
     projectsDir: options.projectsDir,
@@ -295,7 +311,8 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     locations,
     outline,
     storyboard,
-    history: createHistoryService({ projects, broadcast }),
+    trailer,
+    history,
     quickstart,
     upgrade,
     graph: createGraphService({ projects, shots, models }),

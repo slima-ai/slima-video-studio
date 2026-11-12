@@ -30,4 +30,11 @@ export const mock = {
   'mock.demoImage': '示範圖 {value}/{value2}',
   'mock.demoPicture': '示範畫面',
   'mock.leadClause': '{lead}：{clause}',
+  'mock.trailerCard1': '有些光，要有人陪你一起守',
+  'mock.trailerCard2': '直到那一天',
+  'mock.trailerCard3': '誰會先離開？',
+  'mock.trailerCard4': '一個問題，沒有答案',
+  'mock.trailerMusic':
+    '純音樂、沒有人聲：開場留白，只有環境聲；接著單一樂器進來；中段加快、一路往上推；片名前停一拍，幾乎無聲；最後一個重音加尾音收尾。',
+  'mock.trailerTitle': '示範預告片',
 } as const

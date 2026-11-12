@@ -11,4 +11,7 @@ export const history = {
   'history.editShotField': 'Edit shot’s {field}',
   'history.deleteShots_one': 'Delete {count} shot',
   'history.deleteShots_other': 'Delete {count} shots',
+  'history.writeTrailerScript': 'Write the trailer script',
+  'history.editTrailerSettings': 'Edit the trailer settings',
+  'history.refitTrailer': 'Re-fit the trailer to the new length',
 } as const

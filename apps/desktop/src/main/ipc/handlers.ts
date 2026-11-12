@@ -7,6 +7,7 @@ import type { TurnaroundService } from '../characters/turnaround-service'
 import type { LocationService } from '../locations/location-service'
 import type { OutlineService } from '../outline/outline-service'
 import type { StoryboardService } from '../storyboard/storyboard-service'
+import type { TrailerService } from '../trailer/trailer-service'
 import type { ConceptService } from '../characters/concept-service'
 import type { SoundService } from '../sound/sound-service'
 import type { CharacterService } from '../characters/character-service'
@@ -70,6 +71,8 @@ export interface HandlerDeps {
   turnarounds: TurnaroundService
   outline: OutlineService
   storyboard: StoryboardService
+  /** 預告片服務；測試可以不給（呼叫時回報服務還沒準備好）。 */
+  trailer?: TrailerService
   locations: LocationService
   history: HistoryService
   library: ProjectLibrary
@@ -110,6 +113,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     turnarounds,
     outline,
     storyboard,
+    trailer,
     locations,
     history,
     library,
@@ -615,6 +619,20 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
       history.clear()
     }
   })
+  const needTrailer = (): TrailerService => {
+    if (!trailer) {
+      throw new AppError({
+        code: 'internal_error',
+        userMessage: t('services.theGenerationServiceIsnT'),
+      })
+    }
+    return trailer
+  }
+  registry.registerHandler('trailer.get', () => needTrailer().get())
+  registry.registerHandler('trailer.check', ({ text }) => needTrailer().check(text))
+  registry.registerHandler('trailer.plan', (request) => needTrailer().plan(request))
+  registry.registerHandler('trailer.update', (request) => needTrailer().update(request))
+  registry.registerHandler('trailer.status', () => needTrailer().status())
   registry.registerHandler('outline.get', () => outline.get())
   registry.registerHandler('outline.edit', (op) =>
     history.record(outlineLabel(op), () => outline.edit(op)),

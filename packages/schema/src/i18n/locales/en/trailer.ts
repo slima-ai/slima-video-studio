@@ -61,4 +61,20 @@ export const trailer = {
     'This shot needs {want} seconds, but the current video model makes at most {max} seconds per video. The video will be {max} seconds, shorter than the shot. Split the shot in two, or pick another model.',
   'trailer.runOverMax':
     '{no}: wants {want} seconds, over the video model limit of {max} seconds. The video will be {max} seconds.',
+  'trailer.fixCardCut': 'The text card in shot {n} was too long and has been shortened.',
+  'trailer.fixNarrationRemoved':
+    'The narration in shot {n} was removed (this trailer has no narration, or the shot is not a picture).',
+  'trailer.fixNarrationCut':
+    'The narration in shot {n} was too long and has been cut to one sentence.',
+  'trailer.fixFirstShortened': 'The first shot was shortened to 4 seconds.',
+  'trailer.fixLengthFitted':
+    'The shot lengths were adjusted so they add up to exactly {target} seconds.',
+  'trailer.scriptRejected':
+    'The script that was written did not pass the checks, and the project was not changed. {problems} Please try again, or use a shorter text.',
+  'trailer.sceneTitle': 'Trailer',
+  'trailer.noScript': 'There is no trailer script yet. Write the script first.',
+  'trailer.refitImpossible':
+    'The target is too short: the minimum time for the text cards and the title card already adds up to more than that. Make the target longer, or remove some text cards.',
+  'trailer.noTextModel':
+    'There is no text model available, so a script cannot be written. Pick a text model in Settings.',
 } as const

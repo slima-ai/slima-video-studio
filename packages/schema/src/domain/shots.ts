@@ -115,7 +115,8 @@ export const ShotEditSchema = z.object({
   /** 空字串代表清掉。 */
   endDescription: z.string().max(1000).optional(),
   cameraMove: z.string().max(100).nullable().optional(),
-  durationSec: z.number().min(1).max(15).optional(),
+  // 預告片的格子可以短到 0.25 秒（一般鏡頭的面板與分鏡表自己還是 1～15 秒）
+  durationSec: z.number().min(0.25).max(15).optional(),
   prompt: z.string().max(4000).nullable().optional(),
   size: ShotSizeSchema.optional(),
   angle: ShotAngleSchema.optional(),

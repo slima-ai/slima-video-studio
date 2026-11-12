@@ -8,4 +8,7 @@ export const history = {
   'history.editShot': '修改鏡頭',
   'history.editShotField': '修改鏡頭的{field}',
   'history.deleteShots_other': '刪除 {count} 個鏡頭',
+  'history.writeTrailerScript': '寫預告片腳本',
+  'history.editTrailerSettings': '修改預告片設定',
+  'history.refitTrailer': '照新長度重排預告片',
 } as const

@@ -13,6 +13,7 @@ import {
   t,
 } from '@svs/schema'
 
+import { demoTrailerScript } from './demo-trailer'
 import { exampleFromJsonSchema } from './json-example'
 import { createCanvas, drawText, encodePng, toLabelText } from './png'
 import { makeMp3 } from './mp3'
@@ -442,6 +443,9 @@ function llmOutput(request: LlmRequest, config: MockProviderConfig): GenerationO
   let text: string
   if (override !== undefined) {
     text = typeof override === 'string' ? override : JSON.stringify(override)
+  } else if (request.jsonSchema && demoTrailerScript(request) !== undefined) {
+    // 寫預告片腳本：不呼叫模型，依目標秒數排一份過得了檢查器的腳本
+    text = JSON.stringify(demoTrailerScript(request))
   } else if (request.jsonSchema) {
     const example = demoBreakdown(exampleFromJsonSchema(request.jsonSchema), request)
     text = JSON.stringify(withKnownCharacters(example, request))

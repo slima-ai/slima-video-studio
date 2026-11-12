@@ -33,4 +33,11 @@ export const mock = {
   'mock.demoImage': 'Demo image {value}/{value2}',
   'mock.demoPicture': 'Demo picture',
   'mock.leadClause': '{lead}: {clause}',
+  'mock.trailerCard1': 'Some light, kept together',
+  'mock.trailerCard2': 'Until that day',
+  'mock.trailerCard3': 'Who leaves first?',
+  'mock.trailerCard4': 'One question, no answer',
+  'mock.trailerMusic':
+    'Instrumental only, no vocals: open with silence and ambient sound; one instrument enters; the middle speeds up and builds; a beat of near-silence before the title; one hit and a tail to close.',
+  'mock.trailerTitle': 'Demo trailer',
 } as const

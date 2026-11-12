@@ -18,6 +18,7 @@ import {
   shotAngleLabel,
   shotSizeLabel,
   t,
+  secLabel,
   msg,
 } from '@svs/schema'
 
@@ -305,7 +306,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
         meta: t('canvas.sec', {
           value: shotSizeLabel(shot.size),
           value2: shotAngleLabel(shot.angle),
-          value3: String(shot.durationSec),
+          value3: secLabel(shot.durationSec),
         }),
         tags,
         ...(Object.keys(lockedTags).length > 0 ? { lockedTags } : {}),

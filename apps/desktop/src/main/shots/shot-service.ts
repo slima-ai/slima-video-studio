@@ -22,8 +22,11 @@ import {
   type NodeRun,
   type QuickStyleId,
   type RegenerateMode,
+  type BeatKind,
   type CardJob,
   type Shot,
+  type ShotAngle,
+  type ShotSize,
   type ShotBatchCheck,
   type ShotBatchRequest,
   type ShotBatchStage,
@@ -93,6 +96,20 @@ import type { CardService } from '../cards/card-service'
 import { createStudioServices } from '../studio-services'
 import { newShotDescription } from './defaults'
 import { pinnedForFlow, referencePlan } from './shot-references'
+
+/** 腳本裡的一格，放進鏡頭用的欄位。 */
+export interface TrailerBeatInput {
+  beatKind: BeatKind
+  durationSec: number
+  description: string
+  action: string
+  size: ShotSize
+  angle: ShotAngle
+  cameraMove: string | null
+  characters: readonly string[]
+  dialogue: string
+  card?: { text: string; subtext: string } | undefined
+}
 
 export interface ShotServiceDeps {
   projects: ProjectManager
@@ -223,6 +240,11 @@ export interface ShotService {
   sceneShotCounts: (sceneId: string) => { existing: number; generated: number }
   /** 把某個場的鏡頭整批換成新的（AI 拆鏡頭用），放在合適的位置。 */
   replaceSceneShots: (sceneId: string, items: readonly StoryboardShot[]) => ShotsSnapshot
+  /**
+   * 預告片腳本：把一份腳本的各格放進某個場，這個場原本的鏡頭整批換掉（其他鏡頭不動）。
+   * 每一格是會動、不動、字卡或片名卡，秒數照腳本（不限 1～15 秒）。
+   */
+  placeTrailerBeats: (sceneId: string, beats: readonly TrailerBeatInput[]) => ShotsSnapshot
   /** 開始重新生成；預估超過上限、沒有模型等問題會直接丟出白話錯誤。 */
   regenerate: (shotId: string, mode: RegenerateMode) => Promise<void>
   cancel: (shotId: string) => void
@@ -2059,6 +2081,53 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           ...(scene.locationId ? { locationId: scene.locationId } : {}),
           ...(scene.timeOfDay ? { timeOfDay: scene.timeOfDay } : {}),
           ...((item.mood ?? scene.mood) ? { mood: item.mood ?? scene.mood } : {}),
+        }),
+      )
+      const ids = rest.map((x) => x.id)
+      ids.splice(at, 0, ...created.map((x) => x.id))
+      shots.reorder(ids)
+      changed(s)
+      return snapshot()
+    },
+
+    placeTrailerBeats(sceneId, beats) {
+      const s = need()
+      const { shots, outline } = s.handle.repos
+      if (s.quick) throw invalid(t('services.theFilmIsBeingGenerated10'))
+      const scene = outline.listScenes().find((x) => x.id === sceneId)
+      if (!scene) throw invalid(t('services.canTFindThisScene'))
+      const current = shots.list()
+      const old = current.filter((x) => x.sceneId === sceneId)
+      const rest = current.filter((x) => x.sceneId !== sceneId)
+      const sceneOrder = new Map(outline.listScenes().map((x, i) => [x.id, i]))
+      const mine = sceneOrder.get(sceneId) ?? 0
+      const first = old[0]
+      const at = first
+        ? current.indexOf(first)
+        : rest.findLastIndex((x) => {
+            const index = x.sceneId ? sceneOrder.get(x.sceneId) : undefined
+            return index !== undefined && index < mine
+          }) + 1
+      for (const shot of old) {
+        s.regens.get(shot.id)?.abort()
+        s.regens.delete(shot.id)
+        s.activity.delete(shot.id)
+        s.errors.delete(shot.id)
+        shots.delete(shot.id)
+      }
+      const created = beats.map((beat) =>
+        shots.create({
+          sceneId,
+          beatKind: beat.beatKind,
+          description: beat.description,
+          action: beat.action,
+          size: beat.size,
+          angle: beat.angle,
+          cameraMove: beat.cameraMove,
+          durationSec: beat.durationSec,
+          characters: beat.characters.map((name) => ({ name })),
+          dialogue: beat.dialogue,
+          ...(beat.card ? { card: beat.card } : {}),
         }),
       )
       const ids = rest.map((x) => x.id)

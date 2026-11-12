@@ -29,6 +29,7 @@ import {
   type ShotSize,
   type ShotView,
   beatKindLabel,
+  secLabel,
   t,
   getLocale,
 } from '@svs/schema'
@@ -286,7 +287,7 @@ export function StoryboardTable({
             type="number"
             min={1}
             max={15}
-            value={String(row.original.durationSec)}
+            value={secLabel(row.original.durationSec)}
             onCommit={(value) => {
               const seconds = Number(value)
               if (Number.isFinite(seconds) && seconds >= 1 && seconds <= 15) {

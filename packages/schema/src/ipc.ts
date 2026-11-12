@@ -25,6 +25,14 @@ import {
 } from './domain/chat'
 import { AspectRatioSchema, ContentHashSchema, IdSchema } from './domain/common'
 import {
+  TrailerPlanCheckSchema,
+  TrailerPlanRequestSchema,
+  TrailerPlanResultSchema,
+  TrailerStatusSchema,
+  TrailerUpdateRequestSchema,
+} from './domain/trailer-plan'
+import { TrailerSettingsSchema } from './domain/trailer'
+import {
   OUTLINE_TEXT_MAX,
   OutlineOpSchema,
   OutlineSplitCheckSchema,
@@ -819,6 +827,36 @@ export const ipcContract = {
     request: z.object({ sceneId: IdSchema }),
     response: ShotsSnapshotSchema,
   },
+  // ---- 預告片（trailer.*） ----
+  /** 這個專案的預告片設定（沒有設定就是一般專案：exists 是 false，settings 是預設值）。 */
+  'trailer.get': {
+    request: z.object({}),
+    response: z.object({ exists: z.boolean(), settings: TrailerSettingsSchema }),
+  },
+  /** 寫腳本之前的檢查：有沒有文字模型、預估這次文字費、已有的腳本會被取代幾格。 */
+  'trailer.check': {
+    request: z.object({ text: z.string().max(60_000).optional() }),
+    response: TrailerPlanCheckSchema,
+  },
+  /**
+   * 讀文本寫預告片腳本：預告片設定＋一個「預告片」場＋底下的鏡頭（會動、不動、字卡、片名卡），順便建角色與地點的草稿卡。
+   * 寫完用檢查器檢查，不過就退回重寫一次，再不過用程式修正，還不過回白話錯誤（專案不會被改）。
+   * 重新寫會整份取代上一版預告片腳本（同一個場），其他鏡頭不動。整個動作算一步復原。
+   */
+  'trailer.plan': {
+    request: TrailerPlanRequestSchema,
+    response: TrailerPlanResultSchema,
+  },
+  /** 改預告片設定；改了目標秒數時 refit 可以照新長度重排各格。 */
+  'trailer.update': {
+    request: TrailerUpdateRequestSchema,
+    response: TrailerStatusSchema,
+  },
+  /** 預告片現在的樣子：目標、腳本加總、檢查結果。 */
+  'trailer.status': {
+    request: z.object({}),
+    response: TrailerStatusSchema,
+  },
   /** 用各鏡頭目前採用的影片重新接成一支完整影片。 */
   'shots.rejoin': {
     request: z.object({}),
@@ -1182,6 +1220,8 @@ export const ipcEvents = {
   'quickstart.progress': QuickStartProgressSchema,
   /** 鏡頭或版本有變動（完整快照）。 */
   'shots.changed': ShotsSnapshotSchema,
+  /** 預告片設定或腳本有變動（寫腳本、改設定、重排、復原）：畫面重新讀 trailer.status。 */
+  'trailer.changed': z.object({}),
   /** 聲音有變動（新的旁白、配樂、調整或設定；完整快照）。 */
   'sound.changed': SoundStateSchema,
   /** 某個角色的概念圖有變動（完整快照）。 */

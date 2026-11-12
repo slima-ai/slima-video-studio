@@ -8,6 +8,7 @@ import {
   DEFAULT_STORYBOARD_GUIDE_EN,
   DEFAULT_TRAILER_GUIDE,
   DEFAULT_TRAILER_GUIDE_EN,
+  TrailerSettingsSchema,
   LOCATION_REFERENCE_PURPOSE_LABELS,
   QUICK_STYLE_LABELS,
   SHOT_ANGLE_LABELS,
@@ -30,6 +31,7 @@ import {
   referenceNoteOf,
 } from './nodes'
 import { QUICK_STYLES } from './styles'
+import { trailerSystemPrompt, trailerUserMessage } from './trailer'
 
 const sha = (value: unknown): string =>
   createHash('sha256')
@@ -44,6 +46,13 @@ const sha = (value: unknown): string =>
  * （另有 4 個 system prompt 的雜湊在 apps/desktop/src/main/story-language-prompts.test.ts。）
  */
 const GOLDEN: Record<string, string> = {
+  '寫預告片腳本 system prompt：劇情型 30 秒、中文故事、有旁白':
+    '40ffae495c327ce7ada657c1544d223eca342c39ed1086501db19b8c427574d9',
+  '寫預告片腳本 system prompt：懸念短版 15 秒、不要旁白':
+    '90f4a521181263cc796e16e88ef39fe2a60306984eb7a9e600e00584c64d4b46',
+  '寫預告片腳本 system prompt：英文故事（多一句用故事的語言寫）':
+    '3ea2604aa4307bdca6b778d9199be2998cf1df6914209f083e7958fceab7a523',
+  寫預告片腳本的使用者訊息: '918dcf011f5ea370bb4484e2a76a9d8c91d41caaad9fd226aa19b831b49fe6ba',
   'shot：簡單': '6d959f112edf28ef834b0e681ec0361162b6dbd85041f1a505d2e53bfca4ec5f',
   'shot：角色、氣氛、外觀、場景':
     '8c24685f15f40b148861aba972dd95ebd61f41a4ada812eebd3169c6eef60298',
@@ -160,6 +169,32 @@ const OUTPUTS: Record<string, () => unknown> = {
   '預設分鏡準則（英文）': () => DEFAULT_STORYBOARD_GUIDE_EN,
   '預設預告片準則（中文）': () => DEFAULT_TRAILER_GUIDE,
   '預設預告片準則（英文）': () => DEFAULT_TRAILER_GUIDE_EN,
+  '寫預告片腳本 system prompt：劇情型 30 秒、中文故事、有旁白': () =>
+    trailerSystemPrompt({
+      text: '黑藤爬滿了斷橋。',
+      settings: TrailerSettingsSchema.parse({ title: '黑藤裂谷', tagline: '有些光，要守著' }),
+      guide: DEFAULT_TRAILER_GUIDE,
+      knownCharacters: ['阿鐵'],
+      style: 'realistic',
+    }),
+  '寫預告片腳本 system prompt：懸念短版 15 秒、不要旁白': () =>
+    trailerSystemPrompt({
+      text: '黑藤爬滿了斷橋。',
+      settings: TrailerSettingsSchema.parse({ kind: 'teaser', targetSec: 15, narration: false }),
+      guide: DEFAULT_TRAILER_GUIDE,
+      knownCharacters: [],
+      style: 'anime',
+    }),
+  '寫預告片腳本 system prompt：英文故事（多一句用故事的語言寫）': () =>
+    trailerSystemPrompt({
+      text: 'Black vines cover the broken bridge.',
+      settings: TrailerSettingsSchema.parse({ author: 'A. Writer', endLine: 'Out Dec 5' }),
+      guide: DEFAULT_TRAILER_GUIDE_EN,
+      knownCharacters: [],
+      style: 'realistic',
+    }),
+  寫預告片腳本的使用者訊息: () =>
+    trailerUserMessage('黑藤爬滿了斷橋。', TrailerSettingsSchema.parse({ targetSec: 45 })),
 }
 
 describe('送給模型的 Prompt 與中文片段：輸出用雜湊釘住', () => {
