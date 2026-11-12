@@ -47,6 +47,7 @@ import {
   trailerMusicPrompt,
 } from '@svs/workflows'
 
+import { isAiCall } from '../history/ai-origin'
 import { currentFinal } from '../shots/current-final'
 import { trimOfTake } from '../shots/trim'
 import type { ShotService } from '../shots/shot-service'
@@ -70,6 +71,11 @@ export interface SoundServiceDeps {
   shots?: Pick<ShotService, 'list' | 'whenMeasured'>
   /** 「用我自己的音樂…」的選檔視窗；沒給或取消就回 undefined。 */
   pickMusic?: () => Promise<string | undefined>
+  /**
+   * 開始記一段背景動作的復原（歷史服務的 begin）：旁白被改短時，改了使用者的台詞，
+   * 要把「台詞換掉＋新的旁白版本」記成一步，復原就回到原句與原本的旁白。沒給就不記。
+   */
+  beginHistory?: (label: string) => () => void
 }
 
 /** 念好的旁白；放不進格子而被改短重念時，多帶一份說明（台詞已經換成新句）。 */
@@ -153,8 +159,11 @@ const invalid = (userMessage: string): AppError =>
 
 /** 旁白長過鏡頭時，最多可以溢出到下一鏡幾秒；超過就警示。 */
 const NARRATION_SPILL_SEC = 1.5
-/** 旁白超出格子超過這麼多秒，就請模型改短重念（比警告的 1.5 秒嚴：能放進格子就放進格子）。 */
-const NARRATION_FIT_TOLERANCE_SEC = 0.05
+/** 改短那次文字呼叫的 token 估計（預估與實際檢查預算都用）。 */
+const SHORTEN_INPUT_TOKENS = 300
+const SHORTEN_OUTPUT_TOKENS = 150
+/** 旁白超出格子超過這麼多秒，就請模型改短重念（比警告的 1.5 秒嚴）；超出不到這麼多就讓它稍微拖到下一格。 */
+const NARRATION_FIT_TOLERANCE_SEC = 0.3
 
 const outputAsset = (output: unknown): { hash: string; mime: string } => {
   const assets = (output as { kind?: string; assets?: { hash: string; mime: string }[] }).assets
@@ -463,6 +472,13 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     const views = timeline(handle)
     const items: SoundPlan['items'] = []
     let issue: string | undefined
+    const llmModel = settingsService.resolveModel('llm')
+    const shortenEstimate = llmModel
+      ? models.estimate(llmModel, {
+          inputTokens: SHORTEN_INPUT_TOKENS,
+          outputTokens: SHORTEN_OUTPUT_TOKENS,
+        })
+      : undefined
     if (request.narration) {
       const model = settingsService.resolveModel('tts')
       const wanted = request.narration.shotIds
@@ -475,11 +491,16 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         for (const view of picked) {
           const text = view.dialogue.trim()
           if (text === '') continue
+          const estimatedUsd = narrationEstimate(model, text)
           items.push({
             kind: 'narration',
             shotId: view.shotId,
             modelId: model,
-            estimatedUsd: narrationEstimate(model, text),
+            estimatedUsd,
+            // 太長會請文字模型改短、再念一次：最壞念兩次，加一次小的文字呼叫（沒有文字模型就不會改短）
+            ...(shortenEstimate === undefined
+              ? {}
+              : { maxUsd: estimatedUsd * 2 + shortenEstimate }),
           })
         }
       }
@@ -495,8 +516,15 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         })
     }
     const totalUsd = items.reduce((sum, item) => sum + item.estimatedUsd, 0)
+    const maxUsd = items.reduce((sum, item) => sum + (item.maxUsd ?? item.estimatedUsd), 0)
     issue ??= budgetIssue(handle, totalUsd)
-    return { items, totalUsd, ok: issue === undefined, ...(issue === undefined ? {} : { issue }) }
+    return {
+      items,
+      totalUsd,
+      ...(maxUsd > totalUsd ? { maxUsd } : {}),
+      ok: issue === undefined,
+      ...(issue === undefined ? {} : { issue }),
+    }
   }
 
   /** 生成一次，結果存成新版本並記帳；回傳新的片段。 */
@@ -586,7 +614,10 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     if (roomSec <= 0 || maxChars < 2 || maxChars >= clip.text.length) return clip
     const llm = settingsService.resolveModel('llm')
     if (!llm) return clip
-    const askEstimate = models.estimate(llm, { inputTokens: 300, outputTokens: 150 })
+    const askEstimate = models.estimate(llm, {
+      inputTokens: SHORTEN_INPUT_TOKENS,
+      outputTokens: SHORTEN_OUTPUT_TOKENS,
+    })
     if (budgetIssue(handle, askEstimate + narrationEstimate(voice.model, clip.text))) return clip
     let shorter: string | undefined
     try {
@@ -700,6 +731,8 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       const estimate = narrationEstimate(model, text)
       const issue = budgetIssue(handle, estimate)
       if (issue) throw invalid(issue)
+      // 只有真的改了台詞（改短）才記成一步復原；AI 工具（MCP）呼叫不記（Claude 的一輪有自己的復原）
+      const finish = isAiCall() ? undefined : deps.beginHistory?.(t('history.shortenNarration'))
       try {
         const clip = await guard(`narration:${shot.id}`, async () => {
           const first = await generate(
@@ -721,7 +754,10 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
           )
           return fitNarration(handle, shot.id, first, { model, voiceId })
         })
-        if (clip.shortened && deps.shots) broadcast('shots.changed', deps.shots.list())
+        if (clip.shortened) {
+          finish?.()
+          if (deps.shots) broadcast('shots.changed', deps.shots.list())
+        }
         changed(handle)
         return clip
       } catch (error) {

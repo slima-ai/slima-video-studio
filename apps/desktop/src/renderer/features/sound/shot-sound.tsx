@@ -3,7 +3,9 @@ import { useState } from 'react'
 
 import { Button } from '../../components/button'
 import { LONG_TOAST_MS, useToast } from '../../components/toast'
+import { useHistory } from '../../lib/history'
 import { call, errorText } from '../../lib/svs'
+import { planUsd } from './plan-usd'
 import { useAutoMix } from './use-auto-mix'
 import { useRemoveSound } from './use-remove-sound'
 import { useSound } from './use-sound'
@@ -84,6 +86,7 @@ function DialogueEditor({
 export function ShotSound({ shotId }: { shotId: string }) {
   const { state, reload } = useSound()
   const toast = useToast()
+  const history = useHistory()
   const [flow, setFlow] = useState<Step>({ step: 'idle' })
   const [error, setError] = useState<string>()
   const [dialogueDirty, setDialogueDirty] = useState(false)
@@ -152,6 +155,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
               value: String(shortened.shotNumber),
               text: shortened.to,
             }),
+            action: { label: t('sound.undo'), onAction: history.undo },
             ms: LONG_TOAST_MS,
           })
         }
@@ -219,7 +223,7 @@ export function ShotSound({ shotId }: { shotId: string }) {
         )}
         {flow.step === 'confirm' ? (
           <div className="space-y-1" data-testid="shot-sound-confirm">
-            <p className="text-sm">{t('sound.aboutStart', { value: usd(flow.plan.totalUsd) })}</p>
+            <p className="text-sm">{t('sound.aboutStart', { value: planUsd(flow.plan, usd) })}</p>
             <div className="flex gap-2">
               <Button
                 size="sm"

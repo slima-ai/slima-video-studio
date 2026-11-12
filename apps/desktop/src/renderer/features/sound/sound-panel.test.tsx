@@ -149,17 +149,48 @@ describe('SoundPanel：加聲音', () => {
     }
     await run(['s2'])
     expect(await screen.findByText(/第 2 格的旁白太長，已改短成「短句s2。」/)).toBeTruthy()
+    // 一句：提示上有「復原」（復原一次只退一步，所以好幾句時不附）
+    expect(screen.getByTestId('toast-action')).toBeTruthy()
     cleanup()
     await run(['s1', 's2'])
     expect(
       await screen.findByText('有 2 格的旁白太長，已改短並重念，台詞也換成改短的。'),
     ).toBeTruthy()
+    expect(screen.queryByTestId('toast-action')).toBeNull()
     cleanup()
     await run([])
     await waitFor(() => {
       expect(screen.queryByTestId('sound-progress')).toBeNull()
     })
     expect(screen.queryByText(/旁白太長/)).toBeNull()
+  })
+
+  it('預估有最壞情況（旁白可能改短重念）：寫成「約 US$a～b」，不加括號說明；沒有最壞情況就只寫一個金額', async () => {
+    const plan = {
+      ok: true,
+      totalUsd: 0.093,
+      maxUsd: 0.18,
+      items: [
+        { kind: 'narration', shotId: 's1', modelId: 'm', estimatedUsd: 0.003, maxUsd: 0.09 },
+        { kind: 'music', modelId: 'm', estimatedUsd: 0.09 },
+      ],
+    }
+    installFakeSvs({ 'sound.get': () => state(), 'sound.plan': () => plan })
+    render(<SoundPanel />)
+    fireEvent.click(await screen.findByTestId('sound-add'))
+    const text = (await screen.findByTestId('sound-add-confirm')).textContent
+    expect(text).toContain('約 US$0.093～0.18')
+    expect(text).not.toMatch(/改短|（有旁白/)
+    cleanup()
+    installFakeSvs({
+      'sound.get': () => state(),
+      'sound.plan': () => ({ ...plan, maxUsd: undefined }),
+    })
+    render(<SoundPanel />)
+    fireEvent.click(await screen.findByTestId('sound-add'))
+    const single = (await screen.findByTestId('sound-add-confirm')).textContent
+    expect(single).toContain('約 US$0.093')
+    expect(single).not.toContain('～')
   })
 
   it('取消就什麼都不做；預估說不能做（超過預算）時顯示原因', async () => {

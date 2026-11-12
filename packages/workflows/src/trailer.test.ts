@@ -12,6 +12,7 @@ import {
   MUSIC_END_FADE_SEC,
   MUSIC_EXTRA_SEC,
   musicSpansOf,
+  musicStyleHint,
   repairScript,
   toCheckBeat,
   trailerMusicPrompt,
@@ -302,5 +303,58 @@ describe('trailerMusicPrompt：配樂描述跟著腳本', () => {
       { key: 'escalate', startSec: 3.5, endSec: 6.5 },
       { key: 'title', startSec: 6.5, endSec: 10 },
     ])
+  })
+})
+
+describe('musicStyleHint：把模型寫的 musicBrief 整理成「風格、配器」那一句', () => {
+  it('人聲類的字（英文、中文）整句拿掉；有時間碼的句子也拿掉（時間軸另外產生）；只留風格與配器', () => {
+    const brief =
+      '低沉的大提琴與合成器鋪底，緩慢推進。0:00–0:06 留白。人聲合唱在副歌進入。Dark cello and analog synth pads; choir enters at the chorus. A solo female vocal over strings. 重音收尾，停一拍。Sparse piano, 6 s of silence.'
+    const hint = musicStyleHint(brief)
+    expect(hint).toContain('低沉的大提琴與合成器鋪底')
+    expect(hint).toContain('Dark cello and analog synth pads')
+    expect(hint).toContain('Sparse piano')
+    for (const banned of ['人聲', '合唱', 'choir', 'vocal', '0:00', '6 s of silence', 'chorus']) {
+      expect(hint.toLowerCase()).not.toContain(banned.toLowerCase())
+    }
+  })
+  it('沒有可用的句子（全是人聲或時間碼）、或空字串：回空字串', () => {
+    expect(musicStyleHint('')).toBe('')
+    expect(musicStyleHint('女聲獨唱。Lyrics about love, sung softly. 12 秒開始進鼓。')).toBe('')
+  })
+  it('太長截斷在 240 字內', () => {
+    const long = Array.from({ length: 40 }, (_, i) => `Warm strings number ${String(i)}`).join('. ')
+    expect(musicStyleHint(long).length).toBeLessThanOrEqual(240)
+  })
+})
+
+describe('trailerMusicPrompt：模型寫的風格句接進來（T6c）', () => {
+  const spans = [
+    { key: 'hook', startSec: 0, endSec: 6 },
+    { key: 'title', startSec: 6, endSec: 10 },
+  ]
+  it('有 musicBrief：多一句風格與配器，放在情緒之後、時間軸之前；人聲字不會進去', () => {
+    const text = trailerMusicPrompt({
+      settings: { musicMood: '緊張', musicBrief: 'Dark cello and synth pads. 女聲合唱。' },
+      spans,
+      filmSec: 10,
+    })
+    expect(text).toMatch(
+      /Overall mood: 緊張\. Style and instrumentation \(from the script\): Dark cello and synth pads\. Timeline:/,
+    )
+    expect(text).not.toContain('合唱')
+  })
+  it('沒有 musicBrief 或整段被濾光：跟沒有這個欄位的時候一模一樣', () => {
+    const base = trailerMusicPrompt({ settings: { musicMood: '緊張' }, spans, filmSec: 10 })
+    expect(
+      trailerMusicPrompt({ settings: { musicMood: '緊張', musicBrief: '' }, spans, filmSec: 10 }),
+    ).toBe(base)
+    expect(
+      trailerMusicPrompt({
+        settings: { musicMood: '緊張', musicBrief: '女聲獨唱。' },
+        spans,
+        filmSec: 10,
+      }),
+    ).toBe(base)
   })
 })

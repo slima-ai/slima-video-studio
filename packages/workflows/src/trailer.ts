@@ -449,9 +449,38 @@ export function musicSpansOf(
 
 const sec1 = (value: number): string => value.toFixed(1)
 
+/** 人聲類的字：配樂一律是純音樂，模型寫的說明只要提到人聲就整句不要（英文用單字邊界，免得 wrap 變 rap）。 */
+const VOCAL_WORDS =
+  /\b(?:vocals?|voices?|singers?|singing|sung|sing|choirs?|chorus|choral|lyrics?|rapping|rap|humming|hummed|whispers?|whispered|spoken|a cappella)\b|人聲|歌聲|歌詞|合唱|獨唱|歌唱|唱|女聲|男聲|童聲|哼|吟誦|旁白/i
+/** 時間碼：「0:06」「12 s」「6 秒」；時間軸是另外照格長產生的，模型寫的時間不能混進去。 */
+const TIME_CODES =
+  /\d+:\d{2}|\d+(?:\.\d+)?\s*(?:s|sec|secs|seconds?)\b|\d+(?:\.\d+)?\s*[秒″]|[零一二三四五六七八九十百]+\s*秒/i
+/** 風格與配器那一句的長度上限（字）。 */
+const STYLE_HINT_MAX = 240
+
+/**
+ * 把模型寫在腳本裡的 musicBrief 整理成「風格、配器」那一句：切成短句，帶人聲字或時間碼的短句丟掉，
+ * 其餘用「; 」接起來，總長不超過 240 字。全部被濾光就回空字串（提示詞照沒有這一句的樣子）。
+ */
+export function musicStyleHint(brief: string): string {
+  const clauses = brief
+    .split(/[.。!！?？;；,，、\n]+/)
+    .map((clause) => clause.trim())
+    .filter((clause) => clause !== '' && !VOCAL_WORDS.test(clause) && !TIME_CODES.test(clause))
+  const kept: string[] = []
+  let length = 0
+  for (const clause of clauses) {
+    const next = length + clause.length + (kept.length > 0 ? 2 : 0)
+    if (next > STYLE_HINT_MAX) break
+    kept.push(clause)
+    length = next
+  }
+  return kept.join('; ')
+}
+
 /** 預告片的配樂描述：純音樂、各段的時間與情緒、片名前短暫靜音、結尾一個重音、使用者選的情緒。 */
 export function trailerMusicPrompt(input: {
-  settings: Pick<TrailerSettings, 'musicMood'>
+  settings: Pick<TrailerSettings, 'musicMood'> & { musicBrief?: string | undefined }
   spans: readonly MusicSpan[]
   filmSec: number
   /** 專案的畫風代號；沒有就不寫。 */
@@ -460,6 +489,7 @@ export function trailerMusicPrompt(input: {
   const { spans, filmSec } = input
   const length = Math.round((filmSec + MUSIC_EXTRA_SEC) * 10) / 10
   const mood = input.settings.musicMood.trim()
+  const style = musicStyleHint(input.settings.musicBrief ?? '')
   const timeline = spans
     .map(
       (span) =>
@@ -477,6 +507,7 @@ export function trailerMusicPrompt(input: {
     `Original cinematic score for a book trailer, ${String(length)} s long. The film itself is ${String(Math.round(filmSec * 10) / 10)} s: the track is cut there and ends with a ${String(MUSIC_END_FADE_SEC)} s fade-out.`,
     input.style ? `Visual style: ${input.style}.` : '',
     mood === '' ? '' : `Overall mood: ${mood}.`,
+    style === '' ? '' : `Style and instrumentation (from the script): ${style}.`,
     `Timeline: ${timeline}.`,
     ending,
   ]

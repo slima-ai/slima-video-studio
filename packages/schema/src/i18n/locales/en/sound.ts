@@ -90,6 +90,7 @@ export const sound = {
     'Deleted {count} line of narration. The lines are still there, so you can read them again.',
   'sound.narrationsDeleted_other':
     'Deleted {count} lines of narration. The lines are still there, so you can read them again.',
+  'sound.range': '{from} to {to}',
   'sound.narrationShortened':
     'The narration for shot {value} was too long, so it was shortened to “{text}”. The shot’s line now says the same.',
   'sound.narrationsShortened_one':

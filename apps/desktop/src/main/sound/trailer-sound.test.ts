@@ -170,3 +170,107 @@ describe('旁白貼合格子：念完量長度，太長就請文字模型改短�
     }
   })
 })
+
+describe('旁白貼合格子（T6c）：門檻 0.3 秒、預估範圍、改短可以復原', () => {
+  const COST = 0.01
+  /** 一支 3 秒的鏡頭（快速開始預設）、台詞 n 個字（示範配音一個字 0.08 秒，旁白從 0.4 秒開始）。 */
+  async function shotWith(
+    h: ReturnType<typeof setup>,
+    chars: number,
+  ): Promise<{ id: string; line: string }> {
+    await h.runQuickStart()
+    const first = h.shots.list().shots[0]
+    if (!first) throw new Error('應該有鏡頭')
+    const line = '字'.repeat(chars)
+    h.shots.update(first.id, { dialogue: line })
+    return { id: first.id, line }
+  }
+  const asks = () => {
+    const calls: LlmRequest[] = []
+    const llm = (request: LlmRequest): string | undefined => {
+      if (!request.messages.some((m) => m.content.includes('請把這句旁白改短'))) return undefined
+      calls.push(request)
+      return '短'.repeat(10)
+    }
+    return { calls, llm }
+  }
+
+  it('超出格子不到 0.3 秒：不改短、不重念（讓它稍微拖到下一格）；超過 0.3 秒才改', async () => {
+    // 36 個字 ＝ 2.88 秒，0.4 + 2.88 − 3 ＝ 超出 0.28 秒；40 個字 ＝ 3.2 秒，超出 0.6 秒
+    const slight = asks()
+    const h1 = setup({ mockLlm: slight.llm, mockCostUsd: () => COST })
+    const a = await shotWith(h1, 36)
+    const first = await h1.sound.generateNarration({ shotId: a.id })
+    expect(slight.calls).toHaveLength(0)
+    expect(first.version).toBe(1)
+    expect(first.shortened).toBeUndefined()
+
+    const over = asks()
+    const h2 = setup({ mockLlm: over.llm, mockCostUsd: () => COST })
+    const b = await shotWith(h2, 40)
+    const second = await h2.sound.generateNarration({ shotId: b.id })
+    expect(over.calls).toHaveLength(1)
+    expect(second.version).toBe(2)
+  })
+
+  it('預估：有旁白時多一個「最壞情況」金額（念兩次＋一次小的文字呼叫）；沒有旁白（只有配樂）就沒有範圍', async () => {
+    const h = setup()
+    const { id } = await shotWith(h, 20)
+    const withNarration = h.sound.plan({ narration: { shotIds: [id] }, music: {} })
+    expect(withNarration.maxUsd).toBeGreaterThan(withNarration.totalUsd)
+    const narration = withNarration.items.find((i) => i.kind === 'narration')
+    const music = withNarration.items.find((i) => i.kind === 'music')
+    expect(narration?.maxUsd).toBeGreaterThan(narration?.estimatedUsd ?? 0)
+    // 配樂不會重做：最壞＝預估
+    expect(music?.maxUsd ?? music?.estimatedUsd).toBe(music?.estimatedUsd)
+    const onlyMusic = h.sound.plan({ music: {} })
+    expect(onlyMusic.maxUsd).toBeUndefined()
+  })
+
+  it('改短的台詞可以復原：一步回到原句與原本的旁白版本；重做又回到改短的', async () => {
+    const { llm } = asks()
+    const h = setup({ mockLlm: llm, mockCostUsd: () => COST })
+    const { id, line } = await shotWith(h, 54)
+    const before = h.sound.state().shots[0]?.narration
+    expect(before).toBeUndefined()
+    const result = await h.sound.generateNarration({ shotId: id })
+    expect(result.shortened).toMatchObject({ from: line })
+    expect(h.shots.list().shots[0]?.dialogue).toBe(result.shortened?.to)
+    expect(h.history.state().canUndo).toBe(true)
+
+    const undone = h.history.undo()
+    expect(undone.applied).toBe(true)
+    // 台詞回到原句；旁白回到「沒有」（這次是第一次念）
+    expect(h.shots.list().shots[0]?.dialogue).toBe(line)
+    expect(h.sound.state().shots[0]?.narration).toBeUndefined()
+    h.history.redo()
+    expect(h.shots.list().shots[0]?.dialogue).toBe(result.shortened?.to)
+    expect(h.sound.state().shots[0]?.narration?.version).toBe(2)
+  })
+
+  it('原本就有旁白、重念時被改短：復原回到原句與原本採用的那一版', async () => {
+    const { llm } = asks()
+    const h = setup({ mockLlm: llm, mockCostUsd: () => COST })
+    const { id } = await shotWith(h, 20)
+    const first = await h.sound.generateNarration({ shotId: id })
+    expect(first.version).toBe(1)
+    // 使用者把台詞改得很長、重念
+    const long = '字'.repeat(54)
+    h.shots.update(id, { dialogue: long })
+    const second = await h.sound.generateNarration({ shotId: id })
+    expect(second.shortened).toBeDefined()
+    h.history.undo()
+    expect(h.shots.list().shots[0]?.dialogue).toBe(long)
+    expect(h.sound.state().shots[0]?.narration?.id).toBe(first.id)
+  })
+
+  it('沒有被改短的旁白不佔復原的一步', async () => {
+    const { llm } = asks()
+    const h = setup({ mockLlm: llm })
+    const { id } = await shotWith(h, 10)
+    const canUndoBefore = h.history.state().canUndo
+    const clip = await h.sound.generateNarration({ shotId: id })
+    expect(clip.shortened).toBeUndefined()
+    expect(h.history.state().canUndo).toBe(canUndoBefore)
+  })
+})

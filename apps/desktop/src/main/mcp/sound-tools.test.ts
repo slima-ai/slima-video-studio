@@ -152,6 +152,12 @@ describe('聲音工具（示範模式）', () => {
     // 回的是金額：每一項有估價，總額大於 0（getting-started 說聲音用 plan_sound 看估價）
     expect(plan.items.every((i) => i.estimatedUsd >= 0)).toBe(true)
     expect(plan.totalUsd).toBeGreaterThan(0)
+    // 旁白可能改短重念：有最壞情況的金額（比預估大）
+    const raw = JSON.parse(textOf(await r.call('plan_sound', { music: true }))) as {
+      totalUsd: number
+      maxUsd?: number
+    }
+    expect(raw.maxUsd).toBeGreaterThan(raw.totalUsd)
 
     const v1 = dataOf(Made, await r.call('generate_narration', { shotId: first }))
     expect(v1.clip).toMatchObject({ kind: 'narration', version: 1, adopted: true })
