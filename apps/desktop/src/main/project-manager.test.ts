@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { createAppLedger } from './costs/app-ledger'
 import { ProjectManager } from './project-manager'
 
 const dirs: string[] = []
@@ -98,6 +99,35 @@ describe('ProjectManager', () => {
     const status = m.status()
     expect(status).toMatchObject({ name: '短片', dir, spentUsd: 0 })
     expect(Number.isNaN(Date.parse(status?.savedAt ?? ''))).toBe(false)
+  })
+
+  it('App 層帳本裡的錢（專案不在了、錢還是花了）算進「已花」與整個專案的加總；示範用的 mock 不算；單看這個專案的紀錄不含它', () => {
+    const ledger = createAppLedger({})
+    const m = new ProjectManager('test', ledger)
+    managers.push(m)
+    ledger.record({ provider: 'openrouter', modelId: 'x/llm', amountUsd: 0.37, reason: 'test' })
+    ledger.record({ provider: 'mock', modelId: 'mock/llm', amountUsd: 9, reason: 'test' })
+    const dir = join(tmp(), '短片.svsproj')
+    m.create(dir, '短片')
+    const handle = m.current()
+    if (!handle) throw new Error('專案應該開著')
+    handle.repos.costs.record({
+      projectId: handle.projectId,
+      provider: 'openrouter',
+      modelId: 'x/llm',
+      amountUsd: 0.1,
+      estimated: false,
+    })
+    expect(m.status()).toMatchObject({ spentUsd: 0.47, discardedSpentUsd: 0.37 })
+    // 花費上限用的整個專案加總（含 mock，跟以前一樣不排除）
+    expect(handle.repos.costs.totalUsd(handle.projectId)).toBeCloseTo(9.47, 9)
+    // 專案自己的紀錄只有自己的
+    expect(handle.repos.costs.list(handle.projectId)).toHaveLength(1)
+    // 換開另一個專案，一樣算得到；沒有 App 層的錢時不帶這個欄位
+    const other = new ProjectManager('test')
+    managers.push(other)
+    other.create(join(tmp(), '別的.svsproj'), '別的')
+    expect(other.status()).not.toHaveProperty('discardedSpentUsd')
   })
 
   it('另存為：複本有一樣的資料、換成新名字並開著；原本的資料夾沒動，還能再打開', async () => {

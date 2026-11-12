@@ -26,9 +26,10 @@ import {
   TrailerPlanRequestSchema,
   TrailerSettingsPatchSchema,
 } from '@svs/schema'
-import { QUICK_STYLE_IDS, writeTrailerScript } from '@svs/workflows'
+import { QUICK_STYLE_IDS, writeTrailerScript, type StudioServices } from '@svs/workflows'
 
 import { ensureProject } from '../ensure-project'
+import type { AppSpendLedger } from '../costs/app-ledger'
 import { createDraftCharacters } from '../quickstart/draft-characters'
 import type { Logger } from '../logger'
 import type { ProjectManager } from '../project-manager'
@@ -38,10 +39,20 @@ import type { SettingsStore } from '../settings/settings-store'
 import type { ShotService, TrailerBeatInput } from '../shots/shot-service'
 import { createStudioServices } from '../studio-services'
 
+/** 一次真的花了錢的文字模型呼叫。 */
+interface SpentCall {
+  amountUsd: number
+  provider: string
+  modelId: string
+  jobId: string
+}
+
 export interface TrailerServiceDeps {
   projects: ProjectManager
   /** 還沒有專案時，寫腳本會自動建一個放在這裡。 */
   projectsDir: string
+  /** App 層的花費帳本：寫腳本失敗、剛建的空專案被刪掉時，花掉的錢記在這裡（不跟專案走）。 */
+  appLedger: AppSpendLedger
   runtime: QueueAccess
   settings: SettingsStore
   settingsService: SettingsService
@@ -101,6 +112,8 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
           ? { dialogue: shot.dialogue }
           : {}),
         ...(shot.beatKind === 'card' && shot.card ? { card: shot.card } : {}),
+        // 段落存在鏡頭上：跟寫腳本當下用同一套檢查（「懸念」那一格不算進節奏）
+        ...(shot.segment === undefined ? {} : { segment: shot.segment }),
       })),
       trailer,
       FPS,
@@ -182,19 +195,49 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
 
   /**
    * 寫腳本沒成功，而且這個專案是這次寫腳本自己建的（空的）：關掉並刪掉，專案清單不會多一個空專案。
-   * 只刪「這次建的那一個」：中途使用者換開了別的專案、或裡面已經有東西，都不動。
+   * 只刪「這次建的那一個」：中途使用者換開了別的專案、或裡面已經有東西，都不動。回傳有沒有刪掉。
    */
-  const discardNewProject = (handle: ProjectHandle): void => {
-    if (projects.current() !== handle || handle.closed) return
-    if (handle.repos.shots.list().length > 0 || handle.repos.trailer.get() !== undefined) return
+  const discardNewProject = (handle: ProjectHandle): boolean => {
+    if (projects.current() !== handle || handle.closed) return false
+    if (handle.repos.shots.list().length > 0 || handle.repos.trailer.get() !== undefined) {
+      return false
+    }
     const { dir } = handle
     const inside = resolve(dir).startsWith(`${resolve(deps.projectsDir)}${sep}`)
-    if (!inside) return
+    if (!inside) return false
     projects.close()
     try {
       rmSync(dir, { recursive: true, force: true })
     } catch (error) {
       log.warn(`Could not remove the empty project ${dir}: ${String(error)}`)
+    }
+    return true
+  }
+
+  /**
+   * 把真的花了錢的呼叫記進帳：專案還開著就記在專案的花費帳本上；專案已經不在了（空專案被刪掉、
+   * 或中途關掉）就記在 App 層的帳本上，錢不會跟著專案消失。
+   */
+  const settleSpent = (handle: ProjectHandle, calls: readonly SpentCall[], gone: boolean): void => {
+    for (const call of calls) {
+      if (!gone && !handle.closed) {
+        handle.repos.costs.record({
+          projectId: handle.projectId,
+          provider: call.provider,
+          modelId: call.modelId,
+          amountUsd: call.amountUsd,
+          estimated: false,
+          jobId: call.jobId,
+        })
+      } else {
+        deps.appLedger.record({
+          provider: call.provider,
+          modelId: call.modelId,
+          amountUsd: call.amountUsd,
+          jobId: call.jobId,
+          reason: 'trailer.plan: the project was removed or closed before the cost could be booked',
+        })
+      }
     }
   }
 
@@ -202,6 +245,7 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
   const planOnto = async (
     handle: ProjectHandle,
     parsed: ReturnType<typeof TrailerPlanRequestSchema.parse>,
+    spent: SpentCall[],
   ): Promise<TrailerPlanResult> => {
     const checked = checkPlan(parsed.text)
     const model = settingsService.resolveModel('llm')
@@ -218,8 +262,24 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
     const base = handle.repos.trailer.get() ?? TrailerSettingsSchema.parse({})
     const merged = TrailerSettingsSchema.parse({ ...base, ...given })
     const studio = createStudioServices({ queue, handle, tools: tool, models })
+    // 每次文字模型呼叫回來的金額都先記下來（寫腳本中途失敗，錢也已經花了）
+    const metered: StudioServices = {
+      ...studio,
+      generate: async (request, ctx) => {
+        const result = await studio.generate(request, ctx)
+        if (result.costUsd !== undefined && result.costUsd > 0) {
+          spent.push({
+            amountUsd: result.costUsd,
+            provider: result.provider,
+            modelId: request.modelId,
+            jobId: result.jobId,
+          })
+        }
+        return result
+      },
+    }
     const written = await writeTrailerScript(
-      studio,
+      metered,
       {
         modelId: model,
         text: parsed.text,
@@ -245,17 +305,9 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
       }
       throw error
     })
-    // 單獨呼叫不會經過引擎，自己記到花費帳本
-    if (written.costUsd !== undefined && !handle.closed) {
-      handle.repos.costs.record({
-        projectId: handle.projectId,
-        provider: written.provider,
-        modelId: model,
-        amountUsd: written.costUsd,
-        estimated: false,
-        jobId: written.jobId,
-      })
-    }
+    // 單獨呼叫不會經過引擎，自己記到花費帳本（寫腳本的每一次呼叫；專案這時若已關掉就記到 App 層的帳）
+    settleSpent(handle, spent, handle.closed)
+    spent.length = 0
     if (handle.closed) throw invalid(t('services.theProjectWasClosedSo4'))
 
     // 腳本通過檢查了，才一次寫進專案（整個動作算一步復原）
@@ -324,6 +376,7 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
         ...(beat.beatKind === 'card'
           ? { card: { text: beat.cardText.trim(), subtext: beat.cardSubtext.trim() } }
           : {}),
+        ...(beat.segment.trim() === '' ? {} : { segment: beat.segment.trim() }),
       }))
       handle.repos.trailer.update({
         ...given,
@@ -367,10 +420,13 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
       const created = projects.current() === undefined
       ensureProject(projects, deps.projectsDir, parsed.title ?? t('trailer.sceneTitle'))
       const handle = need()
+      // 這次真的花了錢的呼叫（不管最後成不成功都要記帳：被檢查器擋下、回亂碼、重寫那一次也一樣）
+      const spent: SpentCall[] = []
       try {
-        return await planOnto(handle, parsed)
+        return await planOnto(handle, parsed, spent)
       } catch (error) {
-        if (created) discardNewProject(handle)
+        const removed = created && discardNewProject(handle)
+        settleSpent(handle, spent, removed)
         throw error
       }
     },

@@ -337,7 +337,13 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
       {hasProject ? (
         <span
           data-testid="spent"
-          title={t('projects.whatThisProjectHasCost')}
+          title={
+            status.discardedSpentUsd === undefined
+              ? t('projects.whatThisProjectHasCost')
+              : t('projects.whatThisProjectHasCostWithLeftover', {
+                  usd: status.discardedSpentUsd.toFixed(2),
+                })
+          }
           className="ml-2 rounded-full border border-border bg-surface-raised px-3 py-0.5 text-xs text-success"
         >
           {t('projects.spent')} {usd(status.spentUsd)}

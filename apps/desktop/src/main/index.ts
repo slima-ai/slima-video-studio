@@ -11,6 +11,7 @@ import { directKeyCrypto, helperKeyCrypto } from './keys/key-crypto'
 import { createHelperRunner } from './keys/key-helper-runner'
 import { isKeyHelperRun, prepareKeyHelper, runKeyHelper } from './keys/key-helper'
 import { createKeyVault } from './keys/key-vault'
+import { createAppLedger } from './costs/app-ledger'
 import { ProjectManager } from './project-manager'
 import { registerAllHandlers } from './ipc/handlers'
 import { installIpc } from './ipc/install'
@@ -158,7 +159,15 @@ void app.whenReady().then(() => {
   mainLog = log
   installCrashGuards(process, log)
   log.info(`${APP_TITLE} started (${app.getVersion()}, packaged=${String(app.isPackaged)})`)
-  projects = new ProjectManager(app.getVersion())
+  // App 層的花費帳本：花了錢、專案卻已經不在的那些（例如寫預告片腳本失敗、剛建的空專案被刪掉）。
+  // 放在使用者資料夾，專案管理（算「已花」與花費上限）與服務（記帳）共用同一個。
+  const appLedger = createAppLedger({
+    file: join(app.getPath('userData'), 'spend-ledger.json'),
+    warn: (message) => {
+      log.warn(message)
+    },
+  })
+  projects = new ProjectManager(app.getVersion(), appLedger)
   installAssetProtocol(projects)
 
   const registry = createIpcRegistry(log)
@@ -245,6 +254,7 @@ void app.whenReady().then(() => {
     projects,
     keys,
     settings,
+    appLedger,
     broadcast: relay,
     log,
     tools: () => tools,

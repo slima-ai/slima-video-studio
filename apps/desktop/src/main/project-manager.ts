@@ -9,12 +9,21 @@ import {
 } from '@svs/db'
 import { AppError, type ProjectInfo, type ProjectStatus, t } from '@svs/schema'
 
+import type { AppSpendLedger } from './costs/app-ledger'
+
 /** 目前開啟的專案。一次只開一個；開新的會先關掉舊的。 */
 export class ProjectManager {
   private handle: ProjectHandle | undefined
   private readonly listeners = new Set<(handle: ProjectHandle | undefined) => void>()
 
-  constructor(private readonly appVersion: string) {}
+  /**
+   * `appLedger`：App 層的花費帳本（專案不在了、錢還是花了的那些）。開專案時掛到它的花費帳本上，
+   * 「已花」與專案花費上限都會把它算進去。
+   */
+  constructor(
+    private readonly appVersion: string,
+    private readonly appLedger?: AppSpendLedger,
+  ) {}
 
   create(dir: string, name: string): ProjectInfo {
     this.close()
@@ -69,11 +78,14 @@ export class ProjectManager {
   status(): ProjectStatus | null {
     const { handle } = this
     if (!handle) return null
+    // 示範模式的假結果不算；App 層帳本（專案不在了、錢還是花了）的錢已經掛在花費帳本上，一起算進 spentUsd
+    const leftover = this.appLedger?.totalUsd({ excludeProviders: ['mock'] }) ?? 0
     return {
       name: handle.repos.projects.get().name,
       dir: handle.dir,
       savedAt: projectModifiedAt(handle.dir).toISOString(),
       spentUsd: handle.repos.costs.totalUsd(handle.projectId, { excludeProviders: ['mock'] }),
+      ...(leftover > 0 ? { discardedSpentUsd: leftover } : {}),
     }
   }
 
@@ -95,6 +107,8 @@ export class ProjectManager {
   }
 
   private adopt(handle: ProjectHandle): ProjectInfo {
+    const { appLedger } = this
+    if (appLedger) handle.repos.costs.setExternalTotal((filter) => appLedger.totalUsd(filter))
     this.handle = handle
     this.notify(handle)
     return toInfo(handle)

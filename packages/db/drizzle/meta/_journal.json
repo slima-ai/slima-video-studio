@@ -141,6 +141,13 @@
       "when": 1794427870706,
       "tag": "0019_trailer",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1794453639872,
+      "tag": "0020_shot_segment",
+      "breakpoints": true
     }
   ]
 }

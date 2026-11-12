@@ -308,8 +308,13 @@ type ShotRow = typeof shots.$inferSelect
 type TakeRow = typeof takes.$inferSelect
 
 function toShot(row: ShotRow): Shot {
-  const { position, ...rest } = dropNulls(row)
-  return ShotSchema.parse({ ...rest, order: position, cameraMove: row.cameraMove })
+  const { position, beatSegment, ...rest } = dropNulls(row)
+  return ShotSchema.parse({
+    ...rest,
+    order: position,
+    cameraMove: row.cameraMove,
+    segment: beatSegment,
+  })
 }
 
 function toShotRow(shot: Shot): ShotRow {
@@ -338,6 +343,7 @@ function toShotRow(shot: Shot): ShotRow {
     inCut: shot.inCut,
     beatKind: shot.beatKind,
     card: shot.card ?? null,
+    beatSegment: shot.segment ?? null,
   }
 }
 

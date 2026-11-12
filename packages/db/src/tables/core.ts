@@ -91,6 +91,8 @@ export const shots = sqliteTable(
     beatKind: text('beat_kind').notNull().default('video'),
     // 字卡內容 { text, subtext }；不是字卡就是 null
     card: text('card', { mode: 'json' }).$type<ShotCard | null>(),
+    // 預告片腳本裡這一格屬於模板的哪一段（hook、world、turn、escalate、suspense、title…）；沒有就是空的
+    beatSegment: text('beat_segment'),
   },
   (t) => [index('shots_project_idx').on(t.projectId, t.position)],
 )

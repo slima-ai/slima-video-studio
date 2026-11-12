@@ -180,5 +180,11 @@ export const MIGRATIONS: readonly Migration[] = [
       "ALTER TABLE `shots` ADD `beat_kind` text DEFAULT 'video' NOT NULL;",
       "ALTER TABLE `shots` ADD `card` text;"
     ]
+  },
+  {
+    "tag": "0020_shot_segment",
+    "statements": [
+      "ALTER TABLE `shots` ADD `beat_segment` text;"
+    ]
   }
 ]

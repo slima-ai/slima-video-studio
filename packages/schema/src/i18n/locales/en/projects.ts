@@ -61,6 +61,8 @@ export const projects = {
   'projects.realAiNoKeyYet': 'Real AI · no key yet',
   'projects.realAi': 'Real AI',
   'projects.whatThisProjectHasCost': 'What this project has cost so far (demo mode costs nothing)',
+  'projects.whatThisProjectHasCostWithLeftover':
+    'What this project has cost so far (demo mode costs nothing). US${usd} of it was spent on an empty project that was deleted after it failed (a failed trailer script still costs money).',
   'projects.spent': 'Spent',
   'projects.newProjectName': 'New project name',
   'projects.project': 'Project',

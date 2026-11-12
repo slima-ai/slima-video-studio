@@ -144,3 +144,39 @@ describe('鏡頭的格子種類 beat_kind 與字卡 card', () => {
     expect(repos.shots.get(shot.id)).toMatchObject({ beatKind: 'card', card: { text: '他回來了' } })
   })
 })
+
+describe('鏡頭的段落 segment（預告片腳本屬於模板的哪一段）', () => {
+  it('沒指定就沒有段落；存進去再讀出來一樣；改掉、清掉', () => {
+    const { repos } = newProject()
+    const plain = repos.shots.create({ description: '黑藤爬滿斷橋' })
+    expect(plain.segment).toBeUndefined()
+    expect(repos.shots.get(plain.id)?.segment).toBeUndefined()
+    const shot = repos.shots.create({ description: '燈熄了', segment: 'suspense' })
+    expect(repos.shots.get(shot.id)?.segment).toBe('suspense')
+    expect(repos.shots.update(shot.id, { segment: 'escalate' }).segment).toBe('escalate')
+    expect(repos.shots.get(shot.id)?.segment).toBe('escalate')
+    const cleared = repos.shots.update(shot.id, { segment: undefined })
+    expect(cleared.segment).toBeUndefined()
+  })
+
+  it('復原與重做：段落跟著鏡頭一起退回', () => {
+    const { repos, db, projectId } = newProject()
+    const history = new StructureHistory(db, projectId)
+    const shot = history.record('加一格', () =>
+      repos.shots.create({ description: '燈熄了', segment: 'suspense' }),
+    )
+    history.undo()
+    expect(repos.shots.get(shot.id)).toBeUndefined()
+    history.redo()
+    expect(repos.shots.get(shot.id)?.segment).toBe('suspense')
+  })
+
+  it('另存為：段落一起帶到複本', async () => {
+    const handle = newProject()
+    handle.repos.shots.create({ description: '燈熄了', segment: 'suspense' })
+    const dest = join(tempDir(), '段落複本.svsproj')
+    await copyProject(handle, dest, { name: '複本', env })
+    const copy = reopen({ ...handle, dir: dest })
+    expect(copy.repos.shots.list()[0]?.segment).toBe('suspense')
+  })
+})

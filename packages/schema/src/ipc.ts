@@ -244,8 +244,13 @@ export const ProjectStatusSchema = z.object({
   dir: z.string(),
   /** 最後一次寫進專案的時間（資料庫與它的 -wal 檔，較新的那個）。 */
   savedAt: z.string(),
-  /** 這個專案到目前為止花的錢（示範模式的假結果不算）。 */
+  /** 這個專案到目前為止花的錢（示範模式的假結果不算）；含下面 App 層留下的那一份。 */
   spentUsd: z.number().nonnegative(),
+  /**
+   * 其中 App 層帳本裡的錢：專案已經不在、錢還是花了的那些（例如寫預告片腳本失敗，剛建的空專案被刪掉）。
+   * 沒有這種錢就沒有這個欄位。
+   */
+  discardedSpentUsd: z.number().positive().optional(),
 })
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>
 

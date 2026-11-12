@@ -1,5 +1,10 @@
 import { demoTrailerScript } from '@svs/providers'
-import type { LlmRequest } from '@svs/schema'
+import {
+  checkTrailerScript,
+  TrailerScriptSchema,
+  TrailerSettingsSchema,
+  type LlmRequest,
+} from '@svs/schema'
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -58,6 +63,177 @@ const withBeats =
   }
 
 const shotsOf = (h: ReturnType<typeof setup>) => h.shots.list().shots
+
+describe('trailer.plan：真的呼叫只要花了錢就記帳（成功、被擋下、亂碼、重寫都一樣）', () => {
+  /** 第一格是字卡、程式也修不了：寫的、退回重寫的兩次都過不了檢查。 */
+  const rejected = () =>
+    scripted(
+      withBeats((script) => {
+        script.beats[0] = {
+          ...script.beats[0],
+          beatKind: 'card',
+          cardText: '開場字卡',
+          dialogue: '',
+        }
+      }),
+    )
+  const COST = 0.37
+  const total = (h: ReturnType<typeof setup>): number => {
+    const handle = h.projects.current()
+    return handle ? handle.repos.costs.totalUsd(handle.projectId) : 0
+  }
+
+  it('寫成功：這次的文字費記在專案帳本上，一次（不重複記）', async () => {
+    const h = setup({ mockCostUsd: () => COST })
+    await h.trailer.plan({ text: STORY })
+    expect(total(h)).toBeCloseTo(COST, 9)
+    expect(h.ledger.totalUsd()).toBe(0)
+  })
+
+  it('沒有專案、被檢查器擋下：兩次呼叫的錢記進 App 層的帳，空專案刪掉後還在；之後開的專案「已花」與額度算得到', async () => {
+    const llm = rejected()
+    const h = setup({ mockLlm: llm.llm, mockCostUsd: () => COST })
+    await expect(h.trailer.plan({ text: STORY })).rejects.toMatchObject({
+      userMessage: expect.stringContaining('專案沒有被改') as unknown,
+    })
+    expect(llm.calls).toHaveLength(2)
+    // 空專案不留；錢也沒消失
+    expect(h.projects.current()).toBeUndefined()
+    expect(h.ledger.totalUsd()).toBeCloseTo(2 * COST, 9)
+    expect(h.ledger.list()).toHaveLength(2)
+    expect(h.ledger.list()[0]).toMatchObject({
+      provider: 'mock',
+      modelId: expect.any(String) as unknown,
+    })
+    // 之後開的專案：整個專案的加總（花費上限用的、「已花」用的）算進這筆
+    h.shots.create({})
+    expect(total(h)).toBeCloseTo(2 * COST, 9)
+    // 專案自己的紀錄裡沒有這筆（不屬於這個專案）
+    const handle = h.projects.current()
+    expect(handle?.repos.costs.list(handle.projectId)).toEqual([])
+  })
+
+  it('沒有專案、模型回亂碼（格式不對重試一次還是不對）：兩次呼叫的錢一樣記進 App 層', async () => {
+    const h = setup({
+      mockCostUsd: () => COST,
+      mockLlm: (r) =>
+        r.messages.some((m) => m.content.includes('請寫預告片腳本')) ? '不是 JSON' : undefined,
+    })
+    await expect(h.trailer.plan({ text: STORY })).rejects.toBeDefined()
+    expect(h.projects.current()).toBeUndefined()
+    expect(h.ledger.totalUsd()).toBeCloseTo(2 * COST, 9)
+  })
+
+  it('已經開著專案、被擋下：錢記在這個專案的帳本上（專案還在，不用另外記）', async () => {
+    const llm = rejected()
+    const h = setup({ mockLlm: llm.llm, mockCostUsd: () => COST })
+    h.shots.create({})
+    await expect(h.trailer.plan({ text: STORY })).rejects.toBeDefined()
+    expect(total(h)).toBeCloseTo(2 * COST, 9)
+    expect(h.ledger.totalUsd()).toBe(0)
+    const handle = h.projects.current()
+    expect(handle?.repos.costs.list(handle.projectId)).toHaveLength(2)
+  })
+
+  it('重寫腳本被擋下：舊腳本不動，那一次的錢記在專案上', async () => {
+    const h = setup({ mockCostUsd: () => COST })
+    await h.trailer.plan({ text: STORY })
+    const before = h.shots.list().shots.map((s) => s.id)
+    expect(total(h)).toBeCloseTo(COST, 9)
+    await expect(h.trailer.plan({ text: `${STORY}【腳本不合格】` })).rejects.toBeDefined()
+    expect(h.shots.list().shots.map((s) => s.id)).toEqual(before)
+    // 示範的壞腳本標記：寫的、退回重寫的各一次
+    expect(total(h)).toBeCloseTo(3 * COST, 9)
+  })
+
+  it('花費上限：App 層帳本裡的錢也算進專案的上限（預估前就擋）', async () => {
+    const llm = rejected()
+    const h = setup({ mockLlm: llm.llm, mockCostUsd: () => COST })
+    await expect(h.trailer.plan({ text: STORY })).rejects.toBeDefined()
+    h.settings.update({ budget: { perRunLimitUsd: 5, projectLimitUsd: 0.5 } })
+    h.shots.create({})
+    const check = h.trailer.check(STORY)
+    expect(check.ok).toBe(false)
+    expect(check.issue).toContain('專案')
+  })
+})
+
+describe('trailer.status：跟寫腳本當下用同一套節奏檢查（段落存進專案）', () => {
+  /** 後面一格比一格短，只有「懸念」那一格留得很久：寫的當下（「懸念」不算）沒有節奏提醒；
+   *  如果存進專案之後不認得「懸念」，最後三分之一的平均會被它拉高，冒出節奏提醒。 */
+  const suspenseScript = () => {
+    const pic = (segment: string, durationSec: number, i: number) => ({
+      segment,
+      beatKind: i % 2 === 0 ? 'video' : 'still',
+      durationSec,
+      description: `畫面 ${String(i)}`,
+      action: '',
+      size: 'medium',
+      angle: 'eye_level',
+      cameraMove: null,
+      characters: [],
+      location: '',
+      dialogue: '',
+      cardText: '',
+      cardSubtext: '',
+    })
+    const lengths: [string, number][] = [
+      ['hook', 3],
+      ['world', 3],
+      ['world', 3],
+      ['turn', 3.5],
+      ['turn', 3.5],
+      ['escalate', 1.5],
+      ['escalate', 1.2],
+      ['escalate', 1],
+      ['escalate', 0.8],
+      ['escalate', 0.6],
+      ['suspense', 5],
+    ]
+    const beats: Record<string, unknown>[] = lengths.map(([segment, sec], i) =>
+      pic(segment, sec, i),
+    )
+    const used = lengths.reduce((sum, [, sec]) => sum + sec, 0)
+    beats.push({
+      ...pic('title', 30 - used, 99),
+      beatKind: 'title',
+      description: '',
+    })
+    return { title: '斷橋', music: '', places: [], beats }
+  }
+
+  it('同一份腳本：寫的當下檢查、存進專案後 trailer.status 檢查，錯誤與提醒一模一樣（也沒有節奏提醒）', async () => {
+    const llm = scripted(suspenseScript)
+    const h = setup({ mockLlm: llm.llm })
+    const script = TrailerScriptSchema.parse(suspenseScript())
+    const settings = TrailerSettingsSchema.parse({ kind: 'story', targetSec: 30, title: '斷橋' })
+    const writing = checkTrailerScript(
+      script.beats.map((b) => ({
+        beatKind: b.beatKind,
+        durationSec: b.durationSec,
+        segment: b.segment,
+        ...(b.beatKind === 'card' ? { card: { text: b.cardText, subtext: b.cardSubtext } } : {}),
+      })),
+      settings,
+      24,
+    )
+    expect(writing.warnings.map((w) => w.code)).not.toContain('no_escalation')
+
+    await h.trailer.plan({ text: STORY, title: '斷橋' })
+    const stored = h.trailer.status()
+    expect(stored.errors.map((e) => e.code)).toEqual(writing.errors.map((e) => e.code))
+    // 存進去以後的提醒（片尾那行、片名沒有行動資訊這類，跟段落無關）跟寫的當下一模一樣；尤其不能多出節奏提醒
+    expect(stored.warnings.map((w) => w.code)).toEqual(writing.warnings.map((w) => w.code))
+    expect(stored.warnings.map((w) => w.code)).not.toContain('no_escalation')
+    // 段落真的存進了每個鏡頭
+    expect(
+      h.projects
+        .current()
+        ?.repos.shots.list()
+        .map((s) => s.segment),
+    ).toEqual(script.beats.map((b) => (b.segment === '' ? undefined : b.segment)))
+  })
+})
 
 describe('trailer.plan：示範模式（假腳本）', () => {
   it('預設 30 秒、劇情型：建預告片設定、一個「預告片」場與底下的鏡頭；腳本加總 30.0／目標 30', async () => {

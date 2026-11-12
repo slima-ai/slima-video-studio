@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { expect, vi } from 'vitest'
 
 import { MemoryVault } from '../keys/key-vault'
+import { createAppLedger } from '../costs/app-ledger'
 import { ProjectManager } from '../project-manager'
 import { createMemorySettingsStore } from '../settings/settings-store'
 import { createStudioApp, type StudioAppOptions } from '../studio-app'
@@ -51,7 +52,9 @@ const TINY_PNG = Uint8Array.from(
  */
 export function createStudioHarness(options: HarnessOptions = {}) {
   const root = mkdtempSync(join(tmpdir(), 'svs-studio-'))
-  const projects = new ProjectManager('test')
+  // App 層的花費帳本（跟正式 App 一樣，專案管理與服務共用同一個；測試放記憶體）
+  const ledger = createAppLedger({})
+  const projects = new ProjectManager('test', ledger)
   const negative = options.mockVideoNegativePrompt
   const models = new ModelRegistry(
     loadBuiltinModelCards().map((card) =>
@@ -104,6 +107,7 @@ export function createStudioHarness(options: HarnessOptions = {}) {
     projects,
     keys,
     settings,
+    appLedger: ledger,
     models,
     broadcast,
     log,
@@ -180,6 +184,7 @@ export function createStudioHarness(options: HarnessOptions = {}) {
   return {
     root,
     demo,
+    ledger,
     projects,
     settings,
     settingsService,

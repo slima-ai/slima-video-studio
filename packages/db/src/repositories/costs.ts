@@ -60,14 +60,24 @@ export class CostRepository {
       .map((row) => CostEntrySchema.parse(dropNulls(row)))
   }
 
-  /** 加總（可限定時間範圍或某次執行）。 */
+  /** 外部（App 層）的花費加總：專案不在了、錢還是花了的那些（例如寫腳本失敗而刪掉的空專案）。 */
+  private externalTotal: ((filter: CostListFilter) => number) | undefined
+
+  /** 掛上 App 層的帳：整個專案的加總（不限執行、不限時間）會把它算進去。 */
+  setExternalTotal(total: ((filter: CostListFilter) => number) | undefined): void {
+    this.externalTotal = total
+  }
+
+  /** 加總（可限定時間範圍或某次執行）。整個專案的加總另外含 App 層帳本裡的花費。 */
   totalUsd(projectId: string, filter: CostListFilter = {}): number {
     const row = this.db
       .select({ total: sql<number>`coalesce(sum(${costLedger.amountUsd}), 0)` })
       .from(costLedger)
       .where(this.where(projectId, filter))
       .get()
-    return row?.total ?? 0
+    const whole = filter.runId === undefined && filter.from === undefined && filter.to === undefined
+    const external = whole && this.externalTotal ? this.externalTotal(filter) : 0
+    return (row?.total ?? 0) + external
   }
 
   /** 其中估算（供應商沒回傳金額）的部分，UI 要標示「約」。 */
