@@ -9,6 +9,49 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
+const TRAILER = (filmSec: number | undefined) => ({
+  exists: true,
+  settings: { targetSec: 30 },
+  targetSec: 30,
+  scriptSec: 30,
+  beatCount: 9,
+  matches: true,
+  errors: [],
+  warnings: [],
+  ...(filmSec === undefined ? {} : { filmSec }),
+})
+
+describe('FinalCutPanel：預告片的成品長度', () => {
+  it('預告片專案：寫「成品 30 秒（目標 30 秒）」，差超過一格用警示色', async () => {
+    installFakeSvs({ 'trailer.status': () => TRAILER(30) })
+    const first = render(<FinalCutPanel finalVideoHash={'a'.repeat(64)} canRejoin={false} />)
+    const line = await screen.findByTestId('final-cut-length')
+    expect(line.textContent).toBe('成品 30 秒（目標 30 秒）')
+    expect(line.className).not.toContain('text-warning')
+    first.unmount()
+
+    installFakeSvs({ 'trailer.status': () => TRAILER(31.5) })
+    render(<FinalCutPanel finalVideoHash={'a'.repeat(64)} canRejoin={false} />)
+    const off = await screen.findByTestId('final-cut-length')
+    expect(off.textContent).toBe('成品 31.5 秒（目標 30 秒）')
+    expect(off.className).toContain('text-warning')
+  })
+
+  it('一般專案、或還沒接過成品：不顯示這一行', async () => {
+    installFakeSvs()
+    const first = render(<FinalCutPanel finalVideoHash={'a'.repeat(64)} canRejoin={false} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('final-cut-panel')).toBeTruthy()
+    })
+    expect(screen.queryByTestId('final-cut-length')).toBeNull()
+    first.unmount()
+    installFakeSvs({ 'trailer.status': () => TRAILER(undefined) })
+    render(<FinalCutPanel finalVideoHash={undefined} canRejoin={false} />)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.queryByTestId('final-cut-length')).toBeNull()
+  })
+})
+
 describe('FinalCutPanel：匯出的片尾字卡', () => {
   it('預設勾著「片尾加上 AI 服務標註（建議）」，匯出時帶 credits: true', async () => {
     const calls: unknown[] = []

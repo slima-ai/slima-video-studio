@@ -6,8 +6,8 @@ import { expect, test } from './fixtures'
 const toast = (page: Page) => page.getByTestId('toast')
 const openCanvas = (page: Page) => page.getByRole('button', { name: '畫布', exact: true }).click()
 
-test.describe('畫布：空白時的三個起點，與沒歸場的鏡頭', () => {
-  test('空白畫布有三個起點；「自己一步一步來」＝一個鏡頭放進新的場、打開面板，一步復原', async ({
+test.describe('畫布：空白時的四個起點，與沒歸場的鏡頭', () => {
+  test('空白畫布有四個起點；「自己一步一步來」＝一個鏡頭放進新的場、打開面板，一步復原', async ({
     page,
   }) => {
     await openCanvas(page)
@@ -15,6 +15,8 @@ test.describe('畫布：空白時的三個起點，與沒歸場的鏡頭', () =>
     await expect(page.getByTestId('empty-manual')).toBeEnabled()
     await expect(page.getByTestId('empty-paste-go')).toBeDisabled()
     await expect(page.getByTestId('empty-add-oneliner')).toBeEnabled()
+    await expect(page.getByTestId('trailer-start')).toBeVisible()
+    await expect(page.getByTestId('trailer-go')).toBeDisabled()
     // 每一張都說清楚會不會花錢
     await expect(page.getByTestId('canvas-empty')).toContainText('加上去不花錢')
     await expect(page.getByTestId('canvas-empty')).toContainText('不生成圖片和影片')

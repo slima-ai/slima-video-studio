@@ -225,10 +225,10 @@ test.describe('Claude 對話（假的 claude）', () => {
     await expect(page.getByTestId('chat-message-user')).toHaveCount(2)
   })
 
-  test('面板開著：空白畫布的三張開始卡都在面板左邊看得到（會換行，不被切掉）；提示往左讓開，不蓋住輸入欄與送出鈕', async ({
+  test('面板開著：空白畫布的四張開始卡都在面板左邊看得到（會換行，不被切掉）；提示往左讓開，不蓋住輸入欄與送出鈕', async ({
     page,
   }, testInfo) => {
-    // 筆電常見的寬度：面板（380）一開，畫布只剩不到 850，三張卡排不下一行
+    // 筆電常見的寬度：面板（380）一開，畫布只剩不到 850，四張卡排不下一行；卡片旁邊的空白不能擋住右下角的按鈕
     await page.setViewportSize({ width: 1280, height: 800 })
     await useFreeMcpPort(page)
     await openChat(page)
@@ -240,8 +240,8 @@ test.describe('Claude 對話（假的 claude）', () => {
       .poll(async () => (await page.getByTestId('chat-drawer').boundingBox())?.width)
       .toBe(380)
     const left = (await page.getByTestId('chat-drawer').boundingBox())?.x ?? 0
-    // 三張卡（一步一步來、貼一段故事、一句話）每一張都完整在面板左邊
-    for (const id of ['empty-manual', 'empty-paste-go', 'empty-add-oneliner']) {
+    // 四張卡（一步一步來、貼一段故事、一句話、做預告片）每一張都完整在面板左邊
+    for (const id of ['empty-manual', 'empty-paste-go', 'empty-add-oneliner', 'trailer-go']) {
       const card = page.getByTestId(id)
       await card.scrollIntoViewIfNeeded()
       const box = await card.boundingBox()

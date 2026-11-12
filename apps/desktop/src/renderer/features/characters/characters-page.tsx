@@ -557,9 +557,15 @@ export function CharactersPage() {
                       >
                         {t('chat.lockedV', { value: String(c.version) })}
                       </span>
-                    ) : c.anchorStatus === 'draft' ? (
-                      <span className="ml-2 text-xs text-warning">{t('chat.draft')}</span>
-                    ) : null}
+                    ) : (
+                      // 跟場景卡頁一樣：沒鎖定的都標「草稿」（寫預告片腳本時 AI 建的角色卡也在這裡）
+                      <span
+                        className="ml-2 text-xs text-warning"
+                        data-testid={`character-item-draft-${c.name}`}
+                      >
+                        {t('chat.draft')}
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}

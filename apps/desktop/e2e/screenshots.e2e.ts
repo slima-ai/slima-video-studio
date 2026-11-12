@@ -547,7 +547,7 @@ async function createProject(page: Page, name: string): Promise<void> {
  * 或從 CI 的 e2e-report 下載同名的檔案。檔名的編號：01 設定精靈、08 設定頁的連線區、09 成品面板的聲音區、10～14 其餘。
  */
 test.describe('README 用的圖', () => {
-  test('10 首頁、11 空白畫布的三種開始方式', async ({ page }, testInfo) => {
+  test('10 首頁、11 空白畫布的四種開始方式', async ({ page }, testInfo) => {
     // 這兩張的內容不高，視窗矮一點，圖裡就不會有一大片空白
     await page.setViewportSize({ width: 1600, height: 600 })
     await chooseTheme(page, THEMES[1])

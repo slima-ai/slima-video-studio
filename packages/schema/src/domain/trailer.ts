@@ -123,6 +123,10 @@ export const TrailerSettingsSchema = z.object({
   musicMood: LineSchema.default(''),
   /** 腳本附的配樂說明（有時間碼：開場留白、推進、片名前靜音、重音收尾）；寫腳本時產生，T6 做配樂時用。 */
   musicBrief: z.string().trim().max(2000).default(''),
+  /** 寫腳本用的文本（重寫腳本時再用一次）。 */
+  sourceText: z.string().max(60_000).default(''),
+  /** 旁白與配樂已經自動加過的時間（ISO）；重新寫腳本就清掉，之後的「生成空的」再照設定加。 */
+  soundAutoAddedAt: z.string().optional(),
   /** 腳本所在的場（寫腳本時建的「預告片」場）；重新寫腳本時取代這個場的鏡頭，其他鏡頭不動。 */
   sceneId: z.string().min(1).optional(),
   /**
@@ -146,6 +150,8 @@ export const TrailerSettingsPatchSchema = z.object({
   music: z.boolean().optional(),
   musicMood: LineSchema.optional(),
   musicBrief: z.string().trim().max(2000).optional(),
+  sourceText: z.string().max(60_000).optional(),
+  soundAutoAddedAt: z.string().nullable().optional(),
   sceneId: z.string().min(1).nullable().optional(),
   claims: ClaimsSchema.optional(),
 })

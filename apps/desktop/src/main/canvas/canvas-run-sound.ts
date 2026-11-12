@@ -26,6 +26,8 @@ type SoundTodo = Pick<QuickStartSound, 'narration' | 'music'>
 export type RunSoundWant = SoundTodo & {
   /** 這次的勾選來自哪些一句話節點（加好之後替它們記下「加過了」）。 */
   nodeIds: readonly string[]
+  /** 這次的勾選有一部分來自預告片設定（加好之後替它記下「加過了」）。 */
+  trailer?: boolean
 }
 
 /** 旁白與配樂加過了：記在一句話節點的設定上（`on` 是 false 就清掉）。 */
@@ -161,6 +163,21 @@ export function createRunSound(deps: RunSoundDeps): RunSound {
           nodeIds: [...(want?.nodeIds ?? []), node.id],
         }
       }
+      // 預告片：腳本所在的場的鏡頭有這次要生成的，就照預告片設定的旁白與配樂勾選（加過了就不再補）
+      const trailer = handle.repos.trailer.get()
+      if (
+        trailer?.sceneId !== undefined &&
+        trailer.soundAutoAddedAt === undefined &&
+        shots.some((shot) => shot.sceneId === trailer.sceneId) &&
+        (trailer.narration || trailer.music)
+      ) {
+        want = {
+          narration: (want?.narration ?? false) || trailer.narration,
+          music: (want?.music ?? false) || trailer.music,
+          nodeIds: want?.nodeIds ?? [],
+          trailer: true,
+        }
+      }
       return want && (want.narration || want.music) ? want : undefined
     },
 
@@ -189,7 +206,12 @@ export function createRunSound(deps: RunSoundDeps): RunSound {
         const done = todo ? await sound.addAll(todo) : { narrations: 0, music: false }
         // 加成功（或本來就都有了）才記下加過了；失敗的話之後的全部生成還會再試
         const handle = projects.current()
-        if (handle && !handle.closed) markSoundAutoAdded(handle, want.nodeIds, true)
+        if (handle && !handle.closed) {
+          markSoundAutoAdded(handle, want.nodeIds, true)
+          if (want.trailer === true) {
+            handle.repos.trailer.update({ soundAutoAddedAt: new Date().toISOString() })
+          }
+        }
         return {
           ...done,
           ...(todo?.narration === true && done.narrations === 0

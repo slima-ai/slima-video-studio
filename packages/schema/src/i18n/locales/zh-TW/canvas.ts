@@ -164,8 +164,8 @@ export const canvas = {
   'canvas.loadingCanvas2': '載入畫布…',
   'canvas.retry': '重試',
   'canvas.whereToStart': '從哪裡開始？',
-  'canvas.anyOfTheThreeWorks':
-    '三種都可以，挑順手的；之後隨時能從左邊的「新增」加場、鏡頭、角色、地點，或上傳圖片。',
+  'canvas.anyOfTheFourWorks':
+    '四種都可以，挑順手的；之後隨時能從左邊的「新增」加場、鏡頭、角色、地點，或上傳圖片。',
   'canvas.goStepByStep': '自己一步一步來',
   'canvas.addASceneAndA':
     '先加一個場和第一個鏡頭，自己寫畫面描述；每一格你說了算，要生成時再按 ▶。',

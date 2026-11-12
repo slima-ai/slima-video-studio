@@ -145,7 +145,7 @@ test.describe('預告片：寫腳本（示範模式，假腳本，不花錢）',
     await expect(page.getByRole('button', { name: '預告片', exact: true }).first()).toBeVisible()
     await page.getByRole('button', { name: '全部顯示' }).click()
     await page.screenshot({ path: testInfo.outputPath('trailer-blocked-canvas-unchanged.png') })
-    // 現在沒有畫面能顯示這則錯誤（入口在 T7）：把 IPC 的回覆原文存下來
+    // 畫面上顯示這則錯誤的測試在 trailer-start.e2e.ts；這裡把 IPC 的回覆原文存下來
     writeFileSync(
       testInfo.outputPath('checker-blocked-reply.json'),
       JSON.stringify(result, null, 2),

@@ -289,6 +289,26 @@ describe('SoundService：混音與成品（示範模式）', () => {
     expect(h.shots.finalCut()?.stale).toBe(false)
   })
 
+  it('預告片專案（影片自動剪到格長）：加旁白後重混出來的成品，不能被判成「鏡頭有變動」', async () => {
+    const h = setup()
+    const created = h.shots.create({})
+    h.projects.current()?.repos.trailer.update({ title: '黑藤裂谷' })
+    h.shots.update(created.id, { durationSec: 2.5, dialogue: '黑藤爬滿了斷橋。' })
+    await h.shots.regenerate(created.id, 'apply')
+    await h.idle(created.id)
+    await h.shots.whenMeasured()
+    // 影片 3 秒、格長 2.5 秒：有裁切（成品記的裁切指紋不是空的）
+    expect(h.shots.list().shots[0]?.videos.find((v) => v.adopted)?.trim).toEqual({ outSec: 2.5 })
+    await h.shots.rejoin()
+    const joined = finalOf(h)
+    expect(joined.trimKey).toBeTruthy()
+    await h.sound.generateNarration({ shotId: created.id })
+    expect(h.shots.finalCut()).toMatchObject({ stale: true, staleReason: 'sound' })
+    await h.sound.mix()
+    expect(finalOf(h).trimKey).toBe(joined.trimKey)
+    expect(h.shots.finalCut()?.stale).toBe(false)
+  })
+
   it('有聲音之後重新接片會自動混音：成品是混好的，不用再按混音', async () => {
     const h = setup()
     const [first] = await withShots(h)
