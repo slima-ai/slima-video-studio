@@ -52,6 +52,8 @@ async function planAndReserve(
   ) => number | undefined,
   maxCostUsd: number | undefined,
   scale = 1,
+  /** 最壞情況是估價的幾倍（旁白太長會改短重念一次，最壞念兩次）；上限與預留都照最壞情況算。 */
+  worstCaseFactor = 1,
 ) {
   const plan = await ctx.caller.call('sound.plan', request)
   if (!plan.ok)
@@ -64,13 +66,14 @@ async function planAndReserve(
     )
   }
   const estimatedUsd = base * scale
-  if (maxCostUsd !== undefined && estimatedUsd > maxCostUsd) {
+  const worstCaseUsd = estimatedUsd * worstCaseFactor
+  if (maxCostUsd !== undefined && worstCaseUsd > maxCostUsd) {
     throw new McpToolError(
-      `“${what}” is estimated to cost US$${estimatedUsd.toFixed(2)}, which is over the limit you gave (US$${maxCostUsd.toFixed(2)}), so it was not done.`,
+      `“${what}” is estimated to cost US$${estimatedUsd.toFixed(2)}${worstCaseFactor > 1 ? ` (up to US$${worstCaseUsd.toFixed(2)} if it has to be shortened and read again)` : ''}, which is over the limit you gave (US$${maxCostUsd.toFixed(2)}), so it was not done.`,
       'over_max_cost',
     )
   }
-  const reserved = reserveSpending(ctx, what, estimatedUsd, SOUND_RESERVE_FACTOR)
+  const reserved = reserveSpending(ctx, what, worstCaseUsd, SOUND_RESERVE_FACTOR)
   return { estimatedUsd, ...reserved, demoMode: ctx.settings.get().demoMode }
 }
 
@@ -153,7 +156,7 @@ export function registerSoundTools(ctx: ToolContext): void {
     name: 'generate_narration',
     title: 'Make the narration of one shot',
     description:
-      "Speak one shot's dialogue as narration (write the line first with update_shot dialogue; or pass text to say something else). voiceId must be one of the voices listed by list_models for the narration model (default: the one chosen in Settings). Makes a NEW version each time (older ones are kept; adopt_sound_clip switches). Calls the speech model: counts against the spending allowance (plan_sound first); free in demo mode. Narration longer than the shot shows up as a warning in get_sound.",
+      "Speak one shot's dialogue as narration (write the line first with update_shot dialogue; or pass text to say something else). voiceId must be one of the voices listed by list_models for the narration model (default: the one chosen in Settings). Makes a NEW version each time (older ones are kept; adopt_sound_clip switches). Calls the speech model: counts against the spending allowance (plan_sound first); free in demo mode. Narration longer than the shot is shortened once by the text model and voiced again (the shot's dialogue becomes the shorter line; the result's shortened field says so; this can cost up to twice the narration estimate plus a small text call); if it is still too long it shows up as a warning in get_sound.",
     input: {
       shotId: z.string().min(1),
       text: z.string().min(1).max(5000).optional(),
@@ -179,13 +182,15 @@ export function registerSoundTools(ctx: ToolContext): void {
         (items) => items.find((i) => i.kind === 'narration' && i.shotId === shotId)?.estimatedUsd,
         maxCostUsd,
         scale,
+        // 太長會改短重念一次：最壞要念兩次（預留與 maxCostUsd 都照這個算）
+        2,
       )
-      const { clip } = await ctx.caller.call('sound.generateNarration', {
+      const { clip, shortened } = await ctx.caller.call('sound.generateNarration', {
         shotId,
         ...(text === undefined ? {} : { text }),
         ...(voiceId === undefined ? {} : { voiceId }),
       })
-      return { clip: clipView(clip), spending }
+      return { clip: clipView(clip), ...(shortened ? { shortened } : {}), spending }
     },
   })
 

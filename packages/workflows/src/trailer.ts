@@ -13,6 +13,7 @@ import {
   TITLE_MIN_SEC,
   TRAILER_REQUEST_MARK,
   TRAILER_TEMPLATES,
+  type TrailerKind,
   TrailerScriptSchema,
   checkTrailerScript,
   fitToTarget,
@@ -384,4 +385,101 @@ export async function writeTrailerScript(
     })
   }
   return { script, check, retried, fixes, costUsd: cost, provider, jobId }
+}
+
+// ---- 配樂描述（T6b）：跟著腳本的時間與起伏 ----
+// 給配樂模型的字用英文（模型對英文描述最穩；使用者選的情緒照他寫的原文放進去）。
+// 這段字會進節點輸入與生成紀錄，所以用雜湊釘住（prompts-golden.test.ts）。
+
+/** 要的配樂長度＝成品長度加這麼多秒：模型的長度不準，寧可長一點再切掉。 */
+export const MUSIC_EXTRA_SEC = 3
+/** 配樂最後淡出多久（秒）；混音時從成品的最後一刻往回算。 */
+export const MUSIC_END_FADE_SEC = 1.5
+/** 片名出現前先留多久的靜音（秒）。 */
+const MUSIC_SILENCE_BEFORE_TITLE_SEC = 0.8
+
+const SEGMENT_MUSIC_MOODS: Readonly<Record<string, string>> = {
+  hook: 'a quiet, mysterious opening with sparse texture, an unanswered question',
+  world: 'establish the world, steady and restrained, slowly warming',
+  turn: 'something changes, tension starts to build',
+  escalate: 'rising intensity, driving rhythm, getting faster and louder',
+  suspense: 'held breath, sustained tension at its peak, almost still',
+  montage: 'fast cuts, relentless momentum, building to a peak',
+  title: 'the music falls away, then a single strong ending',
+}
+
+export interface MusicSpan {
+  key: string
+  startSec: number
+  endSec: number
+}
+
+/**
+ * 腳本各段的時間範圍：格子依序累加秒數，連續同一段併成一段。
+ * 沒有格子、或有格子沒存段落（舊專案的腳本）時，照類型模板的比例排。
+ */
+export function musicSpansOf(
+  shots: readonly { segment?: string | undefined; durationSec: number }[] | undefined,
+  kind: TrailerKind,
+  filmSec: number,
+): MusicSpan[] {
+  if (
+    shots !== undefined &&
+    shots.length > 0 &&
+    shots.every((s) => s.segment !== undefined && s.segment !== '')
+  ) {
+    const spans: MusicSpan[] = []
+    let at = 0
+    for (const shot of shots) {
+      const end = at + shot.durationSec
+      const last = spans.at(-1)
+      if (last && last.key === shot.segment) last.endSec = end
+      else spans.push({ key: shot.segment ?? '', startSec: at, endSec: end })
+      at = end
+    }
+    return spans
+  }
+  let at = 0
+  return TRAILER_TEMPLATES[kind].segments.map((segment, index, all) => {
+    const startSec = at
+    at = index === all.length - 1 ? filmSec : at + segment.share * filmSec
+    return { key: segment.key, startSec, endSec: at }
+  })
+}
+
+const sec1 = (value: number): string => value.toFixed(1)
+
+/** 預告片的配樂描述：純音樂、各段的時間與情緒、片名前短暫靜音、結尾一個重音、使用者選的情緒。 */
+export function trailerMusicPrompt(input: {
+  settings: Pick<TrailerSettings, 'musicMood'>
+  spans: readonly MusicSpan[]
+  filmSec: number
+  /** 專案的畫風代號；沒有就不寫。 */
+  style?: string | undefined
+}): string {
+  const { spans, filmSec } = input
+  const length = Math.round((filmSec + MUSIC_EXTRA_SEC) * 10) / 10
+  const mood = input.settings.musicMood.trim()
+  const timeline = spans
+    .map(
+      (span) =>
+        `${sec1(span.startSec)}–${sec1(span.endSec)} s ${span.key}: ${SEGMENT_MUSIC_MOODS[span.key] ?? 'follow the picture'}`,
+    )
+    .join('; ')
+  const title = spans.find(
+    (span) => span.key === 'title' && span.startSec > MUSIC_SILENCE_BEFORE_TITLE_SEC,
+  )
+  const ending = title
+    ? `Leave a short silence at ${sec1(title.startSec - MUSIC_SILENCE_BEFORE_TITLE_SEC)}–${sec1(title.startSec)} s, right before the title card. Land one final accent at ${sec1(title.startSec)} s (when the title appears) and let it ring until ${sec1(filmSec)} s.`
+    : `Land one final accent at ${sec1(filmSec)} s (the end of the film).`
+  return [
+    'Instrumental only, no vocals, no singing, no spoken words.',
+    `Original cinematic score for a book trailer, ${String(length)} s long. The film itself is ${String(Math.round(filmSec * 10) / 10)} s: the track is cut there and ends with a ${String(MUSIC_END_FADE_SEC)} s fade-out.`,
+    input.style ? `Visual style: ${input.style}.` : '',
+    mood === '' ? '' : `Overall mood: ${mood}.`,
+    `Timeline: ${timeline}.`,
+    ending,
+  ]
+    .filter((part) => part !== '')
+    .join(' ')
 }

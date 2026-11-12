@@ -126,6 +126,7 @@ import {
   NARRATION_MAX_CHARS,
   SoundClipPatchSchema,
   SoundClipSchema,
+  NarrationShortenedSchema,
   SoundPlanRequestSchema,
   SoundAnalysisSchema,
   SoundPlanSchema,
@@ -890,7 +891,7 @@ export const ipcContract = {
       text: z.string().max(NARRATION_MAX_CHARS).optional(),
       voiceId: z.string().min(1).optional(),
     }),
-    response: z.object({ clip: SoundClipSchema }),
+    response: z.object({ clip: SoundClipSchema, shortened: NarrationShortenedSchema.optional() }),
   },
   /** 生一首配樂（沒給描述就依風格與場景情緒組一段，永遠是純音樂）。會花錢。 */
   'sound.generateMusic': {

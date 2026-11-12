@@ -24,6 +24,7 @@ import {
   isAppError,
   type AssetRef,
   type SoundAnalysis,
+  type NarrationShortened,
   type SoundClip,
   type SoundClipPatchInput,
   type SoundPlan,
@@ -36,6 +37,15 @@ import {
   t,
   trimmedLengthSec,
 } from '@svs/schema'
+import {
+  MUSIC_END_FADE_SEC,
+  MUSIC_EXTRA_SEC,
+  NARRATION_SHORTEN_SYSTEM,
+  cleanShortenedLine,
+  musicSpansOf,
+  narrationShortenMessage,
+  trailerMusicPrompt,
+} from '@svs/workflows'
 
 import { currentFinal } from '../shots/current-final'
 import { trimOfTake } from '../shots/trim'
@@ -62,6 +72,9 @@ export interface SoundServiceDeps {
   pickMusic?: () => Promise<string | undefined>
 }
 
+/** 念好的旁白；放不進格子而被改短重念時，多帶一份說明（台詞已經換成新句）。 */
+export type NarrationResult = SoundClip & { shortened?: NarrationShortened }
+
 /** 匯入前準備好的音樂：素材已存進專案，等著寫進資料庫（寫進去那一步要同步，才記得成一步復原）。 */
 export interface PreparedMusic {
   handle: ProjectHandle
@@ -87,7 +100,7 @@ export interface SoundService {
     shotId: string
     text?: string | undefined
     voiceId?: string | undefined
-  }) => Promise<SoundClip>
+  }) => Promise<NarrationResult>
   generateMusic: (input: {
     prompt?: string | undefined
     durationSec?: number | undefined
@@ -140,6 +153,8 @@ const invalid = (userMessage: string): AppError =>
 
 /** 旁白長過鏡頭時，最多可以溢出到下一鏡幾秒；超過就警示。 */
 const NARRATION_SPILL_SEC = 1.5
+/** 旁白超出格子超過這麼多秒，就請模型改短重念（比警告的 1.5 秒嚴：能放進格子就放進格子）。 */
+const NARRATION_FIT_TOLERANCE_SEC = 0.05
 
 const outputAsset = (output: unknown): { hash: string; mime: string } => {
   const assets = (output as { kind?: string; assets?: { hash: string; mime: string }[] }).assets
@@ -495,6 +510,7 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       text: string
       voiceId?: string
       offsetSec: number
+      fadeOutSec?: number
     },
   ): Promise<SoundClip> => {
     const queue = runtime.queue()
@@ -541,10 +557,113 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       offsetSec: clip.offsetSec,
       text: clip.text,
       voiceId: clip.voiceId,
+      ...(clip.fadeOutSec === undefined ? {} : { fadeOutSec: clip.fadeOutSec }),
       modelId: request.modelId,
       costUsd,
       costEstimated: result.costUsd === undefined,
     })
+  }
+
+  /**
+   * 旁白貼合格子：念完量長度，放不進鏡頭（開頭晚 0.4 秒，所以是從 0.4 秒算起到格子結束）就請文字模型把那一句改短，
+   * 再念一次——最多一次。改短的那一句會換成鏡頭的台詞（不然旁白跟台詞對不上）。
+   * 沒有文字模型、預算不夠、模型沒回（或回的沒有比較短）、呼叫失敗：什麼都不動，留原本的旁白（太長的警告照舊）。
+   */
+  const fitNarration = async (
+    handle: ProjectHandle,
+    shotId: string,
+    clip: SoundClip,
+    voice: { model: string; voiceId: string | undefined },
+  ): Promise<NarrationResult> => {
+    const view = timeline(handle).find((v) => v.shotId === shotId)
+    if (!view || clip.durationSec === undefined || clip.durationSec <= 0) return clip
+    const roomSec = view.durationSec - clip.offsetSec
+    if (clip.offsetSec + clip.durationSec - view.durationSec <= NARRATION_FIT_TOLERANCE_SEC) {
+      return clip
+    }
+    // 照這次實際念的速度算：放得下的字數（留一點餘裕），太少（鏡頭太短）就不試了
+    const maxChars = Math.floor(clip.text.length * (roomSec / clip.durationSec) * 0.95)
+    if (roomSec <= 0 || maxChars < 2 || maxChars >= clip.text.length) return clip
+    const llm = settingsService.resolveModel('llm')
+    if (!llm) return clip
+    const askEstimate = models.estimate(llm, { inputTokens: 300, outputTokens: 150 })
+    if (budgetIssue(handle, askEstimate + narrationEstimate(voice.model, clip.text))) return clip
+    let shorter: string | undefined
+    try {
+      const reply = await callText(
+        handle,
+        {
+          capability: 'llm',
+          modelId: llm,
+          system: NARRATION_SHORTEN_SYSTEM,
+          messages: [
+            {
+              role: 'user',
+              content: narrationShortenMessage({ line: clip.text, roomSec, maxChars }),
+            },
+          ],
+        },
+        askEstimate,
+      )
+      shorter = cleanShortenedLine(reply, clip.text)
+    } catch (error) {
+      log.warn(`Could not shorten the narration: ${String(error)}`)
+    }
+    if (shorter === undefined) return clip
+    const redone = await generate(
+      handle,
+      {
+        capability: 'tts',
+        modelId: voice.model,
+        text: shorter,
+        ...(voice.voiceId === undefined ? {} : { voiceId: voice.voiceId }),
+      },
+      narrationEstimate(voice.model, shorter),
+      {
+        kind: 'narration',
+        shotId,
+        text: shorter,
+        ...(voice.voiceId === undefined ? {} : { voiceId: voice.voiceId }),
+        offsetSec: DEFAULT_NARRATION_OFFSET_SEC,
+      },
+    )
+    handle.repos.shots.update(shotId, { dialogue: shorter })
+    return { ...redone, shortened: { shotNumber: view.number, from: clip.text, to: shorter } }
+  }
+
+  /** 呼叫一次文字模型、回傳文字，並記帳。 */
+  const callText = async (
+    handle: ProjectHandle,
+    request: Extract<
+      Parameters<ReturnType<typeof createStudioServices>['generate']>[0],
+      { capability: 'llm' }
+    >,
+    estimateUsd: number,
+  ): Promise<string> => {
+    const queue = runtime.queue()
+    if (!queue) {
+      throw new AppError({
+        code: 'internal_error',
+        userMessage: t('services.theGenerationServiceIsnT'),
+      })
+    }
+    const studio = createStudioServices({
+      queue,
+      handle,
+      tools: tools() ?? { ffmpegPath: '', ffprobePath: null },
+      models,
+    })
+    const result = await studio.generate(request, { signal: new AbortController().signal })
+    if (handle.closed) throw invalid(t('services.theProjectWasClosedSo3'))
+    handle.repos.costs.record({
+      projectId: handle.projectId,
+      provider: result.provider,
+      modelId: request.modelId,
+      amountUsd: result.costUsd ?? estimateUsd,
+      estimated: result.costUsd === undefined,
+      jobId: result.jobId,
+    })
+    return result.output.kind === 'text' ? result.output.text : ''
   }
 
   const guard = async <T>(key: string, work: () => Promise<T>): Promise<T> => {
@@ -582,8 +701,8 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       const issue = budgetIssue(handle, estimate)
       if (issue) throw invalid(issue)
       try {
-        const clip = await guard(`narration:${shot.id}`, () =>
-          generate(
+        const clip = await guard(`narration:${shot.id}`, async () => {
+          const first = await generate(
             handle,
             {
               capability: 'tts',
@@ -599,8 +718,10 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
               ...(voiceId === undefined ? {} : { voiceId }),
               offsetSec: DEFAULT_NARRATION_OFFSET_SEC,
             },
-          ),
-        )
+          )
+          return fitNarration(handle, shot.id, first, { model, voiceId })
+        })
+        if (clip.shortened && deps.shots) broadcast('shots.changed', deps.shots.list())
         changed(handle)
         return clip
       } catch (error) {
@@ -614,9 +735,29 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       if (!model) throw invalid(t('services.noMusicModelIsAvailable'))
       const views = timeline(handle)
       const totalSec = views.reduce((sum, v) => sum + v.durationSec, 0)
-      const durationSec = input.durationSec ?? (totalSec > 0 ? totalSec : undefined)
+      // 預告片：配樂描述跟著腳本（各段時間與起伏）、要的長度＝成品長度＋3 秒、最後淡出 1.5 秒
+      const trailer = handle.repos.trailer.get()
+      const wantSec = trailer && totalSec > 0 ? totalSec + MUSIC_EXTRA_SEC : totalSec
+      const durationSec = input.durationSec ?? (wantSec > 0 ? wantSec : undefined)
       const typed = input.prompt?.trim()
-      const prompt = typed === undefined || typed === '' ? defaultMusicPrompt(handle) : typed
+      const prompt =
+        typed !== undefined && typed !== ''
+          ? typed
+          : trailer && totalSec > 0
+            ? trailerMusicPrompt({
+                settings: trailer,
+                spans: musicSpansOf(
+                  views.map((v) => ({
+                    segment: handle.repos.shots.get(v.shotId)?.segment,
+                    durationSec: v.durationSec,
+                  })),
+                  trailer.kind,
+                  totalSec,
+                ),
+                filmSec: totalSec,
+                style: handle.repos.projects.get().defaultStyleId,
+              })
+            : defaultMusicPrompt(handle)
       const estimate = models.estimate(model, { tracks: 1 })
       const issue = budgetIssue(handle, estimate)
       if (issue) throw invalid(issue)
@@ -631,7 +772,12 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
               ...(durationSec === undefined ? {} : { durationSec }),
             },
             estimate,
-            { kind: 'music', text: prompt, offsetSec: 0 },
+            {
+              kind: 'music',
+              text: prompt,
+              offsetSec: 0,
+              ...(trailer ? { fadeOutSec: MUSIC_END_FADE_SEC } : {}),
+            },
           ),
         )
         changed(handle)

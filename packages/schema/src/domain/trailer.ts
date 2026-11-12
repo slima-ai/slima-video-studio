@@ -28,6 +28,9 @@ export const DEMO_BAD_SCRIPT_MARK = '【腳本不合格】'
 
 /** 寫腳本的使用者訊息裡的固定字樣（示範模式的假腳本靠它認出請求、讀出旁白開關）。 */
 export const TRAILER_REQUEST_MARK = '請寫預告片腳本'
+
+/** 旁白太長、請文字模型改短的請求開頭（示範模式的假模型靠它認得這種請求；送給模型的字，用雜湊釘住）。 */
+export const NARRATION_SHORTEN_MARK = '請把這句旁白改短'
 export const TRAILER_NARRATION_OFF_MARK = '旁白：關'
 
 /** 秒數顯示用：最多兩位小數（腳本的秒數是 1/24 秒的整數倍，例如 2.0833…，畫面上寫 2.08）。 */

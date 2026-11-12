@@ -1,4 +1,4 @@
-import type { SoundPlan, SoundSettingsPatch } from '@svs/schema'
+import type { NarrationShortened, SoundPlan, SoundSettingsPatch } from '@svs/schema'
 import { useState } from 'react'
 
 import { Button } from '../../components/button'
@@ -184,6 +184,8 @@ export function SoundPanel() {
   }
 
   const runAdd = async (plan: SoundPlan): Promise<void> => {
+    // 旁白放不進格子、被改短重念的：最後用一則提示說（台詞已經換成改短的）
+    const shortened: NarrationShortened[] = []
     try {
       const narrations = plan.items.filter((i) => i.kind === 'narration')
       for (const [index, item] of narrations.entries()) {
@@ -195,7 +197,8 @@ export function SoundPanel() {
             value2: String(narrations.length),
           }),
         })
-        await call('sound.generateNarration', { shotId: item.shotId })
+        const done = await call('sound.generateNarration', { shotId: item.shotId })
+        if (done.shortened) shortened.push(done.shortened)
       }
       if (plan.items.some((i) => i.kind === 'music')) {
         setAdd({ step: 'running', text: t('sound.music') })
@@ -208,6 +211,17 @@ export function SoundPanel() {
     } finally {
       setAdd({ step: 'idle' })
       reload()
+      const [only] = shortened
+      if (only) {
+        toast.show({
+          key: 'sound-shortened',
+          message:
+            shortened.length === 1
+              ? t('sound.narrationShortened', { value: String(only.shotNumber), text: only.to })
+              : t('sound.narrationsShortened', { count: shortened.length }),
+          ms: LONG_TOAST_MS,
+        })
+      }
     }
   }
 

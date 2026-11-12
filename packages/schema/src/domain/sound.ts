@@ -231,3 +231,11 @@ export const SoundAnalysisSchema = z.object({
   warnings: z.array(z.string()),
 })
 export type SoundAnalysis = z.infer<typeof SoundAnalysisSchema>
+
+/** 旁白放不進格子、被改短重念時，回給畫面的說明：哪一格、原句、新句（台詞已經換成新句）。 */
+export const NarrationShortenedSchema = z.object({
+  shotNumber: z.number().int().positive(),
+  from: z.string(),
+  to: z.string(),
+})
+export type NarrationShortened = z.infer<typeof NarrationShortenedSchema>

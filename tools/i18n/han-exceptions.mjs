@@ -47,6 +47,7 @@ export const HAN_EXCEPTIONS = [
     files: [
       'packages/workflows/src/nodes.ts',
       'packages/workflows/src/trailer.ts',
+      'packages/workflows/src/narration.ts',
       'packages/workflows/src/styles.ts',
       'packages/workflows/src/structured.ts',
       'packages/schema/src/domain/camera.ts',

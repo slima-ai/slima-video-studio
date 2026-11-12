@@ -106,6 +106,32 @@ async function withShots(r: Running): Promise<string[]> {
   return ids
 }
 
+describe('聲音工具：旁白太長會改短重念', () => {
+  it('generate_narration：台詞太長（示範配音一個字 0.08 秒，鏡頭 5 秒）→ 改短一次、重念，回的結果帶 shortened；get_sound 的台詞已換成新句', async () => {
+    const r = await start()
+    const [first] = await withShots(r)
+    const long =
+      '小饅頭彈起來又落下，裂谷的風一直吹，沒有人知道它到底要去哪裡，也沒有人敢問它為什麼一直往前跳，跳了整整一個晚上。'.repeat(
+        2,
+      )
+    await r.call('update_shot', { shotId: first, dialogue: long })
+    const made = dataOf(
+      z.looseObject({
+        clip: Clip,
+        shortened: z
+          .looseObject({ shotNumber: z.number(), from: z.string(), to: z.string() })
+          .optional(),
+      }),
+      await r.call('generate_narration', { shotId: first }),
+    )
+    expect(made.clip.version).toBe(2)
+    expect(made.shortened?.from).toBe(long)
+    expect(made.shortened?.to.length ?? 999).toBeLessThan(long.length)
+    const now = dataOf(Sound, await r.call('get_sound'))
+    expect(now.shots[0]?.dialogue).toBe(made.shortened?.to)
+  })
+})
+
 describe('聲音工具（示範模式）', () => {
   it('看聲音 → 預估 → 念旁白（多版本、換回舊版）→ 配樂 → 調整 → 設定 → 刪除', async () => {
     const r = await start()
@@ -359,7 +385,7 @@ describe('聲音的花錢步驟（真實模式、假的 OpenRouter）', () => {
     expect(r.controller.allowance.status().committedUsd).toBe(committed)
   })
 
-  it('人調高額度後：預留的是預估 × 1.25（旁白與配樂各一次）；maxCostUsd 低於預估就不做、不預留；回傳不含金鑰與 token', async () => {
+  it('人調高額度後：預留的是預估 × 1.25（配樂一次；旁白最壞念兩次所以再 × 2）；maxCostUsd 低於預估就不做、不預留；回傳不含金鑰與 token', async () => {
     const { r, fake } = await startReal()
     r.h.settings.update({ mcp: { allowanceUsd: 5 } })
     const ids = await withShots(r)
@@ -372,13 +398,13 @@ describe('聲音的花錢步驟（真實模式、假的 OpenRouter）', () => {
     expect(textOf(capped)).toContain('over the limit you gave')
     expect(committed()).toBe(start0)
     expect(noJobs(fake)).toHaveLength(requestsBefore)
-    // 正常做：預留 = 預估 × 1.25
+    // 正常做：預留 = 預估 × 2（旁白太長會改短重念，最壞念兩次）× 1.25
     const out = await r.call('generate_narration', { shotId: ids[0] })
     const text = textOf(out)
     expect(text).not.toContain(FAKE_OPENROUTER_KEY)
     expect(text).not.toContain(r.token)
     const reserved = committed() - start0
-    expect(reserved).toBeCloseTo(0.002 * 1.25, 5)
+    expect(reserved).toBeCloseTo(0.002 * 2 * 1.25, 5)
   })
 })
 

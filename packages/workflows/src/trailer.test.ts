@@ -9,8 +9,12 @@ import { describe, expect, it } from 'vitest'
 import type { StudioServices } from './services'
 import {
   ensureTagline,
+  MUSIC_END_FADE_SEC,
+  MUSIC_EXTRA_SEC,
+  musicSpansOf,
   repairScript,
   toCheckBeat,
+  trailerMusicPrompt,
   truncateUnits,
   writeTrailerScript,
 } from './trailer'
@@ -221,5 +225,82 @@ describe('小工具', () => {
     expect(
       checkTrailerScript(repaired.script.beats.map(toCheckBeat), tiny, 24).errors.length,
     ).toBeGreaterThan(0)
+  })
+})
+
+describe('trailerMusicPrompt：配樂描述跟著腳本', () => {
+  const settings = TrailerSettingsSchema.parse({
+    kind: 'story',
+    targetSec: 30,
+    musicMood: '緊張、壓迫',
+  })
+  // 三段式腳本：鉤子 0～6 秒、升高 6～26 秒、片名 26～30 秒
+  const spans = [
+    { key: 'hook', startSec: 0, endSec: 6 },
+    { key: 'escalate', startSec: 6, endSec: 26 },
+    { key: 'title', startSec: 26, endSec: 30 },
+  ]
+  const text = trailerMusicPrompt({ settings, spans, filmSec: 30 })
+
+  it('每一段的起訖秒數與情緒都寫進去；片名前短暫靜音、結尾一個重音、純音樂不要人聲、使用者選的情緒', () => {
+    expect(text).toContain('0.0–6.0 s')
+    expect(text).toContain('6.0–26.0 s')
+    expect(text).toContain('26.0–30.0 s')
+    expect(text).toMatch(/hook/)
+    expect(text).toMatch(/escalate/)
+    expect(text).toMatch(/title/)
+    expect(text).toMatch(/silence/i)
+    // 靜音在片名前 0.8 秒（25.2～26.0），重音落在片名出現的 26 秒
+    expect(text).toContain('25.2–26.0 s')
+    expect(text).toMatch(/final accent[^.]*26\.0 s/i)
+    expect(text).toMatch(/instrumental/i)
+    expect(text).toMatch(/no vocals/i)
+    expect(text).toContain('緊張、壓迫')
+  })
+
+  it('要的長度是成品長度加 3 秒，結尾淡出 1.5 秒（常數與描述一致）', () => {
+    expect(MUSIC_EXTRA_SEC).toBe(3)
+    expect(MUSIC_END_FADE_SEC).toBe(1.5)
+    expect(text).toContain('33 s')
+    expect(text).toContain('1.5 s fade-out')
+  })
+
+  it('沒有使用者情緒就不寫那一句；沒有片名段（懸念短版以外的舊腳本）就不寫靜音與重音位置', () => {
+    const plain = trailerMusicPrompt({
+      settings: TrailerSettingsSchema.parse({ musicMood: '' }),
+      spans: [{ key: 'hook', startSec: 0, endSec: 10 }],
+      filmSec: 10,
+    })
+    expect(plain).not.toMatch(/Overall mood/)
+    expect(plain).not.toMatch(/before the title/i)
+    expect(plain).toMatch(/final accent/i)
+  })
+
+  it('沒有段落（舊專案的腳本沒存段落）：照類型模板的比例排各段', () => {
+    const derived = musicSpansOf(undefined, 'story', 30)
+    expect(derived.map((s) => s.key)).toEqual([
+      'hook',
+      'world',
+      'turn',
+      'escalate',
+      'suspense',
+      'title',
+    ])
+    expect(derived[0]).toMatchObject({ startSec: 0 })
+    expect(derived.at(-1)?.endSec).toBeCloseTo(30, 5)
+  })
+
+  it('musicSpansOf：連續同一段的格子併成一段，秒數照格長累加', () => {
+    const shots = [
+      { segment: 'hook', durationSec: 2 },
+      { segment: 'hook', durationSec: 1.5 },
+      { segment: 'escalate', durationSec: 3 },
+      { segment: 'title', durationSec: 3.5 },
+    ]
+    expect(musicSpansOf(shots, 'story', 10)).toEqual([
+      { key: 'hook', startSec: 0, endSec: 3.5 },
+      { key: 'escalate', startSec: 3.5, endSec: 6.5 },
+      { key: 'title', startSec: 6.5, endSec: 10 },
+    ])
   })
 })

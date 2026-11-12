@@ -510,9 +510,10 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   }
   registry.registerHandler('sound.get', () => needSound().state())
   registry.registerHandler('sound.plan', (request) => needSound().plan(request))
-  registry.registerHandler('sound.generateNarration', async (request) => ({
-    clip: await needSound().generateNarration(request),
-  }))
+  registry.registerHandler('sound.generateNarration', async (request) => {
+    const { shortened, ...clip } = await needSound().generateNarration(request)
+    return { clip, ...(shortened ? { shortened } : {}) }
+  })
   registry.registerHandler('sound.generateMusic', async (request) => ({
     clip: await needSound().generateMusic(request),
   }))
