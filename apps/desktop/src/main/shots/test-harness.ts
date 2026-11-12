@@ -22,6 +22,7 @@ export interface HarnessOptions {
   mockRejectText?: string
   /** 畫布「上傳」的選檔視窗要回傳的檔案。 */
   pickFiles?: StudioAppOptions['pickFiles']
+  pickMusic?: StudioAppOptions['pickMusic']
   /** 把 OpenRouter 換成本機的假伺服器（真實模式的測試用）。 */
   openrouterBaseUrl?: string
   /** 匯出時的片尾字卡畫圖；測試給假的（記下收到的文字）。 */
@@ -127,6 +128,7 @@ export function createStudioHarness(options: HarnessOptions = {}) {
     ...(options.mockCostUsd ? { mockCostUsd: options.mockCostUsd } : {}),
     ...(options.mockRejectText ? { mockRejectText: options.mockRejectText } : {}),
     ...(options.pickFiles ? { pickFiles: options.pickFiles } : {}),
+    ...(options.pickMusic ? { pickMusic: options.pickMusic } : {}),
     ...(options.renderCreditsCard ? { renderCreditsCard: options.renderCreditsCard } : {}),
     ...(options.creditsTimeoutMs ? { creditsTimeoutMs: options.creditsTimeoutMs } : {}),
   })
@@ -185,6 +187,7 @@ export function createStudioHarness(options: HarnessOptions = {}) {
     root,
     demo,
     ledger,
+    models,
     projects,
     settings,
     settingsService,

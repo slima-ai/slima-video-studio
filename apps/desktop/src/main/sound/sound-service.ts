@@ -1,7 +1,8 @@
 import type { ProjectHandle } from '@svs/db'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { extname, basename, join } from 'node:path'
 import { budgetExceededError, checkBudget } from '@svs/engine'
 import {
   detectSilences,
@@ -16,7 +17,9 @@ import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
   DEFAULT_NARRATION_OFFSET_SEC,
+  MUSIC_IMPORT_MAX_BYTES,
   NARRATION_MAX_CHARS,
+  USER_MUSIC_MODEL_ID,
   billableChars,
   isAppError,
   type AssetRef,
@@ -55,7 +58,27 @@ export interface SoundServiceDeps {
   tools?: () => MediaTools | undefined
   /** 混音後成品有變動時，叫鏡頭服務推送最新的快照（成品面板跟著更新）。 */
   shots?: Pick<ShotService, 'list' | 'whenMeasured'>
+  /** 「用我自己的音樂…」的選檔視窗；沒給或取消就回 undefined。 */
+  pickMusic?: () => Promise<string | undefined>
 }
+
+/** 匯入前準備好的音樂：素材已存進專案，等著寫進資料庫（寫進去那一步要同步，才記得成一步復原）。 */
+export interface PreparedMusic {
+  handle: ProjectHandle
+  assetHash: string
+  fileName: string
+  durationSec: number
+}
+
+/** 匯入的音樂接受的副檔名與對應的檔案類型。 */
+const MUSIC_MIME: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  m4a: 'audio/mp4',
+}
+
+/** 匯入的音樂預設的淡出秒數（比影片長的部分被截掉，結尾淡出）。 */
+const IMPORTED_MUSIC_FADE_OUT_SEC = 1.5
 
 export interface SoundService {
   state: () => SoundState
@@ -69,6 +92,14 @@ export interface SoundService {
     prompt?: string | undefined
     durationSec?: number | undefined
   }) => Promise<SoundClip>
+  /**
+   * 匯入自己的音樂：跳出選檔視窗，檢查（格式、大小、真的是音訊）、存成專案素材。取消回 undefined。
+   * 拆成兩步是為了復原：prepare 做慢的事（讀檔、量長度、存素材），commit 才寫進資料庫（同步）。
+   */
+  prepareMusicImport: () => Promise<PreparedMusic | undefined>
+  commitMusicImport: (prepared: PreparedMusic) => SoundClip
+  /** prepare ＋ commit（沒有復原歷史時用）。 */
+  importMusic: () => Promise<SoundClip | undefined>
   updateClip: (clipId: string, patch: SoundClipPatchInput) => SoundClip
   adoptClip: (clipId: string) => SoundClip
   removeClip: (clipId: string) => void
@@ -258,6 +289,10 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       shots: views,
       totalSec,
       ...(music ? { music } : {}),
+      musicVersions: handle.repos.sound
+        .listClips()
+        .filter((c) => c.kind === 'music')
+        .map((c) => ({ id: c.id, source: c.source ?? 'generated', adopted: c.adopted })),
       ...(finalNow
         ? {
             final: {
@@ -604,6 +639,67 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       } catch (error) {
         return rethrow(error)
       }
+    },
+
+    async prepareMusicImport() {
+      const handle = need()
+      const path = await deps.pickMusic?.()
+      if (path === undefined) return undefined
+      const mime = MUSIC_MIME[extname(path).slice(1).toLowerCase()]
+      if (!mime) throw invalid(t('sound.import.unsupported'))
+      const info = await stat(path).catch(() => undefined)
+      if (!info?.isFile() || info.size === 0) throw invalid(t('sound.import.unreadable'))
+      if (info.size > MUSIC_IMPORT_MAX_BYTES) {
+        throw invalid(
+          t('sound.import.tooBig', {
+            mb: String(Math.round(MUSIC_IMPORT_MAX_BYTES / 1024 / 1024)),
+          }),
+        )
+      }
+      const tool = tools()
+      if (!tool) {
+        throw new AppError({
+          code: 'internal_error',
+          userMessage: t('services.canTFindTheVideo3'),
+        })
+      }
+      // 量長度也順便確認這真的是音訊（改了副檔名的文字檔、壞掉的檔案在這裡擋下，什麼都還沒存）
+      const media = await probe(tool, path).catch(() => undefined)
+      if (!media?.hasAudio || media.durationSec <= 0) throw invalid(t('sound.import.notAudio'))
+      const stored = await handle.assets.put(createReadStream(path), mime, {
+        durationSec: media.durationSec,
+      })
+      if (handle.closed) throw invalid(t('services.theProjectWasClosedSo3'))
+      return {
+        handle,
+        assetHash: stored.hash,
+        fileName: basename(path),
+        durationSec: media.durationSec,
+      }
+    },
+
+    commitMusicImport(prepared) {
+      const { handle } = prepared
+      if (handle.closed) throw invalid(t('services.theProjectWasClosedSo3'))
+      // 自己的檔案：不花錢（花費 0、不進花費帳本）、直接採用；舊的版本留著
+      const clip = handle.repos.sound.addClip({
+        kind: 'music',
+        assetHash: prepared.assetHash,
+        durationSec: prepared.durationSec,
+        offsetSec: 0,
+        fadeOutSec: IMPORTED_MUSIC_FADE_OUT_SEC,
+        text: prepared.fileName,
+        modelId: USER_MUSIC_MODEL_ID,
+        costUsd: 0,
+        costEstimated: false,
+      })
+      changed(handle)
+      return clip
+    },
+
+    async importMusic() {
+      const prepared = await service.prepareMusicImport()
+      return prepared ? service.commitMusicImport(prepared) : undefined
     },
 
     updateClip(clipId, patch) {

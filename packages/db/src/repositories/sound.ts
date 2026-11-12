@@ -9,6 +9,7 @@ import {
   type SoundClipKind,
   type SoundSettings,
   type SoundSettingsPatch,
+  USER_MUSIC_MODEL_ID,
   t,
 } from '@svs/schema'
 
@@ -55,6 +56,8 @@ const toClip = (row: Row): SoundClip => ({
   text: row.text,
   ...(row.voiceId === null ? {} : { voiceId: row.voiceId }),
   modelId: row.modelId,
+  // 使用者自己匯入的音樂用特別的 modelId，不另外加欄位（舊資料都是生成的）
+  source: row.modelId === USER_MUSIC_MODEL_ID ? 'imported' : 'generated',
   ...(row.costUsd === null ? {} : { costUsd: row.costUsd }),
   costEstimated: row.costEstimated,
   version: row.version,

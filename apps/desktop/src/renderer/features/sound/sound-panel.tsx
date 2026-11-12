@@ -2,6 +2,8 @@ import type { SoundPlan, SoundSettingsPatch } from '@svs/schema'
 import { useState } from 'react'
 
 import { Button } from '../../components/button'
+import { LONG_TOAST_MS, useToast } from '../../components/toast'
+import { useHistory } from '../../lib/history'
 import { call, errorText } from '../../lib/svs'
 import { LEVEL_LABELS, MUSIC_DB, NARRATION_DB, NATIVE_DB, levelOf, type Level } from './levels'
 import { SoundTimeline } from './sound-timeline'
@@ -90,6 +92,9 @@ export function SoundPanel() {
   const { state, error, reload } = useSound()
   const [add, setAdd] = useState<AddState>({ step: 'idle' })
   const [actionError, setActionError] = useState<string>()
+  const [importing, setImporting] = useState(false)
+  const toast = useToast()
+  const history = useHistory()
   const {
     mixing,
     error: mixError,
@@ -125,6 +130,40 @@ export function SoundPanel() {
       })
       .catch(fail)
   }
+
+  // 選自己的音樂：檔案對話框在主程式開（畫面不碰路徑）；取消回 null，什麼都不發生
+  const importMusic = (): void => {
+    setActionError(undefined)
+    setImporting(true)
+    call('sound.importMusic', {})
+      .then(({ clip }) => {
+        if (clip === null) return
+        reload()
+        scheduleMix()
+        toast.show({
+          key: 'sound-import',
+          message: t('sound.import.done', { name: clip.text }),
+          action: { label: t('sound.undo'), onAction: history.undo },
+          ms: LONG_TOAST_MS,
+        })
+      })
+      .catch(fail)
+      .finally(() => {
+        setImporting(false)
+      })
+  }
+
+  const importButton = (
+    <Button
+      size="sm"
+      data-testid="sound-import-music"
+      disabled={importing}
+      title={t('sound.import.hint')}
+      onClick={importMusic}
+    >
+      {importing ? t('sound.import.busy') : t('sound.import.button')}
+    </Button>
+  )
 
   const startAdd = (): void => {
     setActionError(undefined)
@@ -220,7 +259,11 @@ export function SoundPanel() {
           </div>
         </div>
       ) : noModels ? (
-        <p className="text-sm text-fg-muted">{t('sound.noNarrationOrMusicModel')}</p>
+        <div className="space-y-2">
+          <p className="text-sm text-fg-muted">{t('sound.noNarrationOrMusicModel')}</p>
+          {importButton}
+          <p className="text-xs text-fg-muted">{t('sound.import.hint')}</p>
+        </div>
       ) : (
         <div className="space-y-2">
           <Button
@@ -234,6 +277,10 @@ export function SoundPanel() {
               : t('sound.addNarrationAndMusic')}
           </Button>
           <p className="text-xs text-fg-muted">{t('sound.readsEachShotSLines')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {importButton}
+            <span className="text-xs text-fg-muted">{t('sound.import.hint')}</span>
+          </div>
         </div>
       )
   } else {
@@ -302,6 +349,14 @@ export function SoundPanel() {
               }
             : {})}
         />
+        <div className="flex flex-wrap items-center gap-2">
+          {state.music?.source === 'imported' ? (
+            <span className="text-xs text-fg-muted" data-testid="sound-music-own">
+              {t('sound.import.own', { name: state.music.text })}
+            </span>
+          ) : null}
+          {importButton}
+        </div>
         <SoundTimeline state={state} part="sound" />
         <p className="text-xs text-fg-muted" data-testid="sound-summary">
           {narrationCount > 0

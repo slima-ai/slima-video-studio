@@ -57,6 +57,8 @@ export interface StudioAppOptions {
   recent?: RecentStore
   /** 畫布「上傳」的選檔視窗；沒給就當作取消（測試用）。 */
   pickFiles?: () => Promise<string[]>
+  /** 成品面板「用我自己的音樂…」的選檔視窗（mp3、wav、m4a，一次一個）；沒給或取消就是 undefined（測試用）。 */
+  pickMusic?: () => Promise<string | undefined>
   /** 找 FFmpeg；沒給就到系統找。 */
   tools?: () => MediaTools | undefined
   /** 測試用：讓輪詢更快。 */
@@ -239,6 +241,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     broadcast,
     log,
     shots,
+    ...(options.pickMusic ? { pickMusic: options.pickMusic } : {}),
     ...toolsOption,
   })
   soundRef.current = sound

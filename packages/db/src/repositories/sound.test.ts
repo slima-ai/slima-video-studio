@@ -1,4 +1,4 @@
-import { DEFAULT_SOUND_SETTINGS } from '@svs/schema'
+import { DEFAULT_SOUND_SETTINGS, USER_MUSIC_MODEL_ID } from '@svs/schema'
 import { describe, expect, it } from 'vitest'
 
 import { newProject, reopen } from '../__tests__/helpers'
@@ -17,6 +17,29 @@ const narration = (shotId: string, assetHash = HASH('a')) => ({
 })
 
 describe('SoundRepository：片段與版本', () => {
+  it('自己匯入的音樂（模型是 user-file）讀出來標 imported、檔名在 text；重開專案還在；生成的配樂標 generated', () => {
+    const handle = newProject()
+    const { repos } = handle
+    const own = repos.sound.addClip({
+      kind: 'music',
+      assetHash: HASH('m'),
+      text: '我的歌.mp3',
+      modelId: USER_MUSIC_MODEL_ID,
+      costUsd: 0,
+    })
+    expect(own).toMatchObject({ source: 'imported', text: '我的歌.mp3', costUsd: 0 })
+    const generated = repos.sound.addClip({
+      kind: 'music',
+      assetHash: HASH('n'),
+      modelId: 'x/lyria',
+    })
+    expect(generated.source).toBe('generated')
+    expect(repos.sound.getClip(own.id)?.source).toBe('imported')
+    handle.close()
+    const again = reopen(handle)
+    expect(again.repos.sound.getClip(own.id)?.source).toBe('imported')
+  })
+
   it('同一鏡的旁白每生成一次多一個版本，新的自動變成採用中，舊的取消採用', () => {
     const { repos } = newProject()
     const shot = repos.shots.create({ description: 'A' })

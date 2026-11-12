@@ -90,4 +90,17 @@ export const sound = {
     'Deleted {count} line of narration. The lines are still there, so you can read them again.',
   'sound.narrationsDeleted_other':
     'Deleted {count} lines of narration. The lines are still there, so you can read them again.',
+  'sound.import.button': 'Use my own music…',
+  'sound.import.busy': 'Importing…',
+  'sound.import.hint':
+    'Pick an mp3, wav or m4a (up to 50 MB); it is free and is used as the music right away.',
+  'sound.import.own': '{name} (your own file)',
+  'sound.import.done': '“{name}” is now the music (your own file, free).',
+  'sound.import.unsupported': 'This kind of file cannot be used as music: pick an mp3, wav or m4a.',
+  'sound.import.unreadable': 'This file cannot be read (it is empty or cannot be opened).',
+  'sound.import.notAudio':
+    'This file is not audio (or it is damaged), so it cannot be used as music.',
+  'sound.import.tooBig': 'This file is too big: music can be at most {mb} MB.',
+  'sound.import.pickTitle': 'Pick a music track',
+  'sound.import.pickFilter': 'Audio (mp3, wav, m4a)',
 } as const

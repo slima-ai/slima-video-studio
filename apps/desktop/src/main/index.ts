@@ -285,6 +285,19 @@ void app.whenReady().then(() => {
         : await dialog.showOpenDialog(options)
       return picked.canceled ? undefined : picked.filePaths[0]
     },
+    // 成品面板「用我自己的音樂…」：選一首 mp3、wav 或 m4a
+    pickMusic: async () => {
+      const options: Electron.OpenDialogOptions = {
+        title: t('sound.import.pickTitle'),
+        properties: ['openFile'],
+        filters: [{ name: t('sound.import.pickFilter'), extensions: ['mp3', 'wav', 'm4a'] }],
+      }
+      const owner = BrowserWindow.getFocusedWindow()
+      const picked = owner
+        ? await dialog.showOpenDialog(owner, options)
+        : await dialog.showOpenDialog(options)
+      return picked.canceled ? undefined : picked.filePaths[0]
+    },
     // 畫布「上傳」：選圖片或影片（可以一次選好幾個）
     pickFiles: async () => {
       const options: Electron.OpenDialogOptions = {

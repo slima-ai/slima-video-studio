@@ -24,6 +24,8 @@ export function clipView(clip: SoundClip) {
     text: clip.text,
     ...(clip.voiceId === undefined ? {} : { voiceId: clip.voiceId }),
     model: clip.modelId,
+    // 使用者自己匯入的音樂：標出來（你不能替換它的檔案，只能調音量與淡出）
+    ...(clip.source === 'imported' ? { source: 'imported', fileName: clip.text } : {}),
     ...(clip.costUsd === undefined
       ? {}
       : { costUsd: clip.costUsd, costEstimated: clip.costEstimated }),
@@ -35,6 +37,10 @@ const maxCostInput = z
   .positive()
   .optional()
   .describe('Refuse (spend nothing) if the estimate is above this many US dollars')
+
+/** 使用者自己匯入的音樂正在用：AI 工具不能換掉它（生成新的、改用別版、刪掉）。 */
+const OWN_MUSIC_MESSAGE =
+  'The user chose their own music file for this film, so you cannot replace it (no new generated music, no switching to another version, no deleting it). Ask them to change it themselves in the film panel under Sound. You can still adjust its volume and fade-out with adjust_sound_clip.'
 
 /** 先問聲音服務自己的預估與檢查，再預留額度；沒有預估或超過 maxCostUsd 就拒絕、不花錢。 */
 async function planAndReserve(
@@ -187,7 +193,7 @@ export function registerSoundTools(ctx: ToolContext): void {
     name: 'generate_music',
     title: 'Make a music track for the film',
     description:
-      'Make one instrumental music track (never vocals). Without a prompt the app writes one from the project style and the mood of the scenes. Makes a NEW version each time; the new one is adopted. Counts against the spending allowance (plan_sound first); free in demo mode. A track shorter than the film shows up as a warning in get_sound.',
+      'Make one instrumental music track (never vocals). Without a prompt the app writes one from the project style and the mood of the scenes. Makes a NEW version each time; the new one is adopted. Counts against the spending allowance (plan_sound first); free in demo mode. A track shorter than the film shows up as a warning in get_sound. If the user imported their own music file (get_sound shows source: imported) this is refused: you cannot replace it.',
     input: {
       prompt: z.string().min(1).max(2000).optional().describe('What the music should feel like'),
       durationSec: z.number().positive().optional(),
@@ -195,6 +201,9 @@ export function registerSoundTools(ctx: ToolContext): void {
     },
     hints: { readOnly: false },
     run: async ({ prompt, durationSec, maxCostUsd }) => {
+      if ((await ctx.caller.call('sound.get', {})).music?.source === 'imported') {
+        throw new McpToolError(OWN_MUSIC_MESSAGE, 'own_music')
+      }
       const spending = await planAndReserve(
         ctx,
         'Generate music',
@@ -244,8 +253,15 @@ export function registerSoundTools(ctx: ToolContext): void {
       'Make this version (clip id) the one the film uses; the previously adopted version of the same shot/kind stays as an older version. Free.',
     input: { clipId: z.string().min(1) },
     hints: { readOnly: false, idempotent: true },
-    run: async ({ clipId }) =>
-      clipView((await ctx.caller.call('sound.adoptClip', { clipId })).clip),
+    run: async ({ clipId }) => {
+      // 使用者自己的音樂正在用：不能改用別的配樂版本（旁白的版本不受影響）
+      const state = await ctx.caller.call('sound.get', {})
+      const switchesMusic = (state.musicVersions ?? []).some((v) => v.id === clipId && !v.adopted)
+      if (state.music?.source === 'imported' && switchesMusic) {
+        throw new McpToolError(OWN_MUSIC_MESSAGE, 'own_music')
+      }
+      return clipView((await ctx.caller.call('sound.adoptClip', { clipId })).clip)
+    },
   })
 
   defineTool(ctx, {
@@ -256,6 +272,10 @@ export function registerSoundTools(ctx: ToolContext): void {
     input: { clipId: z.string().min(1) },
     hints: { readOnly: false, destructive: true },
     run: async ({ clipId }) => {
+      const state = await ctx.caller.call('sound.get', {})
+      if (state.music?.source === 'imported' && state.music.id === clipId) {
+        throw new McpToolError(OWN_MUSIC_MESSAGE, 'own_music')
+      }
       await ctx.caller.call('sound.removeClip', { clipId })
       return { removed: true }
     },

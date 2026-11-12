@@ -740,6 +740,8 @@ describe('金鑰與不開放的功能', () => {
       'project.openRecent',
       'project.forgetRecent',
       'project.pickAndOpen',
+      // 選檔視窗讀電腦上的檔案：只給畫面用（AI 不能叫 App 去讀檔案）
+      'sound.importMusic',
       'app.startView',
       // 右下角 Claude 對話：Claude 自己透過 MCP 改專案，不能再叫它開別的對話
       'chat.status',

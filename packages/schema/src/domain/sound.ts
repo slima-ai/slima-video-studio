@@ -3,6 +3,17 @@ import { z } from 'zod'
 import { ContentHashSchema, IdSchema, IsoDateTimeSchema, UsdSchema } from './common'
 import { t } from '../i18n'
 
+/** 使用者自己匯入的音樂用的 modelId：不是模型（沒有花費、片尾的 AI 服務清單不列）。 */
+export const USER_MUSIC_MODEL_ID = 'user-file'
+
+/** 匯入自己的音樂：接受的副檔名與檔案大小上限（50 MB）。 */
+export const MUSIC_IMPORT_EXTENSIONS = ['mp3', 'wav', 'm4a'] as const
+export const MUSIC_IMPORT_MAX_BYTES = 50 * 1024 * 1024
+
+/** 這個片段是 AI 生成的，還是使用者自己匯入的檔案。 */
+export const SoundClipSourceSchema = z.enum(['generated', 'imported'])
+export type SoundClipSource = z.infer<typeof SoundClipSourceSchema>
+
 /** 聲音片段的種類：旁白（每鏡一句）、音效（每鏡，第一版不做）、配樂（整支一首）。 */
 export const SoundClipKindSchema = z.enum(['narration', 'sfx', 'music'])
 export type SoundClipKind = z.infer<typeof SoundClipKindSchema>
@@ -24,11 +35,13 @@ export const SoundClipSchema = z
     gainDb: z.number().min(-60).max(24).optional(),
     fadeInSec: z.number().min(0).optional(),
     fadeOutSec: z.number().min(0).optional(),
-    /** 旁白念的文字，或配樂的描述。 */
+    /** 旁白念的文字，配樂的描述；使用者自己匯入的配樂是檔名。 */
     text: z.string().default(''),
     /** 旁白用的聲音（模型卡 voices 裡的 id）。 */
     voiceId: z.string().min(1).optional(),
     modelId: z.string().min(1),
+    /** 生成的，或使用者自己匯入的檔案（modelId 是 USER_MUSIC_MODEL_ID）；沒有這個欄位就是生成的。 */
+    source: SoundClipSourceSchema.optional(),
     costUsd: UsdSchema.optional(),
     /** costUsd 是依牌價估的，不是供應商實收。 */
     costEstimated: z.boolean().default(false),
@@ -134,6 +147,10 @@ export const SoundStateSchema = z.object({
   totalSec: z.number().min(0),
   /** 採用中的配樂。 */
   music: SoundClipSchema.optional(),
+  /** 配樂的所有版本（含採用中的）：id 與來源。AI 工具要判斷「這是不是使用者自己的音樂」用。 */
+  musicVersions: z
+    .array(z.object({ id: IdSchema, source: SoundClipSourceSchema, adopted: z.boolean() }))
+    .optional(),
   /** 最新一版成品；還沒接過片就沒有。soundStale＝聲音變了、成品還沒重混；hasSound＝成品裡已經混了聲音。 */
   final: z
     .object({

@@ -468,9 +468,18 @@ export function SoundTimeline({
               {state.music ? (
                 <div
                   data-testid="timeline-music"
-                  className="absolute inset-y-1 left-0 rounded bg-warning/50"
+                  className="absolute inset-y-1 left-0 flex items-center overflow-hidden rounded bg-warning/50"
                   style={{ width: pct(state.music.durationSec ?? total, total) }}
-                />
+                >
+                  {state.music.source === 'imported' ? (
+                    <span
+                      data-testid="timeline-music-name"
+                      className="block truncate px-1 text-[10px] leading-none text-fg"
+                    >
+                      {state.music.text}
+                    </span>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           </>

@@ -320,6 +320,41 @@ describe('SoundTimeline：整支片子的聲音時間軸', () => {
     expect(screen.getByTestId('timeline-music').style.width).toBe('100%')
   })
 
+  it('自己匯入的音樂（比片子長）：配樂條畫到片尾為止、條上寫檔名；生成的配樂不寫檔名', () => {
+    const own = {
+      ...narration('s1'),
+      kind: 'music',
+      shotId: undefined,
+      durationSec: 60,
+      text: '我的歌.mp3',
+      source: 'imported',
+    } as never
+    render(
+      <SoundTimeline
+        state={state({
+          shots: [view(1, {}), view(2, {})],
+          music: own,
+        })}
+      />,
+    )
+    expect(screen.getByTestId('timeline-music').style.width).toBe('100%')
+    expect(screen.getByTestId('timeline-music-name').textContent).toBe('我的歌.mp3')
+    cleanup()
+    render(
+      <SoundTimeline
+        state={state({
+          music: {
+            ...narration('s1'),
+            kind: 'music',
+            shotId: undefined,
+            durationSec: 10,
+          } as never,
+        })}
+      />,
+    )
+    expect(screen.queryByTestId('timeline-music-name')).toBeNull()
+  })
+
   it('沒有鏡頭或總長是 0：不畫；沒有配樂就沒有配樂那一格', () => {
     const empty = render(<SoundTimeline state={state({ shots: [], totalSec: 0 })} />)
     expect(empty.container.firstChild).toBeNull()

@@ -332,6 +332,166 @@ describe('SoundPanel：刪除旁白與配樂', () => {
   })
 })
 
+describe('SoundPanel：用我自己的音樂', () => {
+  const ownMusic = (): SoundState['music'] => ({
+    ...clip('music'),
+    modelId: 'user-file',
+    text: '我的歌.mp3',
+    costUsd: 0,
+    source: 'imported',
+  })
+  const renderPanel = () =>
+    render(
+      <ToastProvider>
+        <HistoryProvider enabled>
+          <SoundPanel />
+        </HistoryProvider>
+      </ToastProvider>,
+    )
+
+  it('還沒有任何聲音：有「用我自己的音樂…」鈕；選了檔案就直接當配樂、提示附「復原」、自動重混', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let imported = false
+    const mix = vi.fn(() => ({ videoHash: 'h', version: 3 }))
+    const importMusic = vi.fn(() => {
+      imported = true
+      return { clip: ownMusic() }
+    })
+    installFakeSvs({
+      'sound.get': () =>
+        imported
+          ? state({
+              music: ownMusic(),
+              final: { version: 2, hasSound: false, soundStale: true },
+            })
+          : state(),
+      'sound.importMusic': importMusic,
+      'sound.mix': mix,
+    })
+    renderPanel()
+    fireEvent.click(await screen.findByTestId('sound-import-music'))
+    expect(await screen.findByText(/已用「我的歌\.mp3」當配樂/)).toBeTruthy()
+    expect(importMusic).toHaveBeenCalledTimes(1)
+    // 畫面換成音量調整，配樂那排標出是自己的檔案
+    expect((await screen.findByTestId('sound-music-own')).textContent).toBe(
+      '我的歌.mp3（自己的檔案）',
+    )
+    await vi.advanceTimersByTimeAsync(700)
+    await waitFor(() => {
+      expect(mix).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('沒有可用的旁白與配樂模型：照樣能用自己的音樂（它不用模型）', async () => {
+    installFakeSvs({ 'sound.get': () => state({ models: {} }) })
+    renderPanel()
+    const button = await screen.findByTestId('sound-import-music')
+    expect(button.hasAttribute('disabled')).toBe(false)
+  })
+
+  it('還沒接成成品：沒有這顆鈕（只說先接成成品）', async () => {
+    installFakeSvs({ 'sound.get': () => state({ final: undefined }) })
+    renderPanel()
+    await screen.findByText(/先把鏡頭接成成品/)
+    expect(screen.queryByTestId('sound-import-music')).toBeNull()
+  })
+
+  it('已有聲音：配樂那排顯示檔名與「自己的檔案」，鈕還在（可以換一首）；生成的配樂不顯示這行', async () => {
+    installFakeSvs({
+      'sound.get': () =>
+        state({
+          shots: [shot(1, true), shot(2, true)],
+          music: ownMusic(),
+          final: { version: 2, hasSound: true, soundStale: false },
+        }),
+    })
+    renderPanel()
+    expect((await screen.findByTestId('sound-music-own')).textContent).toContain('自己的檔案')
+    expect(screen.getByTestId('sound-import-music')).toBeTruthy()
+    cleanup()
+    installFakeSvs({
+      'sound.get': () =>
+        state({
+          shots: [shot(1, true), shot(2, true)],
+          music: clip('music'),
+          final: { version: 2, hasSound: true, soundStale: false },
+        }),
+    })
+    renderPanel()
+    await screen.findByTestId('sound-music-mid')
+    expect(screen.queryByTestId('sound-music-own')).toBeNull()
+    expect(screen.getByTestId('sound-import-music')).toBeTruthy()
+  })
+
+  it('按了又取消選檔：什麼都不發生（沒提示、沒錯誤、不重混）', async () => {
+    const mix = vi.fn()
+    installFakeSvs({
+      'sound.get': () => state(),
+      'sound.importMusic': () => ({ clip: null }),
+      'sound.mix': mix,
+    })
+    renderPanel()
+    fireEvent.click(await screen.findByTestId('sound-import-music'))
+    await waitFor(() => {
+      expect(screen.getByTestId('sound-import-music').hasAttribute('disabled')).toBe(false)
+    })
+    expect(screen.queryByText(/已用「/)).toBeNull()
+    expect(screen.queryByTestId('sound-error')).toBeNull()
+    expect(mix).not.toHaveBeenCalled()
+  })
+
+  it('檔案不能用：顯示白話錯誤', async () => {
+    installFakeSvs({
+      'sound.get': () => state(),
+      'sound.importMusic': () => {
+        throw appError('這種檔案不能當配樂：請選 mp3、wav 或 m4a。')
+      },
+    })
+    renderPanel()
+    fireEvent.click(await screen.findByTestId('sound-import-music'))
+    expect((await screen.findByTestId('sound-error')).textContent).toContain('不能當配樂')
+  })
+
+  it('匯入進行中：鈕停用並說「正在匯入…」，避免連按選兩次', async () => {
+    let release: (v: { clip: null }) => void = () => undefined
+    installFakeSvs({
+      'sound.get': () => state(),
+      'sound.importMusic': () =>
+        new Promise<{ clip: null }>((resolve) => {
+          release = resolve
+        }),
+    })
+    renderPanel()
+    fireEvent.click(await screen.findByTestId('sound-import-music'))
+    await waitFor(() => {
+      expect(screen.getByTestId('sound-import-music').hasAttribute('disabled')).toBe(true)
+    })
+    expect(screen.getByTestId('sound-import-music').textContent).toContain('正在匯入')
+    release({ clip: null })
+  })
+
+  it('英文介面：按鈕、檔案標示、提示都是英文，沒有中文', async () => {
+    setLocale('en')
+    installFakeSvs({
+      'sound.get': () =>
+        state({
+          shots: [shot(1, true), shot(2, true)],
+          music: ownMusic(),
+          final: { version: 2, hasSound: true, soundStale: false },
+        }),
+    })
+    renderPanel()
+    const own = await screen.findByTestId('sound-music-own')
+    expect(own.textContent).toContain('your own file')
+    const button = screen.getByTestId('sound-import-music')
+    expect(button.textContent).toMatch(/own music/i)
+    expect(/[\u3400-\u9fff\uff00-\uffef]/.test(button.textContent)).toBe(false)
+    expect(/[\u3400-\u9fff\uff00-\uffef]/.test(own.textContent.replace('我的歌.mp3', ''))).toBe(
+      false,
+    )
+  })
+})
+
 describe('SoundPanel（英文介面）', () => {
   it('有台詞、沒有旁白：複數是英文的（2 shots have lines）；摘要、音量按鈕都是英文', async () => {
     setLocale('en')
