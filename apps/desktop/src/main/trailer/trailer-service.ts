@@ -205,6 +205,17 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
     const { dir } = handle
     const inside = resolve(dir).startsWith(`${resolve(deps.projectsDir)}${sep}`)
     if (!inside) return false
+    // 這個專案剛建的時候領了 App 層帳本裡的舊帳：專案要刪了，那些錢放回 App 層，不能跟著消失
+    for (const entry of handle.repos.costs.list(handle.projectId)) {
+      deps.appLedger.record({
+        provider: entry.provider,
+        modelId: entry.modelId,
+        amountUsd: entry.amountUsd,
+        ...(entry.jobId === undefined ? {} : { jobId: entry.jobId }),
+        reason:
+          'trailer.plan: the new project was removed; its carried-over cost goes back to the app ledger',
+      })
+    }
     projects.close()
     try {
       rmSync(dir, { recursive: true, force: true })

@@ -68,22 +68,4 @@ describe('CostRepository', () => {
     const { repos, projectId } = newProject()
     expect(() => repos.costs.record({ ...base, projectId, amountUsd: -1 })).toThrow()
   })
-
-  it('外部加總（App 層刪掉專案後留下的花費）：整個專案的加總會算進去；依執行、依時間的不算；排除供應商照樣傳過去', () => {
-    const { repos, projectId } = newProject()
-    repos.costs.record({ ...base, projectId, amountUsd: 1 })
-    const seen: unknown[] = []
-    repos.costs.setExternalTotal((filter) => {
-      seen.push(filter)
-      return 0.5
-    })
-    expect(repos.costs.totalUsd(projectId)).toBeCloseTo(1.5, 9)
-    expect(repos.costs.totalUsd(projectId, { excludeProviders: ['mock'] })).toBeCloseTo(1.5, 9)
-    expect(seen[1]).toEqual({ excludeProviders: ['mock'] })
-    // 某一次執行、某個時間範圍的花費，跟 App 層帳本無關
-    expect(repos.costs.totalUsd(projectId, { runId: 'r1' })).toBe(0)
-    expect(repos.costs.monthTotalUsd(projectId, 2026, 10)).toBe(0)
-    // 列表（一筆一筆的紀錄）不含外部的：那些不屬於這個專案
-    expect(repos.costs.list(projectId)).toHaveLength(1)
-  })
 })

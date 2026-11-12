@@ -34,6 +34,28 @@ describe('App 層的花費帳本（不跟專案走，刪專案不會受影響）
     expect(ledger.totalUsd({ excludeProviders: ['mock'] })).toBeCloseTo(0.74, 9)
   })
 
+  it('待移的錢：標成已移之後不再算進加總、也不會再被領；已移的紀錄留著當紀錄（重開還在）', () => {
+    const file = join(tempDir(), 'spend-ledger.json')
+    const ledger = createAppLedger({ file, now: () => new Date('2026-11-12T03:00:00.000Z') })
+    const a = ledger.record(entry(0.37))
+    const b = ledger.record(entry(0.37))
+    expect(ledger.pending().map((e) => e.id)).toEqual([a.id, b.id])
+    ledger.markMoved([a.id, b.id], 'project-1')
+    expect(ledger.totalUsd()).toBe(0)
+    expect(ledger.pending()).toEqual([])
+    const c = ledger.record(entry(0.1))
+    expect(ledger.totalUsd()).toBeCloseTo(0.1, 9)
+    expect(ledger.pending().map((e) => e.id)).toEqual([c.id])
+    // 重開：已移的標記還在，紀錄也還在（list 看得到全部）
+    const again = createAppLedger({ file })
+    expect(again.totalUsd()).toBeCloseTo(0.1, 9)
+    expect(again.list()).toHaveLength(3)
+    expect(again.list()[0]).toMatchObject({
+      movedToProjectId: 'project-1',
+      movedAt: '2026-11-12T03:00:00.000Z',
+    })
+  })
+
   it('寫進檔案：重開（再建一個）還在，金額與供應商都一樣', () => {
     const file = join(tempDir(), 'spend-ledger.json')
     const first = createAppLedger({ file, now: () => new Date('2026-11-12T03:00:00.000Z') })

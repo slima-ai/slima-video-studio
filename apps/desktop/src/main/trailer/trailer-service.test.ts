@@ -105,12 +105,15 @@ describe('trailer.plan：真的呼叫只要花了錢就記帳（成功、被擋�
       provider: 'mock',
       modelId: expect.any(String) as unknown,
     })
-    // 之後開的專案：整個專案的加總（花費上限用的、「已花」用的）算進這筆
+    // 之後建出來的第一個專案：把這筆移進自己的帳本，算一次「已花」；第二個專案是 0
     h.shots.create({})
+    const first = h.projects.current()
     expect(total(h)).toBeCloseTo(2 * COST, 9)
-    // 專案自己的紀錄裡沒有這筆（不屬於這個專案）
-    const handle = h.projects.current()
-    expect(handle?.repos.costs.list(handle.projectId)).toEqual([])
+    expect(first?.repos.costs.list(first.projectId)).toHaveLength(2)
+    expect(h.ledger.totalUsd()).toBe(0)
+    expect(h.ledger.list().every((e) => e.movedToProjectId === first?.projectId)).toBe(true)
+    h.projects.create(join(h.root, 'projects', '第二個.svsproj'), '第二個')
+    expect(total(h)).toBe(0)
   })
 
   it('沒有專案、模型回亂碼（格式不對重試一次還是不對）：兩次呼叫的錢一樣記進 App 層', async () => {
@@ -146,15 +149,32 @@ describe('trailer.plan：真的呼叫只要花了錢就記帳（成功、被擋�
     expect(total(h)).toBeCloseTo(3 * COST, 9)
   })
 
-  it('花費上限：App 層帳本裡的錢也算進專案的上限（預估前就擋）', async () => {
+  it('花費上限：移進第一個新專案的錢照算它的額度（預估前就擋）；第二個專案不受影響', async () => {
     const llm = rejected()
     const h = setup({ mockLlm: llm.llm, mockCostUsd: () => COST })
     await expect(h.trailer.plan({ text: STORY })).rejects.toBeDefined()
     h.settings.update({ budget: { perRunLimitUsd: 5, projectLimitUsd: 0.5 } })
     h.shots.create({})
-    const check = h.trailer.check(STORY)
-    expect(check.ok).toBe(false)
-    expect(check.issue).toContain('專案')
+    const blocked = h.trailer.check(STORY)
+    expect(blocked.ok).toBe(false)
+    expect(blocked.issue).toContain('專案')
+    h.projects.create(join(h.root, 'projects', '第二個.svsproj'), '第二個')
+    expect(h.trailer.check(STORY).ok).toBe(true)
+  })
+
+  it('又失敗在一個剛建的專案裡：那個專案刪掉時，它帶進去的舊帳也放回 App 層，錢一分都不會少', async () => {
+    const llm = rejected()
+    const h = setup({ mockLlm: llm.llm, mockCostUsd: () => COST })
+    await expect(h.trailer.plan({ text: STORY })).rejects.toBeDefined()
+    expect(h.ledger.totalUsd()).toBeCloseTo(2 * COST, 9)
+    // 第二次：新專案先領了上一次的 0.74，這次又擋下、專案刪掉
+    await expect(h.trailer.plan({ text: STORY })).rejects.toBeDefined()
+    expect(h.projects.current()).toBeUndefined()
+    expect(h.ledger.totalUsd()).toBeCloseTo(4 * COST, 9)
+    // 之後第一個建出來的專案一次領走全部（只算一次）
+    h.shots.create({})
+    expect(total(h)).toBeCloseTo(4 * COST, 9)
+    expect(h.ledger.totalUsd()).toBe(0)
   })
 })
 

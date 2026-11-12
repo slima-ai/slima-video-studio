@@ -7,7 +7,7 @@ import {
   writeProjectFile,
   type ProjectHandle,
 } from '@svs/db'
-import { AppError, type ProjectInfo, type ProjectStatus, t } from '@svs/schema'
+import { AppError, CARRIED_OVER_RUN_ID, type ProjectInfo, type ProjectStatus, t } from '@svs/schema'
 
 import type { AppSpendLedger } from './costs/app-ledger'
 
@@ -17,8 +17,8 @@ export class ProjectManager {
   private readonly listeners = new Set<(handle: ProjectHandle | undefined) => void>()
 
   /**
-   * `appLedger`：App 層的花費帳本（專案不在了、錢還是花了的那些）。開專案時掛到它的花費帳本上，
-   * 「已花」與專案花費上限都會把它算進去。
+   * `appLedger`：App 層的花費帳本（專案不在了、錢還是花了的那些）。「下一個建出來的專案」
+   * （不管從哪個入口建）把還沒移走的錢移進自己的帳本，算一次「已花」與花費上限；開舊專案、另存為不領。
    */
   constructor(
     private readonly appVersion: string,
@@ -27,7 +27,35 @@ export class ProjectManager {
 
   create(dir: string, name: string): ProjectInfo {
     this.close()
-    return this.adopt(createProject({ dir, name }, { appVersion: this.appVersion }))
+    const handle = createProject({ dir, name }, { appVersion: this.appVersion })
+    this.carryOver(handle)
+    return this.adopt(handle)
+  }
+
+  /**
+   * App 層帳本裡還沒移走的錢，記進這個新專案的帳本（標上 `CARRIED_OVER_RUN_ID`），再把帳本那幾筆標成已移。
+   * 先記進專案、再標已移：中間斷掉最多是重複算一次，不會讓錢消失。
+   */
+  private carryOver(handle: ProjectHandle): void {
+    const { appLedger } = this
+    if (!appLedger) return
+    const pending = appLedger.pending()
+    if (pending.length === 0) return
+    for (const entry of pending) {
+      handle.repos.costs.record({
+        projectId: handle.projectId,
+        runId: CARRIED_OVER_RUN_ID,
+        provider: entry.provider,
+        modelId: entry.modelId,
+        amountUsd: entry.amountUsd,
+        estimated: false,
+        ...(entry.jobId === undefined ? {} : { jobId: entry.jobId }),
+      })
+    }
+    appLedger.markMoved(
+      pending.map((e) => e.id),
+      handle.projectId,
+    )
   }
 
   open(dir: string): ProjectInfo {
@@ -78,14 +106,17 @@ export class ProjectManager {
   status(): ProjectStatus | null {
     const { handle } = this
     if (!handle) return null
-    // 示範模式的假結果不算；App 層帳本（專案不在了、錢還是花了）的錢已經掛在花費帳本上，一起算進 spentUsd
-    const leftover = this.appLedger?.totalUsd({ excludeProviders: ['mock'] }) ?? 0
+    // 示範模式的假結果不算；其中「之前沒做成、移進來的」那一份另外標出來（標題列說明用）
+    const carried = handle.repos.costs.totalUsd(handle.projectId, {
+      runId: CARRIED_OVER_RUN_ID,
+      excludeProviders: ['mock'],
+    })
     return {
       name: handle.repos.projects.get().name,
       dir: handle.dir,
       savedAt: projectModifiedAt(handle.dir).toISOString(),
       spentUsd: handle.repos.costs.totalUsd(handle.projectId, { excludeProviders: ['mock'] }),
-      ...(leftover > 0 ? { discardedSpentUsd: leftover } : {}),
+      ...(carried > 0 ? { discardedSpentUsd: carried } : {}),
     }
   }
 
@@ -107,8 +138,6 @@ export class ProjectManager {
   }
 
   private adopt(handle: ProjectHandle): ProjectInfo {
-    const { appLedger } = this
-    if (appLedger) handle.repos.costs.setExternalTotal((filter) => appLedger.totalUsd(filter))
     this.handle = handle
     this.notify(handle)
     return toInfo(handle)

@@ -38,14 +38,14 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     expect(screen.queryByRole('button', { name: /儲存/ })).toBeNull()
   })
 
-  it('已花含 App 層留下的錢（沒做成、已經刪掉的空專案花的）：數字算進去，說明寫出其中多少', async () => {
+  it('已花含之前沒寫成的腳本花的錢：數字算進去，滑過說明寫出其中多少', async () => {
     installFakeSvs({
       'project.status': () => status({ spentUsd: 0.74, discardedSpentUsd: 0.74 }),
     })
     render(<ProjectBar onNavigate={vi.fn()} demoMode={false} hasKey />)
     const spent = await screen.findByTestId('spent')
     expect(spent.textContent).toBe('已花 US$0.74')
-    expect(spent.getAttribute('title')).toContain('其中 US$0.74 是之前沒做成、已經刪掉的空專案花的')
+    expect(spent.getAttribute('title')).toContain('含之前沒寫成的腳本 US$0.74')
   })
 
   it('沒有專案：寫「還沒有專案」（不是「未命名專案」），不能改名，沒有存檔狀態也沒有花費', async () => {
