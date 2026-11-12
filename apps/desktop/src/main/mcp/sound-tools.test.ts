@@ -1,9 +1,13 @@
 import type { LlmRequest } from '@svs/schema'
 import { FAKE_OPENROUTER_KEY, startFakeOpenRouter } from '@svs/test-utils'
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
+
+import { resolveTools, runTool } from '@svs/media'
 
 import { locateTools } from '../bundled-tools'
 import { dataOf, startRealMcp, textOf } from './test-support'
@@ -375,5 +379,86 @@ describe('聲音的花錢步驟（真實模式、假的 OpenRouter）', () => {
     expect(text).not.toContain(r.token)
     const reserved = committed() - start0
     expect(reserved).toBeCloseTo(0.002 * 1.25, 5)
+  })
+})
+
+describe('MCP 聲音工具：使用者自己匯入的音樂', () => {
+  /** 用 FFmpeg 合成一首 3 秒的 wav，回傳路徑；測完刪掉。 */
+  async function ownTrack(): Promise<string> {
+    const dir = mkdtempSync(join(tmpdir(), 'svs-mcp-music-'))
+    closers.push(() => {
+      rmSync(dir, { recursive: true, force: true })
+      return Promise.resolve()
+    })
+    const file = join(dir, '我自己的歌.wav')
+    await runTool(resolveTools().ffmpegPath, [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-y',
+      '-f',
+      'lavfi',
+      '-i',
+      'sine=frequency=440:duration=3',
+      '-c:a',
+      'pcm_s16le',
+      file,
+    ])
+    return file
+  }
+
+  it('get_sound 看得到這首是使用者自己的（來源與檔名）；可以調音量與淡出，但不能換掉它', async () => {
+    const file = await ownTrack()
+    const r = await start({ pickMusic: () => Promise.resolve(file) })
+    await withShots(r)
+    const own = await r.h.sound.importMusic()
+    const state = dataOf(
+      Sound.extend({ music: Clip.extend({ source: z.string(), fileName: z.string() }).nullable() }),
+      await r.call('get_sound'),
+    )
+    expect(state.music).toMatchObject({
+      id: own?.id,
+      source: 'imported',
+      fileName: '我自己的歌.wav',
+      adopted: true,
+    })
+
+    // 調音量、淡出：可以
+    const adjusted = await r.call('adjust_sound_clip', { clipId: own?.id, gainDb: -10 })
+    expect(adjusted.isError).not.toBe(true)
+    expect(dataOf(Sound, await r.call('get_sound')).music?.gainDb).toBe(-10)
+
+    // 生成新的配樂（會取代它）：拒絕，沒預留額度、沒花錢；說明請使用者自己換
+    const refused = await r.call('generate_music', {})
+    expect(refused.isError).toBe(true)
+    expect(textOf(refused)).toContain('own music')
+    // 刪掉它：拒絕
+    const del = await r.call('remove_sound_clip', { clipId: own?.id })
+    expect(del.isError).toBe(true)
+    expect(dataOf(Sound, await r.call('get_sound')).music?.id).toBe(own?.id)
+  })
+
+  it('改用別的配樂版本也拒絕（使用者自己的那首是採用中的時候）；使用者自己在畫面上換就可以', async () => {
+    const file = await ownTrack()
+    const r = await start({ pickMusic: () => Promise.resolve(file) })
+    await withShots(r)
+    // 先有一首生成的配樂（舊版本），再匯入自己的（採用中）
+    const generated = dataOf(Made, await r.call('generate_music', {})).clip
+    const own = await r.h.sound.importMusic()
+    const refused = await r.call('adopt_sound_clip', { clipId: generated.id })
+    expect(refused.isError).toBe(true)
+    expect(dataOf(Sound, await r.call('get_sound')).music?.id).toBe(own?.id)
+    // 畫面（不是 AI 工具）上換回去：可以
+    expect(r.h.sound.adoptClip(generated.id).adopted).toBe(true)
+  })
+
+  it('採用旁白的舊版本不受影響（只擋配樂）', async () => {
+    const file = await ownTrack()
+    const r = await start({ pickMusic: () => Promise.resolve(file) })
+    const [first] = await withShots(r)
+    const narration = dataOf(Made, await r.call('generate_narration', { shotId: first })).clip
+    await r.h.sound.importMusic()
+    const adopted = await r.call('adopt_sound_clip', { clipId: narration.id })
+    expect(adopted.isError).not.toBe(true)
   })
 })

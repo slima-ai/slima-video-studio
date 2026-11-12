@@ -927,6 +927,15 @@ export const ipcContract = {
     request: z.object({}),
     response: SoundAnalysisSchema,
   },
+  /**
+   * 匯入自己的音樂（成品面板「用我自己的音樂…」）：跳出選檔視窗，mp3、wav、m4a（最大 50 MB）存成專案素材，
+   * 一筆配樂、標「自己的檔案」、花費 0、直接採用（舊的版本留著）。取消選檔回 null。
+   * 選檔只給畫面用：不在 MCP 白名單（AI 不能叫 App 去讀電腦上的檔案）。
+   */
+  'sound.importMusic': {
+    request: z.object({}),
+    response: z.object({ clip: SoundClipSchema.nullable() }),
+  },
   /** 把聲音混進最新的成品（不花錢、不用重新接片），存成新的成品版本。 */
   'sound.mix': {
     request: z.object({}),

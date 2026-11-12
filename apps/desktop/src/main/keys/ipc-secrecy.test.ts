@@ -183,6 +183,7 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'sound.removeClip': [{ clipId: 'nope' }],
   'sound.remove': [{ kind: 'music' }],
   'sound.mix': [{}],
+  'sound.importMusic': [{}],
   'sound.analyze': [{}],
   'sound.updateSettings': [{ duck: false }],
   'outline.get': [{}],

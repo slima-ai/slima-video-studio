@@ -11,4 +11,5 @@ export const history = {
   'history.writeTrailerScript': '寫預告片腳本',
   'history.editTrailerSettings': '修改預告片設定',
   'history.refitTrailer': '照新長度重排預告片',
+  'history.importMusic': '匯入自己的音樂',
 } as const

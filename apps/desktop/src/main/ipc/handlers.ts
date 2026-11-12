@@ -516,6 +516,14 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('sound.generateMusic', async (request) => ({
     clip: await needSound().generateMusic(request),
   }))
+  // 匯入自己的音樂：選檔、檢查、存素材是慢的（不能在歷史的一步裡），寫進資料庫那一步記成一步復原
+  registry.registerHandler('sound.importMusic', async () => {
+    const sound = needSound()
+    const prepared = await sound.prepareMusicImport()
+    if (!prepared) return { clip: null }
+    const clip = history.record(t('history.importMusic'), () => sound.commitMusicImport(prepared))
+    return { clip }
+  })
   registry.registerHandler('sound.updateClip', ({ clipId, patch }) => ({
     clip: needSound().updateClip(clipId, patch),
   }))

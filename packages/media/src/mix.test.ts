@@ -135,6 +135,27 @@ describe('mixAudio：對齊與長度', () => {
     expect(quiet).toBeLessThan(-60)
   })
 
+  it('比影片長的音樂（匯入自己的音樂）：成品長度不變，最後 1.5 秒音量一路下降、最後一刻幾乎沒聲音', async () => {
+    const out = path('own-long.mp4')
+    await mixAudio(tools, silentVideo, out, {
+      music: { file: music, gainDb: -6, fadeInSec: 0.1, fadeOutSec: 1.5 },
+      normalize: false,
+    })
+    // 影片 10 秒、音樂 12 秒：成品還是 10 秒
+    expect((await probe(tools, out)).durationSec).toBeCloseTo(10, 0)
+    const rms = (startSec: number) =>
+      measureRmsDb(tools, out, { startSec, durationSec: 0.25, filter: band(330) })
+    const steady = await rms(6)
+    const early = await rms(8.6) // 淡出剛開始（8.5 秒起）
+    const late = await rms(9.2)
+    const last = await rms(9.7)
+    expect(steady).toBeGreaterThan(-40)
+    expect(early).toBeLessThan(steady) // 已經開始下降
+    expect(late).toBeLessThan(early - 3)
+    expect(last).toBeLessThan(late - 6)
+    expect(last).toBeLessThan(steady - 15) // 最後一刻比穩定段小聲很多
+  })
+
   it('配樂比影片短就循環到最後，比影片長就截掉；開頭淡入、結尾淡出', async () => {
     for (const [name, file] of [
       ['loop.mp4', shortMusic],
