@@ -35,6 +35,7 @@ const beat = (extra: Record<string, unknown> = {}) => ({
 const script = (beats: ReturnType<typeof beat>[], title = '黑藤裂谷'): TrailerScript => ({
   title,
   music: '留白、推進、停一拍、重音',
+  places: [],
   beats,
 })
 
