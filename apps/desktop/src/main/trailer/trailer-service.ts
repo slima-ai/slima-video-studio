@@ -1,3 +1,6 @@
+import { rmSync } from 'node:fs'
+import { resolve, sep } from 'node:path'
+
 import { budgetExceededError, checkBudget } from '@svs/engine'
 import type { ProjectHandle } from '@svs/db'
 import type { MediaTools } from '@svs/media'
@@ -177,6 +180,174 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
       ),
     )
 
+  /**
+   * 寫腳本沒成功，而且這個專案是這次寫腳本自己建的（空的）：關掉並刪掉，專案清單不會多一個空專案。
+   * 只刪「這次建的那一個」：中途使用者換開了別的專案、或裡面已經有東西，都不動。
+   */
+  const discardNewProject = (handle: ProjectHandle): void => {
+    if (projects.current() !== handle || handle.closed) return
+    if (handle.repos.shots.list().length > 0 || handle.repos.trailer.get() !== undefined) return
+    const { dir } = handle
+    const inside = resolve(dir).startsWith(`${resolve(deps.projectsDir)}${sep}`)
+    if (!inside) return
+    projects.close()
+    try {
+      rmSync(dir, { recursive: true, force: true })
+    } catch (error) {
+      log.warn(`Could not remove the empty project ${dir}: ${String(error)}`)
+    }
+  }
+
+  /** 寫腳本的主體：專案已經開好（沒給的話外面先建）。 */
+  const planOnto = async (
+    handle: ProjectHandle,
+    parsed: ReturnType<typeof TrailerPlanRequestSchema.parse>,
+  ): Promise<TrailerPlanResult> => {
+    const checked = checkPlan(parsed.text)
+    const model = settingsService.resolveModel('llm')
+    if (!checked.ok || !model) throw invalid(checked.issue ?? t('trailer.noTextModel'))
+    const queue = runtime.queue()
+    const tool = tools()
+    if (!queue || !tool) {
+      throw new AppError({
+        code: 'internal_error',
+        userMessage: t('services.theGenerationServiceIsnT'),
+      })
+    }
+    const given = patchOf(parsed)
+    const base = handle.repos.trailer.get() ?? TrailerSettingsSchema.parse({})
+    const merged = TrailerSettingsSchema.parse({ ...base, ...given })
+    const studio = createStudioServices({ queue, handle, tools: tool, models })
+    const written = await writeTrailerScript(
+      studio,
+      {
+        modelId: model,
+        text: parsed.text,
+        settings: merged,
+        guide: defaultTrailerGuide(),
+        knownCharacters: handle.repos.characters.list().map((c) => c.name),
+        knownLocations: handle.repos.outline.listLocations().map((l) => l.name),
+        style: toStyle(handle.repos.projects.get().defaultStyleId),
+      },
+      { signal: new AbortController().signal },
+    ).catch((error: unknown) => {
+      // 腳本沒過檢查：文字很長才建議縮短（第一格是字卡這種錯，縮短文本沒有用）
+      if (
+        isAppError(error) &&
+        error.code === 'invalid_response' &&
+        parsed.text.length > LONG_TEXT_CHARS
+      ) {
+        throw new AppError({
+          code: error.code,
+          retryable: error.retryable,
+          userMessage: `${error.userMessage} ${t('trailer.shortenHint')}`,
+        })
+      }
+      throw error
+    })
+    // 單獨呼叫不會經過引擎，自己記到花費帳本
+    if (written.costUsd !== undefined && !handle.closed) {
+      handle.repos.costs.record({
+        projectId: handle.projectId,
+        provider: written.provider,
+        modelId: model,
+        amountUsd: written.costUsd,
+        estimated: false,
+        jobId: written.jobId,
+      })
+    }
+    if (handle.closed) throw invalid(t('services.theProjectWasClosedSo4'))
+
+    // 腳本通過檢查了，才一次寫進專案（整個動作算一步復原）
+    record(t('history.writeTrailerScript'), () => {
+      const { outline } = handle.repos
+      let sceneId = base.sceneId
+      if (sceneId === undefined || !outline.listScenes().some((s) => s.id === sceneId)) {
+        const act =
+          outline.listActs().at(-1) ??
+          outline.addAct({ title: t('services.act', { value: String(1) }) })
+        sceneId = outline.addScene(act.id, { title: t('trailer.sceneTitle') }).id
+      }
+      // 地點：名字跟既有的場景卡一樣（不分大小寫、頭尾空白）就用既有的那張，沒有才建草稿卡。
+      // 草稿卡的說明只用腳本另外寫的「地點外觀」（只寫地方本身）；沒有就留空，不拿某一格的畫面描述來填
+      // （那句寫的是人在做什麼，鎖定場景卡後會被帶進發生在這裡的每一鏡）。外觀裡出現角色名字、或跟某一格的畫面描述
+      // 一樣，就當沒寫。
+      const peopleNames = new Set([
+        ...handle.repos.characters.list().map((c) => c.name),
+        ...written.script.beats.flatMap((b) => b.characters),
+      ])
+      const pictureTexts = new Set(written.script.beats.map((b) => b.description.trim()))
+      const lookOf = (name: string): string => {
+        const key = name.trim().toLowerCase()
+        const look =
+          written.script.places.find((p) => p.name.trim().toLowerCase() === key)?.look.trim() ?? ''
+        if (look === '' || pictureTexts.has(look)) return ''
+        return [...peopleNames].some((person) => person !== '' && look.includes(person)) ? '' : look
+      }
+      const placeIds = new Map<string, string>()
+      const placeOf = (name: string): string | undefined => {
+        const key = name.trim().toLowerCase()
+        if (key === '') return undefined
+        const known = placeIds.get(key)
+        if (known !== undefined) return known
+        const existing = outline.listLocations().find((l) => l.name.trim().toLowerCase() === key)
+        const id =
+          existing?.id ?? outline.addLocation({ name: name.trim(), description: lookOf(name) }).id
+        placeIds.set(key, id)
+        return id
+      }
+      const beats: TrailerBeatInput[] = written.script.beats.map((beat) => ({
+        beatKind: beat.beatKind,
+        durationSec: beat.durationSec,
+        // 鏡頭的描述不能是空的：字卡寫字卡的字，片名卡寫書名
+        description:
+          beat.beatKind === 'card'
+            ? beat.cardText.trim()
+            : beat.beatKind === 'title'
+              ? (merged.title === '' ? written.script.title.trim() : merged.title) ||
+                t('trailer.beatTitle')
+              : beat.description.trim() === ''
+                ? t('shots.newShot')
+                : beat.description.trim(),
+        action: beat.action.trim(),
+        size: beat.size,
+        angle: beat.angle,
+        cameraMove: beat.cameraMove,
+        characters: beat.characters,
+        ...(beat.beatKind === 'video' || beat.beatKind === 'still'
+          ? { locationId: placeOf(beat.location) }
+          : {}),
+        dialogue:
+          merged.narration && (beat.beatKind === 'video' || beat.beatKind === 'still')
+            ? beat.dialogue.trim()
+            : '',
+        ...(beat.beatKind === 'card'
+          ? { card: { text: beat.cardText.trim(), subtext: beat.cardSubtext.trim() } }
+          : {}),
+      }))
+      handle.repos.trailer.update({
+        ...given,
+        sourceText: parsed.text,
+        // 重新寫腳本：鏡頭換了，旁白與配樂要再加一次
+        soundAutoAddedAt: null,
+        title: merged.title === '' ? written.script.title.trim() : merged.title,
+        musicBrief: written.script.music.trim(),
+        sceneId,
+      })
+      shots.placeTrailerBeats(sceneId, beats)
+      createDraftCharacters(handle)
+    })
+    log.info(
+      `Wrote a ${merged.kind} trailer script: ${String(written.script.beats.length)} beats, ${String(merged.targetSec)}s`,
+    )
+    broadcast('trailer.changed', {})
+    return {
+      ...statusOf(handle),
+      retried: written.retried,
+      fixes: written.fixes,
+      ...(written.costUsd === undefined ? {} : { costUsd: written.costUsd }),
+    }
+  }
   return {
     get() {
       const handle = need()
@@ -192,155 +363,15 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
 
     async plan(request) {
       const parsed = TrailerPlanRequestSchema.parse(request)
-      // 還沒有專案（直接貼文本）就先建一個，專案名取書名
+      // 還沒有專案（直接貼文本）就先建一個，專案名取書名；這次自己建的專案，腳本沒寫成就不留下
+      const created = projects.current() === undefined
       ensureProject(projects, deps.projectsDir, parsed.title ?? t('trailer.sceneTitle'))
       const handle = need()
-      const checked = checkPlan(parsed.text)
-      const model = settingsService.resolveModel('llm')
-      if (!checked.ok || !model) throw invalid(checked.issue ?? t('trailer.noTextModel'))
-      const queue = runtime.queue()
-      const tool = tools()
-      if (!queue || !tool) {
-        throw new AppError({
-          code: 'internal_error',
-          userMessage: t('services.theGenerationServiceIsnT'),
-        })
-      }
-      const given = patchOf(parsed)
-      const base = handle.repos.trailer.get() ?? TrailerSettingsSchema.parse({})
-      const merged = TrailerSettingsSchema.parse({ ...base, ...given })
-      const studio = createStudioServices({ queue, handle, tools: tool, models })
-      const written = await writeTrailerScript(
-        studio,
-        {
-          modelId: model,
-          text: parsed.text,
-          settings: merged,
-          guide: defaultTrailerGuide(),
-          knownCharacters: handle.repos.characters.list().map((c) => c.name),
-          knownLocations: handle.repos.outline.listLocations().map((l) => l.name),
-          style: toStyle(handle.repos.projects.get().defaultStyleId),
-        },
-        { signal: new AbortController().signal },
-      ).catch((error: unknown) => {
-        // 腳本沒過檢查：文字很長才建議縮短（第一格是字卡這種錯，縮短文本沒有用）
-        if (
-          isAppError(error) &&
-          error.code === 'invalid_response' &&
-          parsed.text.length > LONG_TEXT_CHARS
-        ) {
-          throw new AppError({
-            code: error.code,
-            retryable: error.retryable,
-            userMessage: `${error.userMessage} ${t('trailer.shortenHint')}`,
-          })
-        }
+      try {
+        return await planOnto(handle, parsed)
+      } catch (error) {
+        if (created) discardNewProject(handle)
         throw error
-      })
-      // 單獨呼叫不會經過引擎，自己記到花費帳本
-      if (written.costUsd !== undefined && !handle.closed) {
-        handle.repos.costs.record({
-          projectId: handle.projectId,
-          provider: written.provider,
-          modelId: model,
-          amountUsd: written.costUsd,
-          estimated: false,
-          jobId: written.jobId,
-        })
-      }
-      if (handle.closed) throw invalid(t('services.theProjectWasClosedSo4'))
-
-      // 腳本通過檢查了，才一次寫進專案（整個動作算一步復原）
-      record(t('history.writeTrailerScript'), () => {
-        const { outline } = handle.repos
-        let sceneId = base.sceneId
-        if (sceneId === undefined || !outline.listScenes().some((s) => s.id === sceneId)) {
-          const act =
-            outline.listActs().at(-1) ??
-            outline.addAct({ title: t('services.act', { value: String(1) }) })
-          sceneId = outline.addScene(act.id, { title: t('trailer.sceneTitle') }).id
-        }
-        // 地點：名字跟既有的場景卡一樣（不分大小寫、頭尾空白）就用既有的那張，沒有才建草稿卡。
-        // 草稿卡的說明只用腳本另外寫的「地點外觀」（只寫地方本身）；沒有就留空，不拿某一格的畫面描述來填
-        // （那句寫的是人在做什麼，鎖定場景卡後會被帶進發生在這裡的每一鏡）。外觀裡出現角色名字、或跟某一格的畫面描述
-        // 一樣，就當沒寫。
-        const peopleNames = new Set([
-          ...handle.repos.characters.list().map((c) => c.name),
-          ...written.script.beats.flatMap((b) => b.characters),
-        ])
-        const pictureTexts = new Set(written.script.beats.map((b) => b.description.trim()))
-        const lookOf = (name: string): string => {
-          const key = name.trim().toLowerCase()
-          const look =
-            written.script.places.find((p) => p.name.trim().toLowerCase() === key)?.look.trim() ??
-            ''
-          if (look === '' || pictureTexts.has(look)) return ''
-          return [...peopleNames].some((person) => person !== '' && look.includes(person))
-            ? ''
-            : look
-        }
-        const placeIds = new Map<string, string>()
-        const placeOf = (name: string): string | undefined => {
-          const key = name.trim().toLowerCase()
-          if (key === '') return undefined
-          const known = placeIds.get(key)
-          if (known !== undefined) return known
-          const existing = outline.listLocations().find((l) => l.name.trim().toLowerCase() === key)
-          const id =
-            existing?.id ?? outline.addLocation({ name: name.trim(), description: lookOf(name) }).id
-          placeIds.set(key, id)
-          return id
-        }
-        const beats: TrailerBeatInput[] = written.script.beats.map((beat) => ({
-          beatKind: beat.beatKind,
-          durationSec: beat.durationSec,
-          // 鏡頭的描述不能是空的：字卡寫字卡的字，片名卡寫書名
-          description:
-            beat.beatKind === 'card'
-              ? beat.cardText.trim()
-              : beat.beatKind === 'title'
-                ? (merged.title === '' ? written.script.title.trim() : merged.title) ||
-                  t('trailer.beatTitle')
-                : beat.description.trim() === ''
-                  ? t('shots.newShot')
-                  : beat.description.trim(),
-          action: beat.action.trim(),
-          size: beat.size,
-          angle: beat.angle,
-          cameraMove: beat.cameraMove,
-          characters: beat.characters,
-          ...(beat.beatKind === 'video' || beat.beatKind === 'still'
-            ? { locationId: placeOf(beat.location) }
-            : {}),
-          dialogue:
-            merged.narration && (beat.beatKind === 'video' || beat.beatKind === 'still')
-              ? beat.dialogue.trim()
-              : '',
-          ...(beat.beatKind === 'card'
-            ? { card: { text: beat.cardText.trim(), subtext: beat.cardSubtext.trim() } }
-            : {}),
-        }))
-        handle.repos.trailer.update({
-          ...given,
-          sourceText: parsed.text,
-          // 重新寫腳本：鏡頭換了，旁白與配樂要再加一次
-          soundAutoAddedAt: null,
-          title: merged.title === '' ? written.script.title.trim() : merged.title,
-          musicBrief: written.script.music.trim(),
-          sceneId,
-        })
-        shots.placeTrailerBeats(sceneId, beats)
-        createDraftCharacters(handle)
-      })
-      log.info(
-        `Wrote a ${merged.kind} trailer script: ${String(written.script.beats.length)} beats, ${String(merged.targetSec)}s`,
-      )
-      broadcast('trailer.changed', {})
-      return {
-        ...statusOf(handle),
-        retried: written.retried,
-        fixes: written.fixes,
-        ...(written.costUsd === undefined ? {} : { costUsd: written.costUsd }),
       }
     },
 

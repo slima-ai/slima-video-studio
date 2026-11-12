@@ -72,6 +72,38 @@ describe('示範模式的假腳本', () => {
     }
   }
 
+  // 示範是讓人看「做好是什麼樣子」：要先過自己的準則——越到後面越短，不能有「後面三分之一沒比前面短」的節奏提醒
+  // （片尾那一行的提醒可以留，那是在請使用者填）。
+  // 兩種算法都要過：寫腳本當下（每格帶 segment，「懸念」那格不算）、以及腳本存進專案之後（資料庫不存 segment，
+  // 畫面上的預告片狀態用這種算法，所有非片名卡的格子都算）。
+  for (const withSegment of [true, false]) {
+    it(`10～120 秒（每 1 秒一個）、兩種類型、旁白開關：示範腳本沒有節奏提醒（${withSegment ? '寫的當下' : '存進專案之後'}）`, () => {
+      const bad: string[] = []
+      for (const kind of ['story', 'teaser'] as const) {
+        for (let sec = 10; sec <= 120; sec += 1) {
+          for (const narration of [true, false]) {
+            const script = TrailerScriptSchema.parse(
+              demoTrailerScript(request(STORY, kind, sec, narration)),
+            )
+            const settings = TrailerSettingsSchema.parse({
+              kind,
+              targetSec: sec,
+              title: script.title,
+            })
+            const beats = beatsOf(script).map((b) =>
+              withSegment ? b : { ...b, segment: undefined },
+            )
+            const check = checkTrailerScript(beats, settings, 24)
+            if (check.warnings.some((w) => w.code === 'no_escalation')) {
+              bad.push(`${kind} ${String(sec)}s narration=${String(narration)}`)
+            }
+          }
+        }
+      }
+      expect(bad).toEqual([])
+    })
+  }
+
   for (const [kind, sec] of [
     ['story', 30],
     ['story', 60],

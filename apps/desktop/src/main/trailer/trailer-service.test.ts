@@ -1,5 +1,7 @@
 import { demoTrailerScript } from '@svs/providers'
 import type { LlmRequest } from '@svs/schema'
+import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { createStudioHarness, type HarnessOptions } from '../shots/test-harness'
@@ -346,6 +348,52 @@ describe('trailer.plan：檢查器接在寫腳本後面', () => {
     expect(h.history.state().canUndo).toBe(false)
   })
 
+  describe('寫腳本失敗：不留下這次自己建的空專案', () => {
+    const projectDirs = (h: ReturnType<typeof setup>): string[] => {
+      const folder = join(h.root, 'projects')
+      return existsSync(folder) ? readdirSync(folder) : []
+    }
+
+    it('還沒有專案、被檢查器擋下：沒有專案、專案資料夾裡也沒有多東西', async () => {
+      const h = setup()
+      h.projects.close()
+      expect(projectDirs(h)).toEqual([])
+      await expect(h.trailer.plan({ text: `${STORY}【腳本不合格】` })).rejects.toMatchObject({
+        userMessage: expect.stringContaining('專案沒有被改') as unknown,
+      })
+      expect(h.projects.current()).toBeUndefined()
+      expect(projectDirs(h)).toEqual([])
+    })
+
+    it('還沒有專案、模型回亂碼：一樣不留', async () => {
+      const h = setup({
+        mockLlm: (r) =>
+          r.messages.some((m) => m.content.includes('請寫預告片腳本')) ? '不是 JSON' : undefined,
+      })
+      h.projects.close()
+      await expect(h.trailer.plan({ text: STORY })).rejects.toBeDefined()
+      expect(h.projects.current()).toBeUndefined()
+      expect(projectDirs(h)).toEqual([])
+    })
+
+    it('已經開著專案、被擋下：專案原樣還在（不是這次建的，不能動）', async () => {
+      const h = setup()
+      h.shots.create({})
+      const dir = h.projects.current()?.dir
+      await expect(h.trailer.plan({ text: `${STORY}【腳本不合格】` })).rejects.toBeDefined()
+      expect(h.projects.current()?.dir).toBe(dir)
+      expect(h.shots.list().shots).toHaveLength(1)
+    })
+
+    it('還沒有專案、寫成功：專案留下，名字取書名', async () => {
+      const h = setup()
+      h.projects.close()
+      await h.trailer.plan({ text: STORY, title: '斷橋' })
+      expect(h.projects.current()?.repos.projects.get().name).toBe('斷橋')
+      expect(projectDirs(h)).toHaveLength(1)
+    })
+  })
+
   it('示範模式的壞腳本記號：檢查器擋下，專案沒被改', async () => {
     const h = setup()
     h.shots.create({})
@@ -373,8 +421,8 @@ describe('trailer.plan：檢查器接在寫腳本後面', () => {
     await expect(h.trailer.plan({ text: STORY })).rejects.toMatchObject({
       userMessage: expect.stringContaining('專案沒有被改') as unknown,
     })
-    expect(h.trailer.get().exists).toBe(false)
-    expect(h.shots.list().shots).toEqual([])
+    // 這次自己建的空專案不留下（「專案沒有被改」＝連專案都沒多一個）
+    expect(h.projects.current()).toBeUndefined()
   })
 
   it('字卡超過 12 個字、旁白念不完：程式截短（寫在 fixes 裡）', async () => {

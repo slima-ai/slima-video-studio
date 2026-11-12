@@ -137,27 +137,28 @@ export function demoTrailerScript(request: LlmRequest): unknown {
       })
     }
     const visuals = Math.max(3, Math.min(10, Math.round(targetSec / 3.5)))
+    // 越到後面越短（規則 3：後面三分之一的平均要比前面三分之一短很多）：
+    // 字卡放在前面，後半的畫面一格比一格短
+    const shrink = (k: number, first: number): number => Math.max(0.4, first * 0.72 ** k)
     if (kind === 'teaser') {
       picture('hook', 2, false)
       const montage = visuals - 1
       for (let k = 0; k < montage; k++) {
-        picture('montage', 1.5, false)
+        picture('montage', shrink(k, 2), false)
         if (k < cardCount) card('montage', 2.2, cards[k] ?? '')
       }
     } else {
       picture('hook', 3, true)
       const world = Math.max(1, Math.round(visuals * 0.3))
-      for (let k = 0; k < world; k++) picture('world', 2, true)
+      for (let k = 0; k < world; k++) picture('world', 2.6, true)
+      if (cardCount > 0) card('world', 2.2, cards[0] ?? '')
       const turn = Math.max(1, Math.round(visuals * 0.2))
-      for (let k = 0; k < turn; k++) picture('turn', 2, true)
+      for (let k = 0; k < turn; k++) picture('turn', 1.8 * 0.85 ** k, true)
+      if (cardCount > 1) card('turn', 2.2, cards[1] ?? '')
       const escalate = Math.max(1, visuals - 1 - world - turn)
-      for (let k = 0; k < escalate; k++) {
-        picture('escalate', 1.5, false)
-        if (k === 0 && cardCount > 0) card('escalate', 2.2, cards[0] ?? '')
-        if (k === escalate - 1 && cardCount > 1) card('escalate', 2.2, cards[1] ?? '')
-      }
+      for (let k = 0; k < escalate; k++) picture('escalate', shrink(k, 1.2), false)
       if (cardCount > 2) card('suspense', 2.2, cards[2] ?? '')
-      else picture('suspense', 3, false)
+      else picture('suspense', 1, false)
     }
     beats.push({
       beatKind: 'title',
@@ -172,7 +173,7 @@ export function demoTrailerScript(request: LlmRequest): unknown {
   }
 
   // 放得下最多的字卡數；放不下（目標很短）就少放幾張
-  const maxCards = targetSec >= 25 ? 3 : targetSec >= 15 ? 2 : 1
+  const maxCards = targetSec >= 25 ? 3 : targetSec >= 20 ? 2 : 1
   // 第一格固定幾秒（規則 2：最長 4 秒），其餘的格子分剩下的時間
   const headSec = kind === 'teaser' ? 2 : 3
   const arrange = (cardCount: number) => {
