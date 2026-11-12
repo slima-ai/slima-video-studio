@@ -397,6 +397,44 @@ describe('trailer.plan：檢查器接在寫腳本後面', () => {
   })
 })
 
+describe('trailer.plan：錯誤訊息與重寫用的資料', () => {
+  it('腳本沒過檢查、文本不長：訊息只說檢查的問題，不叫人縮短文本', async () => {
+    const h = setup()
+    h.shots.create({})
+    const error = await h.trailer.plan({ text: `${STORY}【腳本不合格】` }).catch((e: unknown) => e)
+    const message = (error as { userMessage?: string }).userMessage ?? ''
+    expect(message).toContain('第一格必須是畫面')
+    expect(message).not.toContain('縮短')
+  })
+
+  it('腳本沒過檢查、文本很長（超過 12,000 字）：才多一句建議縮短', async () => {
+    const h = setup()
+    h.shots.create({})
+    const long = `${STORY}${'她守著燈。'.repeat(2600)}【腳本不合格】`
+    const error = await h.trailer.plan({ text: long }).catch((e: unknown) => e)
+    const message = (error as { userMessage?: string }).userMessage ?? ''
+    expect(message).toContain('第一格必須是畫面')
+    expect(message).toContain('縮短')
+  })
+
+  it('寫腳本用的文本存在設定裡（重寫腳本再用一次）；重寫會清掉「聲音加過了」', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    expect(h.trailer.get().settings.sourceText).toBe(STORY)
+    expect(h.trailer.get().settings.soundAutoAddedAt).toBeUndefined()
+  })
+
+  it('「生成空的」的確認視窗：預告片設定有旁白與配樂，生成完會自動加；關掉就不加', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    const on = h.canvas.runPlan({ keys: [], all: true })
+    expect(on.sound).toMatchObject({ narration: true, music: true })
+    expect(on.sound?.narrationShots).toBeGreaterThan(0)
+    h.trailer.update({ patch: { narration: false, music: false } })
+    expect(h.canvas.runPlan({ keys: [], all: true }).sound).toBeUndefined()
+  })
+})
+
 describe('trailer.update／status', () => {
   it('改目標秒數但不重排：加總對不上目標，status 說對不上（長度規則擋下）', async () => {
     const h = setup()

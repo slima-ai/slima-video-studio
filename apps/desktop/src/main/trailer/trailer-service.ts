@@ -4,6 +4,7 @@ import type { MediaTools } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
+  isAppError,
   TrailerSettingsSchema,
   checkTrailerScript,
   defaultTrailerGuide,
@@ -57,6 +58,9 @@ export interface TrailerService {
   update: (request: TrailerUpdateRequest) => TrailerStatus
   status: () => TrailerStatus
 }
+
+/** 文本超過這麼多字，腳本沒過檢查時才建議縮短文本。 */
+const LONG_TEXT_CHARS = 12_000
 
 /** 檢查器與腳本都用 24 格（本機格子的幀率，也是成品的預設幀率）。 */
 const FPS = 24
@@ -218,7 +222,21 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
           style: toStyle(handle.repos.projects.get().defaultStyleId),
         },
         { signal: new AbortController().signal },
-      )
+      ).catch((error: unknown) => {
+        // 腳本沒過檢查：文字很長才建議縮短（第一格是字卡這種錯，縮短文本沒有用）
+        if (
+          isAppError(error) &&
+          error.code === 'invalid_response' &&
+          parsed.text.length > LONG_TEXT_CHARS
+        ) {
+          throw new AppError({
+            code: error.code,
+            retryable: error.retryable,
+            userMessage: `${error.userMessage} ${t('trailer.shortenHint')}`,
+          })
+        }
+        throw error
+      })
       // 單獨呼叫不會經過引擎，自己記到花費帳本
       if (written.costUsd !== undefined && !handle.closed) {
         handle.repos.costs.record({
@@ -304,6 +322,9 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
         }))
         handle.repos.trailer.update({
           ...given,
+          sourceText: parsed.text,
+          // 重新寫腳本：鏡頭換了，旁白與配樂要再加一次
+          soundAutoAddedAt: null,
           title: merged.title === '' ? written.script.title.trim() : merged.title,
           musicBrief: written.script.music.trim(),
           sceneId,

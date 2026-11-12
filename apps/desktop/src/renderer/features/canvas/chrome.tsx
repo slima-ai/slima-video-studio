@@ -1,6 +1,6 @@
 import { useReactFlow, useStore } from '@xyflow/react'
 import { Sparkles } from 'lucide-react'
-import { useEffect, useState, type DragEvent } from 'react'
+import { useEffect, useState, type DragEvent, type ReactNode } from 'react'
 
 import { Spinner } from '../../components/skeleton'
 import { cn } from '../../lib/cn'
@@ -151,6 +151,8 @@ export interface TopBarProps {
   onStop?: () => void
   /** 「？」：怎麼開始、鍵盤快捷鍵、效能自測。 */
   onHelp?: (anchor: ConfirmAnchor) => void
+  /** 預告片標籤（腳本加總／目標長度）；一般專案不給。 */
+  trailer?: ReactNode
 }
 
 /** 上方列：專案名、復原／重做、整理、全部生成（約 US$x）、本次花費、主題切換。 */
@@ -222,6 +224,7 @@ export function TopBar(props: TopBarProps) {
         </button>
       ) : null}
       <span className="flex-1" />
+      {props.trailer}
       {props.running !== undefined ? (
         <span
           role="status"

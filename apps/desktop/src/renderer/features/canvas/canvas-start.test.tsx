@@ -2,12 +2,14 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { StartCards } from './canvas-start'
+import { installFakeSvs } from '../../test/fake-svs'
 import { LooseBanner } from './loose-banner'
 
 afterEach(cleanup)
 
-describe('StartCards：空白畫布的三個起點', () => {
-  it('三種起點都在，說清楚會不會花錢；貼故事沒寫字之前不能按', () => {
+describe('StartCards：空白畫布的四個起點', () => {
+  it('四種起點都在，說清楚會不會花錢；貼故事沒寫字之前不能按', () => {
+    installFakeSvs()
     const onManual = vi.fn()
     const onSplit = vi.fn()
     const onOneliner = vi.fn()
@@ -18,6 +20,10 @@ describe('StartCards：空白畫布的三個起點', () => {
     expect(empty.textContent).toContain('自己一步一步來')
     expect(empty.textContent).toContain('貼一段故事')
     expect(empty.textContent).toContain('一句話')
+    expect(empty.textContent).toContain('做預告片')
+    expect(empty.textContent).toContain('四種都可以')
+    expect(empty.textContent).not.toContain('三種')
+    expect(screen.getByTestId('trailer-go').textContent).toBe('先產生腳本')
     expect(empty.textContent).toContain('加上去不花錢')
     expect(empty.textContent).toContain('不生成圖片和影片')
     expect(empty.textContent).toContain('會花錢（圖片和影片）')
@@ -38,6 +44,7 @@ describe('StartCards：空白畫布的三個起點', () => {
   })
 
   it('「一句話」起手卡的說明跟放下去之後的主鈕一致：先看分鏡、再決定要不要生成，不說「一次做完」是主要做法', () => {
+    installFakeSvs()
     render(<StartCards busy={false} onManual={vi.fn()} onSplit={vi.fn()} onOneliner={vi.fn()} />)
     const empty = screen.getByTestId('canvas-empty')
     expect(empty.textContent).toContain('先看分鏡')
@@ -46,6 +53,7 @@ describe('StartCards：空白畫布的三個起點', () => {
   })
 
   it('正在拆分鏡：貼故事那張停用', () => {
+    installFakeSvs()
     render(<StartCards busy onManual={vi.fn()} onSplit={vi.fn()} onOneliner={vi.fn()} />)
     expect(screen.getByTestId<HTMLButtonElement>('empty-paste-go').disabled).toBe(true)
     expect(screen.getByTestId<HTMLTextAreaElement>('empty-paste-text').disabled).toBe(true)

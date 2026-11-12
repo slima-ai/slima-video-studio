@@ -788,6 +788,8 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         assetHash: finalHash,
         durationSec: handle.assets.getMeta(finalHash)?.durationSec,
         takeIds: latest.takeIds,
+        // 接片的結果沒變，裁切指紋照舊（不帶的話，有裁切的鏡頭會讓重混的成品被判成「鏡頭有變動」）
+        trimKey: latest.trimKey,
         baseAssetHash: mixed ? baseHash : undefined,
         soundKey: mixed?.soundKey,
       })

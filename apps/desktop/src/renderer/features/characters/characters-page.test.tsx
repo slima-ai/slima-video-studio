@@ -45,7 +45,7 @@ describe('diffCharacter', () => {
 
 /** 角色頁一開始不選任何角色；點清單裡的第一個，詳情面板才會出現。 */
 async function openFirst(): Promise<void> {
-  const items = await screen.findAllByTestId(/^character-item-(?!lock-)/)
+  const items = await screen.findAllByTestId(/^character-item-(?!lock-|draft-)/)
   const [first] = items
   if (!first) throw new Error('清單是空的')
   fireEvent.click(first)
@@ -308,7 +308,7 @@ describe('固定外觀描述', () => {
     expect(screen.getByTestId<HTMLTextAreaElement>('character-anchor').value).toBe('舊的')
   })
 
-  it('清單上標出狀態：AI 從大綱抽出的草稿角色寫「草稿」，已鎖定的寫版本號', async () => {
+  it('清單上標出狀態：沒鎖定的都寫「草稿」（跟場景卡頁一樣，含還沒寫固定外觀的新角色卡），已鎖定的寫版本號', async () => {
     installFakeSvs({
       'characters.list': () => ({
         characters: [
@@ -321,6 +321,9 @@ describe('固定外觀描述', () => {
     render(<CharactersPage />)
     expect((await screen.findByTestId('character-item-阿鐵')).textContent).toBe('阿鐵草稿')
     expect(screen.getByTestId('character-item-小花').textContent).toBe('小花已鎖定 v2')
-    expect(screen.getByTestId('character-item-路人').textContent).toBe('路人')
+    // 預告片腳本建的角色卡：還沒寫固定外觀（none），一樣標草稿
+    expect(screen.getByTestId('character-item-路人').textContent).toBe('路人草稿')
+    expect(screen.getByTestId('character-item-draft-路人')).toBeTruthy()
+    expect(screen.queryByTestId('character-item-draft-小花')).toBeNull()
   })
 })

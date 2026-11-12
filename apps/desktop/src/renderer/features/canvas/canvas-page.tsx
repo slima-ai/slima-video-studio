@@ -80,6 +80,8 @@ import {
   type Rect,
 } from './geometry'
 import { StartCards } from './canvas-start'
+import { TrailerBadge } from './trailer-badge'
+import { useTrailerStatus } from './use-trailer-status'
 import { GrowConfirm } from './grow-confirm'
 import { LooseBanner } from './loose-banner'
 import { SplitConfirm, useStorySplit } from './story-split'
@@ -788,6 +790,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   )
   // ── 貼一段故事拆分鏡（空白畫布的入口之一） ──
   const split = useStorySplit({ onChanged })
+  const trailer = useTrailerStatus()
 
   // ── 沒歸場的鏡頭：畫布上方提醒，一鍵看到它們、或歸進最後一個場 ──
   const loose = useMemo(
@@ -2027,6 +2030,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 onStop={grow.running !== undefined ? stopGrow : runner.stop}
                 {...(hasShots ? { onTidy: tidy } : {})}
                 onHelp={openHelp}
+                trailer={<TrailerBadge status={trailer.status} />}
               />
               {perfOpen ? (
                 <PerfOverlay
@@ -2128,7 +2132,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 <GrowConfirm pending={grow.confirm} onOk={grow.run} onCancel={grow.cancelConfirm} />
               ) : null}
               {empty ? (
-                // 空畫布：三種起點（手動、貼故事拆分鏡、一句話），不只「一句話」一條路
+                // 空畫布：四種起點（手動、貼故事拆分鏡、一句話、做預告片），不只「一句話」一條路
                 <StartCards
                   busy={split.busy}
                   onManual={() => {
@@ -2138,6 +2142,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                     })
                   }}
                   onSplit={split.start}
+                  onTrailerDone={onChanged}
                   onOneliner={(story) => {
                     // 放在內容的左邊（自動排版的場從它右邊長出來），畫面會平移過去
                     addNode('oneliner', undefined, undefined, story)

@@ -37,20 +37,23 @@ export class TrailerRepository {
   update(patch: TrailerSettingsPatch): TrailerSettings {
     const parsedPatch = TrailerSettingsPatchSchema.safeParse(patch)
     if (!parsedPatch.success) throw invalid()
-    const { coverAssetHash, sceneId, ...rest } = parsedPatch.data
+    const { coverAssetHash, sceneId, soundAutoAddedAt, ...rest } = parsedPatch.data
     const given = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined))
     const {
       coverAssetHash: currentCover,
       sceneId: currentScene,
+      soundAutoAddedAt: currentSound,
       ...current
     } = this.get() ?? TrailerSettingsSchema.parse({})
     const cover = coverAssetHash === undefined ? currentCover : (coverAssetHash ?? undefined)
     const scene = sceneId === undefined ? currentScene : (sceneId ?? undefined)
+    const sound = soundAutoAddedAt === undefined ? currentSound : (soundAutoAddedAt ?? undefined)
     const next = TrailerSettingsSchema.safeParse({
       ...current,
       ...given,
       ...(cover === undefined ? {} : { coverAssetHash: cover }),
       ...(scene === undefined ? {} : { sceneId: scene }),
+      ...(sound === undefined ? {} : { soundAutoAddedAt: sound }),
     })
     if (!next.success) throw invalid()
     this.db

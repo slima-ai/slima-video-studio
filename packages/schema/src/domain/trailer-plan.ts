@@ -60,6 +60,8 @@ export type TrailerIssueView = z.infer<typeof TrailerIssueViewSchema>
 export const TrailerPlanRequestSchema = TrailerSettingsPatchSchema.omit({
   sceneId: true,
   musicBrief: true,
+  sourceText: true,
+  soundAutoAddedAt: true,
   coverAssetHash: true,
 }).extend({
   /** 書的文本或故事（最多 60,000 字）。 */
@@ -110,7 +112,12 @@ export const TrailerPlanResultSchema = TrailerStatusSchema.extend({
 export type TrailerPlanResult = z.infer<typeof TrailerPlanResultSchema>
 
 export const TrailerUpdateRequestSchema = z.object({
-  patch: TrailerSettingsPatchSchema.omit({ sceneId: true, musicBrief: true }),
+  patch: TrailerSettingsPatchSchema.omit({
+    sceneId: true,
+    musicBrief: true,
+    sourceText: true,
+    soundAutoAddedAt: true,
+  }),
   /** 改了目標秒數時：照新長度重排各格秒數（字卡與片名卡不低於最短停留）。 */
   refit: z.boolean().optional(),
 })

@@ -70,11 +70,66 @@ export const trailer = {
   'trailer.fixLengthFitted':
     'The shot lengths were adjusted so they add up to exactly {target} seconds.',
   'trailer.scriptRejected':
-    'The script that was written did not pass the checks, and the project was not changed. {problems} Please try again, or use a shorter text.',
+    'The script that was written did not pass the checks, and the project was not changed. {problems} Please try again.',
+  'trailer.shortenHint': 'The text is long; you can also shorten it and try again.',
   'trailer.sceneTitle': 'Trailer',
   'trailer.noScript': 'There is no trailer script yet. Write the script first.',
   'trailer.refitImpossible':
     'The target is too short: the minimum time for the text cards and the title card already adds up to more than that. Make the target longer, or remove some text cards.',
   'trailer.noTextModel':
     'There is no text model available, so a script cannot be written. Pick a text model in Settings.',
+  'trailer.kindStory': 'Story',
+  'trailer.kindTeaser': 'Teaser',
+  'trailer.lengthSec': '{n} s',
+  'trailer.start.title': 'Make a trailer',
+  'trailer.start.intro':
+    'Paste text from the book and AI writes a trailer script: the picture, narration and text card for each shot, adding up to exactly the length you choose.',
+  'trailer.start.costDemo': 'Demo mode: nothing is charged.',
+  'trailer.start.costReal':
+    'Writing the script uses only a text model (about US${usd}); pictures and videos cost money only when you press "Generate empty".',
+  'trailer.start.textPlaceholder': 'Paste a passage or story from the book',
+  'trailer.start.titlePlaceholder': 'Book title (optional)',
+  'trailer.start.length': 'Length',
+  'trailer.start.kind': 'Type',
+  'trailer.start.go': 'Write the script first',
+  'trailer.start.goDemo': 'Write the script first (demo mode, free)',
+  'trailer.start.goReal': 'Write the script first (about US${usd})',
+  'trailer.start.going': 'Writing the script…',
+  'trailer.start.needText': 'Paste some text first to write a script.',
+  'trailer.start.done': 'The script is ready: {count} shots, {sec} seconds.',
+  'trailer.start.failed': 'The script could not be written',
+  'trailer.badgeName': 'Trailer',
+  'trailer.badgeLength': '{script}/{target} s',
+  'trailer.badgeTip':
+    'Total of the shot lengths / target length; open it to change settings or rewrite the script',
+  'trailer.panel.title': 'Trailer settings',
+  'trailer.panel.close': 'Close',
+  'trailer.panel.mismatch': 'The script adds up to {script} seconds; the target is {target}.',
+  'trailer.panel.fit': 'Auto-adjust',
+  'trailer.panel.fitTip':
+    'Adjust the shot lengths to add up to exactly the target (text cards and the title card stay at least their minimum time)',
+  'trailer.panel.titleLabel': 'Book title',
+  'trailer.panel.author': 'Author',
+  'trailer.panel.tagline': 'Tagline',
+  'trailer.panel.endLine': 'Closing line (release date, where to buy)',
+  'trailer.panel.narration': 'Narration',
+  'trailer.panel.music': 'Music',
+  'trailer.panel.rewrite': 'Rewrite the script',
+  'trailer.panel.rewriteDemo': 'Rewrite the script (demo mode, free)',
+  'trailer.panel.rewriteReal': 'Rewrite the script (about US${usd})',
+  'trailer.panel.rewriting': 'Rewriting…',
+  'trailer.panel.rewriteHint':
+    'Rewriting replaces this whole script; the whole action can be undone.',
+  'trailer.panel.noSource': 'The original text was not kept, so this script cannot be rewritten.',
+  'trailer.panel.warningLine': 'Reminder: {message}',
+  'trailer.filmLength': 'Film {sec} s (target {target} s)',
+  'trailer.panel.length': 'Length',
+  'trailer.panel.cancel': 'Not now',
+  'trailer.panel.rewriteConfirm': 'Rewrite it',
+  'trailer.panel.replaceWarn':
+    'It has {count} shots now, {generated} of them with generated pictures or videos; rewriting replaces the whole script and those are gone (you can undo).',
+  'trailer.panel.replaceWarnPlain':
+    'It has {count} shots now; rewriting replaces the whole script (you can undo).',
+  'trailer.panel.rewriteDone': 'The script was rewritten: {count} shots, {sec} seconds.',
+  'trailer.panel.fitDone': 'Adjusted; it is now exactly {sec} seconds.',
 } as const

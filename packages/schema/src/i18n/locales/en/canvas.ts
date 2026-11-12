@@ -182,8 +182,8 @@ export const canvas = {
   'canvas.loadingCanvas2': 'Loading canvas…',
   'canvas.retry': 'Retry',
   'canvas.whereToStart': 'Where to start?',
-  'canvas.anyOfTheThreeWorks':
-    'Any of the three works; pick what feels easy. You can always add scenes, shots, characters, locations or pictures later with “Add” on the left.',
+  'canvas.anyOfTheFourWorks':
+    'Any of the four works; pick what feels easy. You can always add scenes, shots, characters, locations or pictures later with “Add” on the left.',
   'canvas.goStepByStep': 'Go step by step',
   'canvas.addASceneAndA':
     'Add a scene and a first shot, then write each shot’s description yourself. You decide each cell; press ▶ when you want to generate.',

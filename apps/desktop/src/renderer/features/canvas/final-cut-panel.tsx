@@ -1,11 +1,14 @@
+import { secLabel } from '@svs/schema'
 import { useEffect, useState } from 'react'
 
 import { Button } from '../../components/button'
 import { assetUrl } from '../../lib/asset'
+import { cn } from '../../lib/cn'
 import { creditsPreferred, setCreditsPreferred } from '../../lib/export-credits'
 import { revealLabel } from '../../lib/reveal-label'
 import { call, errorText } from '../../lib/svs'
 import { SoundPanel } from '../sound/sound-panel'
+import { useTrailerStatus } from './use-trailer-status'
 import { t } from '@svs/schema'
 
 const fileNameOf = (path: string): string => path.split(/[\\/]/).pop() ?? path
@@ -30,6 +33,7 @@ export function FinalCutPanel({
   /** 沒給就不畫自己的標題列（放在畫布的浮動面板裡）。 */
   onClose?: () => void
 }) {
+  const { status: trailer } = useTrailerStatus()
   const [busy, setBusy] = useState<'export' | 'rejoin' | undefined>()
   const [exported, setExported] = useState<string | undefined>()
   const [credits, setCredits] = useState(creditsPreferred)
@@ -91,6 +95,21 @@ export function FinalCutPanel({
             {t('canvas.close2')}
           </Button>
         </header>
+      ) : null}
+      {trailer?.exists === true && trailer.filmSec !== undefined ? (
+        <p
+          data-testid="final-cut-length"
+          className={cn(
+            'text-sm font-semibold',
+            // 差超過一格（1/24 秒）就用警示色：成品跟目標對不上
+            Math.abs(trailer.filmSec - trailer.targetSec) > 1 / 24 + 1e-6 && 'text-warning',
+          )}
+        >
+          {t('trailer.filmLength', {
+            sec: secLabel(trailer.filmSec),
+            target: secLabel(trailer.targetSec),
+          })}
+        </p>
       ) : null}
       {finalVideoHash ? (
         <video
