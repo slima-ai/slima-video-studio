@@ -1,5 +1,6 @@
 import {
   DEFAULT_TRAILER_GUIDE_EN,
+  TrailerKindSchema,
   resolveProductionGuide,
   resolveStoryboardGuide,
 } from '@svs/schema'
@@ -16,6 +17,7 @@ import {
   settingsApiKeys,
   settingsGeneral,
 } from '../ui-labels'
+import { trailerKindShapes } from './trailer'
 
 /** `load_guide` 的主題。內容寫在這裡（隨 App 版本更新），不寫進伺服器的 instructions（每個工作階段都要付的長度）。 */
 export const GUIDE_TOPICS = [
@@ -66,7 +68,7 @@ const TRAILER = `# Making a book trailer
 A trailer is not the whole story: it makes people want the story. The app writes the script (shots with seconds, picture, narration, text cards, a title card) and checks it against the rules below; you run the rest with the same tools as any film. Do not write the shots by hand with create_shot unless the user asks: plan_trailer already follows these rules and checks them.
 
 Order of work
-1. get_capabilities, then this guide. Ask the user (or take from their message) the book text, the length (default 30 s, 10–120 s), the kind (story: hook + three acts + title; teaser: 15–30 s social cut, no narration by default), the title, author, tagline and the last line (release date, where to buy). Blurbs, awards and sales figures: only the user's own words, passed in claims.
+1. get_capabilities, then this guide. Ask the user (or take from their message) the book text, the length (default 30 s, 10–120 s), the kind (one of: ${TrailerKindSchema.options.join(', ')}; see "Shape of the film" below), the title, author, tagline and the last line (release date, where to buy). Blurbs, awards and sales figures: only the user's own words, passed in claims.
 2. create_project (tell the user first; it switches the window), configure_project for the look, set_models if needed. plan_trailer with no project open creates one for you, also switching the window.
 3. estimate_cost action plan_trailer (text price, free in demo mode), then plan_trailer(text, kind, targetSec, title, author, tagline, endLine). It REPLACES an earlier trailer script in the project (pass replaceGenerated=true only if the user agrees to lose generated pictures). It writes the script, checks it, writes again once if a rule fails, and fixes what is left by itself (fixedByTheApp lists what it changed). It also creates draft characters and place notes from the text.
 4. get_trailer: look at every shot. beatKind video = moving picture (a video model makes it), still = one picture with a slow camera move made in the app (no video model, cheaper), card = text only, title = title card (title, author, tagline, end line, the cover if there is one). Check differenceSec (script seconds minus target: positive = too long), errors and warnings; errors must be fixed, warnings are advice. The shot's durationSec IS its length in the final film.
@@ -82,8 +84,7 @@ The rules the app writes and checks by
 ${DEFAULT_TRAILER_GUIDE_EN}
 
 Shape of the film
-- story: hook (about 13%: the strongest 1–2 pictures, no card or logo first) → world and hero (20%) → turn (17%, "until…") → escalate (30%, fast cuts of 1.5–2.5 s, little or no narration) → suspense (10%, one held picture, a question, a beat of near silence) → title (10%, cover, title, where to buy).
-- teaser: the strongest picture first (about 2 s), then 3–5 fast picture shots with 2–3 short cards that together read as one question, then the title card. No narration, it must make sense with the sound off.
+${trailerKindShapes()}
 `
 
 const SOUND = `# Sound

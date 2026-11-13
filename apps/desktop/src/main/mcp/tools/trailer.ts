@@ -1,4 +1,11 @@
-import { TrailerSettingsPatchSchema, type ShotView, type TrailerStatus } from '@svs/schema'
+import {
+  TRAILER_TEMPLATES,
+  TrailerKindSchema,
+  TrailerSettingsPatchSchema,
+  type ShotView,
+  type TrailerKind,
+  type TrailerStatus,
+} from '@svs/schema'
 import { z } from 'zod'
 
 import { McpToolError } from '../bridge'
@@ -8,10 +15,40 @@ import { reserveSpending } from './spend'
 
 const fields = TrailerSettingsPatchSchema.shape
 
+/**
+ * 每一種預告片類型給 Claude 看的白話說明（寫了才有；新增類型時不寫也行：名字與各段佔比照樣從
+ * `TrailerKindSchema`、`TRAILER_TEMPLATES` 取，指南會列出來，只是少一段說明）。
+ */
+const KIND_NOTES: Partial<Record<TrailerKind, string>> = {
+  story:
+    'A novel or story. hook: the strongest 1–2 pictures, no card or logo first; world: who and where; turn: the moment it goes wrong ("until…"); escalate: fast cuts of 1.5–2.5 s with little or no narration; suspense: one held picture, a question, a beat of near silence; title: cover, title, where to buy.',
+  teaser:
+    'A 15–30 s social cut. The strongest picture first (about 2 s), then 3–5 fast picture shots with 2–3 short cards that together read as one question, then the title card. No narration; it must make sense with the sound off.',
+}
+
+/** 指南的「Shape of the film」：每一種類型的各段與佔比（從模板資料產生）加上有寫的說明。 */
+export const trailerKindShapes = (): string =>
+  TrailerKindSchema.options
+    .map((kind) => {
+      const segments = TRAILER_TEMPLATES[kind].segments
+        .map((segment) => {
+          const extras = [
+            segment.narrationDensity === 'none' ? 'no narration' : '',
+            segment.maxCards > 0 ? `up to ${String(segment.maxCards)} text card(s)` : '',
+          ].filter((extra) => extra !== '')
+          const share = `${String(Math.round(segment.share * 100))}%`
+          return `${segment.key} (${[share, ...extras].join(', ')})`
+        })
+        .join(' → ')
+      const note = KIND_NOTES[kind]
+      return `- ${kind}: ${segments}.${note === undefined ? '' : ` ${note}`}`
+    })
+    .join('\n')
+
 /** 預告片設定裡 Claude 可以給的欄位（封面是檔案、配樂說明由 App 自己產生，不開放）。 */
 const settingsInput = {
   kind: fields.kind.describe(
-    'story (a novel or story: hook, three acts, title) or teaser (15–30 s social cut: strongest picture, fast cuts between short cards, title)',
+    `One of: ${TrailerKindSchema.options.join(', ')}. load_guide("trailer") says what each one is.`,
   ),
   targetSec: fields.targetSec.describe('Length of the film in seconds, 10–120 (default 30)'),
   title: fields.title.describe(

@@ -1,3 +1,4 @@
+import { TRAILER_TEMPLATES, TrailerKindSchema } from '@svs/schema'
 import { FAKE_OPENROUTER_KEY, startFakeOpenRouter } from '@svs/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -272,6 +273,32 @@ describe('預告片工具：花錢與額度（真實模式、假的 OpenRouter �
     expect(spentUsd).toBeGreaterThan(0)
     expect(spentUsd).toBeLessThan(est.wouldReserveUsd)
     expect(r.controller.allowance.status().committedUsd).toBeCloseTo(spentUsd)
+  })
+})
+
+describe('預告片類型從資料取（之後加新類型不用回頭改這些檔）', () => {
+  it('指南與工具說明列出 TrailerKindSchema 的每一種類型與模板的每一段；工具輸入的 kind 選項就是同一份', async () => {
+    const r = await start()
+    const { text } = dataOf(
+      z.object({ text: z.string() }),
+      await r.call('load_guide', { topic: 'trailer' }),
+    )
+    for (const kind of TrailerKindSchema.options) {
+      expect(text, kind).toContain(`- ${kind}: `)
+      for (const segment of TRAILER_TEMPLATES[kind].segments) {
+        expect(text, `${kind}/${segment.key}`).toContain(segment.key)
+      }
+    }
+    const { tools } = await r.client.listTools()
+    for (const name of ['plan_trailer', 'update_trailer']) {
+      const kind = (
+        tools.find((tool) => tool.name === name)?.inputSchema.properties as
+          Record<string, { enum?: string[]; description?: string }> | undefined
+      )?.kind
+      expect(kind?.enum, name).toEqual([...TrailerKindSchema.options])
+      for (const option of TrailerKindSchema.options)
+        expect(kind?.description, name).toContain(option)
+    }
   })
 })
 
