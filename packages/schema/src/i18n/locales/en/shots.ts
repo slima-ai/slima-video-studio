@@ -17,7 +17,6 @@ export const shots = {
   'shots.whenNotSetTheModel': 'When not set, the model decides how the camera moves.',
   'shots.promptSentToTheModel': 'Prompt sent to the model',
   'shots.yourEditedVersion': '(your edited version)',
-  'shots.madeAutomatically': '(made automatically)',
   'shots.restoreTheAutomaticText': 'Restore the automatic text',
   'shots.applyChangesAndGenerateAgain': 'Apply changes and generate again',
   'shots.saveChangesOnly': 'Save changes only',

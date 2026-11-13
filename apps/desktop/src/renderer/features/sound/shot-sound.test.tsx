@@ -83,14 +83,14 @@ describe('ShotSound：刪除這一鏡的旁白', () => {
     await waitFor(() => {
       expect(removes).toEqual([{ kind: 'narration', shotId: 's1' }])
     })
-    expect(await screen.findByText(/已刪除這一鏡的旁白，台詞還在，可以再念/)).toBeTruthy()
+    expect(await screen.findByText(/已刪除旁白/)).toBeTruthy()
     expect(screen.getByRole('button', { name: '復原' })).toBeTruthy()
     expect(screen.getByTestId<HTMLTextAreaElement>('shot-sound-dialogue').value).toBe('一句話')
 
     cleanup()
     installFakeSvs({ 'sound.get': () => state() })
     renderShot('s2')
-    await screen.findByTestId('shot-sound-no-dialogue')
+    await screen.findByTestId('shot-sound-dialogue')
     expect(screen.queryByTestId('shot-sound-narration-delete')).toBeNull()
   })
 
@@ -108,7 +108,7 @@ describe('ShotSound：刪除這一鏡的旁白', () => {
 })
 
 describe('ShotSound：一個鏡頭的聲音', () => {
-  it('有旁白：顯示長度與版本；有台詞可以「重新念」；沒有台詞的鏡頭說明為什麼沒有旁白', async () => {
+  it('有旁白：顯示長度與版本；有台詞可以「重新念」；沒有台詞的鏡頭只有台詞框，不另外寫說明', async () => {
     installFakeSvs({ 'sound.get': () => state() })
     render(<ShotSound shotId="s1" />)
     expect((await screen.findByTestId('shot-sound-narration')).textContent).toContain('2.0 秒')
@@ -116,7 +116,8 @@ describe('ShotSound：一個鏡頭的聲音', () => {
     expect(screen.getByTestId('shot-sound-narrate').textContent).toBe('重新念')
     cleanup()
     render(<ShotSound shotId="s2" />)
-    expect((await screen.findByTestId('shot-sound-no-dialogue')).textContent).toContain('沒有台詞')
+    await screen.findByTestId('shot-sound-dialogue')
+    expect(screen.queryByTestId('shot-sound-no-dialogue')).toBeNull()
     expect(screen.queryByTestId('shot-sound-narrate')).toBeNull()
   })
 
@@ -220,9 +221,7 @@ describe('ShotSound：一個鏡頭的聲音', () => {
       </ToastProvider>,
     )
     await run()
-    expect(
-      await screen.findByText(/第 1 格的旁白太長，已改短成「短的一句。」，台詞也換成這句/),
-    ).toBeTruthy()
+    expect(await screen.findByText(/第 1 格旁白已改短/)).toBeTruthy()
     cleanup()
     shortened = false
     render(
@@ -345,7 +344,7 @@ describe('ShotSound：一個鏡頭的聲音', () => {
       },
     })
     render(<ShotSound shotId="s1" />)
-    expect((await screen.findByTestId('shot-sound-no-dialogue')).textContent).toContain('沒有台詞')
+    await screen.findByTestId('shot-sound-dialogue')
     expect(screen.queryByTestId('shot-sound-narrate')).toBeNull()
     expect(screen.queryByTestId('shot-sound-dialogue-save')).toBeNull()
     fireEvent.change(screen.getByTestId('shot-sound-dialogue'), {

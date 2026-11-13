@@ -153,7 +153,6 @@ export function ShotSound({ shotId }: { shotId: string }) {
             key: 'sound-shortened',
             message: t('sound.narrationShortened', {
               value: String(shortened.shotNumber),
-              text: shortened.to,
             }),
             action: { label: t('sound.undo'), onAction: history.undo },
             ms: LONG_TOAST_MS,
@@ -214,16 +213,10 @@ export function ShotSound({ shotId }: { shotId: string }) {
                   version: narration.version,
                 })}
           </p>
-        ) : dialogue === '' ? (
-          <p className="text-sm text-fg-muted" data-testid="shot-sound-no-dialogue">
-            {t('sound.thisShotHasNoLines')}
-          </p>
-        ) : (
-          <p className="text-sm text-fg-muted">{t('sound.thisShotHasNoNarration')}</p>
-        )}
+        ) : null}
         {flow.step === 'confirm' ? (
           <div className="space-y-1" data-testid="shot-sound-confirm">
-            <p className="text-sm">{t('sound.aboutStart', { value: planUsd(flow.plan, usd) })}</p>
+            <p className="text-sm">{t('sound.about', { value: planUsd(flow.plan, usd) })}</p>
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -265,7 +258,6 @@ export function ShotSound({ shotId }: { shotId: string }) {
               <Button
                 size="sm"
                 data-testid="shot-sound-narration-delete"
-                title={t('sound.deleteThisShotSNarration')}
                 onClick={() => {
                   setError(undefined)
                   removeSound({ kind: 'narration', shotId }, t('sound.deletedThisShotSNarration'))

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '../../components/button'
 import { SimpleSelect } from '../../components/list-select'
-import { useToast } from '../../components/toast'
 import { call, errorText } from '../../lib/svs'
 import { t } from '@svs/schema'
 
@@ -22,7 +21,7 @@ const CHECK_DEBOUNCE_MS = 400
 /** 按鈕上寫的字：示範模式不花錢，真的模型寫出約多少美元。 */
 export function trailerGoLabel(check: TrailerPlanCheck | undefined): string {
   if (check === undefined) return t('trailer.start.go')
-  if (check.demoMode) return t('trailer.start.goDemo')
+  if (check.demoMode) return t('trailer.start.go')
   return t('trailer.start.goReal', { usd: check.estimatedUsd.toFixed(2) })
 }
 
@@ -31,7 +30,6 @@ export function trailerGoLabel(check: TrailerPlanCheck | undefined): string {
  * 腳本被檢查器擋下時，那則錯誤直接寫在卡片上（不只是一閃而過的提示）。
  */
 export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
-  const toast = useToast()
   const [text, setText] = useState('')
   const [title, setTitle] = useState('')
   const [length, setLength] = useState<number>(30)
@@ -74,13 +72,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
       kind,
       ...(title.trim() === '' ? {} : { title: title.trim() }),
     })
-      .then((result) => {
-        toast.show({
-          message: t('trailer.start.done', {
-            count: result.beatCount,
-            sec: result.scriptSec.toFixed(1),
-          }),
-        })
+      .then(() => {
         onDone?.()
       })
       .catch((e: unknown) => {
@@ -101,12 +93,6 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
         <Clapperboard className="size-4 text-accent" aria-hidden />
         {t('trailer.start.title')}
       </h3>
-      <p className="text-sm leading-snug text-fg-muted">{t('trailer.start.intro')}</p>
-      <p data-testid="trailer-start-cost" className="text-xs leading-snug text-fg-subtle">
-        {check === undefined || check.demoMode
-          ? t('trailer.start.costDemo')
-          : t('trailer.start.costReal', { usd: check.estimatedUsd.toFixed(2) })}
-      </p>
       <textarea
         data-testid="trailer-text"
         rows={3}
@@ -175,11 +161,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
       >
         {busy ? t('trailer.start.going') : trailerGoLabel(check)}
       </Button>
-      {empty ? (
-        <p data-testid="trailer-reason" className="text-xs text-fg-subtle">
-          {t('trailer.start.needText')}
-        </p>
-      ) : blocked ? (
+      {blocked ? (
         <p data-testid="trailer-reason" className="text-xs text-danger">
           {check.issue ?? ''}
         </p>

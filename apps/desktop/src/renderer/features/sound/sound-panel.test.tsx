@@ -62,14 +62,14 @@ describe('SoundPanel：加聲音', () => {
   it('還沒有成品：只說先接成成品', async () => {
     installFakeSvs({ 'sound.get': () => state({ final: undefined }) })
     render(<SoundPanel />)
-    expect(await screen.findByText(/先把鏡頭接成成品/)).toBeTruthy()
+    expect(await screen.findByText('先接成成品')).toBeTruthy()
     expect(screen.queryByTestId('sound-add')).toBeNull()
   })
 
-  it('沒有可用的旁白與配樂模型：說明要去設定', async () => {
+  it('沒有可用的旁白與配樂模型：一句「還沒設定…」', async () => {
     installFakeSvs({ 'sound.get': () => state({ models: {} }) })
     render(<SoundPanel />)
-    expect(await screen.findByText(/請到設定填入 OpenRouter 的金鑰/)).toBeTruthy()
+    expect(await screen.findByText('還沒設定旁白與配樂模型')).toBeTruthy()
   })
 
   it('兩下就有聲音：按「加上旁白與配樂」看到預估花費，按「開始」依序生成旁白、配樂、混音', async () => {
@@ -102,8 +102,8 @@ describe('SoundPanel：加聲音', () => {
     fireEvent.click(await screen.findByTestId('sound-add'))
     const confirm = await screen.findByTestId('sound-add-confirm')
     expect(confirm.textContent).toContain('約 US$0.093')
-    expect(confirm.textContent).toContain('旁白 2 句')
-    expect(confirm.textContent).toContain('配樂 1 首')
+    // 只寫約多少錢，不拆解「旁白 N 句、配樂 N 首」
+    expect(confirm.textContent).not.toContain('旁白 2 句')
     // 確認之前什麼都還沒花
     expect(calls).toEqual([])
     fireEvent.click(screen.getByTestId('sound-add-go'))
@@ -148,14 +148,12 @@ describe('SoundPanel：加聲音', () => {
       fireEvent.click(await screen.findByTestId('sound-add-go'))
     }
     await run(['s2'])
-    expect(await screen.findByText(/第 2 格的旁白太長，已改短成「短句s2。」/)).toBeTruthy()
+    expect(await screen.findByText(/第 2 格旁白已改短/)).toBeTruthy()
     // 一句：提示上有「復原」（復原一次只退一步，所以好幾句時不附）
     expect(screen.getByTestId('toast-action')).toBeTruthy()
     cleanup()
     await run(['s1', 's2'])
-    expect(
-      await screen.findByText('有 2 格的旁白太長，已改短並重念，台詞也換成改短的。'),
-    ).toBeTruthy()
+    expect(await screen.findByText('有 2 格旁白已改短')).toBeTruthy()
     expect(screen.queryByTestId('toast-action')).toBeNull()
     cleanup()
     await run([])
@@ -274,7 +272,7 @@ describe('SoundPanel：調音量', () => {
     ])
   })
 
-  it('旁白警示直接顯示；聲音變了但還沒重混時有「重新混音（不花錢）」', async () => {
+  it('旁白警示直接顯示；聲音變了但還沒重混時有「重新混音」', async () => {
     installFakeSvs({
       'sound.get': () => ({
         ...withSound(),
@@ -285,25 +283,24 @@ describe('SoundPanel：調音量', () => {
     })
     render(<SoundPanel />)
     expect(await screen.findByText('第 1 鏡的旁白太長了。')).toBeTruthy()
-    expect(screen.getByTestId('sound-remix').textContent).toContain('不花錢')
-    expect(screen.getByTestId('sound-summary').textContent).toContain('2 個鏡頭有旁白')
+    expect(screen.getByTestId('sound-remix').textContent).toBe('重新混音')
+    expect(screen.queryByTestId('sound-summary')).toBeNull()
   })
 
-  it('有台詞、沒有旁白（例如旁白被刪掉了）：說「N 個鏡頭有台詞，還沒有旁白」並告訴怎麼再念，不說「鏡頭沒有台詞」', async () => {
+  it('有台詞、沒有旁白（例如旁白被刪掉了）：只說「N 個鏡頭還沒念」，不說「鏡頭沒有台詞」', async () => {
     installFakeSvs({
       'sound.get': () =>
         state({ music: clip('music'), final: { version: 2, hasSound: true, soundStale: false } }),
     })
     render(<SoundPanel />)
     const note = await screen.findByTestId('sound-narration-missing')
-    expect(note.textContent).toContain('2 個鏡頭有台詞，還沒有旁白')
-    expect(note.textContent).toContain('念出這句台詞')
+    expect(note.textContent).toBe('2 個鏡頭還沒念')
     expect(screen.queryByTestId('sound-no-narration')).toBeNull()
     expect(screen.queryByText(/鏡頭沒有台詞/)).toBeNull()
     expect(screen.queryByTestId('sound-narration-mid')).toBeNull()
   })
 
-  it('一句台詞都沒有、所以沒有旁白時：不顯示旁白音量那一排，改成一句說明（說「鏡頭沒有台詞」）', async () => {
+  it('一句台詞都沒有、所以沒有旁白時：不顯示旁白音量那一排，也不另外寫說明', async () => {
     installFakeSvs({
       'sound.get': () =>
         state({
@@ -316,9 +313,8 @@ describe('SoundPanel：調音量', () => {
         }),
     })
     render(<SoundPanel />)
-    expect((await screen.findByTestId('sound-no-narration')).textContent).toContain(
-      '鏡頭沒有台詞，所以沒有旁白',
-    )
+    await screen.findByTestId('sound-music-mid')
+    expect(screen.queryByTestId('sound-no-narration')).toBeNull()
     expect(screen.queryByTestId('sound-narration-missing')).toBeNull()
     expect(screen.queryByTestId('sound-narration-mid')).toBeNull()
     expect(screen.getByTestId('sound-music-mid')).toBeTruthy()
@@ -364,7 +360,7 @@ describe('SoundPanel：刪除旁白與配樂', () => {
     await waitFor(() => {
       expect(removes).toEqual([{ kind: 'narration' }])
     })
-    const toast = await screen.findByText(/已刪除 2 句旁白，台詞還在，可以再念/)
+    const toast = await screen.findByText(/已刪除 2 句旁白/)
     expect(toast).toBeTruthy()
     await vi.advanceTimersByTimeAsync(700)
     await waitFor(() => {
@@ -430,7 +426,7 @@ describe('SoundPanel：用我自己的音樂', () => {
       </ToastProvider>,
     )
 
-  it('還沒有任何聲音：有「用我自己的音樂…」鈕；選了檔案就直接當配樂、提示附「復原」、自動重混', async () => {
+  it('還沒有任何聲音：有「用我自己的音樂…」鈕；選了檔案就直接當配樂（檔名在配樂那排）、自動重混', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     let imported = false
     const mix = vi.fn(() => ({ videoHash: 'h', version: 3 }))
@@ -451,12 +447,9 @@ describe('SoundPanel：用我自己的音樂', () => {
     })
     renderPanel()
     fireEvent.click(await screen.findByTestId('sound-import-music'))
-    expect(await screen.findByText(/已用「我的歌\.mp3」當配樂/)).toBeTruthy()
     expect(importMusic).toHaveBeenCalledTimes(1)
     // 畫面換成音量調整，配樂那排標出是自己的檔案
-    expect((await screen.findByTestId('sound-music-own')).textContent).toBe(
-      '我的歌.mp3（自己的檔案）',
-    )
+    expect((await screen.findByTestId('sound-music-own')).textContent).toBe('我的歌.mp3')
     await vi.advanceTimersByTimeAsync(700)
     await waitFor(() => {
       expect(mix).toHaveBeenCalledTimes(1)
@@ -473,11 +466,11 @@ describe('SoundPanel：用我自己的音樂', () => {
   it('還沒接成成品：沒有這顆鈕（只說先接成成品）', async () => {
     installFakeSvs({ 'sound.get': () => state({ final: undefined }) })
     renderPanel()
-    await screen.findByText(/先把鏡頭接成成品/)
+    await screen.findByText('先接成成品')
     expect(screen.queryByTestId('sound-import-music')).toBeNull()
   })
 
-  it('已有聲音：配樂那排顯示檔名與「自己的檔案」，鈕還在（可以換一首）；生成的配樂不顯示這行', async () => {
+  it('已有聲音：配樂那排顯示檔名，鈕還在（可以換一首）；生成的配樂不顯示這行', async () => {
     installFakeSvs({
       'sound.get': () =>
         state({
@@ -487,7 +480,7 @@ describe('SoundPanel：用我自己的音樂', () => {
         }),
     })
     renderPanel()
-    expect((await screen.findByTestId('sound-music-own')).textContent).toContain('自己的檔案')
+    expect((await screen.findByTestId('sound-music-own')).textContent).toBe('我的歌.mp3')
     expect(screen.getByTestId('sound-import-music')).toBeTruthy()
     cleanup()
     installFakeSvs({
@@ -562,19 +555,15 @@ describe('SoundPanel：用我自己的音樂', () => {
         }),
     })
     renderPanel()
-    const own = await screen.findByTestId('sound-music-own')
-    expect(own.textContent).toContain('your own file')
+    await screen.findByTestId('sound-music-own')
     const button = screen.getByTestId('sound-import-music')
     expect(button.textContent).toMatch(/own music/i)
     expect(/[\u3400-\u9fff\uff00-\uffef]/.test(button.textContent)).toBe(false)
-    expect(/[\u3400-\u9fff\uff00-\uffef]/.test(own.textContent.replace('我的歌.mp3', ''))).toBe(
-      false,
-    )
   })
 })
 
 describe('SoundPanel（英文介面）', () => {
-  it('有台詞、沒有旁白：複數是英文的（2 shots have lines）；摘要、音量按鈕都是英文', async () => {
+  it('有台詞、沒有旁白：複數是英文的（2 shots not read yet）；音量按鈕都是英文', async () => {
     setLocale('en')
     installFakeSvs({
       'sound.get': () =>
@@ -582,12 +571,8 @@ describe('SoundPanel（英文介面）', () => {
     })
     render(<SoundPanel />)
     const note = await screen.findByTestId('sound-narration-missing')
-    expect(note.textContent).toBe(
-      '2 shots have lines but no narration yet. Open a shot and press “Read this line aloud” (you’ll see an estimate first) to make it.',
-    )
-    expect(screen.getByTestId('sound-summary').textContent).toBe(
-      'There’s no narration, but there’s music. Changing the volume is free and re-mixes automatically.',
-    )
+    expect(note.textContent).toBe('2 shots not read yet')
+    expect(screen.queryByTestId('sound-summary')).toBeNull()
     expect(screen.getByTestId('sound-music-high').textContent).toBe('High')
   })
 })

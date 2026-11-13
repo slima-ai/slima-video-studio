@@ -39,30 +39,19 @@ export const projects = {
   'projects.cancel': 'Cancel',
   'projects.save': 'Save',
   'projects.create': 'Create',
-  'projects.projectsSaveThemselvesLastSaved': 'Projects save themselves. Last saved {value}',
-  'projects.noProjectYetAddingAnything':
-    'No project yet. Adding anything creates one, and it saves itself from then on.',
   'projects.rename': 'Rename',
   'projects.showInFolder': 'Show in folder',
   'projects.clickToRename': 'Click to rename',
-  'projects.aProjectIsCreatedWhen': 'A project is created when you add something',
   'projects.noProjectYet': 'No project yet',
   'projects.untitledProject': 'Untitled project',
   'projects.projectMenu': 'Project menu',
   'projects.copy': '{name} copy',
   'projects.savedAsThisIsThe': 'Saved as “{name}”. This is the copy that is open now.',
-  'projects.projectsSaveThemselvesNoNeed': 'Projects save themselves. No need to press Save.',
-  'projects.runsTheWholeProcessWith':
-    'Runs the whole process with sample results. Free. Switch to real AI in Settings.',
-  'projects.usesRealAiAndCosts':
-    'Uses real AI and costs money. You have not added an API key yet: add one in Settings.',
-  'projects.usesRealAiAndCosts2': 'Uses real AI and costs money.',
-  'projects.demoModeFree': 'Demo mode · free',
+  'projects.demoModeFree': 'Demo mode',
   'projects.realAiNoKeyYet': 'Real AI · no key yet',
   'projects.realAi': 'Real AI',
-  'projects.whatThisProjectHasCost': 'What this project has cost so far (demo mode costs nothing)',
   'projects.whatThisProjectHasCostWithLeftover':
-    'What this project has cost so far (demo mode costs nothing). Includes US${usd} for a script that failed earlier.',
+    'Includes the script that wasn’t written, US${usd}',
   'projects.spent': 'Spent',
   'projects.newProjectName': 'New project name',
   'projects.project': 'Project',
@@ -78,9 +67,4 @@ export const projects = {
   'projects.autoSavedAt': 'Auto-saved · {time}',
   'projects.savedInFolder': 'Saved in: {folder}',
   'projects.keptInFolder': 'Projects are kept in: {folder}',
-  'projects.noProjectToSaveAs':
-    'There is no project to save a copy of yet. Adding anything creates one.',
-  'projects.noProjectToRename': 'There is no project to rename yet. Adding anything creates one.',
-  'projects.noProjectToReveal':
-    'There is no project folder to show yet. Adding anything creates one.',
 } as const

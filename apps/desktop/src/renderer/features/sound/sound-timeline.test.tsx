@@ -101,7 +101,7 @@ describe('時間軸：秒數尺、格子的秒數、被剪掉的部分', () => {
   it('剪過的鏡頭在「剪掉」那一排有斜線塊（長度＝被剪掉的秒數）；沒有剪過的鏡頭就不出現那一排', () => {
     const { rerender } = render(<SoundTimeline state={stateOf(SHOTS)} />)
     const cut = screen.getByTestId('timeline-cut-2')
-    expect(cut.getAttribute('title')).toBe('鏡 2 被剪掉的部分：2.0 秒')
+    expect(cut.getAttribute('title')).toBeNull()
     expect([cut.style.left, cut.style.width]).toEqual(['100%', '25%'])
     expect(screen.queryByTestId('timeline-cut-1')).toBeNull()
     rerender(<SoundTimeline state={stateOf([shotOf(1, 0, { inSec: 0, outSec: 5 })])} />)
@@ -112,7 +112,7 @@ describe('時間軸：秒數尺、格子的秒數、被剪掉的部分', () => {
     setLocale('en')
     render(<SoundTimeline state={stateOf(SHOTS)} />)
     expect(screen.getByTestId('timeline-ruler').getAttribute('aria-label')).toBe('Seconds ruler')
-    expect(screen.getByTestId('timeline-cut-2').getAttribute('title')).toBe('Shot 2: 2.0 s trimmed')
+    expect(screen.getByTestId('timeline-cut-2').getAttribute('title')).toBeNull()
     // 「Cut off」會被讀成「被截斷」，改叫 Trimmed
     expect(screen.getByText('Trimmed')).toBeTruthy()
     expect(screen.queryByText('Cut off')).toBeNull()
@@ -311,7 +311,7 @@ describe('時間軸：格子裡的字放不下就少寫，不切掉數字', () =
     expect(fitOf(4)).toBe('none') // 23 px：差 1 px 連鏡號都放不下
   })
 
-  it('沒寫出來的那段字只是看不見（invisible），內容還在，提示（title）照樣有完整秒數', () => {
+  it('沒寫出來的那段字只是看不見（invisible），內容還在，格子上不另外放提示（title）', () => {
     withSizes({ cell: { '1': 30, '2': 30 }, number: 8, secs: 20 })
     render(
       <SoundTimeline
@@ -327,9 +327,7 @@ describe('時間軸：格子裡的字放不下就少寫，不切掉數字', () =
     const secs = screen.getByTestId('timeline-secs-2')
     expect(secs.className).toContain('invisible')
     expect(secs.textContent).toBe('2.0')
-    expect(screen.getByTestId('timeline-shot-2').getAttribute('title')).toBe(
-      '鏡 2：成品用 2.0 秒（整支 3.0 秒）',
-    )
+    expect(screen.getByTestId('timeline-shot-2').getAttribute('title')).toBeNull()
   })
 
   it('格子變寬就重新量：從放不下變成放得下', () => {
@@ -414,9 +412,7 @@ describe('時間軸：選一格按空白鍵，播那一鏡自己的影片、只�
     expect(cell(2).dataset.selected).toBe('true')
     expect(video().getAttribute('src')).toBe(`svs-asset://asset/${HASH}`)
     expect(video().currentTime).toBe(0.5)
-    expect(screen.getByTestId('timeline-play-hint').textContent).toBe(
-      '空白鍵播放／暫停：只播留下的 0.5–3.0 秒（鏡 2）',
-    )
+    expect(screen.queryByTestId('timeline-play-hint')).toBeNull()
     expect(play).not.toHaveBeenCalled()
   })
 
@@ -474,9 +470,7 @@ describe('時間軸：選一格按空白鍵，播那一鏡自己的影片、只�
     expect(cell(1).dataset.selected).toBe('true')
     expect(cell(2).dataset.selected).toBe('false')
     expect(pause).toHaveBeenCalled()
-    expect(screen.getByTestId('timeline-play-hint').textContent).toBe(
-      '空白鍵播放／暫停：只播留下的 0.0–5.0 秒（鏡 1）',
-    )
+    expect(screen.queryByTestId('timeline-play-hint')).toBeNull()
   })
 
   it('把手上的按鍵（← → 逐格）不會觸發播放；沒有影片的格子按空白鍵沒反應', () => {
@@ -503,9 +497,7 @@ describe('時間軸：選一格按空白鍵，播那一鏡自己的影片、只�
       />,
     )
     fireEvent.click(cell(1))
-    expect(screen.getByTestId('timeline-play-hint').textContent).toBe(
-      '空白鍵播放／暫停：只播留下的 0.0–5.0 秒（鏡 1）',
-    )
+    expect(screen.queryByTestId('timeline-play-hint')).toBeNull()
   })
 
   it('點一下預覽 = 按空白鍵：游標是手指；點一下播（從入點）、再點暫停、播到出點停住後再點從入點重播', async () => {

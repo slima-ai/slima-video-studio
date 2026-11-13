@@ -62,7 +62,7 @@ test.describe('畫布與表單頁同步', () => {
   })
 
   test('角色頁開著時，別的地方改了角色名字：清單馬上跟著變（不用重新整理）', async ({ page }) => {
-    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await (await characterNameInput(page)).fill('阿鐵')
     await page.getByTestId('character-add').click()
     await expect(page.getByTestId('character-item-阿鐵')).toBeVisible()

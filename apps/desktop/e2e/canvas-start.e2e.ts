@@ -17,10 +17,9 @@ test.describe('畫布：空白時的四個起點，與沒歸場的鏡頭', () =>
     await expect(page.getByTestId('empty-add-oneliner')).toBeEnabled()
     await expect(page.getByTestId('trailer-start')).toBeVisible()
     await expect(page.getByTestId('trailer-go')).toBeDisabled()
-    // 每一張都說清楚會不會花錢
-    await expect(page.getByTestId('canvas-empty')).toContainText('加上去不花錢')
-    await expect(page.getByTestId('canvas-empty')).toContainText('不生成圖片和影片')
-    await expect(page.getByTestId('canvas-empty')).toContainText('會花錢（圖片和影片）')
+    // 卡片上沒有說明句與花費行：版面自己說明，花錢的步驟在確認面板才寫金額
+    await expect(page.getByTestId('canvas-empty')).not.toContainText('加上去不花錢')
+    await expect(page.getByTestId('canvas-empty')).not.toContainText('會花錢（圖片和影片）')
 
     await page.getByTestId('empty-manual').click()
     await expect.poll(() => kindCount(page, 'shot')).toBe(1)

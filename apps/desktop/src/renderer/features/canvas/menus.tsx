@@ -9,7 +9,6 @@ import { t, msg, type MessageRef } from '@svs/schema'
 export interface AddItem {
   kind: AddChoice['kind']
   label: MessageRef
-  desc: MessageRef
 }
 
 /** 新增節點的種類與一行說明（左側節點面板、新增選單共用）。 */
@@ -17,19 +16,17 @@ export const ADD_ITEMS: readonly AddItem[] = [
   {
     kind: 'oneliner',
     label: msg('canvas.oneLiner'),
-    desc: msg('canvas.writeOneLineAndLook'),
   },
-  { kind: 'scene', label: msg('canvas.scene'), desc: msg('canvas.aPieceOfTheStory') },
+  { kind: 'scene', label: msg('canvas.scene') },
   {
     kind: 'shot',
     label: msg('canvas.shot2'),
-    desc: msg('canvas.onePictureDescriptionLinesCamera'),
   },
-  { kind: 'character', label: msg('canvas.character'), desc: msg('canvas.aPersonOrAnimalLook') },
-  { kind: 'location', label: msg('canvas.location'), desc: msg('canvas.aPlaceThatComesUp') },
-  { kind: 'freeImage', label: msg('canvas.pictureOrVideo'), desc: msg('canvas.uploadAPictureOrA') },
-  { kind: 'note', label: msg('canvas.note'), desc: msg('canvas.writeANoteToYourself') },
-  { kind: 'group', label: msg('canvas.group'), desc: msg('canvas.frameAFewCellsAnd') },
+  { kind: 'character', label: msg('canvas.character') },
+  { kind: 'location', label: msg('canvas.location') },
+  { kind: 'freeImage', label: msg('canvas.pictureOrVideo') },
+  { kind: 'note', label: msg('canvas.note') },
+  { kind: 'group', label: msg('canvas.group') },
 ]
 
 export const itemFor = (kind: NodeKind): AddItem | undefined =>
@@ -100,18 +97,16 @@ export function AddMenu({ at, choices, title, kinds, onPick, onClose }: AddMenuP
           }
           const base = itemFor(choice.kind)
           const label = base ? t(base.label) : t(KIND_LABEL[choice.kind])
-          return [{ choice, label, desc: base ? t(base.desc) : '' }]
+          return [{ choice, label, desc: '' }]
         })
       : ADD_ITEMS.map((item): { choice: AddChoice; label: string; desc: string } => ({
           choice: { kind: item.kind },
           label: t(item.label),
-          desc: t(item.desc),
+          desc: '',
         }))
     const allowed = pool.filter((p) => kinds === undefined || kinds.includes(p.choice.kind))
     const text = query.trim().toLowerCase()
-    // 名稱有符合就只列名稱符合的；名稱都不符合才看說明（打「地點」不該連「場」也跑出來）
-    const byLabel = allowed.filter((p) => p.label.toLowerCase().includes(text))
-    return byLabel.length > 0 ? byLabel : allowed.filter((p) => p.desc.toLowerCase().includes(text))
+    return allowed.filter((p) => p.label.toLowerCase().includes(text))
   }, [choices, kinds, query])
   const ref = useRef<HTMLDivElement>(null)
   const pos = clamp(at, 120 + items.length * 52)

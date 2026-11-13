@@ -110,9 +110,9 @@ test.describe('另存為與儲存提示（示範模式）', () => {
     expect(before.files).toBeGreaterThanOrEqual(6)
     const originalName = await page.getByTestId('project-name').innerText()
 
-    // ⌘S：沒有東西要存，只是說一聲
+    // ⌘S：沒有東西要存，只是說一聲（已自動儲存・時間）
     await page.keyboard.press('ControlOrMeta+s')
-    await expect(page.getByTestId('toast')).toContainText(/^專案會自動儲存，最後一次 \d{2}:\d{2}$/)
+    await expect(page.getByTestId('toast')).toContainText(/^已自動儲存・\d{2}:\d{2}$/)
 
     await page.getByTestId('project-menu-button').click()
     await page.getByTestId('menu-save-as').click()

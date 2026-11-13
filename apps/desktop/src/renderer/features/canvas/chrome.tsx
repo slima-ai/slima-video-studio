@@ -74,7 +74,6 @@ export function NodePalette({
         <button
           type="button"
           data-testid="palette-close-text"
-          title={t('canvas.closeThisPanelEsc')}
           className="rounded-md px-1.5 py-0.5 text-[11px] text-fg-muted hover:bg-fg/10 hover:text-fg"
           onClick={() => {
             setOpen(false)
@@ -101,14 +100,12 @@ export function NodePalette({
           <KindBadge kind={item.kind} />
           <span className="flex flex-col">
             <b className="text-[13px] font-medium">{t(item.label)}</b>
-            <small className="text-[11px] leading-tight text-fg-muted">{t(item.desc)}</small>
           </span>
         </button>
       ))}
       <button
         type="button"
         aria-label={t('canvas.closeTheAddPanel')}
-        title={t('canvas.closeTheAddPanelEsc')}
         data-testid="palette-close"
         className="absolute -right-4 top-1/2 flex h-12 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-fg/30 bg-surface-raised text-base font-semibold text-fg shadow-card hover:border-accent hover:text-accent"
         onClick={() => {
@@ -201,13 +198,7 @@ export function TopBar(props: TopBarProps) {
         ↷ <span data-testid="redo-count">{(props.redoCount ?? 0) > 0 ? props.redoCount : ''}</span>
       </button>
       {props.onTidy ? (
-        <button
-          type="button"
-          className={button}
-          data-testid="tidy"
-          data-tip={t('canvas.putMovedCellsBackIn')}
-          onClick={props.onTidy}
-        >
+        <button type="button" className={button} data-testid="tidy" onClick={props.onTidy}>
           {t('canvas.tidy')}
         </button>
       ) : null}
@@ -217,7 +208,6 @@ export function TopBar(props: TopBarProps) {
           className={button}
           data-testid="steps-all"
           aria-pressed={props.steps.allExpanded}
-          title={t('canvas.betweenEachShotAndIts')}
           onClick={props.steps.onToggle}
         >
           {props.steps.allExpanded ? t('canvas.collapseAllSteps') : t('canvas.expandAllSteps')}
@@ -296,7 +286,6 @@ export function TopBar(props: TopBarProps) {
           type="button"
           className={button}
           aria-label={t('canvas.helpAndTools')}
-          title={t('canvas.howToStartKeyboardShortcuts')}
           data-testid="help-menu"
           onClick={(event) => {
             props.onHelp?.(anchorOf(event.currentTarget))
@@ -347,7 +336,6 @@ export function ZoomControls({
           role="switch"
           aria-checked={aiFollow.on}
           data-testid="follow-ai"
-          title={t('canvas.whenAiEditsSomethingThe')}
           className={cn(
             button,
             'flex items-center gap-1',

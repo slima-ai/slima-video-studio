@@ -69,3 +69,13 @@ describe('鏡頭卡：格子種類的小記號', () => {
     expect(screen.getByTestId('io-vid-action')).toBeTruthy()
   })
 })
+
+describe('鏡頭卡：旁白在格子裡念不完', () => {
+  it('標「旁白太長」；沒有這個旗標就沒有', () => {
+    renderCard(shot({ beat: 'still', narrationTooLong: true }))
+    expect(screen.getByTestId('narration-long-badge').textContent).toBe('旁白太長')
+    cleanup()
+    renderCard(shot({ beat: 'still' }))
+    expect(screen.queryByTestId('narration-long-badge')).toBeNull()
+  })
+})

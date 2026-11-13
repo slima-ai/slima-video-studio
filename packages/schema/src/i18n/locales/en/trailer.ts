@@ -35,8 +35,7 @@ export const trailer = {
     'The title card in shot {n} is only {sec} seconds long; it needs at least {min} seconds.',
   'trailer.ruleTitleMissingName':
     'The trailer settings have no book title yet, so the title card has nothing to show.',
-  'trailer.ruleTitleNoAction':
-    'The trailer settings have no closing line (release date, where to buy), so the title card will show only the book title.',
+  'trailer.ruleTitleNoAction': 'No release info, so the title card will show only the book title.',
   'trailer.ruleUnverifiedClaim':
     'Shot {n} mentions a bestseller, award or blurb claim that you did not provide. Blurbs, awards and sales figures may only use text you provided; remove it if you have none.',
   'trailer.ruleNoEscalation':
@@ -49,7 +48,7 @@ export const trailer = {
   'trailer.beatKindHint':
     'Moving: an AI-generated video. Still: one picture slowly pushed in or pulled out, made on this computer. Text card: a shot with only words, made on this computer. The last two are free.',
   'trailer.titleCardNote':
-    'This shot is the title card. Its content (book title, cover, closing line) is edited in the trailer settings.',
+    'This shot is the title card. Its content (book title, cover, release info) is edited in the trailer settings.',
   'trailer.cardText': 'Card text',
   'trailer.cardSubtext': 'Small text (optional)',
   'trailer.cardTextPlaceholder': 'For example: Some light, and someone to keep it with you',
@@ -82,57 +81,34 @@ export const trailer = {
   'trailer.kindTeaser': 'Teaser',
   'trailer.lengthSec': '{n} s',
   'trailer.start.title': 'Make a trailer',
-  'trailer.start.intro':
-    'Paste text from the book and AI writes a trailer script: the picture, narration and text card for each shot, adding up to exactly the length you choose.',
-  'trailer.start.costDemo': 'Demo mode: nothing is charged.',
-  'trailer.start.costReal':
-    'Writing the script uses only a text model (about US${usd}); pictures and videos cost money only when you press "Generate empty".',
   'trailer.start.textPlaceholder': 'Paste a passage or story from the book',
-  'trailer.start.titlePlaceholder': 'Book title (optional)',
+  'trailer.start.titlePlaceholder': 'Book title',
   'trailer.start.length': 'Length',
   'trailer.start.kind': 'Type',
   'trailer.start.go': 'Write the script first',
-  'trailer.start.goDemo': 'Write the script first (demo mode, free)',
   'trailer.start.goReal': 'Write the script first (about US${usd})',
   'trailer.start.going': 'Writing the script…',
-  'trailer.start.needText': 'Paste some text first to write a script.',
-  'trailer.start.done': 'The script is ready: {count} shots, {sec} seconds.',
   'trailer.start.failed': 'The script could not be written',
   'trailer.badgeName': 'Trailer',
   'trailer.badgeLength': '{script}/{target} s',
-  'trailer.badgeTip':
-    'Total of the shot lengths / target length; open it to change settings or rewrite the script',
   'trailer.panel.title': 'Trailer settings',
   'trailer.panel.close': 'Close',
-  'trailer.panel.mismatch': 'The script adds up to {script} seconds; the target is {target}.',
   'trailer.panel.fit': 'Auto-adjust',
-  'trailer.panel.fitTip':
-    'Adjust the shot lengths to add up to exactly the target (text cards and the title card stay at least their minimum time)',
   'trailer.panel.titleLabel': 'Book title',
   'trailer.panel.author': 'Author',
   'trailer.panel.tagline': 'Tagline',
-  'trailer.panel.endLine': 'Closing line (release date, where to buy)',
+  'trailer.panel.endLine': 'Release info',
+  'trailer.panel.endLinePlaceholder': 'Out December 1 in bookstores',
   'trailer.panel.narration': 'Narration',
   'trailer.panel.music': 'Music',
   'trailer.panel.rewrite': 'Rewrite the script',
-  'trailer.panel.rewriteDemo': 'Rewrite the script (demo mode, free)',
   'trailer.panel.rewriteReal': 'Rewrite the script (about US${usd})',
   'trailer.panel.rewriting': 'Rewriting…',
-  'trailer.panel.rewriteHint':
-    'Rewriting replaces this whole script; the whole action can be undone.',
-  'trailer.panel.noSource': 'The original text was not kept, so this script cannot be rewritten.',
-  'trailer.panel.warningLine': 'Reminder: {message}',
-  'trailer.panel.narrationTooLong':
-    '{count} shots have narration that will not fit; rewriting the script is recommended.',
-  'trailer.panel.narrationRewrite': 'Rewrite the script',
-  'trailer.filmLength': 'Film {sec} s (target {target} s)',
+  'trailer.filmLength': 'Film {sec} s',
+  'trailer.filmLengthOff': 'Film {sec} s (target {target} s)',
   'trailer.panel.length': 'Length',
   'trailer.panel.cancel': 'Not now',
   'trailer.panel.rewriteConfirm': 'Rewrite it',
   'trailer.panel.replaceWarn':
-    'It has {count} shots now, {generated} of them with generated pictures or videos; rewriting replaces the whole script and those are gone (you can undo).',
-  'trailer.panel.replaceWarnPlain':
-    'It has {count} shots now; rewriting replaces the whole script (you can undo).',
-  'trailer.panel.rewriteDone': 'The script was rewritten: {count} shots, {sec} seconds.',
-  'trailer.panel.fitDone': 'Adjusted; it is now exactly {sec} seconds.',
+    '{generated} generated pictures will be replaced. You can undo this.',
 } as const

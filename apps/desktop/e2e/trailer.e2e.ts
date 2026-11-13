@@ -59,7 +59,7 @@ test.describe('預告片：寫腳本（示範模式，假腳本，不花錢）',
     await page.screenshot({ path: testInfo.outputPath('storyboard-characters-places.png') })
 
     // 角色頁與場景卡頁：有草稿卡
-    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await expect(page.getByText('小葉').first()).toBeVisible()
     await expect(page.getByText('老鐘').first()).toBeVisible()
     await page.screenshot({ path: testInfo.outputPath('characters-page.png') })

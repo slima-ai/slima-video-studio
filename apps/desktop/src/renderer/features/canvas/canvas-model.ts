@@ -67,6 +67,8 @@ export interface CanvasNodeData extends Record<string, unknown> {
   born?: boolean | undefined
   /** 預告片的格子種類（不動、字卡、片名卡）；一般影片鏡頭沒有。鏡頭卡標小記號、字卡的影片格不吃圖。 */
   beat?: 'still' | 'card' | 'title' | undefined
+  /** 預告片：這一格的旁白在格子的秒數內念不完（卡片上標「旁白太長」）。 */
+  narrationTooLong?: boolean | undefined
   /** 鏡頭的動作：卡片上寫「動作：…」（沒有就不顯示）。 */
   action?: string | undefined
   /** 第一張畫面的格子：尾幀的縮圖（有指定尾幀才有；卡片上首幀旁邊多一張標「尾」的）。 */

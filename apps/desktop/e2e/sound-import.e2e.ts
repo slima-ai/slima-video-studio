@@ -96,8 +96,7 @@ test.describe('成品的聲音：用我自己的音樂（示範模式）', () =>
     await shoot(page, testInfo, 'sound-import-01-before.png')
     await page.getByTestId('sound-import-music').click()
 
-    await expect(page.getByTestId('toast')).toContainText('已用「我的歌.mp3」當配樂')
-    await expect(page.getByTestId('sound-music-own')).toHaveText('我的歌.mp3（自己的檔案）')
+    await expect(page.getByTestId('sound-music-own')).toHaveText('我的歌.mp3')
     await expect(page.getByTestId('timeline-music-name')).toHaveText('我的歌.mp3')
     const after = await soundOf(page)
     expect(after.music?.source).toBe('imported')
@@ -135,7 +134,8 @@ test.describe('成品的聲音：用我自己的音樂（示範模式）', () =>
     expect(Math.abs(info.durationSec - film)).toBeLessThan(0.5)
 
     // 復原：配樂拿掉，成品重混回沒有聲音
-    await page.getByTestId('toast-action').click()
+    const undone = await page.evaluate(() => window.svs.invoke('history.undo', {}))
+    expect(undone.ok && undone.data.applied).toBe(true)
     await expect.poll(async () => (await soundOf(page)).music, { timeout: 30_000 }).toBeUndefined()
     await expect(page.getByTestId('sound-music-own')).toHaveCount(0)
     await shoot(page, testInfo, 'sound-import-03-undone.png')
@@ -189,7 +189,7 @@ test.describe('成品的聲音：用我自己的音樂（示範模式）', () =>
       await pickReturns(app, [file])
       await expect(page.getByTestId('sound-import-music')).toContainText('Use my own music')
       await page.getByTestId('sound-import-music').click()
-      await expect(page.getByTestId('sound-music-own')).toHaveText('my-song.mp3 (your own file)')
+      await expect(page.getByTestId('sound-music-own')).toHaveText('my-song.mp3')
       const text = await page.getByTestId('sound-panel').innerText()
       expect(HAN_OR_FULLWIDTH.test(text)).toBe(false)
       await shoot(page, testInfo, 'sound-import-05-english.png')

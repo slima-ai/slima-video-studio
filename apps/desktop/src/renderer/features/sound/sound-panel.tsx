@@ -30,7 +30,7 @@ function LevelPicker({
   withOff?: boolean
   onPick: (choice: Choice) => void
   /** 有的話，這一排最後多一顆刪除鈕（旁白、配樂）。 */
-  onDelete?: { label: string; tip: string; onClick: () => void }
+  onDelete?: { label: string; onClick: () => void }
 }) {
   const choices: Choice[] = [...(withOff ? (['off'] as const) : []), 'low', 'mid', 'high']
   return (
@@ -56,7 +56,6 @@ function LevelPicker({
         <Button
           size="sm"
           data-testid={`${testId}-delete`}
-          title={onDelete.tip}
           aria-label={onDelete.label}
           onClick={onDelete.onClick}
         >
@@ -74,16 +73,6 @@ type AddState =
   | { step: 'running'; text: string }
 
 const usd = (n: number): string => `US$${n < 0.1 ? n.toFixed(3) : n.toFixed(2)}`
-
-function planText(plan: SoundPlan): string {
-  const narrations = plan.items.filter((i) => i.kind === 'narration').length
-  const music = plan.items.filter((i) => i.kind === 'music').length
-  const parts = [
-    narrations > 0 ? t('sound.narrationLines', { count: narrations }) : '',
-    music > 0 ? t('sound.musicTracks', { count: music }) : '',
-  ].filter((p) => p !== '')
-  return t('sound.about', { value: planUsd(plan, usd), value2: parts.join(t('list.comma')) })
-}
 
 /**
  * 成品的聲音：一顆「加上旁白與配樂」就做完（預估花費 → 確認 → 生成 → 混音）；
@@ -141,12 +130,6 @@ export function SoundPanel() {
         if (clip === null) return
         reload()
         scheduleMix()
-        toast.show({
-          key: 'sound-import',
-          message: t('sound.import.done', { name: clip.text }),
-          action: { label: t('sound.undo'), onAction: history.undo },
-          ms: LONG_TOAST_MS,
-        })
       })
       .catch(fail)
       .finally(() => {
@@ -155,13 +138,7 @@ export function SoundPanel() {
   }
 
   const importButton = (
-    <Button
-      size="sm"
-      data-testid="sound-import-music"
-      disabled={importing}
-      title={t('sound.import.hint')}
-      onClick={importMusic}
-    >
+    <Button size="sm" data-testid="sound-import-music" disabled={importing} onClick={importMusic}>
       {importing ? t('sound.import.busy') : t('sound.import.button')}
     </Button>
   )
@@ -218,7 +195,7 @@ export function SoundPanel() {
           key: 'sound-shortened',
           message:
             shortened.length === 1
-              ? t('sound.narrationShortened', { value: String(only.shotNumber), text: only.to })
+              ? t('sound.narrationShortened', { value: String(only.shotNumber) })
               : t('sound.narrationsShortened', { count: shortened.length }),
           // 一句才附復原（復原一次只退一步；好幾句要一步步退，用上方列的復原）
           ...(shortened.length === 1
@@ -256,7 +233,7 @@ export function SoundPanel() {
     body =
       add.step === 'confirm' ? (
         <div className="space-y-2" data-testid="sound-add-confirm">
-          <p className="text-sm">{t('sound.start2', { value: planText(add.plan) })}</p>
+          <p className="text-sm">{t('sound.about', { value: planUsd(add.plan, usd) })}</p>
           <div className="flex gap-2">
             <Button
               variant="primary"
@@ -281,7 +258,6 @@ export function SoundPanel() {
         <div className="space-y-2">
           <p className="text-sm text-fg-muted">{t('sound.noNarrationOrMusicModel')}</p>
           {importButton}
-          <p className="text-xs text-fg-muted">{t('sound.import.hint')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -295,11 +271,7 @@ export function SoundPanel() {
               ? t('sound.gettingAnEstimate')
               : t('sound.addNarrationAndMusic')}
           </Button>
-          <p className="text-xs text-fg-muted">{t('sound.readsEachShotSLines')}</p>
-          <div className="flex flex-wrap items-center gap-2">
-            {importButton}
-            <span className="text-xs text-fg-muted">{t('sound.import.hint')}</span>
-          </div>
+          {importButton}
         </div>
       )
   } else {
@@ -328,7 +300,6 @@ export function SoundPanel() {
             }}
             onDelete={{
               label: t('sound.deleteNarration'),
-              tip: t('sound.deleteTheNarrationForEvery'),
               onClick: () => {
                 setActionError(undefined)
                 removeSound(
@@ -343,11 +314,7 @@ export function SoundPanel() {
           <p className="text-sm text-fg-muted" data-testid="sound-narration-missing">
             {t('sound.narrationMissing', { count: dialogueShots })}
           </p>
-        ) : (
-          <p className="text-sm text-fg-muted" data-testid="sound-no-narration">
-            {t('sound.noShotHasLinesSo')}
-          </p>
-        )}
+        ) : null}
         <LevelPicker
           testId="sound-music"
           label={t('sound.music2')}
@@ -359,7 +326,6 @@ export function SoundPanel() {
             ? {
                 onDelete: {
                   label: t('sound.deleteMusic'),
-                  tip: t('sound.deleteThisMusicNarrationIsn'),
                   onClick: () => {
                     setActionError(undefined)
                     removeSound({ kind: 'music' }, t('sound.deletedTheMusic'))
@@ -377,15 +343,6 @@ export function SoundPanel() {
           {importButton}
         </div>
         <SoundTimeline state={state} part="sound" />
-        <p className="text-xs text-fg-muted" data-testid="sound-summary">
-          {narrationCount > 0
-            ? state.music
-              ? t('sound.shotsHaveNarrationAndThere', { value: String(narrationCount) })
-              : t('sound.shotsHaveNarrationAndThere2', { value: String(narrationCount) })
-            : state.music
-              ? t('sound.thereSNoNarrationBut')
-              : t('sound.thereSNoNarrationAnd')}
-        </p>
         {state.warnings.map((w) => (
           <p key={`${w.kind}:${w.shotId ?? ''}`} className="text-xs text-warning" role="status">
             {w.message}

@@ -479,7 +479,10 @@ for (const theme of THEMES) {
 
     test('角色：清單全寬，點角色才滑出編輯面板', async ({ page }, testInfo) => {
       await chooseTheme(page, theme)
-      await page.getByRole('button', { name: '角色', exact: true }).click()
+      await page
+        .getByTestId('layout-nav')
+        .getByRole('button', { name: '角色', exact: true })
+        .click()
       await expect(page.getByTestId('character-empty')).toBeVisible()
       await shoot(page, testInfo, `character-empty-${theme.name}.png`)
       await (await characterNameInput(page)).fill('阿鐵')

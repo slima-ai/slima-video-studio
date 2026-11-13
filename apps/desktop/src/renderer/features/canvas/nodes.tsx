@@ -755,6 +755,14 @@ function CardImpl({ id, data, selected }: NodeProps<CanvasNode>) {
                     {beatKindLabel(data.beat)}
                   </span>
                 )}
+                {data.narrationTooLong ? (
+                  <span
+                    data-testid="narration-long-badge"
+                    className="shrink-0 rounded-full border border-warning px-2 py-px text-[11px] text-warning"
+                  >
+                    {t('canvas.narrationTooLong')}
+                  </span>
+                ) : null}
                 {data.sceneId === undefined ? (
                   <span
                     data-testid="loose-badge"

@@ -21,12 +21,12 @@ describe('StartCards：空白畫布的四個起點', () => {
     expect(empty.textContent).toContain('貼一段故事')
     expect(empty.textContent).toContain('一句話')
     expect(empty.textContent).toContain('做預告片')
-    expect(empty.textContent).toContain('四種都可以')
-    expect(empty.textContent).not.toContain('三種')
+    // 沒有副標與每張卡的說明句：版面自己說明
+    expect(empty.textContent).not.toContain('四種都可以')
+    expect(empty.textContent).not.toContain('加上去不花錢')
+    expect(empty.textContent).not.toContain('不生成圖片和影片')
+    expect(empty.textContent).not.toContain('會花錢（圖片和影片）')
     expect(screen.getByTestId('trailer-go').textContent).toBe('先產生腳本')
-    expect(empty.textContent).toContain('加上去不花錢')
-    expect(empty.textContent).toContain('不生成圖片和影片')
-    expect(empty.textContent).toContain('會花錢（圖片和影片）')
 
     fireEvent.click(screen.getByTestId('empty-manual'))
     expect(onManual).toHaveBeenCalledTimes(1)
@@ -43,12 +43,11 @@ describe('StartCards：空白畫布的四個起點', () => {
     expect(onOneliner).toHaveBeenCalledWith('一隻貓')
   })
 
-  it('「一句話」起手卡的說明跟放下去之後的主鈕一致：先看分鏡、再決定要不要生成，不說「一次做完」是主要做法', () => {
+  it('「一句話」起手卡：不再用說明句講流程，也不說「一次做完」是主要做法', () => {
     installFakeSvs()
     render(<StartCards busy={false} onManual={vi.fn()} onSplit={vi.fn()} onOneliner={vi.fn()} />)
     const empty = screen.getByTestId('canvas-empty')
-    expect(empty.textContent).toContain('先看分鏡')
-    expect(empty.textContent).toContain('再決定要不要生成')
+    expect(empty.textContent).not.toContain('先看分鏡、改到滿意')
     expect(empty.textContent).not.toContain('AI 一次做完整支短片')
   })
 

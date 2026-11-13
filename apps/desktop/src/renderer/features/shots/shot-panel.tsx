@@ -216,9 +216,11 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
         <div>
           <label className="block text-sm font-medium" htmlFor="shot-prompt">
             {t('shots.promptSentToTheModel')}
-            <span className="ml-2 text-xs font-normal text-fg-muted">
-              {shot.prompt ? t('shots.yourEditedVersion') : t('shots.madeAutomatically')}
-            </span>
+            {shot.prompt ? (
+              <span className="ml-2 text-xs font-normal text-fg-muted">
+                {t('shots.yourEditedVersion')}
+              </span>
+            ) : null}
           </label>
           <textarea
             id="shot-prompt"
