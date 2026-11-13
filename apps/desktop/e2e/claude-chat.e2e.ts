@@ -497,21 +497,83 @@ const watchChecking = (page: Page) =>
       if (document.querySelector('[data-testid="chat-checking"]')) w.__checkingSeen = true
     }).observe(document.body, { childList: true, subtree: true })
   })
+/**
+ * 把畫面上「正在檢查」的 0.4 秒計時器（chat-panel 的 CHECKING_NOTE_DELAY_MS）扣住：測試自己決定它什麼時候才算「過了 0.4 秒」，
+ * 不靠真的時間。機器忙的時候 claude 檢查本來就可能拖過 0.4 秒，「結果很快回來」這個前提就不成立（#204 同一類問題）。
+ * 扣住的計時器被 clearTimeout 取消就不會再跑；放行時還在的才跑。
+ */
+const CHECKING_NOTE_DELAY_MS = 400
+const holdCheckingTimer = (page: Page) =>
+  page.evaluate((delay) => {
+    const w = window as unknown as { __releaseCheckingTimer?: () => void }
+    const held = new Map<number, () => void>()
+    let nextId = -1
+    const setReal = window.setTimeout.bind(window)
+    const clearReal = window.clearTimeout.bind(window)
+    window.setTimeout = ((handler: TimerHandler, ms?: number, ...args: unknown[]) => {
+      if (ms === delay && typeof handler === 'function') {
+        const id = nextId--
+        held.set(id, () => {
+          Reflect.apply(handler, undefined, args)
+        })
+        return id
+      }
+      return setReal(handler, ms, ...args)
+    }) as typeof window.setTimeout
+    window.clearTimeout = ((id?: number) => {
+      if (id !== undefined && held.has(id)) held.delete(id)
+      else clearReal(id)
+    }) as typeof window.clearTimeout
+    ;(w as unknown as { __heldCheckingTimers?: () => number }).__heldCheckingTimers = () =>
+      held.size
+    w.__releaseCheckingTimer = () => {
+      const pending = [...held.values()]
+      held.clear()
+      for (const run of pending) run()
+    }
+  }, CHECKING_NOTE_DELAY_MS)
+/** 扣住了幾個：「正在檢查」那個元件掛上去、排好計時器之後是 1。 */
+const heldCheckingTimers = (page: Page) =>
+  page.evaluate(
+    () =>
+      (window as unknown as { __heldCheckingTimers?: () => number }).__heldCheckingTimers?.() ?? 0,
+  )
+const releaseCheckingTimer = (page: Page) =>
+  page.evaluate(() => {
+    ;(window as unknown as { __releaseCheckingTimer?: () => void }).__releaseCheckingTimer?.()
+  })
 const checkingSeen = (page: Page) =>
   page.evaluate(() => (window as unknown as { __checkingSeen?: boolean }).__checkingSeen === true)
 
 test.describe('Claude 對話：檢查很快有結果', () => {
-  test('打開 AI 工具連線後檢查（結果很快回來）：「正在檢查」從頭到尾不出現', async ({ page }) => {
-    await useFreeMcpPort(page)
-    await page.getByRole('button', { name: '畫布', exact: true }).click()
-    await page.getByTestId('chat-launcher').click()
-    // 沒開 AI 工具連線時先出說明卡（還沒去問 claude）；打開之後才真的檢查 claude
-    const enable = page.getByRole('button', { name: '打開 AI 工具連線' })
-    await expect(enable).toBeVisible()
-    await watchChecking(page)
-    await enable.click()
-    await expect(page.getByTestId('chat-input')).toBeVisible()
-    expect(await checkingSeen(page)).toBe(false)
+  // 用會卡在閘門的假 claude：檢查「還沒有結果」與「過了 0.4 秒」都由測試決定，不靠真的快或慢
+  test.use({ appEnv: { SVS_CLAUDE_BIN: SLOW_CLAUDE } })
+
+  test('打開 AI 工具連線後檢查（0.4 秒內有結果）：「正在檢查」從頭到尾不出現', async ({ page }) => {
+    rmSync(GATE_FILE, { force: true })
+    try {
+      await useFreeMcpPort(page)
+      await page.getByRole('button', { name: '畫布', exact: true }).click()
+      await page.getByTestId('chat-launcher').click()
+      // 沒開 AI 工具連線時先出說明卡（還沒去問 claude）；打開之後才真的檢查 claude
+      const enable = page.getByRole('button', { name: '打開 AI 工具連線' })
+      await expect(enable).toBeVisible()
+      await watchChecking(page)
+      await holdCheckingTimer(page)
+      await enable.click()
+      // 檢查已經在進行（「正在檢查」那個元件排好了 0.4 秒的計時器）、計時器被扣住＝還沒過 0.4 秒：不能有字
+      await expect.poll(() => heldCheckingTimers(page)).toBe(1)
+      await expect(page.getByTestId('chat-checking')).toHaveCount(0)
+      // 結果在 0.4 秒內回來
+      writeFileSync(GATE_FILE, '')
+      await expect(page.getByTestId('chat-input')).toBeVisible()
+      // 就算之後才「過了 0.4 秒」：整段從頭到尾都沒出現過
+      await releaseCheckingTimer(page)
+      await expect(page.getByTestId('chat-checking')).toHaveCount(0)
+      expect(await checkingSeen(page)).toBe(false)
+    } finally {
+      rmSync(GATE_FILE, { force: true })
+    }
   })
 })
 
