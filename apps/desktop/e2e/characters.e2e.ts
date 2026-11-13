@@ -5,7 +5,7 @@ import { expect, test } from './fixtures'
 
 test.describe('角色卡', () => {
   test('新增角色、填欄位、儲存；重開 App 後資料仍在', async ({ page, app, userDataDir }) => {
-    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await expect(page.getByTestId('character-empty')).toBeVisible()
 
     await (await characterNameInput(page)).fill('阿鐵')
@@ -25,7 +25,10 @@ test.describe('角色卡', () => {
     try {
       const next = await again.app.firstWindow()
       await next.waitForLoadState('domcontentloaded')
-      await next.getByRole('button', { name: '角色', exact: true }).click()
+      await next
+        .getByTestId('layout-nav')
+        .getByRole('button', { name: '角色', exact: true })
+        .click()
       await next.getByTestId('character-item-阿鐵').click()
       await expect(next.getByTestId('character-age')).toHaveValue('28')
       await expect(next.getByTestId('character-appearance')).toHaveValue(
@@ -39,7 +42,7 @@ test.describe('角色卡', () => {
   })
 
   test('刪除角色', async ({ page }) => {
-    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await (await characterNameInput(page)).fill('小雨')
     await page.getByTestId('character-add').click()
     await page.getByTestId('character-delete').click()
@@ -53,7 +56,7 @@ test.describe('角色卡', () => {
     app,
     userDataDir,
   }) => {
-    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await (await characterNameInput(page)).fill('阿鐵')
     await page.getByTestId('character-add').click()
     await expect(page.getByTestId('character-anchor-status')).toContainText('還沒寫')
@@ -94,7 +97,10 @@ test.describe('角色卡', () => {
     try {
       const next = await again.app.firstWindow()
       await next.waitForLoadState('domcontentloaded')
-      await next.getByRole('button', { name: '角色', exact: true }).click()
+      await next
+        .getByTestId('layout-nav')
+        .getByRole('button', { name: '角色', exact: true })
+        .click()
       await next.getByTestId('character-item-阿鐵').click()
       await expect(next.getByTestId('character-anchor')).toHaveValue(
         '短黑髮、琥珀色眼睛、深藍工作服',
@@ -110,7 +116,7 @@ test.describe('角色卡', () => {
   })
 
   test('版本紀錄：鎖定 → 改描述再鎖定 → 看到兩版 → 用第 1 版重新開始', async ({ page }) => {
-    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await (await characterNameInput(page)).fill('阿鐵')
     await page.getByTestId('character-add').click()
     await expect(page.getByTestId('character-versions')).toHaveCount(0)
@@ -143,7 +149,7 @@ test.describe('角色卡', () => {
   })
 
   test('鎖定角色後用一句話生成：畫布上出場的鏡頭標出「阿鐵 v1」', async ({ page }) => {
-    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await (await characterNameInput(page)).fill('阿鐵')
     await page.getByTestId('character-add').click()
     await page.getByTestId('character-appearance').fill('短黑髮、琥珀色眼睛')
@@ -179,7 +185,7 @@ test.describe('角色卡', () => {
     app,
     userDataDir,
   }) => {
-    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await (await characterNameInput(page)).fill('阿鐵')
     await page.getByTestId('character-add').click()
     await page.getByTestId('character-appearance').fill('短黑髮、琥珀色眼睛')
@@ -217,7 +223,10 @@ test.describe('角色卡', () => {
     try {
       const next = await again.app.firstWindow()
       await next.waitForLoadState('domcontentloaded')
-      await next.getByRole('button', { name: '角色', exact: true }).click()
+      await next
+        .getByTestId('layout-nav')
+        .getByRole('button', { name: '角色', exact: true })
+        .click()
       await next.getByTestId('character-item-阿鐵').click()
       await expect(next.getByTestId('concept-hero')).toBeVisible()
       await expect(next.getByTestId('concept-round-1').getByRole('button')).toHaveCount(4)
@@ -236,7 +245,7 @@ test.describe('角色卡', () => {
     app,
     userDataDir,
   }) => {
-    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await (await characterNameInput(page)).fill('阿鐵')
     await page.getByTestId('character-add').click()
     await page.getByTestId('character-appearance').fill('短黑髮、琥珀色眼睛')
@@ -290,7 +299,10 @@ test.describe('角色卡', () => {
     try {
       const next = await again.app.firstWindow()
       await next.waitForLoadState('domcontentloaded')
-      await next.getByRole('button', { name: '角色', exact: true }).click()
+      await next
+        .getByTestId('layout-nav')
+        .getByRole('button', { name: '角色', exact: true })
+        .click()
       await next.getByTestId('character-item-阿鐵').click()
       await expect(next.getByTestId('turnaround-adopted').getByRole('img')).toHaveCount(3)
       await expect(next.getByTestId('turnaround-round-1').locator('[data-adopted]')).toHaveCount(4)
