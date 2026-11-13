@@ -26,7 +26,7 @@ import {
   TrailerPlanRequestSchema,
   TrailerSettingsPatchSchema,
 } from '@svs/schema'
-import { QUICK_STYLE_IDS, writeTrailerScript, type StudioServices } from '@svs/workflows'
+import { QUICK_STYLE_IDS, writeTrailerScript } from '@svs/workflows'
 
 import { ensureProject } from '../ensure-project'
 import type { AppSpendLedger } from '../costs/app-ledger'
@@ -37,15 +37,8 @@ import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
 import type { ShotService, TrailerBeatInput } from '../shots/shot-service'
+import { bookSpent, meteredStudio, type SpentCall } from '../costs/metering'
 import { createStudioServices } from '../studio-services'
-
-/** 一次真的花了錢的文字模型呼叫。 */
-interface SpentCall {
-  amountUsd: number
-  provider: string
-  modelId: string
-  jobId: string
-}
 
 export interface TrailerServiceDeps {
   projects: ProjectManager
@@ -229,27 +222,14 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
    * 把真的花了錢的呼叫記進帳：專案還開著就記在專案的花費帳本上；專案已經不在了（空專案被刪掉、
    * 或中途關掉）就記在 App 層的帳本上，錢不會跟著專案消失。
    */
-  const settleSpent = (handle: ProjectHandle, calls: readonly SpentCall[], gone: boolean): void => {
-    for (const call of calls) {
-      if (!gone && !handle.closed) {
-        handle.repos.costs.record({
-          projectId: handle.projectId,
-          provider: call.provider,
-          modelId: call.modelId,
-          amountUsd: call.amountUsd,
-          estimated: false,
-          jobId: call.jobId,
-        })
-      } else {
-        deps.appLedger.record({
-          provider: call.provider,
-          modelId: call.modelId,
-          amountUsd: call.amountUsd,
-          jobId: call.jobId,
-          reason: 'trailer.plan: the project was removed or closed before the cost could be booked',
-        })
-      }
-    }
+  const settleSpent = (handle: ProjectHandle, spent: SpentCall[], gone: boolean): void => {
+    bookSpent(
+      handle,
+      deps.appLedger,
+      spent,
+      'trailer.plan: the project was removed or closed before the cost could be booked',
+      gone,
+    )
   }
 
   /** 寫腳本的主體：專案已經開好（沒給的話外面先建）。 */
@@ -272,23 +252,11 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
     const given = patchOf(parsed)
     const base = handle.repos.trailer.get() ?? TrailerSettingsSchema.parse({})
     const merged = TrailerSettingsSchema.parse({ ...base, ...given })
-    const studio = createStudioServices({ queue, handle, tools: tool, models })
     // 每次文字模型呼叫回來的金額都先記下來（寫腳本中途失敗，錢也已經花了）
-    const metered: StudioServices = {
-      ...studio,
-      generate: async (request, ctx) => {
-        const result = await studio.generate(request, ctx)
-        if (result.costUsd !== undefined && result.costUsd > 0) {
-          spent.push({
-            amountUsd: result.costUsd,
-            provider: result.provider,
-            modelId: request.modelId,
-            jobId: result.jobId,
-          })
-        }
-        return result
-      },
-    }
+    const metered = meteredStudio(
+      createStudioServices({ queue, handle, tools: tool, models }),
+      spent,
+    )
     const written = await writeTrailerScript(
       metered,
       {
@@ -318,7 +286,6 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
     })
     // 單獨呼叫不會經過引擎，自己記到花費帳本（寫腳本的每一次呼叫；專案這時若已關掉就記到 App 層的帳）
     settleSpent(handle, spent, handle.closed)
-    spent.length = 0
     if (handle.closed) throw invalid(t('services.theProjectWasClosedSo4'))
 
     // 腳本通過檢查了，才一次寫進專案（整個動作算一步復原）

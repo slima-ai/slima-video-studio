@@ -3,6 +3,40 @@ import { z } from 'zod'
 
 import type { GenerateContext, StudioServices } from './services'
 
+/** 一次呼叫回來、有回報金額的紀錄（錢已經花了，不管後面成不成功）。 */
+export interface CostTap {
+  amountUsd: number
+  provider: string
+  modelId: string
+  jobId: string
+}
+
+/**
+ * 包一層：每次 `generate` 回來、有回報金額，就立刻通知 `onCost`。
+ * 為什麼：結構化呼叫格式不對會重試一次，最後一步失敗時前面每一次的錢都已經花了；
+ * 只在成功時才記帳會讓這些錢消失。
+ */
+export function tapGenerateCost(
+  studio: StudioServices,
+  onCost: (cost: CostTap) => void,
+): StudioServices {
+  return {
+    ...studio,
+    generate: async (request, ctx) => {
+      const result = await studio.generate(request, ctx)
+      if (result.costUsd !== undefined) {
+        onCost({
+          amountUsd: result.costUsd,
+          provider: result.provider,
+          modelId: request.modelId,
+          jobId: result.jobId,
+        })
+      }
+      return result
+    },
+  }
+}
+
 export interface StructuredResult<T> {
   data: T
   /** 所有嘗試加總的實際花費（沒有任何一次回報就是 undefined）。 */

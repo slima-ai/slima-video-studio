@@ -218,6 +218,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     projectsDir: options.projectsDir,
     suggestAnchor: createAnchorSuggester({
       projects,
+      appLedger,
       runtime,
       settingsService,
       models,
@@ -236,6 +237,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
   })
   const sound = createSoundService({
     projects,
+    appLedger,
     runtime,
     settings,
     settingsService,
@@ -270,6 +272,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
   })
   const outline = createOutlineService({
     projects,
+    appLedger,
     projectsDir: options.projectsDir,
     runtime,
     settings,
@@ -280,6 +283,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
   })
   const storyboard = createStoryboardService({
     projects,
+    appLedger,
     runtime,
     settings,
     settingsService,

@@ -7,6 +7,8 @@ import { z } from 'zod'
 import type { ProjectManager } from '../project-manager'
 import { findTools, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
+import type { AppSpendLedger } from '../costs/app-ledger'
+import { bookSpent, meteredStudio, type SpentCall } from '../costs/metering'
 import { createStudioServices } from '../studio-services'
 
 export interface AnchorSuggesterDeps {
@@ -15,6 +17,8 @@ export interface AnchorSuggesterDeps {
   settingsService: SettingsService
   models: ModelRegistry
   tools?: () => MediaTools | undefined
+  /** 專案已關掉時，失敗或晚到的花費記在這裡。 */
+  appLedger?: AppSpendLedger
 }
 
 const AnchorSchema = z.object({ anchor: z.string().min(1) })
@@ -69,34 +73,32 @@ export function createAnchorSuggester(
         userMessage: t('services.theGenerationServiceIsnT'),
       })
     }
-    const studio = createStudioServices({ queue, handle, tools: tool, models: deps.models })
     const lines = [
       `名字：${character.name}`,
       character.age ? `年齡：${character.age}` : undefined,
       character.appearance.trim() ? `長相：${character.appearance.trim()}` : undefined,
       outfit.trim() ? `服裝：${outfit.trim()}` : undefined,
     ].filter((line) => line !== undefined)
-    const result = await generateStructured(
-      studio,
-      {
-        modelId: model,
-        // 語言只看使用者寫的長相與服裝（名字不算，也不看 App 加的中文標籤）
-        system: anchorSystemPrompt([character.appearance, outfit].join('\n')),
-        messages: [{ role: 'user', content: lines.join('\n') }],
-      },
-      AnchorSchema,
-      { signal: new AbortController().signal },
-    )
-    // 引擎只會替「工作流」入帳；這裡是單獨呼叫，自己記到花費帳本
-    if (result.costUsd !== undefined && !handle.closed) {
-      handle.repos.costs.record({
-        projectId: handle.projectId,
-        provider: result.provider,
-        modelId: model,
-        amountUsd: result.costUsd,
-        estimated: false,
-        jobId: result.jobId,
-      })
+    // 引擎只會替「工作流」入帳；這裡是單獨呼叫，自己記到花費帳本；成功或失敗都記
+    const spent: SpentCall[] = []
+    let result: Awaited<ReturnType<typeof generateStructured<typeof AnchorSchema>>>
+    try {
+      result = await generateStructured(
+        meteredStudio(
+          createStudioServices({ queue, handle, tools: tool, models: deps.models }),
+          spent,
+        ),
+        {
+          modelId: model,
+          // 語言只看使用者寫的長相與服裝（名字不算，也不看 App 加的中文標籤）
+          system: anchorSystemPrompt([character.appearance, outfit].join('\n')),
+          messages: [{ role: 'user', content: lines.join('\n') }],
+        },
+        AnchorSchema,
+        { signal: new AbortController().signal },
+      )
+    } finally {
+      bookSpent(handle, deps.appLedger, spent, 'anchor.suggest')
     }
     return result.data.anchor.trim()
   }

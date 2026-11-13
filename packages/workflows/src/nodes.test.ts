@@ -88,9 +88,11 @@ async function runNode(
     inputs?: Record<string, unknown>
     modelId?: string
     studio?: StudioServices
+    /** 節點失敗時 runNode 會丟錯、拿不到回傳值：要看失敗前回報的花費，就自己給一個陣列。 */
+    costs?: ReportedCost[]
   },
 ): Promise<{ out: Record<string, unknown>; costs: ReportedCost[] }> {
-  const costs: ReportedCost[] = []
+  const costs: ReportedCost[] = args.costs ?? []
   const ctx: RunContext = {
     params: def.params.parse(args.params ?? {}),
     inputs: args.inputs ?? {},
@@ -195,6 +197,16 @@ describe('節點：拆鏡', () => {
       capability: 'llm',
       modelId: 'openrouter/claude-sonnet-5.5',
     })
+  })
+
+  it('模型兩次都回壞格式（錢花了、節點失敗）：兩次的花費都要回報', async () => {
+    const { studio } = fakeStudio([text('不是 JSON', 0.004), text('還是不是', 0.006)])
+    const costs: ReportedCost[] = []
+    await expect(
+      runNode(breakdownNode, { params, modelId: 'openrouter/claude-sonnet-5.5', studio, costs }),
+    ).rejects.toMatchObject({ code: 'invalid_response' })
+    expect(costs.map((c) => c.amountUsd)).toEqual([0.004, 0.006])
+    expect(costs.every((c) => c.modelId === 'openrouter/claude-sonnet-5.5')).toBe(true)
   })
 
   it('勾了旁白：要求每鏡一句短台詞（長度配合秒數），輸出帶 dialogue 並照上限截短；沒勾就說不要寫對白、也不帶台詞', async () => {
