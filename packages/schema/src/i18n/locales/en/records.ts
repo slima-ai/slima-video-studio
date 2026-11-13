@@ -1,4 +1,7 @@
 export const records = {
+  'records.reconciledNotice':
+    'Added US${usd} that was missed earlier (jobs that finished without being booked)',
+  'records.seeDetails': 'See details',
   'records.text': 'Text',
   'records.image': 'Image',
   'records.video': 'Video',

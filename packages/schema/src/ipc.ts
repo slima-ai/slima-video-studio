@@ -678,6 +678,18 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ notices: z.array(z.string()) }),
   },
+  /**
+   * 取走「補記了先前漏記的花費」的提示（開專案時對帳補了錢、或接回的任務這次做完了才補）；取完就清掉，只說一次。
+   * 沒有要說的就是 null。
+   */
+  'costs.reconcileNotice': {
+    request: z.object({}),
+    response: z.object({
+      notice: z
+        .object({ usd: z.number().nonnegative(), count: z.number().int().positive() })
+        .nullable(),
+    }),
+  },
   /** 目前專案最近的生成任務（由舊到新）。沒有開啟專案時是空的。 */
   'queue.list': {
     request: z.object({}),
@@ -1273,6 +1285,8 @@ export const ipcEvents = {
   'menu.action': MenuActionSchema,
   /** 有新的模型通知（例如選的模型下架、自動換掉）：畫面用 `models.notices` 取走。 */
   'models.noticed': z.object({}),
+  /** 對帳補記了先前漏記的花費：畫面用 `costs.reconcileNotice` 取走提示。 */
+  'costs.reconciled': z.object({}),
   /** Claude 對話有新的內容（整則訊息或整個對話的最新樣子）。 */
   'chat.event': ChatEventSchema,
 } as const

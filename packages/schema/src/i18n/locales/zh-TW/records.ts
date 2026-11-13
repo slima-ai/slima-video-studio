@@ -1,4 +1,6 @@
 export const records = {
+  'records.reconciledNotice': '補記了先前漏記的 US${usd}（任務完成時沒有記到帳的）',
+  'records.seeDetails': '看明細',
   'records.text': '文字',
   'records.image': '圖片',
   'records.video': '影片',

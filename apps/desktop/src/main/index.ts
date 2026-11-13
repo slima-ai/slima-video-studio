@@ -328,6 +328,7 @@ void app.whenReady().then(() => {
   })
   const {
     settingsService,
+    costReconciler,
     shots,
     characters,
     concepts,
@@ -441,6 +442,7 @@ void app.whenReady().then(() => {
     }),
     settings,
     settingsService,
+    costReconciler,
     mcp,
     mcpConnector,
     chat,
