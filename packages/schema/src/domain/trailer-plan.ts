@@ -122,3 +122,12 @@ export const TrailerUpdateRequestSchema = z.object({
   refit: z.boolean().optional(),
 })
 export type TrailerUpdateRequest = z.input<typeof TrailerUpdateRequestSchema>
+
+/** 在腳本的某一格後面加一張字卡（停留秒數沒給就用這段字的最短停留）。 */
+export const TrailerAddCardRequestSchema = z.object({
+  afterShotId: z.string().min(1),
+  text: z.string().trim().min(1).max(100),
+  subtext: z.string().trim().max(100).default(''),
+  durationSec: z.number().min(0.25).max(15).optional(),
+})
+export type TrailerAddCardRequest = z.input<typeof TrailerAddCardRequestSchema>

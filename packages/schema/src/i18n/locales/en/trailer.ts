@@ -73,6 +73,8 @@ export const trailer = {
   'trailer.shortenHint': 'The text is long; you can also shorten it and try again.',
   'trailer.sceneTitle': 'Trailer',
   'trailer.noScript': 'There is no trailer script yet. Write the script first.',
+  'trailer.cardNotInScript':
+    'That shot is not part of the trailer script. Use a shot of the trailer.',
   'trailer.refitImpossible':
     'The target is too short: the minimum time for the text cards and the title card already adds up to more than that. Make the target longer, or remove some text cards.',
   'trailer.noTextModel':

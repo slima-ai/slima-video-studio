@@ -366,6 +366,7 @@ describe('工具', () => {
     const client = await connect(env)
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
+      'add_card',
       'add_character_reference',
       'adjust_sound_clip',
       'adopt_sound_clip',
@@ -395,6 +396,7 @@ describe('工具', () => {
       'get_shot',
       'get_shot_references',
       'get_sound',
+      'get_trailer',
       'list_characters',
       'list_models',
       'list_project_images',
@@ -406,6 +408,7 @@ describe('工具', () => {
       'open_project',
       'pick_character_image',
       'plan_sound',
+      'plan_trailer',
       'redo',
       'regenerate_shot',
       'remove_character_reference',
@@ -414,6 +417,7 @@ describe('工具', () => {
       'set_character_anchor',
       'set_models',
       'set_shot_end_frame',
+      'set_shot_motion',
       'set_shot_references',
       'set_sound_settings',
       'split_scene_into_shots',
@@ -423,6 +427,7 @@ describe('工具', () => {
       'undo',
       'update_character',
       'update_shot',
+      'update_trailer',
       'view_character_images',
       'view_first_frames',
       'view_video_stills',
@@ -554,6 +559,7 @@ describe('工具', () => {
       'spending',
       'sound',
       'production',
+      'trailer',
     ])
   })
 

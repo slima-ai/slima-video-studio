@@ -18,6 +18,7 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'trailer.check': [{}],
   'trailer.plan': [{ text: '一個故事' }],
   'trailer.update': [{ patch: {} }],
+  'trailer.addCard': [{ afterShotId: 'x', text: '字卡' }],
   'trailer.status': [{}],
   'app.locale': [{}],
   'app.getInfo': [{}],

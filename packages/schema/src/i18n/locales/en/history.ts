@@ -14,6 +14,7 @@ export const history = {
   'history.writeTrailerScript': 'Write the trailer script',
   'history.editTrailerSettings': 'Edit the trailer settings',
   'history.refitTrailer': 'Re-fit the trailer to the new length',
+  'history.addTrailerCard': 'Add a text card',
   'history.importMusic': 'Import your own music',
   'history.shortenNarration': 'Shorten the narration',
 } as const

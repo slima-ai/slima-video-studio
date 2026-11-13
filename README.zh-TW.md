@@ -129,7 +129,7 @@ claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
 
 **如果 Claude 說連線失敗、工具載不進來：** 先確認 App 有開著，而且「**設定 → AI 工具連線 → 允許 AI 工具連線**」是打開的，再在 Claude Desktop 或 Claude Code 開一個新對話。App 沒開的時候，助理那邊只看得到「連線失敗」；白話的說明要在 App 開著之後才會出現。
 
-**助理能做什麼**（共 52 個工具；它用 `load_guide` 讀指南，也看得到每個工具的說明）：
+**助理能做什麼**（共 66 個工具；它用 `load_guide` 讀指南，也看得到每個工具的說明）：
 
 | 範圍       | 工具                                                                                                                                                                                                                                                            |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -140,6 +140,7 @@ claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
 | 角色       | `list_characters`、`create_character`、`update_character`、`suggest_character_anchor`、`set_character_anchor`、`list_project_images`、`add_character_reference`、`generate_character_images`、`view_character_images`、`pick_character_image`、`lock_character` |
 | 圖片與影片 | `generate_first_frames`、`view_first_frames`、`generate_videos`、`view_video_stills`、`regenerate_shot`、`adopt_version`、`cancel_generation`、`wait_for_generation`、`get_generation_status`                                                                   |
 | 成品       | `trim_shot`（剪每一鏡的頭尾）、`assemble_film`、`export_film`（有 `credits`：片尾字卡，預設開）                                                                                                                                                                 |
+| 預告片     | `plan_trailer`（從一段文字寫書籍預告片的腳本）、`get_trailer`、`update_trailer`、`add_card`（字卡）、`set_shot_motion`（某一格會動或不動）；先讀 `load_guide("trailer")`                                                                                        |
 | 聲音       | `get_sound`、`plan_sound`、`generate_narration`、`generate_music`、`adjust_sound_clip`、`adopt_sound_clip`、`remove_sound_clip`、`set_sound_settings`、`mix_sound`、`analyze_sound`                                                                             |
 
 會看圖的工具回傳真的（縮小過的）圖片，所以助理可以在你花更多錢之前，先檢查第一張畫面與影片截圖有沒有出錯。
@@ -158,7 +159,7 @@ claude mcp add --scope user slima-video-studio -e ELECTRON_RUN_AS_NODE=1 -- \
 
 _App 成品面板真實的聲音區（只有介面）。這裡旁白那一列是空的，因為這些鏡頭還沒有台詞；在鏡頭裡寫一句台詞，它就會被念出來。_
 
-**連上之後**，Claude 會先讀 App 提供的入門指南（把場景拆成鏡頭前讀分鏡準則、花錢之前讀花費說明、配旁白與配樂之前讀聲音說明），也會先看過生成的首幀圖，再生成影片。工具的錯誤訊息是白話寫的，通常會說下一步怎麼做。連線 token 不需要任何人去找或複製。
+**連上之後**，Claude 會先讀 App 提供的入門指南（把場景拆成鏡頭前讀分鏡準則、花錢之前讀花費說明、配旁白與配樂之前讀聲音說明、做書籍預告片之前讀預告片指南），也會先看過生成的首幀圖，再生成影片。工具的錯誤訊息是白話寫的，通常會說下一步怎麼做。連線 token 不需要任何人去找或複製。
 
 ## 模型
 

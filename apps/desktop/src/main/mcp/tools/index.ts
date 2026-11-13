@@ -8,6 +8,7 @@ import { registerProjectTools } from './project'
 import { registerSetupTools } from './setup'
 import { registerShotTools } from './shots'
 import { registerStoryTools } from './story'
+import { registerTrailerTools } from './trailer'
 
 /** 登錄所有工具。之後新增的工具都從這裡加。 */
 export function registerAllTools(ctx: ToolContext): void {
@@ -20,4 +21,5 @@ export function registerAllTools(ctx: ToolContext): void {
   registerGenerationTools(ctx)
   registerFilmTools(ctx)
   registerSoundTools(ctx)
+  registerTrailerTools(ctx)
 }
