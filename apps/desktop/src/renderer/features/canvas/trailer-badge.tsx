@@ -32,11 +32,13 @@ export function trailerBadgeText(status: TrailerStatus): string {
 function TextSetting({
   testId,
   label,
+  placeholder,
   value,
   onSave,
 }: {
   testId: string
   label: string
+  placeholder?: string
   value: string
   onSave: (next: string) => void
 }) {
@@ -52,6 +54,7 @@ function TextSetting({
         className={FIELD}
         value={draft}
         maxLength={200}
+        placeholder={placeholder}
         onChange={(event) => {
           setDraft(event.target.value)
         }}
@@ -298,6 +301,7 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
               <TextSetting
                 testId="trailer-panel-endline"
                 label={t('trailer.panel.endLine')}
+                placeholder={t('trailer.panel.endLinePlaceholder')}
                 value={settings.endLine}
                 onSave={(endLine) => {
                   save({ endLine })

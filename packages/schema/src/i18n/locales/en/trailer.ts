@@ -35,8 +35,7 @@ export const trailer = {
     'The title card in shot {n} is only {sec} seconds long; it needs at least {min} seconds.',
   'trailer.ruleTitleMissingName':
     'The trailer settings have no book title yet, so the title card has nothing to show.',
-  'trailer.ruleTitleNoAction':
-    'The trailer settings have no closing line (release date, where to buy), so the title card will show only the book title.',
+  'trailer.ruleTitleNoAction': 'No release info, so the title card will show only the book title.',
   'trailer.ruleUnverifiedClaim':
     'Shot {n} mentions a bestseller, award or blurb claim that you did not provide. Blurbs, awards and sales figures may only use text you provided; remove it if you have none.',
   'trailer.ruleNoEscalation':
@@ -49,7 +48,7 @@ export const trailer = {
   'trailer.beatKindHint':
     'Moving: an AI-generated video. Still: one picture slowly pushed in or pulled out, made on this computer. Text card: a shot with only words, made on this computer. The last two are free.',
   'trailer.titleCardNote':
-    'This shot is the title card. Its content (book title, cover, closing line) is edited in the trailer settings.',
+    'This shot is the title card. Its content (book title, cover, release info) is edited in the trailer settings.',
   'trailer.cardText': 'Card text',
   'trailer.cardSubtext': 'Small text (optional)',
   'trailer.cardTextPlaceholder': 'For example: Some light, and someone to keep it with you',
@@ -98,7 +97,8 @@ export const trailer = {
   'trailer.panel.titleLabel': 'Book title',
   'trailer.panel.author': 'Author',
   'trailer.panel.tagline': 'Tagline',
-  'trailer.panel.endLine': 'Closing line',
+  'trailer.panel.endLine': 'Release info',
+  'trailer.panel.endLinePlaceholder': 'Out December 1 in bookstores',
   'trailer.panel.narration': 'Narration',
   'trailer.panel.music': 'Music',
   'trailer.panel.rewrite': 'Rewrite the script',

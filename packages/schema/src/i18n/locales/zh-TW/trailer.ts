@@ -25,8 +25,7 @@ export const trailer = {
   'trailer.ruleNoTitle': '沒有片名卡。最後要有一格片名卡。',
   'trailer.ruleTitleTooShort': '第 {n} 格的片名卡只有 {sec} 秒，至少要 {min} 秒。',
   'trailer.ruleTitleMissingName': '預告片設定裡還沒有書名，片名卡不知道要放什麼。',
-  'trailer.ruleTitleNoAction':
-    '預告片設定裡沒有片尾那一行（哪天上市、去哪裡買），片名卡上只會有書名。',
+  'trailer.ruleTitleNoAction': '沒填上市資訊，片名卡只會有書名。',
   'trailer.ruleUnverifiedClaim':
     '第 {n} 格提到了暢銷、獎項、推薦語之類的說法，但這不是你提供的。推薦語、獎項、銷量只能用你自己提供的原文；沒有就拿掉。',
   'trailer.ruleNoEscalation':
@@ -38,7 +37,7 @@ export const trailer = {
   'trailer.beatKindLabel': '這一格是',
   'trailer.beatKindHint':
     '會動：AI 生成的影片。不動：一張圖慢慢推近或拉遠，在這台電腦上做。字卡：只有文字的一格，在這台電腦上做。後兩種不花錢。',
-  'trailer.titleCardNote': '這一格是片名卡。內容（書名、封面、片尾那一行）在預告片設定裡改。',
+  'trailer.titleCardNote': '這一格是片名卡。內容（書名、封面、上市資訊）在預告片設定裡改。',
   'trailer.cardText': '字卡上的字',
   'trailer.cardSubtext': '小字（可以不填）',
   'trailer.cardTextPlaceholder': '例如：有些光，要有人陪你一起守',
@@ -81,7 +80,8 @@ export const trailer = {
   'trailer.panel.titleLabel': '書名',
   'trailer.panel.author': '作者',
   'trailer.panel.tagline': '標語',
-  'trailer.panel.endLine': '片尾那一行',
+  'trailer.panel.endLine': '上市資訊',
+  'trailer.panel.endLinePlaceholder': '12 月 1 日 全台書店上市',
   'trailer.panel.narration': '旁白',
   'trailer.panel.music': '配樂',
   'trailer.panel.rewrite': '重寫腳本',
