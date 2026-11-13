@@ -306,6 +306,8 @@ describe('預告片工具：白名單與指南', () => {
       'get_sound',
       'totalSec',
       'within 0.05 seconds',
+      'generate_music',
+      'bottom of the title card',
       'never invent',
     ]) {
       expect(text.toLowerCase(), needle).toContain(needle.toLowerCase())
