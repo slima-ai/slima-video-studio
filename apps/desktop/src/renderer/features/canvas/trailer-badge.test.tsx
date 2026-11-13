@@ -119,7 +119,7 @@ describe('TrailerBadge：頂列的預告片標籤', () => {
     expect(issues).toContain('還沒有上市日期。')
   })
 
-  it('改短長度後好幾格旁白念不完：面板不列那些錯誤、也沒有第二顆「重寫腳本」；其他錯誤照列（那幾格在畫布上標示）', async () => {
+  it('改短長度後好幾格旁白念不完：面板不列那些錯誤、也沒有第二顆「重寫腳本」；其他錯誤照列（那幾格在畫布上標示）', () => {
     installFakeSvs({ 'trailer.check': () => CHECK })
     const tooDense = [0, 1, 2, 3, 4, 5].map((index) => ({
       code: 'narration_too_dense',

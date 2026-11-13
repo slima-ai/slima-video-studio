@@ -203,10 +203,10 @@ test.describe('畫布首頁（示範模式）', () => {
   })
 
   test('Tab 開新增選單：打字搜尋、Enter 新增；Esc 關掉', async ({ page }) => {
-    // 點在空畫布中央最右邊那張「一句話」卡片的右邊（空白處）；點進卡片的話焦點會落在故事輸入框，Tab 就是輸入框自己的
-    const form = await page.getByTestId('canvas-empty').locator('form').boundingBox()
-    if (!form) throw new Error('沒有空畫布的起點卡片')
-    await page.mouse.click(form.x + form.width + 120, form.y + form.height / 2)
+    // 點在起點卡片上方的空白處（跟下面雙擊那條同一個位置，不靠卡片的大小）；點進卡片的話焦點會落在卡片裡的輸入框，Tab 就是輸入框自己的
+    const root = await page.getByTestId('canvas-root').boundingBox()
+    if (!root) throw new Error('沒有畫布')
+    await page.mouse.click(root.x + root.width - 300, root.y + 130)
     await page.keyboard.press('Tab')
     const menu = page.getByTestId('add-menu')
     await expect(menu).toBeVisible()

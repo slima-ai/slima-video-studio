@@ -104,7 +104,7 @@ test.describe('寫預告片腳本失敗也要記帳（假的 OpenRouter，每次
     }
     expect(moved.entries).toHaveLength(2)
     expect(moved.entries.every((e) => typeof e.movedToProjectId === 'string')).toBe(true)
-    await expect(spent).toHaveAttribute('title', /含之前沒寫成的腳本 US\$0\.74/)
+    await expect(spent).toHaveAttribute('title', /含沒寫成的腳本 US\$0\.74/)
     const reply = await statusReply(page)
     const replyFile = testInfo.outputPath('project-status-reply.json')
     writeFileSync(replyFile, JSON.stringify(reply, null, 2))

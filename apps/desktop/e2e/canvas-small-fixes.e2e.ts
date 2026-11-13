@@ -2,18 +2,14 @@ import { canvasNodes, generateAndOpenCanvas } from './canvas-helpers'
 import { expect, test } from './fixtures'
 
 test.describe('畫布：走查二的小修', () => {
-  test('滑過說明：鏡頭標題說鏡頭號是自動編的、「整理」說它做什麼；一句話的說明寫了會花錢', async ({
+  test('滑過說明：鏡頭標題說鏡頭號是自動編的；側欄一句話只剩名稱（不再寫說明）', async ({
     page,
   }) => {
     await generateAndOpenCanvas(page)
     const shot = (await canvasNodes(page)).find((n) => n.data.kind === 'shot')
     if (!shot) throw new Error('沒有鏡頭')
-    // 側欄的一句話：先說會花錢
-    await expect(page.getByTestId('palette-oneliner')).toContainText('會花錢，按之前先給預估')
-
-    // 上方列的「整理」
-    await page.getByTestId('tidy').hover()
-    await expect(page.getByTestId('hover-tip')).toContainText('排回自動排好的位置')
+    // 側欄的一句話：只剩名稱（說明和「會花錢」一行已刪；花錢前的預估照舊在按下去之前出現）
+    await expect(page.getByTestId('palette-oneliner')).toHaveText('一句話')
 
     // 鏡頭標題
     const title = page.locator(`.react-flow__node[data-id="${shot.id}"] b`).first()
