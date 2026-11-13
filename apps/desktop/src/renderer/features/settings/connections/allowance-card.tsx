@@ -7,7 +7,7 @@ import { allowanceLight } from './connection-state'
 import type { McpConnection } from './use-mcp'
 import { t } from '@svs/schema'
 
-import { AreaPointer, areaPath } from '../area-pointer'
+import { AreaPointer } from '../area-pointer'
 
 const usd = (value: number): string => `US$${value.toFixed(2)}`
 
@@ -118,10 +118,7 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
           <AreaPointer
             testId="allowance-pointer"
             targetId="general"
-            text={t('settings.allowancePointer', {
-              where: areaPath('general'),
-              card: t('settings.perRunSpendingLimit'),
-            })}
+            text={t('settings.allowancePointer')}
           />
         </form>
       }

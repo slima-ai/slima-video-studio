@@ -74,14 +74,12 @@ describe('GeneralSection', () => {
     ])
   })
 
-  it('單次花費上限那張卡：一句講「預估超過就不開始」，並指到另一張卡（頁籤＋卡名），旁邊有「前往」', () => {
+  it('單次花費上限那張卡：一句講「預估超過就不開始」，並說另一個額度（AI 工具的總額度）也存在，旁邊有「前往」', () => {
     installFakeSvs()
     render(<GeneralSection settings={SETTINGS} onChanged={vi.fn()} />)
     const card = screen.getByTestId('per-run-limit').closest('[data-testid]')
     expect(document.body.textContent).toContain('預估超過這個金額，那一次就不會開始')
-    expect(screen.getByTestId('per-run-pointer').textContent).toBe(
-      'AI 工具的總額度在設定 → AI 工具連線的「AI 工具的總額度」。 前往',
-    )
+    expect(screen.getByTestId('per-run-pointer').textContent).toBe('AI 工具另有總額度。 前往')
     expect(card).toBeTruthy()
     // 「前往」捲到 AI 工具那一區
     const target = document.createElement('div')
@@ -94,7 +92,7 @@ describe('GeneralSection', () => {
     target.remove()
   })
 
-  it('英文介面：存好的提示與指到另一張卡的那行都是英文，寫明頁籤與卡名', async () => {
+  it('英文介面：存好的提示與指到另一張卡的那行都是英文', async () => {
     setLocale('en')
     try {
       installFakeSvs()
@@ -105,7 +103,7 @@ describe('GeneralSection', () => {
         expect(screen.getByRole('status').textContent).toBe('Per-run spending limit saved as US$30')
       })
       expect(screen.getByTestId('per-run-pointer').textContent).toBe(
-        'The total allowance for AI tools is in “Total allowance for AI tools” in Settings → AI tools. Go there',
+        'AI tools also have a total allowance. Go there',
       )
       expect(document.body.textContent).toContain('won’t start')
     } finally {

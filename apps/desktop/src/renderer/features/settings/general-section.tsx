@@ -13,7 +13,7 @@ import { Button } from '../../components/button'
 import { SettingCard } from '../../components/setting-card'
 import { Switch } from '../../components/switch'
 import { call, errorText } from '../../lib/svs'
-import { AreaPointer, areaPath } from './area-pointer'
+import { AreaPointer } from './area-pointer'
 import { LanguageCard } from './language-card'
 
 export interface GeneralSectionProps {
@@ -177,10 +177,7 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
             <AreaPointer
               testId="per-run-pointer"
               targetId="connections"
-              text={t('settings.perRunPointer', {
-                where: areaPath('aiTools'),
-                card: t('mcp.allowanceCard'),
-              })}
+              text={t('settings.perRunPointer')}
             />
           </form>
         }

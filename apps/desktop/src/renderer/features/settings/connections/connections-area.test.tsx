@@ -463,16 +463,14 @@ describe('AI 工具的總額度', () => {
     expect(screen.queryByTestId('mcp-allowance-saved')).toBeNull()
   })
 
-  it('一句講「預設 US$0，用完就不能再生成」，並指到另一張卡（頁籤＋卡名），旁邊有「前往」；英文介面也是', async () => {
+  it('一句講「預設 US$0，用完就不能再生成」，並說每次另有單次上限，旁邊有「前往」；英文介面也是', async () => {
     installFakeSvs({ 'mcp.status': () => ON })
     area()
     await waitFor(() => {
       expect(screen.getByTestId('mcp-committed')).toBeTruthy()
     })
     expect(document.body.textContent).toContain('預設 US$0，用完就不能再生成')
-    expect(screen.getByTestId('allowance-pointer').textContent).toBe(
-      '單次上限在設定 → 一般的「單次花費上限」。 前往',
-    )
+    expect(screen.getByTestId('allowance-pointer').textContent).toBe('每次另有單次上限。 前往')
     cleanup()
     setLocale('en')
     try {
@@ -481,22 +479,23 @@ describe('AI 工具的總額度', () => {
       await waitFor(() => {
         expect(screen.getByTestId('mcp-committed')).toBeTruthy()
       })
-      expect(document.body.textContent).toContain('Default US$0; once it’s used up')
+      expect(document.body.textContent).toContain(
+        'Default US$0. When it runs out, AI tools can’t generate more.',
+      )
       expect(screen.getByTestId('allowance-pointer').textContent).toBe(
-        'The per-run limit is in “Per-run spending limit” in Settings → General. Go there',
+        'Each run also has a per-run limit. Go there',
       )
     } finally {
       setLocale(DEFAULT_LOCALE)
     }
   })
 
-  it('用字：預設 US$0、用完就不能再生成；也指到單次花費上限那張卡', async () => {
+  it('用字：預設 US$0、用完就不能再生成；也說另有單次上限', async () => {
     installFakeSvs({ 'mcp.status': () => OFF })
     area()
     const card = await screen.findByTestId('mcp-allowance-card')
     expect(card.textContent).toContain('預設 US$0')
-    openMore('mcp-allowance-card')
-    expect(card.textContent).toContain('單次花費上限')
+    expect(card.textContent).toContain('每次另有單次上限')
   })
 })
 
@@ -511,6 +510,27 @@ describe('Slima 卡', () => {
     expect(screen.getByTestId('slima-connect').hasAttribute('disabled')).toBe(true)
     openMore('slima-section')
     expect(screen.queryByTestId('slima-disconnect')).toBeNull()
+  })
+
+  it('輸入框的提示字很短（不會被截斷）：中文「Slima API Token」，英文 “Slima API token”', async () => {
+    installFakeSvs()
+    area()
+    await waitFor(() => {
+      expect(screen.getByTestId('slima-status').textContent).toBe('尚未連線')
+    })
+    expect(screen.getByTestId('slima-token').getAttribute('placeholder')).toBe('Slima API Token')
+    cleanup()
+    setLocale('en')
+    try {
+      installFakeSvs()
+      area()
+      await waitFor(() => {
+        expect(screen.getByTestId('slima-status')).toBeTruthy()
+      })
+      expect(screen.getByTestId('slima-token').getAttribute('placeholder')).toBe('Slima API token')
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
   })
 
   it('貼上 Token 連線：送到主行程、清空輸入框；連上後列出書名與類型', async () => {
