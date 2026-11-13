@@ -112,10 +112,9 @@ describe('連線示意圖', () => {
     expect(within(diagram).getByTestId('diagram-code-status').textContent).toBe('還沒連接')
     expect(within(diagram).getByTestId('diagram-slima-status').textContent).toBe('尚未連線')
     expect(diagram.querySelectorAll('[data-active="true"]')).toHaveLength(0)
-    // 提示要講清楚：按「連接」會一併打開，也可以自己打開（不能只叫人「要先打開」）
-    expect(diagram.textContent).toContain('按下面的「連接」（會一併打開）')
-    expect(diagram.textContent).toContain('自己打開「允許 AI 工具連線」')
-    expect(diagram.textContent).not.toContain('要先打開')
+    // 「這個 App」那格沒打開時只留狀態「已關閉」，不再寫「還沒打開：按下面的連接…」（開關就在正下方）
+    expect(diagram.textContent).not.toContain('還沒打開')
+    expect(diagram.textContent).not.toContain('按下面的「連接」')
     // 兩張「連接」卡只有標題、狀態與按鈕，沒有副標
     expect(
       within(await screen.findByTestId('connect-desktop')).queryByTestId('setting-card-summary'),

@@ -21,6 +21,46 @@ describe('ModelsSection', () => {
     expect(legend).not.toContain('高品質＝')
   })
 
+  it('清單裡沒有「估算」的價格：不顯示那句價格說明', () => {
+    installFakeSvs()
+    const verified = MODELS.map((m) => ({ ...m, priceVerified: true }))
+    render(
+      <ModelsSection models={verified} selected={{}} onChanged={vi.fn()} onGoToKeys={vi.fn()} />,
+    )
+    expect(screen.queryByTestId('tier-legend')).toBeNull()
+  })
+
+  it('示範模型：選單底下不寫「透過示範」與「示範用，不連網、不花錢」；真金鑰的模型照舊寫走哪一家', () => {
+    installFakeSvs()
+    const demo = {
+      ...MODELS[0],
+      id: 'mock/image',
+      displayName: '示範圖片',
+      providerName: '示範',
+      userNote: '示範用，不連網、不花錢',
+    }
+    const { unmount } = render(
+      <ModelsSection
+        models={[demo] as typeof MODELS}
+        selected={{ t2i: 'mock/image' }}
+        onChanged={vi.fn()}
+        onGoToKeys={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('model-t2i-channel')).toBeNull()
+    expect(screen.queryByTestId('model-t2i-detail')).toBeNull()
+    unmount()
+    render(
+      <ModelsSection
+        models={MODELS}
+        selected={{ t2i: 'fal/nano-banana-2' }}
+        onChanged={vi.fn()}
+        onGoToKeys={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('model-t2i-channel').textContent).toContain('透過')
+  })
+
   it('沒有任何模型 → 「去填金鑰」會通知上層', () => {
     installFakeSvs()
     const onGoToKeys = vi.fn()

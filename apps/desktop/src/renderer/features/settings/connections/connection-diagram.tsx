@@ -26,7 +26,7 @@ function Node({
   icon: LucideIcon
   name: string
   light: Light
-  hint?: string
+  hint?: string | undefined
   testId: string
   strong?: boolean
 }) {
@@ -108,8 +108,9 @@ export function ConnectionDiagram({ status, info, slima }: ConnectionDiagramProp
   const desktopOn = toolLinkActive(app, desktop)
   const codeOn = toolLinkActive(app, code)
   const lastSeen = status?.lastSeen
+  // 沒打開時只留狀態「已關閉」（開關就在正下方）；打開之後才說最近有沒有 AI 工具連進來
   const appHint = !status?.enabled
-    ? t('settings.notOnYetClickConnect')
+    ? undefined
     : lastSeen
       ? t('settings.anAiToolConnectedRecently', { value: timeAgo(lastSeen.at) })
       : t('settings.noAiToolHasConnected')

@@ -97,6 +97,9 @@ function OptionContent({ model, recommended }: { model: ModelOption; recommended
   )
 }
 
+/** 示範模型（不連網、不花錢）：頂列與選單上的「免費（示範）」已經說了，下面不再寫「透過示範」與說明。 */
+const isDemoModel = (model: ModelOption): boolean => model.id.startsWith('mock/')
+
 /** 走哪一家：同一個模型好幾家都有時，會自動選便宜的那家。 */
 export function channelText(model: ModelOption): string {
   // 英文名字（OpenRouter、fal.ai）跟中文之間留一個空格；中文名字（示範）直接接，不然「透過 示範」中間多一格
@@ -194,9 +197,12 @@ export function ModelsSection({
 
   return (
     <div className="contents" data-testid="models-section">
-      <p data-testid="tier-legend" className="text-xs leading-snug text-fg-muted md:col-span-2">
-        {t('settings.tiersHighQualityBestPicture')}
-      </p>
+      {/* 只有清單裡真的有「估算」的價格才說明它是什麼意思 */}
+      {[...models, ...locked].some((m) => !m.priceVerified) ? (
+        <p data-testid="tier-legend" className="text-xs leading-snug text-fg-muted md:col-span-2">
+          {t('settings.tiersHighQualityBestPicture')}
+        </p>
+      ) : null}
       {models.length === 0 ? (
         <div className="md:col-span-2">
           <EmptyState
@@ -252,7 +258,7 @@ export function ModelsSection({
                         choose(capability, id)
                       }}
                     />
-                    {detail ? (
+                    {detail && !isDemoModel(detail) ? (
                       <p
                         className="mt-1 text-xs text-fg-muted"
                         data-testid={`model-${capability}-channel`}
@@ -282,7 +288,7 @@ export function ModelsSection({
                         </div>
                       </div>
                     ) : null}
-                    {detail?.userNote ? (
+                    {detail?.userNote && !isDemoModel(detail) ? (
                       <p
                         className="mt-1 text-xs text-fg-muted"
                         data-testid={`model-${capability}-detail`}

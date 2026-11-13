@@ -1,5 +1,4 @@
 import {
-  DEFAULT_PER_RUN_LIMIT_USD,
   THEME_PREFERENCES,
   type AppSettings,
   type ThemePreference,
@@ -164,9 +163,6 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
                 {t('settings.save')}
               </Button>
             </div>
-            <p className="mt-1 text-xs text-fg-muted">
-              {t('settings.ifItSOverYou', { value: String(DEFAULT_PER_RUN_LIMIT_USD) })}
-            </p>
             {valid ? null : (
               <p className="mt-1 text-sm text-danger">{t('settings.enterANumberGreaterThan')}</p>
             )}

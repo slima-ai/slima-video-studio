@@ -76,8 +76,6 @@ export const settings = {
   'settings.copied': 'Copied.',
   'settings.theTokenOnlyWorksOn':
     'After you make a new one, the old command stops working right away.',
-  'settings.notOnYetClickConnect':
-    'Not on yet: click “Connect” below (it turns it on too), or turn on “Allow AI tools to connect” yourself',
   'settings.anAiToolConnectedRecently': 'An AI tool connected recently: {value}',
   'settings.noAiToolHasConnected': 'No AI tool has connected since the app opened',
   'settings.connectionDiagram': 'Connection diagram',
@@ -139,7 +137,6 @@ export const settings = {
   'settings.perRunSpendingLimit': 'Per-run spending limit',
   'settings.eachTimeYouGenerateOr': 'A run whose estimated cost goes over this amount won’t start.',
   'settings.perRunSpendingLimitUs': 'Per-run spending limit (US$)',
-  'settings.ifItSOverYou': 'Default US${value}.',
   'settings.enterANumberGreaterThan': 'Enter a number greater than 0.',
   'settings.saved2': 'Saved.',
   'settings.edited': 'Edited',
@@ -237,8 +234,6 @@ export const settings = {
   'settings.theInputAndOutputToken': 'the input and output token counts',
   'settings.language': 'Language',
   'settings.followSystemShort': 'System',
-  'settings.languageSummary':
-    'The prompts sent to AI models aren’t translated, so you may still see some Chinese in the generation queue and records.',
   'settings.listSeparator': ', ',
   'settings.listSeparator2': '; ',
   'settings.optionRecommended': ' (Recommended)',

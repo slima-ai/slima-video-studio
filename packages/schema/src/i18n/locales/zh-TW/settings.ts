@@ -68,8 +68,6 @@ export const settings = {
   'settings.makeANewToken': '換一組新的 token',
   'settings.copied': '已複製。',
   'settings.theTokenOnlyWorksOn': '換一組後，舊的指令立刻失效。',
-  'settings.notOnYetClickConnect':
-    '還沒打開：按下面的「連接」（會一併打開），或自己打開「允許 AI 工具連線」',
   'settings.anAiToolConnectedRecently': '最近有 AI 工具連進來：{value}',
   'settings.noAiToolHasConnected': '這次開著 App，還沒有 AI 工具連進來',
   'settings.connectionDiagram': '連線示意圖',
@@ -129,7 +127,6 @@ export const settings = {
   'settings.perRunSpendingLimit': '單次花費上限',
   'settings.eachTimeYouGenerateOr': '預估超過這個金額，那一次就不會開始。',
   'settings.perRunSpendingLimitUs': '單次花費上限（美金）',
-  'settings.ifItSOverYou': '預設 US${value}。',
   'settings.enterANumberGreaterThan': '請輸入大於 0 的數字。',
   'settings.saved2': '已儲存。',
   'settings.edited': '已改過',
@@ -221,8 +218,6 @@ export const settings = {
   'settings.theInputAndOutputToken': '輸入與輸出 token 數',
   'settings.language': '語言',
   'settings.followSystemShort': '跟隨系統',
-  'settings.languageSummary':
-    '送給 AI 模型的提示詞不會翻譯，所以生成佇列與紀錄裡偶爾還是會看到中文。',
   'settings.listSeparator': '、',
   'settings.listSeparator2': '；',
   'settings.optionRecommended': '（推薦）',
