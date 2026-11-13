@@ -327,4 +327,60 @@ test.describe('成品的聲音（示範模式）', () => {
     await page.getByTestId('toast-action').click()
     await expect(page.getByTestId('shot-sound-narration')).toBeVisible({ timeout: 30_000 })
   })
+
+  test('「N 個鏡頭還沒念」旁邊一顆「只念旁白」：先給預估、確認才念；配樂不動、不會再加一首', async ({
+    page,
+  }) => {
+    await generateAndOpenCanvas(page)
+    const shots = await page.evaluate(() => window.svs.invoke('shots.list', {}))
+    if (!shots.ok) throw new Error(shots.error.userMessage)
+    const first = shots.data.shots[0]
+    if (!first) throw new Error('沒有鏡頭')
+    const written = await page.evaluate(
+      (shotId) =>
+        window.svs.invoke('shots.update', { shotId, patch: { dialogue: '黑藤爬滿了斷橋。' } }),
+      first.id,
+    )
+    if (!written.ok) throw new Error(written.error.userMessage)
+
+    await page.getByTestId('palette-close').click()
+    await centerOn(page, 'cut')
+    await page.getByTestId('open-cut').click()
+    await expect(page.getByTestId('final-cut-panel')).toBeVisible()
+    await page.getByTestId('sound-panel').scrollIntoViewIfNeeded()
+    await page.getByTestId('sound-add').click()
+    await page.getByTestId('sound-add-go').click()
+    await expect(page.getByTestId('sound-mixer')).toBeVisible({ timeout: 60_000 })
+
+    const soundOf = async () => {
+      const result = await page.evaluate(() => window.svs.invoke('sound.get', {}))
+      if (!result.ok) throw new Error(result.error.userMessage)
+      return result.data
+    }
+    const narrated = async (): Promise<number> =>
+      (await soundOf()).shots.filter((s) => s.narration !== undefined).length
+    const musicVersion = async (): Promise<number | undefined> => (await soundOf()).music?.version
+    expect(await narrated()).toBe(1)
+    const music = await musicVersion()
+    expect(music).toBeDefined()
+
+    // 刪旁白：台詞還在，旁邊出現「只念旁白」
+    await page.getByTestId('sound-narration-delete').click()
+    await expect.poll(narrated).toBe(0)
+    await expect(page.getByTestId('sound-narration-missing')).toContainText('1 個鏡頭還沒念')
+    await expect
+      .poll(async () => (await soundOf()).final?.soundStale, { timeout: 60_000 })
+      .toBe(false)
+
+    // 按「只念旁白」：先給預估（不含配樂），按「開始」才念
+    await page.getByTestId('sound-narrate-only').click()
+    await expect(page.getByTestId('sound-add-confirm')).toContainText('約 US$')
+    expect(await narrated()).toBe(0)
+    await page.getByTestId('sound-add-go').click()
+    await expect.poll(narrated, { timeout: 60_000 }).toBe(1)
+    await expect(page.getByTestId('sound-narration-delete')).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByTestId('sound-narration-missing')).toHaveCount(0)
+    // 配樂沒有重做：還是原本那一版
+    expect(await musicVersion()).toBe(music)
+  })
 })

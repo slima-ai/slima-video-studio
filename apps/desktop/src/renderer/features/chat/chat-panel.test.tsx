@@ -8,6 +8,7 @@ import {
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { AppNavigationProvider } from '../../lib/app-navigation'
 import { installFakeSvs } from '../../test/fake-svs'
 import { ChatProvider } from './chat-context'
 import { ChatDrawer } from './chat-drawer'
@@ -49,6 +50,7 @@ function setup(
     claudeChat?: boolean
     conversations?: ChatConversation[]
     messages?: Record<string, ChatPanelMessage[]>
+    openSettings?: () => void
   } = {},
 ) {
   let created = 0
@@ -92,10 +94,12 @@ function setup(
     'settings.update': () => ({}),
   })
   render(
-    <ChatProvider>
-      <ChatLauncher />
-      <ChatDrawer />
-    </ChatProvider>,
+    <AppNavigationProvider value={{ openSettings: options.openSettings ?? (() => undefined) }}>
+      <ChatProvider>
+        <ChatLauncher />
+        <ChatDrawer />
+      </ChatProvider>
+    </AppNavigationProvider>,
   )
   return fake
 }
@@ -191,12 +195,14 @@ describe('Claude 對話面板：還不能開始時的說明卡', () => {
     expect(text).not.toContain('可以花多少')
   })
 
-  it('disabled 的說明講「打開」開關，不講「勾選」', async () => {
-    setup({ prereq: { state: 'disabled' } })
+  it('disabled：一句「Claude 對話現在是關著的」加一顆「到設定」，按了帶去設定頁', async () => {
+    const openSettings = vi.fn()
+    setup({ prereq: { state: 'disabled' }, openSettings })
     await openPanel()
-    const text = (await screen.findByTestId('chat-prereq')).textContent
-    expect(text).toContain('「設定」→「實驗功能」，打開「畫布右下角的 Claude 對話」')
-    expect(text).not.toContain('勾選')
+    const card = await screen.findByTestId('chat-prereq')
+    expect(card.textContent).toBe('Claude 對話現在是關著的到設定')
+    fireEvent.click(screen.getByTestId('chat-go-settings'))
+    expect(openSettings).toHaveBeenCalledOnce()
   })
 
   it('沒登入：「我登入好了」重新檢查；這一次通過就出現輸入框', async () => {

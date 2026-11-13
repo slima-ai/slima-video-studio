@@ -19,6 +19,7 @@ import { QueuePanel } from './features/queue/queue-panel'
 import { SetupWizard } from './features/onboarding/setup-wizard'
 import { CostReconcileNotice } from './features/records/cost-reconcile-notice'
 import { ModelNotices } from './features/settings/model-notices'
+import { AppNavigationProvider } from './lib/app-navigation'
 import { SettingsPage } from './features/settings/settings-page'
 import { useAppData } from './features/settings/use-app-data'
 import { SlimaImportPage } from './features/slima/import-page'
@@ -79,61 +80,65 @@ export function App() {
 
   return (
     <ToastProvider>
-      <ModelNotices onOpenSettings={openSettings} />
-      <CostReconcileNotice
-        onOpenRecords={() => {
-          setView('records')
-        }}
-      />
-      <ChatProvider>
-        <HistoryProvider enabled={view === 'canvas' || view === 'outline' || view === 'storyboard'}>
-          <AppLayout
-            drawer={view === 'canvas' ? <ChatDrawer /> : undefined}
-            view={view}
-            onNavigate={setView}
-            queue={<QueuePanel />}
-            showSlima={slima !== undefined && slima.state !== 'no_token'}
-            header={
-              <ProjectBar
-                onNavigate={setView}
-                demoMode={state.status === 'ready' ? state.data.settings.demoMode : undefined}
-                hasKey={
-                  state.status === 'ready' ? state.data.keys.some((k) => k.configured) : undefined
-                }
-              />
-            }
+      <AppNavigationProvider value={{ openSettings }}>
+        <ModelNotices onOpenSettings={openSettings} />
+        <CostReconcileNotice
+          onOpenRecords={() => {
+            setView('records')
+          }}
+        />
+        <ChatProvider>
+          <HistoryProvider
+            enabled={view === 'canvas' || view === 'outline' || view === 'storyboard'}
           >
-            {view === 'home' ? (
-              <HomePage onNavigate={setView} />
-            ) : view === 'settings' ? (
-              <SettingsPage state={state} reload={reload} />
-            ) : view === 'characters' ? (
-              <CharactersPage />
-            ) : view === 'locations' ? (
-              <LocationsPage />
-            ) : view === 'slima' ? (
-              <SlimaImportPage
-                onOpenSettings={() => {
-                  setView('settings')
-                }}
-                onNavigate={setView}
-              />
-            ) : view === 'records' ? (
-              <RecordsPage onNavigate={setView} />
-            ) : view === 'files' ? (
-              <FilesPage />
-            ) : view === 'projects' ? (
-              <ProjectsPage onNavigate={setView} />
-            ) : view === 'outline' ? (
-              <OutlinePage />
-            ) : view === 'storyboard' ? (
-              <StoryboardPage />
-            ) : (
-              <CanvasPage />
-            )}
-          </AppLayout>
-        </HistoryProvider>
-      </ChatProvider>
+            <AppLayout
+              drawer={view === 'canvas' ? <ChatDrawer /> : undefined}
+              view={view}
+              onNavigate={setView}
+              queue={<QueuePanel />}
+              showSlima={slima !== undefined && slima.state !== 'no_token'}
+              header={
+                <ProjectBar
+                  onNavigate={setView}
+                  demoMode={state.status === 'ready' ? state.data.settings.demoMode : undefined}
+                  hasKey={
+                    state.status === 'ready' ? state.data.keys.some((k) => k.configured) : undefined
+                  }
+                />
+              }
+            >
+              {view === 'home' ? (
+                <HomePage onNavigate={setView} />
+              ) : view === 'settings' ? (
+                <SettingsPage state={state} reload={reload} />
+              ) : view === 'characters' ? (
+                <CharactersPage />
+              ) : view === 'locations' ? (
+                <LocationsPage />
+              ) : view === 'slima' ? (
+                <SlimaImportPage
+                  onOpenSettings={() => {
+                    setView('settings')
+                  }}
+                  onNavigate={setView}
+                />
+              ) : view === 'records' ? (
+                <RecordsPage onNavigate={setView} />
+              ) : view === 'files' ? (
+                <FilesPage />
+              ) : view === 'projects' ? (
+                <ProjectsPage onNavigate={setView} />
+              ) : view === 'outline' ? (
+                <OutlinePage />
+              ) : view === 'storyboard' ? (
+                <StoryboardPage />
+              ) : (
+                <CanvasPage />
+              )}
+            </AppLayout>
+          </HistoryProvider>
+        </ChatProvider>
+      </AppNavigationProvider>
     </ToastProvider>
   )
 }

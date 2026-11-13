@@ -2,6 +2,7 @@ import type { ChatPrereq } from '@svs/schema'
 import { useState } from 'react'
 
 import { Button } from '../../components/button'
+import { useAppNavigation } from '../../lib/app-navigation'
 import { call, errorText } from '../../lib/svs'
 import { t } from '@svs/schema'
 
@@ -34,6 +35,7 @@ export function PrereqCard({
 }) {
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
+  const { openSettings } = useAppNavigation()
   const enableMcp = (): void => {
     setBusy(true)
     setError(undefined)
@@ -53,7 +55,9 @@ export function PrereqCard({
       {prereq.state === 'disabled' ? (
         <>
           <h3 className="font-semibold">{t('chat.claudeChatIsOff')}</h3>
-          <p className="text-fg-muted">{t('chat.thisIsAnExperimentalFeature')}</p>
+          <Button variant="primary" size="sm" data-testid="chat-go-settings" onClick={openSettings}>
+            {t('settings.goToSettings')}
+          </Button>
         </>
       ) : prereq.state === 'mcp_off' ? (
         <>

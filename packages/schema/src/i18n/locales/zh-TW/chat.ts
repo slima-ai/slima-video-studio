@@ -1,6 +1,4 @@
 export const chat = {
-  'chat.thisIsAnExperimentalFeature':
-    '這是實驗功能。到「設定」→「實驗功能」，打開「畫布右下角的 Claude 對話」就能用。',
   'chat.noProjectIsOpenAdd': '還沒有開啟專案，請先新增一個角色或開始生成。',
   'chat.couldnTFindThisCharacter': '找不到這個角色（{id}）。',
   'chat.myShortFilm': '我的短片',

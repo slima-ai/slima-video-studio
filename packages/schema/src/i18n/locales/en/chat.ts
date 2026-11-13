@@ -1,6 +1,4 @@
 export const chat = {
-  'chat.thisIsAnExperimentalFeature':
-    'This is an experimental feature. Go to “Settings” → “Experiments” and turn on “Claude chat on the canvas” to use it.',
   'chat.noProjectIsOpenAdd': 'No project is open. Add a character or start a generation first.',
   'chat.couldnTFindThisCharacter': 'Couldn’t find this character ({id}).',
   'chat.myShortFilm': 'My short film',

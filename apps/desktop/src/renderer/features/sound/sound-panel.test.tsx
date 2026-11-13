@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ToastProvider } from '../../components/toast'
+import { AppNavigationProvider } from '../../lib/app-navigation'
 import { HistoryProvider } from '../../lib/history'
 import { appError, installFakeSvs } from '../../test/fake-svs'
 import { SoundPanel } from './sound-panel'
@@ -70,6 +71,19 @@ describe('SoundPanel：加聲音', () => {
     installFakeSvs({ 'sound.get': () => state({ models: {} }) })
     render(<SoundPanel />)
     expect(await screen.findByText('還沒設定旁白與配樂模型')).toBeTruthy()
+  })
+
+  it('沒有可用的旁白與配樂模型：一句話加一顆「到設定」，按了帶去設定頁', async () => {
+    installFakeSvs({ 'sound.get': () => state({ models: {} }) })
+    const openSettings = vi.fn()
+    render(
+      <AppNavigationProvider value={{ openSettings }}>
+        <SoundPanel />
+      </AppNavigationProvider>,
+    )
+    await screen.findByText('還沒設定旁白與配樂模型')
+    fireEvent.click(screen.getByRole('button', { name: '到設定' }))
+    expect(openSettings).toHaveBeenCalledOnce()
   })
 
   it('兩下就有聲音：按「加上旁白與配樂」看到預估花費，按「開始」依序生成旁白、配樂、混音', async () => {
@@ -298,6 +312,45 @@ describe('SoundPanel：調音量', () => {
     expect(screen.queryByTestId('sound-no-narration')).toBeNull()
     expect(screen.queryByText(/鏡頭沒有台詞/)).toBeNull()
     expect(screen.queryByTestId('sound-narration-mid')).toBeNull()
+  })
+
+  it('N 個鏡頭還沒念：旁邊一顆「只念旁白」——先給預估（只算旁白、不含配樂），確認才念，念完重混、不加配樂', async () => {
+    const calls: string[] = []
+    const svs = installFakeSvs({
+      'sound.get': () =>
+        state({ music: clip('music'), final: { version: 2, hasSound: true, soundStale: false } }),
+      'sound.plan': () => ({
+        ok: true,
+        totalUsd: 0.003,
+        items: [
+          { kind: 'narration', shotId: 's1', modelId: 'mock/tts', estimatedUsd: 0.001 },
+          { kind: 'narration', shotId: 's2', modelId: 'mock/tts', estimatedUsd: 0.002 },
+        ],
+      }),
+      'sound.generateNarration': (p: { shotId: string }) => {
+        calls.push(`narration:${p.shotId}`)
+        return { clip: clip('narration', p.shotId) }
+      },
+      'sound.generateMusic': () => {
+        calls.push('music')
+        return { clip: clip('music') }
+      },
+      'sound.mix': () => {
+        calls.push('mix')
+        return { videoHash: 'h', version: 3 }
+      },
+    })
+    render(<SoundPanel />)
+    fireEvent.click(await screen.findByTestId('sound-narrate-only'))
+    const confirm = await screen.findByTestId('sound-add-confirm')
+    expect(confirm.textContent).toContain('約 US$0.003')
+    // 只問旁白：計畫請求沒帶配樂；確認前什麼都還沒花
+    expect(svs.payloadsOf('sound.plan')).toEqual([{ narration: {} }])
+    expect(calls).toEqual([])
+    fireEvent.click(screen.getByTestId('sound-add-go'))
+    await waitFor(() => {
+      expect(calls).toEqual(['narration:s1', 'narration:s2', 'mix'])
+    })
   })
 
   it('一句台詞都沒有、所以沒有旁白時：不顯示旁白音量那一排，也不另外寫說明', async () => {
