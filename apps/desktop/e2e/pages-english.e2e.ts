@@ -88,6 +88,10 @@ async function badText(page: Page): Promise<string | undefined> {
 const pageTextLength = (page: Page): Promise<number> =>
   page.evaluate(() => document.body.innerText.trim().length)
 
+/** 畫面上有幾個英文單字（3 個字母以上）：頁面真的是英文介面、真的有內容，不只靠字數。 */
+const englishWordCount = (page: Page): Promise<number> =>
+  page.evaluate(() => (document.body.innerText.match(/[A-Za-z]{3,}/g) ?? []).length)
+
 /**
  * 先等「這一頁一定有的標記元素」出現（頁頭的頁名），再掃中文；掃到的字太少就紅：
  * 頁面還沒載好時掃到的是空的，會被當成「沒有中文」而空過。
@@ -98,22 +102,35 @@ async function expectPageClean(
   marker: Locator,
   markerText: string,
   minLength = MIN_PAGE_TEXT,
+  content?: Locator,
 ): Promise<void> {
   await expect(marker, `${label}：頁面沒有載入`).toContainText(markerText, { timeout: 15_000 })
+  // 有些頁的內容是資料載入後才長出來（頁頭先出現）：先等那個內容出現再掃，不然會掃到還沒渲染完的畫面
+  if (content) await expect(content, `${label}：頁面內容沒有出現`).toBeVisible({ timeout: 15_000 })
   const length = await pageTextLength(page)
   expect(length, `${label}：掃到的字只有 ${String(length)} 個，頁面沒載好？`).toBeGreaterThan(
     minLength,
   )
+  const words = await englishWordCount(page)
+  expect(words, `${label}：只掃到 ${String(words)} 個英文單字，這頁是英文介面嗎？`).toBeGreaterThan(
+    MIN_ENGLISH_WORDS,
+  )
   expect(await badText(page), label).toBeUndefined()
 }
 
-/** 一頁（連側邊欄）至少該有的字數：沒有專案時最短的一頁（Locations）也有 380 多個字，空頁（只剩側邊欄）不到 150。 */
-const MIN_PAGE_TEXT = 250
+/**
+ * 一頁（連側邊欄）至少該有的字數與英文單字數。11/13 拿掉各頁的說明句之後，沒有專案時最短的一頁（Locations）
+ * 是 261 個字、31 個單字（拿掉之前 444 個字）；頁面沒載好時（空頁、只剩側邊欄）遠低於這兩個數字。
+ * 所以字數放 200、單字放 20：離「沒載好」還很遠，離現在最短的一頁也留了餘裕。
+ */
+const MIN_PAGE_TEXT = 200
+const MIN_ENGLISH_WORDS = 20
 
-const PAGES: readonly { nav: string; header: string }[] = [
+const PAGES: readonly { nav: string; header: string; content?: string }[] = [
   { nav: 'Outline', header: 'Outline' },
   { nav: 'Storyboard', header: 'Storyboard' },
-  { nav: 'Characters', header: 'Characters' },
+  // 角色頁的空狀態要等角色清單載入後才出現
+  { nav: 'Characters', header: 'Characters', content: 'character-empty' },
   { nav: 'Locations', header: 'Locations' },
   { nav: 'Records', header: 'Generation records' },
   { nav: 'Files', header: 'Files' },
@@ -123,9 +140,16 @@ test.describe('英文介面的各頁', () => {
   test.use({ appEnv: { SVS_LOCALE: 'en' } })
 
   test('沒有專案：每一頁都沒有中文', async ({ page }) => {
-    for (const { nav, header } of [...PAGES, { nav: 'Settings', header: 'Settings' }]) {
+    for (const { nav, header, content } of [...PAGES, { nav: 'Settings', header: 'Settings' }]) {
       await page.getByRole('button', { name: nav, exact: true }).click()
-      await expectPageClean(page, `${nav}（沒有專案）`, page.getByTestId('page-header'), header)
+      await expectPageClean(
+        page,
+        `${nav}（沒有專案）`,
+        page.getByTestId('page-header'),
+        header,
+        MIN_PAGE_TEXT,
+        content === undefined ? undefined : page.getByTestId(content),
+      )
     }
   })
 
