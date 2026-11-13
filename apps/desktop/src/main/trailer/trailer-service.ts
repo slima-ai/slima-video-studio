@@ -7,6 +7,7 @@ import type { MediaTools } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
+  cardMinSec,
   isAppError,
   TrailerSettingsSchema,
   checkTrailerScript,
@@ -16,6 +17,8 @@ import {
   cardNameOf,
   t,
   type Shot,
+  type ShotView,
+  type TrailerAddCardRequest,
   type TrailerPlanCheck,
   type TrailerPlanRequest,
   type TrailerPlanResult,
@@ -23,6 +26,7 @@ import {
   type TrailerSettingsPatch,
   type TrailerStatus,
   type TrailerUpdateRequest,
+  TrailerAddCardRequestSchema,
   TrailerPlanRequestSchema,
   TrailerSettingsPatchSchema,
 } from '@svs/schema'
@@ -63,6 +67,7 @@ export interface TrailerService {
   check: (text?: string) => TrailerPlanCheck
   plan: (request: TrailerPlanRequest) => Promise<TrailerPlanResult>
   update: (request: TrailerUpdateRequest) => TrailerStatus
+  addCard: (request: TrailerAddCardRequest) => ShotView
   status: () => TrailerStatus
 }
 
@@ -407,6 +412,31 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
         settleSpent(handle, spent, removed)
         throw error
       }
+    },
+
+    addCard(request) {
+      const handle = need()
+      const { afterShotId, text, subtext, durationSec } = TrailerAddCardRequestSchema.parse(request)
+      const stored = handle.repos.trailer.get()
+      const list = scriptShots(handle, stored)
+      if (stored?.sceneId === undefined || list.length === 0) throw invalid(t('trailer.noScript'))
+      if (!list.some((shot) => shot.id === afterShotId)) {
+        throw invalid(t('trailer.cardNotInScript'))
+      }
+      const card = { text, subtext }
+      const seconds = durationSec ?? Math.round(cardMinSec(card) * 1000) / 1000
+      // 建鏡頭與寫字卡是同一步復原；字卡寫不進去就不留一個空鏡頭
+      const added = record(t('history.addTrailerCard'), () => {
+        const created = shots.create({ sceneId: stored.sceneId, afterShotId })
+        try {
+          return shots.update(created.id, { beatKind: 'card', card, durationSec: seconds })
+        } catch (error) {
+          shots.remove([created.id])
+          throw error
+        }
+      })
+      broadcast('trailer.changed', {})
+      return added
     },
 
     update(request) {

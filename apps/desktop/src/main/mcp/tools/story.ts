@@ -28,10 +28,14 @@ const shotView = (s: {
   characters: s.characters,
 })
 
+/** 寫預告片腳本最多讀幾個字（trailer.plan 的上限）。 */
+const TRAILER_TEXT_MAX = 60_000
+
 /** `estimate_cost` 收的動作名稱。對話的開場提示（chat/claude-args.ts）也寫了這些名字，有單元測試對著它檢查。 */
 export const ESTIMATE_COST_ACTIONS = [
   'split_story_into_scenes',
   'split_scene_into_shots',
+  'plan_trailer',
   'generate_first_frames',
   'generate_videos',
   'generate_end_frame',
@@ -129,7 +133,7 @@ export function registerStoryTools(ctx: ToolContext): void {
     name: 'estimate_cost',
     title: 'Estimate the cost of a step',
     description:
-      "Ask what a step would cost before doing it. Does not spend or reserve anything. Steps: split_story_into_scenes and split_scene_into_shots (text), generate_end_frame (one picture for the shot named by shotId; see generate_end_frame), generate_first_frames and generate_videos (pictures and videos; the same numbers the app shows in its own 'generate all' confirmation, for the shots you name or every shot in the cut). Returns the app's estimate, how much the allowance would reserve (the estimate × " +
+      "Ask what a step would cost before doing it. Does not spend or reserve anything. Steps: split_story_into_scenes, split_scene_into_shots and plan_trailer (text; plan_trailer takes the book text in story), generate_end_frame (one picture for the shot named by shotId; see generate_end_frame), generate_first_frames and generate_videos (pictures and videos; the same numbers the app shows in its own 'generate all' confirmation, for the shots you name or every shot in the cut). Returns the app's estimate, how much the allowance would reserve (the estimate × " +
       String(TEXT_RESERVE_FACTOR) +
       ' for text steps, because reasoning models often cost more than estimated; × ' +
       String(GENERATION_RESERVE_FACTOR) +
@@ -140,7 +144,7 @@ export function registerStoryTools(ctx: ToolContext): void {
         .string()
         .max(120_000)
         .optional()
-        .describe('For split_story_into_scenes: the story text'),
+        .describe('For split_story_into_scenes and plan_trailer: the story or book text'),
       sceneId: z.string().optional().describe('For split_scene_into_shots: the scene id'),
       shotId: z.string().optional().describe('For generate_end_frame: the shot id'),
       shotIds: z
@@ -188,10 +192,18 @@ export function registerStoryTools(ctx: ToolContext): void {
           draft,
         )
       }
+      if (action === 'plan_trailer' && (story?.length ?? 0) > TRAILER_TEXT_MAX) {
+        throw new McpToolError(
+          `A trailer is written from at most ${String(TRAILER_TEXT_MAX)} characters of text; summarize or cut the text first.`,
+          'text_too_long',
+        )
+      }
       const check =
         action === 'split_story_into_scenes'
           ? await ctx.caller.call('outline.splitCheck', { text: story ?? '' })
-          : await ctx.caller.call('storyboard.splitCheck', { sceneId: sceneId ?? '' })
+          : action === 'plan_trailer'
+            ? await ctx.caller.call('trailer.check', story === undefined ? {} : { text: story })
+            : await ctx.caller.call('storyboard.splitCheck', { sceneId: sceneId ?? '' })
       const allowance = ctx.allowance.status()
       const demo = check.demoMode
       const wouldReserveUsd = demo ? 0 : check.estimatedUsd * TEXT_RESERVE_FACTOR

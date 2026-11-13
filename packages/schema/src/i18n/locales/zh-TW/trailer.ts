@@ -57,6 +57,7 @@ export const trailer = {
   'trailer.shortenHint': '文本很長，也可以縮短一點再試。',
   'trailer.sceneTitle': '預告片',
   'trailer.noScript': '還沒有預告片腳本。請先寫腳本。',
+  'trailer.cardNotInScript': '這一格不在預告片腳本裡。請用預告片裡的格子。',
   'trailer.refitImpossible':
     '目標太短：字卡與片名卡的最短停留秒數加起來就超過了，放不下。請把目標拉長，或拿掉幾張字卡。',
   'trailer.noTextModel': '現在沒有可用的文字模型，沒辦法寫腳本。請到設定選一個文字模型。',

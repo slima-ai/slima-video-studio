@@ -25,6 +25,7 @@ import {
 } from './domain/chat'
 import { AspectRatioSchema, ContentHashSchema, IdSchema } from './domain/common'
 import {
+  TrailerAddCardRequestSchema,
   TrailerPlanCheckSchema,
   TrailerPlanRequestSchema,
   TrailerPlanResultSchema,
@@ -869,6 +870,11 @@ export const ipcContract = {
   'trailer.update': {
     request: TrailerUpdateRequestSchema,
     response: TrailerStatusSchema,
+  },
+  /** 在腳本的某一格後面加一張字卡（建鏡頭＋寫字卡內容，算一步復原）。回傳新的字卡格。 */
+  'trailer.addCard': {
+    request: TrailerAddCardRequestSchema,
+    response: ShotViewSchema,
   },
   /** 預告片現在的樣子：目標、腳本加總、檢查結果。 */
   'trailer.status': {

@@ -35,6 +35,7 @@ export const CHANGE_EVENTS: Partial<Record<IpcChannel, readonly DataEvent[]>> = 
   // 寫腳本會建場、鏡頭、角色草稿卡，整個動作可以復原
   'trailer.plan': ALL,
   'trailer.update': ['outline.changed'],
+  'trailer.addCard': ['outline.changed'],
   'shots.assignScene': ALL,
   'canvas.add': ALL,
   'canvas.remove': ALL,

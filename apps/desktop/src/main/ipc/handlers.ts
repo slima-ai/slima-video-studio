@@ -648,6 +648,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   registry.registerHandler('trailer.check', ({ text }) => needTrailer().check(text))
   registry.registerHandler('trailer.plan', (request) => needTrailer().plan(request))
   registry.registerHandler('trailer.update', (request) => needTrailer().update(request))
+  registry.registerHandler('trailer.addCard', (request) => needTrailer().addCard(request))
   registry.registerHandler('trailer.status', () => needTrailer().status())
   registry.registerHandler('outline.get', () => outline.get())
   registry.registerHandler('outline.edit', (op) =>

@@ -1,4 +1,8 @@
-import { resolveProductionGuide, resolveStoryboardGuide } from '@svs/schema'
+import {
+  DEFAULT_TRAILER_GUIDE_EN,
+  resolveProductionGuide,
+  resolveStoryboardGuide,
+} from '@svs/schema'
 
 import {
   allowanceCard,
@@ -21,6 +25,7 @@ export const GUIDE_TOPICS = [
   'spending',
   'sound',
   'production',
+  'trailer',
 ] as const
 export type GuideTopic = (typeof GUIDE_TOPICS)[number]
 
@@ -41,6 +46,7 @@ Order of work (call get_capabilities for the tools that exist right now):
 9. Before a step that costs money, estimate_cost tells you what it would cost and whether the allowance covers it: split_story_into_scenes, split_scene_into_shots, generate_first_frames, generate_videos (the same numbers the app shows in its own "generate all" confirmation). For sound, plan_sound shows the estimate (free). Tell the user the price in one line before you start. The app also checks the cost itself when you start a step and refuses, saying the estimate, if the allowance is too small (load_guide("spending")).
 
 Notes
+- Making a book trailer (a 15–120 s promo with text cards and a title card)? load_guide("trailer"), then plan_trailer(text) writes the whole script in place of steps 4 and 6 (split_story_into_scenes, split_scene_into_shots). Steps 5, 7 and 8 and the pictures, videos, trim_shot, sound, assemble_film and export_film are the same.
 - Work in small steps and look at the result before spending more.
 - Steps 4 and 5's "split" tools call a text model: free in demo mode, otherwise counted against the spending allowance (load_guide("spending")).
 - Tool errors are plain-language messages; read them, they usually say what to do next.
@@ -53,6 +59,31 @@ const spending = (): string => `# Spending
 - The reservation is a safety margin (the estimate times 1.25 for pictures and videos, times 2 for text). When everything has finished, the next tool you call turns it into what was really charged and gives the unused part back, so the allowance left grows again; while something is still generating it stays reserved. The user can also reset what has been used with ${resetUsedButton()} on that card.
 - Moving from demo to real AI is something only the user can do, in two places: paste a service key (OpenRouter or fal.ai) on the card of that service under ${settingsApiKeys()} and press ${saveButton()}, then switch off ${demoModeName()} under ${settingsGeneral()}. ${settingsAiTools()} is NOT where keys go: it only lets AI tools like you connect to the app, and holds ${allowanceCard()}. If the user asks how to use real AI, tell them exactly this.
 - Never try to work around a refusal.
+`
+
+const TRAILER = `# Making a book trailer
+
+A trailer is not the whole story: it makes people want the story. The app writes the script (shots with seconds, picture, narration, text cards, a title card) and checks it against the rules below; you run the rest with the same tools as any film. Do not write the shots by hand with create_shot unless the user asks: plan_trailer already follows these rules and checks them.
+
+Order of work
+1. get_capabilities, then this guide. Ask the user (or take from their message) the book text, the length (default 30 s, 10–120 s), the kind (story: hook + three acts + title; teaser: 15–30 s social cut, no narration by default), the title, author, tagline and the last line (release date, where to buy). Blurbs, awards and sales figures: only the user's own words, passed in claims.
+2. create_project (tell the user first; it switches the window), configure_project for the look, set_models if needed. plan_trailer with no project open creates one for you, also switching the window.
+3. estimate_cost action plan_trailer (text price, free in demo mode), then plan_trailer(text, kind, targetSec, title, author, tagline, endLine). It REPLACES an earlier trailer script in the project (pass replaceGenerated=true only if the user agrees to lose generated pictures). It writes the script, checks it, writes again once if a rule fails, and fixes what is left by itself (fixedByTheApp lists what it changed). It also creates draft characters and place notes from the text.
+4. get_trailer: look at every shot. beatKind video = moving picture (a video model makes it), still = one picture with a slow camera move made in the app (no video model, cheaper), card = text only, title = title card (title, author, tagline, end line, the cover if there is one). Check differenceSec (script seconds minus target: positive = too long), errors and warnings; errors must be fixed, warnings are advice. The shot's durationSec IS its length in the final film.
+5. Fix with update_shot (durationSec, description, dialogue, cameraMove), add_card (a short text card after a shot), set_shot_motion (moving or still), update_trailer (settings; refit=true spreads the seconds again after a new targetSec). After any change that moves the total, get_trailer again until matches is true.
+6. Characters: list_characters, then the usual generate_character_images → view_character_images → pick_character_image → lock_character (load_guide("production")). Draft characters from the script are not locked; unlocked looks drift between shots.
+7. generate_first_frames (moving and still shots; cards and the title card need no picture) → view_first_frames → generate_videos (moving shots call the video model; still shots, cards and the title card are made inside the app and cost nothing) → wait_for_generation → view_video_stills. A video longer than its shot is cut to the shot's length; a shot longer than the video model's maximum gets a shorter video (get_trailer shows lengthOverMax): shorten the shot, make it still, or accept it.
+8. Sound (load_guide("sound")): plan_sound → generate_narration per shot with narration → generate_music (the music description already follows the script) → assemble_film → mix_sound → analyze_sound → export_film. Trim BEFORE sound: trim_shot.
+9. Check the length three ways and tell the user the numbers: get_trailer (scriptSec and filmSec), get_sound (totalSec, the sum of the shots' real lengths), and the exported file. They must agree with the target within one frame (about 0.04 s).
+
+Money: moving shots and pictures cost money; text cards, still camera moves and the title card do not. Estimate before generating (estimate_cost) and say the price in one line first. Never raise the allowance yourself.
+
+The rules the app writes and checks by
+${DEFAULT_TRAILER_GUIDE_EN}
+
+Shape of the film
+- story: hook (about 13%: the strongest 1–2 pictures, no card or logo first) → world and hero (20%) → turn (17%, "until…") → escalate (30%, fast cuts of 1.5–2.5 s, little or no narration) → suspense (10%, one held picture, a question, a beat of near silence) → title (10%, cover, title, where to buy).
+- teaser: the strongest picture first (about 2 s), then 3–5 fast picture shots with 2–3 short cards that together read as one question, then the title card. No narration, it must make sense with the sound off.
 `
 
 const SOUND = `# Sound
@@ -131,6 +162,7 @@ export function guideText(
   if (topic === 'cinematography') return CINEMATOGRAPHY
   if (topic === 'spending') return spending()
   if (topic === 'sound') return SOUND
+  if (topic === 'trailer') return TRAILER
   if (topic === 'production') return resolveProductionGuide(customProductionGuide)
   return `# Storyboard guide (set by the user in Settings; this is what the app's own AI storyboard step uses)\n\n${resolveStoryboardGuide(customStoryboardGuide)}\n`
 }

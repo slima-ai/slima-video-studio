@@ -129,7 +129,7 @@ Once it is added, two things are left: switch on **Allow AI tools to connect** u
 
 **If Claude says the connection failed or the tools do not load:** check that the app is open and that **Settings → AI tools → Allow AI tools to connect** is switched on, then open a new conversation in Claude Desktop or Claude Code. When the app is closed the assistant only sees "connection failed"; the plain-language explanation appears once the app is running.
 
-**What the assistant can do** (52 tools; it reads the guides with `load_guide` and sees each tool's description):
+**What the assistant can do** (66 tools; it reads the guides with `load_guide` and sees each tool's description):
 
 | Area               | Tools                                                                                                                                                                                                                                                           |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -140,6 +140,7 @@ Once it is added, two things are left: switch on **Allow AI tools to connect** u
 | Characters         | `list_characters`, `create_character`, `update_character`, `suggest_character_anchor`, `set_character_anchor`, `list_project_images`, `add_character_reference`, `generate_character_images`, `view_character_images`, `pick_character_image`, `lock_character` |
 | Pictures and video | `generate_first_frames`, `generate_end_frame`, `view_first_frames`, `generate_videos`, `view_video_stills`, `regenerate_shot`, `adopt_version`, `cancel_generation`, `wait_for_generation`, `get_generation_status`                                             |
 | Film               | `trim_shot` (cut the start or end off a shot), `assemble_film`, `export_film` (with `credits`: the AI-service credits, on by default)                                                                                                                           |
+| Trailer            | `plan_trailer` (write a book trailer's script from a text), `get_trailer`, `update_trailer`, `add_card` (a text card), `set_shot_motion` (a shot moves or stands still); read `load_guide("trailer")` first                                                     |
 | Sound              | `get_sound`, `plan_sound`, `generate_narration`, `generate_music`, `adjust_sound_clip`, `adopt_sound_clip`, `remove_sound_clip`, `set_sound_settings`, `mix_sound`, `analyze_sound`                                                                             |
 
 The tools that look at pictures return real (downsized) images, so the assistant can check first frames and video stills for mistakes before you pay for more.
@@ -158,7 +159,7 @@ The tools that look at pictures return real (downsized) images, so the assistant
 
 _The real sound area of the app's finished-film panel (interface only). The narration row is empty here because the shots have no spoken lines yet; write a line in a shot and it is read aloud._
 
-**Once connected**, Claude starts by reading the getting-started guide that the app provides (and the storyboard, spending and sound guides before it splits scenes into shots, spends money, or adds narration and music), and it looks at generated first frames before it generates videos. The error messages of the tools are written in plain language and usually say what to do next. Nobody needs to find or copy the connection token.
+**Once connected**, Claude starts by reading the getting-started guide that the app provides (and the storyboard, spending, sound and trailer guides before it splits scenes into shots, spends money, adds narration and music, or makes a book trailer), and it looks at generated first frames before it generates videos. The error messages of the tools are written in plain language and usually say what to do next. Nobody needs to find or copy the connection token.
 
 ## Models
 
