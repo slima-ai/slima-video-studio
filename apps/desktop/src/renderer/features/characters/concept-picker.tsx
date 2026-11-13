@@ -44,7 +44,7 @@ export function ConceptPicker({ character, onChanged }: ConceptPickerProps) {
 
   const costText = check
     ? check.demoMode
-      ? t('chat.demoModeSampleResultsNothing')
+      ? ''
       : check.modelName
         ? t('chat.estimateAbout', { value: usd(check.estimatedUsd), modelName: check.modelName })
         : t('chat.estimateAbout2', { value: usd(check.estimatedUsd) })
@@ -54,7 +54,6 @@ export function ConceptPicker({ character, onChanged }: ConceptPickerProps) {
   return (
     <div className="space-y-3 rounded-md border border-border p-3" data-testid="concept-section">
       <h3 className="text-sm font-medium">{t('chat.conceptPicturesAndMainPicture')}</h3>
-      <p className="text-xs text-fg-muted">{t('chat.generate4CandidateLooksThen')}</p>
 
       {character.heroAssetHash ? (
         <div className="flex items-start gap-3" data-testid="concept-hero">

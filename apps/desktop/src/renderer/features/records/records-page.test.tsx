@@ -36,7 +36,7 @@ describe('RecordsPage', () => {
   it('沒有紀錄 → 說明怎麼會有紀錄', async () => {
     installFakeSvs()
     render(<RecordsPage onNavigate={vi.fn()} />)
-    expect((await screen.findByTestId('records-empty')).textContent).toContain('到畫布寫一句話')
+    expect((await screen.findByTestId('records-empty')).textContent).toContain('還沒有生成紀錄')
   })
 
   it('每筆顯示對象、模型、設定、耗時花費與縮圖；總花費在上方', async () => {
@@ -138,15 +138,14 @@ describe('RecordsPage', () => {
     expect(screen.getByTestId('record-confirm-note').textContent).toContain('US$0.25')
     fireEvent.click(screen.getByTestId('record-redo-confirm'))
 
-    expect((await screen.findByTestId('records-notice')).textContent).toContain(
-      '已開始重新生成第 1 鏡',
-    )
+    // 只留「到分鏡表看進度」的連結，不再寫「已開始重新生成」
+    expect((await screen.findByTestId('records-notice')).textContent).toBe('到分鏡表看進度')
     expect(fake.payloadsOf('records.redo')).toEqual([{ jobId: 'j1' }])
     fireEvent.click(screen.getByTestId('records-go-storyboard'))
     expect(navigate).toHaveBeenCalledWith('storyboard')
   })
 
-  it('改過 prompt 再生成：帶改過的內容；按鈕文字跟著變', async () => {
+  it('改過 prompt 再生成：帶改過的內容；按鈕一律叫「重新生成」', async () => {
     const fake = installFakeSvs({
       'records.list': () => snapshot([record()]),
       'records.redo': () => ({ shotId: 's1' }),
@@ -154,7 +153,7 @@ describe('RecordsPage', () => {
     render(<RecordsPage onNavigate={vi.fn()} />)
     fireEvent.click(await screen.findByTestId('record-toggle'))
     fireEvent.change(screen.getByTestId('record-draft'), { target: { value: '貓在屋頂上，夕陽' } })
-    expect(screen.getByTestId('record-redo').textContent).toBe('用改過的 prompt 重新生成')
+    expect(screen.getByTestId('record-redo').textContent).toBe('重新生成')
     fireEvent.click(screen.getByTestId('record-redo'))
     fireEvent.click(screen.getByTestId('record-redo-confirm'))
     await screen.findByTestId('records-notice')

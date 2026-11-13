@@ -253,6 +253,56 @@ describe('checkTrailerScript：規則 2 第一格', () => {
   })
 })
 
+describe('checkTrailerScript：給模型的訊息與給使用者的短版分開', () => {
+  it('旁白太長：message（退回給寫腳本的模型）一字不改；userMessage 是給使用者看的短版', () => {
+    const bad = goodScript()
+    bad[1] = video(3.5, { dialogue: '一二三四五六七八九十甲乙丙丁戊' }) // 15 字 > 14
+    const issue = checkTrailerScript(bad, settings(), FPS).errors.find(
+      (e) => e.code === 'narration_too_dense',
+    )
+    expect(issue?.message).toBe(
+      '第 2 格的旁白有 15 個字（或單字），這一格只有 3.5 秒，最多念得完 14 個。請把這句縮短。',
+    )
+    expect(issue?.userMessage).toBe('第 2 格旁白太長：15 字，最多 14 字。')
+  })
+
+  it('總長不對、旁白佔太多、提到沒提供的暢銷：message 照舊、userMessage 縮短', () => {
+    const long = goodScript()
+    long[0] = video(5)
+    const length = checkTrailerScript(long, settings(), FPS).errors.find((e) => e.code === 'length')
+    expect(length?.message).toContain('請調整各格的秒數')
+    expect(length?.userMessage).toMatch(/^總長 .* 秒，目標 30 秒，差 .* 秒。$/)
+
+    const talky = goodScript().map((beat) =>
+      beat.beatKind === 'video' ? { ...beat, dialogue: '一二三四五六' } : beat,
+    )
+    const share = checkTrailerScript(talky, settings(), FPS).errors.find(
+      (e) => e.code === 'narration_share',
+    )
+    expect(share?.message).toContain('請讓一些格子不說話')
+    expect(share?.userMessage).not.toContain('請')
+
+    const claim = goodScript()
+    claim[2] = card('百萬冊暢銷', 2.5)
+    const unverified = checkTrailerScript(claim, settings(), FPS).errors.find(
+      (e) => e.code === 'unverified_claim',
+    )
+    expect(unverified?.message).toContain('推薦語、獎項、銷量只能用你自己提供的原文')
+    expect(unverified?.userMessage).toBe(
+      '第 3 格提到了暢銷、獎項或推薦語，但不是你提供的；沒有原文就拿掉。',
+    )
+  })
+
+  it('沒有短版的訊息（例如沒有片名卡）：沒有 userMessage，直接顯示 message', () => {
+    const noTitle = goodScript().filter((beat) => beat.beatKind !== 'title')
+    const issue = checkTrailerScript(noTitle, settings(), FPS).errors.find(
+      (e) => e.code === 'no_title',
+    )
+    expect(issue?.userMessage).toBeUndefined()
+    expect(issue?.message).toBe('沒有片名卡。最後要有一格片名卡。')
+  })
+})
+
 describe('checkTrailerScript：規則 4 旁白密度', () => {
   it('中文每秒 4 個字：剛好過；每秒超過 4 個字：擋', () => {
     const ok = goodScript()

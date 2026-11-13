@@ -52,7 +52,9 @@ test.describe('場景卡', () => {
     await page.getByTestId('location-anchor').fill('潮濕的磚牆倉庫，天窗透進冷光')
     await page.getByTestId('location-anchor-save').click()
 
-    await expect(page.getByTestId('location-concepts-cost')).toContainText('不會花錢')
+    // 示範模式不寫金額、也不寫「不會花錢」（頂列講過了）
+    await expect(page.getByTestId('location-concepts-generate')).toBeEnabled()
+    await expect(page.getByTestId('location-concepts-cost')).toHaveText('')
     await expect(page.getByTestId('location-angles-generate')).toHaveCount(0)
     await page.getByTestId('location-concepts-generate').click()
     const concepts = page.getByTestId('location-round-1').getByRole('button')

@@ -221,7 +221,6 @@ export function ChatPanel() {
             {messages.length === 0 ? (
               <div className="flex flex-col items-center gap-2 pt-4 text-center">
                 <Mascot size={56} mood="idle" />
-                <p className="text-sm text-fg-muted">{t('chat.tellClaudeWhatYouWant3')}</p>
               </div>
             ) : (
               messages.map((message, index) => (

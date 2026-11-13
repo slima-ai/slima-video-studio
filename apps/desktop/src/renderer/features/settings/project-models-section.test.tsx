@@ -19,9 +19,8 @@ describe('ProjectModelsSection', () => {
         onChanged={vi.fn()}
       />,
     )
-    expect(screen.getByTestId('project-models-section').textContent).toContain(
-      '只套用在「海邊的貓」',
-    )
+    expect(screen.getByTestId('project-models-section').textContent).toContain('這個專案預設用什麼')
+    expect(screen.getByTestId('project-models-section').textContent).not.toContain('只套用在')
     const row = screen.getByTestId('project-model-t2i')
     expect(row.dataset.value).toBe('follow-app')
     expect(row.textContent).toContain('跟著預設')

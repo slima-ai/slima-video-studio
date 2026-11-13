@@ -1,4 +1,6 @@
 export const chat = {
+  'chat.thisIsAnExperimentalFeature':
+    'This is an experimental feature. Go to “Settings” → “Experiments” and turn on “Claude chat on the canvas” to use it.',
   'chat.noProjectIsOpenAdd': 'No project is open. Add a character or start a generation first.',
   'chat.couldnTFindThisCharacter': 'Couldn’t find this character ({id}).',
   'chat.myShortFilm': 'My short film',
@@ -140,12 +142,10 @@ export const chat = {
   'chat.couldnTFindThisPicture2':
     'Couldn’t find this picture in the project. Add it to the project first (for example, put it on the canvas).',
   'chat.notWrittenYet': 'Not written yet',
-  'chat.draftNotLockedSoIt': 'Draft (not locked, so it isn’t used when generating)',
-  'chat.lockedUsedWordForWord': 'Locked (used word for word when generating)',
+  'chat.draftNotLockedSoIt': 'Draft',
+  'chat.lockedUsedWordForWord': 'Locked',
   'chat.fixedAppearance': 'Fixed appearance',
   'chat.version': 'Version {value} · ',
-  'chat.onceLockedEveryShotThis':
-    'Once locked, every shot this character appears in gets this text, word for word, in its description for the AI, so the character looks the same. The shorter and more specific, the better.',
   'chat.theLookOrOutfitChanged':
     'The look or outfit changed. Check that this description is still right, then press “Lock” again.',
   'chat.writeTheLookOrOutfit':
@@ -162,8 +162,6 @@ export const chat = {
   'chat.featuresToAvoidInVideo': 'Features to avoid in video (English, separated by commas)',
   'chat.forExampleLittleBunMouth':
     'For example, Little Bun: mouth, eyebrows, eyelids, arms, legs, hands, feet',
-  'chat.whenMakingVideoShotsWith':
-    'When making video, shots with this character add this list to the negative prompt, so the model doesn’t grow features or limbs the character doesn’t have.',
   'chat.outfit': 'Outfit',
   'chat.save': 'Save',
   'chat.notSavedYet': 'Not saved yet',
@@ -172,10 +170,7 @@ export const chat = {
   'chat.keep': 'Keep',
   'chat.deleteCharacter': 'Delete character',
   'chat.characters': 'Characters',
-  'chat.writeDownACharacterS':
-    'Write down a character’s look, personality and outfit so it looks the same in every shot.',
-  'chat.noCharactersYetCreateOne':
-    'No characters yet. Create one, and every shot can keep the same look.',
+  'chat.noCharactersYetCreateOne': 'No characters yet.',
   'chat.createYourFirstCharacter': 'Create your first character',
   'chat.newCharacterSName': 'New character’s name',
   'chat.forExampleMina': 'For example: Mina',
@@ -185,12 +180,9 @@ export const chat = {
   'chat.lockedV': 'Locked v{value}',
   'chat.draft': 'Draft',
   'chat.close': 'Close',
-  'chat.demoModeSampleResultsNothing': 'Demo mode: sample results, nothing is charged',
   'chat.estimateAbout': 'Estimate: about {value} ({modelName})',
   'chat.estimateAbout2': 'Estimate: about {value}',
   'chat.conceptPicturesAndMainPicture': 'Concept pictures and main picture',
-  'chat.generate4CandidateLooksThen':
-    'Generate 4 candidate looks, then pick the closest as the “main picture”. Turnarounds and videos follow the main picture.',
   'chat.sMainPicture': '{name}’s main picture',
   'chat.currentMainPicture': 'Current main picture',
   'chat.generatingOfDone': 'Generating… {value} of {value2} done',
@@ -215,15 +207,12 @@ export const chat = {
   'chat.cancelAdjusting': 'Cancel adjusting',
   'chat.cutOffAdjustTheLines': 'Cut off? Adjust the lines',
   'chat.turnaroundFrontSideBack': 'Turnaround (front · side · back)',
-  'chat.basedOnTheMainPicture':
-    'Based on the main picture, draws the same character from three angles, to use as a reference when generating video. Makes 4 sets at a time; pick the best one.',
   'chat.text2': '{name}: {label}',
   'chat.redoAll4Sets': 'Redo all (4 sets)',
   'chat.generate4Turnarounds': 'Generate 4 turnarounds',
   'chat.locked': 'Locked',
   'chat.versionHistory': 'Version history',
-  'chat.afterLockingChangingTheLook':
-    'After locking, changing the look, outfit, main picture or turnaround makes a new draft version. Old versions are kept.',
+  'chat.afterLockingChangingTheLook': 'Old versions are kept.',
   'chat.versionMainPicture': 'Version {value} main picture',
   'chat.version2': 'Version {value}',
   'chat.inUseNow': 'In use now',
@@ -233,8 +222,7 @@ export const chat = {
   'chat.ok': 'OK',
   'chat.startAgainFromThisVersion': 'Start again from this version',
   'chat.claudeChat': 'Claude chat',
-  'chat.chatWithClaudeUseYour':
-    'Chat with Claude: use your own signed-in Claude Code to edit this project directly',
+  'chat.chatWithClaudeUseYour': 'Claude chat',
   'chat.checkingClaudeCode': 'Checking Claude Code…',
   'chat.addThreeShotsAStreet':
     'Add three shots: a street corner at dawn, a bus pulling in, the hero looking up at the sky',
@@ -244,45 +232,37 @@ export const chat = {
   'chat.tellClaudeWhatYouWant': 'Tell Claude what you want to do',
   'chat.tellClaudeWhatYouWant2': 'Tell Claude what to do… (Enter: send, Shift+Enter: new line)',
   'chat.stop': 'Stop',
-  'chat.stopWhatClaudeIsDoing': 'Stop what Claude is doing (Esc)',
+  'chat.stopWhatClaudeIsDoing': 'Stop (Esc)',
   'chat.send': 'Send',
   'chat.thisUsesYourOwnSigned':
-    'This uses your own signed-in Claude Code. The app never touches your sign-in details, and the chat uses your own Claude usage. Claude can only use this app’s tools, and it asks before any step that costs money.',
+    'The chat uses your own Claude usage; for steps that cost money, it asks you first.',
   'chat.youCouldSay': 'You could say',
   'chat.switchChat': 'Switch chat',
   'chat.inProgress': '(in progress)',
-  'chat.startANewChatOld': 'Start a new chat (old chats are kept; you can switch back)',
+  'chat.startANewChatOld': 'New chat',
   'chat.closeClaudeChat': 'Close Claude chat',
-  'chat.tellClaudeWhatYouWant3':
-    'Tell Claude what you want to do. It edits the project you have open, and you can see the steps it used.',
   'chat.claudeSWorkingNotesCollapsed': 'Claude’s working notes (collapsed)',
   'chat.claudeIsThinking': 'Claude is thinking…',
-  'chat.stoppedGenerationsAlreadySentAre':
-    'Stopped. Generations already sent are not cancelled (manage them in the generation queue below).',
+  'chat.stoppedGenerationsAlreadySentAre': 'Stopped. Generations already sent aren’t cancelled.',
   'chat.continue': 'Continue',
   'chat.claudeChatIsOff': 'Claude chat is off',
-  'chat.thisIsAnExperimentalFeature':
-    'This is an experimental feature. Go to “Settings” → “Experiments” and turn on “Claude chat on the canvas” to use it.',
   'chat.turnOnAllowAiTools': 'Turn on “Allow AI tools to connect” first',
   'chat.claudeEditsYourProjectThrough':
-    'Claude edits your project through the app’s “Allow AI tools to connect”. Once it’s on, Claude can only use the tools the app provides. Steps that cost money (pictures, video…) are limited by the “Total allowance for AI tools”, which is US$0 by default. Demo mode costs nothing. To let Claude generate in real mode, raise the “Total allowance for AI tools” under “Settings → AI tools”.',
+    'Steps that cost money are held to the “Total allowance for AI tools”, which is US$0 by default.',
   'chat.turnOnAiTools': 'Turn on AI tools',
   'chat.claudeCodeIsNeededOn': 'Claude Code is needed on your computer',
-  'chat.claudeCodeIsAnthropicS':
-    'Claude Code is Anthropic’s command-line tool. This chat runs on your own Claude Code, and the app won’t install it for you. Once it’s installed, come back and press “Recheck”.',
+  'chat.claudeCodeIsAnthropicS': 'Once Claude Code is installed, come back and press “Recheck”.',
   'chat.howToInstallClaudeCode': 'How to install Claude Code',
   'chat.yourClaudeCodeIsToo2': 'Your Claude Code is too old',
   'chat.signInToClaudeCode': 'Sign in to Claude Code first',
   'chat.iMSignedIn': 'I’m signed in',
   'chat.recheck': 'Recheck',
-  'chat.lockedShotsUseItAutomatically': 'Locked (shots use it automatically)',
-  'chat.draftNotLockedSoShots': 'Draft (not locked, so shots don’t use it)',
+  'chat.lockedShotsUseItAutomatically': 'Locked',
+  'chat.draftNotLockedSoShots': 'Draft',
   'chat.fromTheStory': 'From the story: {description}',
   'chat.fixedLocationDescription': 'Fixed location description',
   'chat.forExampleADampBrick':
     'For example: a damp brick warehouse, cold light from a skylight, old crates piled on the floor',
-  'chat.onceLockedEveryShotSet':
-    'Once locked, every shot set here uses this description and the location picture as they are, so the place looks the same throughout.',
   'chat.unlockToEdit': 'Unlock to edit',
   'chat.saveDescription2': 'Save description',
   'chat.useTheStorySDescription': 'Use the story’s description',
@@ -296,22 +276,19 @@ export const chat = {
   'chat.generate4LocationConceptPictures': 'Generate 4 location concept pictures',
   'chat.regenerateOtherAngles': 'Regenerate other angles',
   'chat.generateTheOtherTwoAngles': 'Generate the other two angles',
-  'chat.extraReferencePicturesOnceLocked':
-    'Extra reference pictures (once locked, picked automatically per shot by size and angle: overhead shots use a top-down picture, wide shots use a picture with depth)',
+  'chat.extraReferencePicturesOnceLocked': 'Extra reference pictures',
   'chat.unlockBeforeRemoving': 'Unlock before removing',
   'chat.remove': 'Remove',
   'chat.roundClickOneToUse': 'Round {value} (click one to use as the main picture)',
   'chat.useAsMainLocationPicture': 'Use as main location picture',
   'chat.locationConceptPictures': 'Location concept pictures',
   'chat.locations': 'Locations',
-  'chat.oneCardPerLocationIt':
-    'One card per location: it fixes how the place looks, so every shot set there looks the same. You can also add locations in “Outline”.',
   'chat.newLocationSName': 'New location’s name',
   'chat.addLocation': 'Add location',
   'chat.locationList': 'Location list',
-  'chat.noLocationsYetTypeA': 'No locations yet. Type a name and press “+” to add the first one.',
+  'chat.noLocationsYetTypeA': 'No locations yet.',
   'chat.tooOld':
     'You have {version}; {minVersion} or newer is needed. Run {code} in a terminal to update, then come back and press “Recheck”.',
   'chat.signIn':
-    'Run {code} in a terminal (on a Mac, open the Terminal app) and follow the prompts to sign in. The app never touches your sign-in details. When you’re signed in, come back and press “I’m signed in”.',
+    'Run {code} in a terminal and follow the prompts to sign in. The app never touches your sign-in details. When you’re signed in, come back and press “I’m signed in”.',
 } as const

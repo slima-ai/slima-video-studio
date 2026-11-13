@@ -53,7 +53,7 @@ describe('HomePage：新專案、開啟舊專案、最近的專案', () => {
     render(<HomePage onNavigate={go} />)
     await screen.findByTestId('home-recent-empty')
     expect(screen.getByTestId('home-skip').className).not.toContain('underline')
-    expect(screen.getByText('之後新增任何東西時，會自動建一個專案。')).toBeTruthy()
+    expect(screen.queryByText('之後新增任何東西時，會自動建一個專案。')).toBeNull()
   })
 
   it('只剩找不到的專案：開不了，不算已經有專案，仍是原樣的按鈕', async () => {

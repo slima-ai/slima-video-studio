@@ -58,11 +58,10 @@ describe('SettingsPage 骨架', () => {
     ]) {
       expect(screen.getByTestId(testId)).toBeTruthy()
     }
-    // 每一區都有一句副標
-    for (const id of ids) {
-      expect(
-        (document.getElementById(id)?.querySelector('p')?.textContent ?? '').length,
-      ).toBeGreaterThan(0)
+    // 只有「服務金鑰」留一句副標（會花錢、金鑰不上傳——使用者交出金鑰的那一刻）；其他區不寫副標
+    expect(document.querySelector('#keys h2 + p')?.textContent).toContain('不會上傳')
+    for (const id of ids.filter((id) => id !== 'keys')) {
+      expect(document.querySelector(`#${id} h2 + p`)).toBeNull()
     }
   })
 

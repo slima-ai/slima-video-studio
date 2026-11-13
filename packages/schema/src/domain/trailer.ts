@@ -279,8 +279,10 @@ export interface TrailerIssue {
   code: TrailerIssueCode
   /** 第幾格（從 0 開始）；整份腳本的問題沒有這個欄位。 */
   index?: number
-  /** 白話說明（跟著介面語言），可以直接顯示、也可以退回給寫腳本的 AI。 */
+  /** 白話說明（跟著介面語言），退回給寫腳本的 AI 重寫時用這個（一字不改，有雜湊與已存專案的快取靠它）。 */
   message: string
+  /** 給使用者看的短版；沒有就直接顯示 `message`。 */
+  userMessage?: string | undefined
 }
 
 export interface TrailerCheckResult {
@@ -327,8 +329,13 @@ export function checkTrailerScript(
   const secs = beats.map((beat) => frameSec(beat.durationSec, fps))
   const totalSec = secs.reduce((sum, s) => sum + s, 0)
   const num = (index: number) => ({ n: index + 1 })
-  const error = (code: TrailerIssueCode, message: string, index?: number) => {
-    errors.push({ code, message, ...(index === undefined ? {} : { index }) })
+  const error = (code: TrailerIssueCode, message: string, index?: number, userMessage?: string) => {
+    errors.push({
+      code,
+      message,
+      ...(index === undefined ? {} : { index }),
+      ...(userMessage === undefined ? {} : { userMessage }),
+    })
   }
 
   if (beats.length === 0) {
@@ -339,13 +346,16 @@ export function checkTrailerScript(
   // 規則 1：長度
   const diff = Math.abs(totalSec - settings.targetSec)
   if (diff > LENGTH_TOLERANCE_SEC + EPS) {
+    const lengthArgs = {
+      total: totalSec.toFixed(1),
+      target: String(settings.targetSec),
+      diff: diff.toFixed(1),
+    }
     error(
       'length',
-      t('trailer.ruleLength', {
-        total: totalSec.toFixed(1),
-        target: String(settings.targetSec),
-        diff: diff.toFixed(1),
-      }),
+      t('trailer.ruleLength', lengthArgs),
+      undefined,
+      t('trailer.userRuleLength', lengthArgs),
     )
   }
 
@@ -377,15 +387,17 @@ export function checkTrailerScript(
     const perSec = hasHan(text) ? NARRATION_MAX_CJK_PER_SEC : NARRATION_MAX_WORDS_PER_SEC
     const limit = Math.floor(perSec * sec + EPS)
     if (units > perSec * sec + EPS) {
+      const denseArgs = {
+        ...num(index),
+        units: String(units),
+        sec: sec.toFixed(1),
+        limit: String(limit),
+      }
       error(
         'narration_too_dense',
-        t('trailer.ruleNarrationDense', {
-          ...num(index),
-          units: String(units),
-          sec: sec.toFixed(1),
-          limit: String(limit),
-        }),
+        t('trailer.ruleNarrationDense', denseArgs),
         index,
+        t('trailer.userRuleNarrationDense', denseArgs),
       )
     }
     if (sentencesOf(text).length > 1) {
@@ -393,12 +405,15 @@ export function checkTrailerScript(
     }
   })
   if (narratedSec > NARRATION_MAX_SHARE * totalSec + EPS) {
+    const shareArgs = {
+      sec: narratedSec.toFixed(1),
+      limit: (NARRATION_MAX_SHARE * totalSec).toFixed(1),
+    }
     error(
       'narration_share',
-      t('trailer.ruleNarrationShare', {
-        sec: narratedSec.toFixed(1),
-        limit: (NARRATION_MAX_SHARE * totalSec).toFixed(1),
-      }),
+      t('trailer.ruleNarrationShare', shareArgs),
+      undefined,
+      t('trailer.userRuleNarrationShare', shareArgs),
     )
   }
 
@@ -482,7 +497,14 @@ export function checkTrailerScript(
       const flat = normalize(value)
       return !allowed.some((source) => source.includes(flat))
     })
-    if (invented) error('unverified_claim', t('trailer.ruleUnverifiedClaim', num(index)), index)
+    if (invented) {
+      error(
+        'unverified_claim',
+        t('trailer.ruleUnverifiedClaim', num(index)),
+        index,
+        t('trailer.userRuleUnverifiedClaim', num(index)),
+      )
+    }
   })
 
   // 規則 3：一路升高（只提醒）。片名卡與「懸念」那一格不算。

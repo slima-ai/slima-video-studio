@@ -116,7 +116,7 @@ describe('NewProjectDialog：新專案只問名字', () => {
       />,
     )
     expect(screen.getByTestId('save-as-dialog')).toBeTruthy()
-    expect(screen.getByText(/連同圖片、影片/)).toBeTruthy()
+    expect(screen.getByText(/原本的專案留在原處/)).toBeTruthy()
     expect(screen.getByTestId<HTMLInputElement>('new-project-name').value).toBe('貓 副本')
     fireEvent.click(screen.getByTestId('new-project-change-folder'))
     await screen.findByText('存在：/Volumes/外接')

@@ -64,18 +64,10 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
         ) : null}
         {state.status === 'ready' ? (
           <>
-            <SettingGroup
-              id="general"
-              title={t('settings.general')}
-              hint={t('settings.demoModeAppearanceAndThe')}
-            >
+            <SettingGroup id="general" title={t('settings.general')}>
               <GeneralSection settings={state.data.settings} onChanged={reload} />
             </SettingGroup>
-            <SettingGroup
-              id="connections"
-              title={t('settings.aiTools')}
-              hint={t('settings.letYourOwnClaudeOr')}
-            >
+            <SettingGroup id="connections" title={t('settings.aiTools')}>
               <ConnectionsArea onChanged={reload} storageAvailable={state.data.storage.available} />
             </SettingGroup>
             <SettingGroup
@@ -85,11 +77,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
             >
               <KeysSection keys={state.data.keys} storage={state.data.storage} onChanged={reload} />
             </SettingGroup>
-            <SettingGroup
-              id="models"
-              title={t('settings.modelsToUse')}
-              hint={t('settings.ifYouReNotSure')}
-            >
+            <SettingGroup id="models" title={t('settings.modelsToUse')}>
               <>
                 <ModelsSection
                   models={state.data.models}
@@ -117,11 +105,7 @@ export function SettingsPage({ state, reload }: SettingsPageProps) {
                 />
               </>
             </SettingGroup>
-            <SettingGroup
-              id="experiments"
-              title={t('settings.experiments')}
-              hint={t('settings.featuresStillBeingTriedThey')}
-            >
+            <SettingGroup id="experiments" title={t('settings.experiments')}>
               <ExperimentsSection settings={state.data.settings} onChanged={reload} />
             </SettingGroup>
           </>

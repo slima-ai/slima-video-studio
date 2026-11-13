@@ -315,7 +315,7 @@ export interface WriteTrailerInput {
 const problemsText = (check: TrailerCheckResult): string =>
   check.errors
     .slice(0, 3)
-    .map((issue) => issue.message)
+    .map((issue) => issue.userMessage ?? issue.message)
     .join(' ')
 
 /**

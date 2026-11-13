@@ -63,7 +63,6 @@ export function AccessCard({ mcp }: { mcp: McpConnection }) {
           <label className="block text-sm font-medium" htmlFor="mcp-port">
             {t('settings.port')}
           </label>
-          <p className="text-xs text-fg-muted">{t('settings.youUsuallyDonTNeed')}</p>
           <div className="mt-1 flex gap-2">
             <input
               id="mcp-port"

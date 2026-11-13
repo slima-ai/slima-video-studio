@@ -110,6 +110,16 @@ describe('writeTrailerScript', () => {
     expect(result.costUsd).toBeCloseTo(0.02, 6)
   })
 
+  it('旁白太長被退回：給模型的是原本的完整訊息（含「請把這句縮短」），不是給使用者看的短版', async () => {
+    const bad = good()
+    bad.beats[0] = beat({ durationSec: 4, dialogue: '一二三四五六七八九十甲乙丙丁戊己庚辛' })
+    const { studio, requests } = studioOf([bad, good()])
+    await writeTrailerScript(studio, input, ctx)
+    const feedback = requests[1]?.messages.at(-1)?.content ?? ''
+    expect(feedback).toContain('請把這句縮短')
+    expect(feedback).not.toContain('旁白太長：')
+  })
+
   it('重寫後還是差 2 秒：程式把各格調成剛好等於目標（每格整數格、字卡不低於最短停留）', async () => {
     const bad = good()
     bad.beats[0] = beat({ durationSec: 6 })

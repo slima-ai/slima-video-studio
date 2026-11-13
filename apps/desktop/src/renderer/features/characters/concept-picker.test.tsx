@@ -44,13 +44,16 @@ describe('ConceptPicker', () => {
     })
   })
 
-  it('示範模式：說明不會花錢', async () => {
-    installFakeSvs({
+  it('示範模式：不寫金額也不寫「不會花錢」（頂列講過了）', async () => {
+    const svs = installFakeSvs({
       'characters.conceptCheck': () => ({ ok: true, estimatedUsd: 0, count: 4, demoMode: true }),
     })
     render(<ConceptPicker character={character} onChanged={() => undefined} />)
     await waitFor(() => {
-      expect(screen.getByTestId('concept-cost').textContent).toContain('不會花錢')
+      expect(svs.payloadsOf('characters.conceptCheck').length).toBeGreaterThan(0)
+    })
+    await waitFor(() => {
+      expect(screen.getByTestId('concept-cost').textContent).toBe('')
     })
   })
 

@@ -74,7 +74,7 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
             ? { tone: 'ok', label: t('settings.onCostsNothing') }
             : { tone: 'warn', label: t('settings.offUsesRealServices') }
         }
-        summary={t('settings.runTheWholeProcessWith')}
+        summary={demo ? t('settings.demoOffWarning') : undefined}
         action={
           <Switch
             aria-label={t('settings.demoMode')}
@@ -94,7 +94,6 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
       <SettingCard
         icon={Palette}
         title={t('settings.appearance')}
-        summary={t('settings.lightDarkOrFollowThe')}
         body={
           <fieldset>
             <legend className="sr-only">{t('settings.appearance')}</legend>

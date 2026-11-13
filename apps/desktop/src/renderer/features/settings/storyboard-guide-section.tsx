@@ -26,7 +26,6 @@ export function StoryboardGuideSection({ settings, onChanged }: StoryboardGuideS
       resolve={resolveStoryboardGuide}
       idPrefix="storyboard-guide"
       title={t('settings.storyboardGuide')}
-      summary={t('settings.theAiFollowsThisGuide')}
       savedMessage={t('settings.savedTheNextSplitWill')}
       onChanged={onChanged}
     />

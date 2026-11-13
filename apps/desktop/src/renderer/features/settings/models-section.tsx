@@ -38,12 +38,12 @@ export interface ModelsSectionProps {
   onGoToKeys: () => void
 }
 
-export const LABELS: Record<PickableCapability, { title: MessageRef; hint: MessageRef }> = {
-  llm: { title: msg('settings.text'), hint: msg('settings.splitTheStoryIntoPictures') },
-  t2i: { title: msg('settings.images'), hint: msg('settings.theFirstPictureOfEach') },
-  i2v: { title: msg('settings.video'), hint: msg('settings.makeThePicturesMove') },
-  tts: { title: msg('settings.narration'), hint: msg('settings.readEachShotSLines') },
-  music: { title: msg('settings.music'), hint: msg('settings.backgroundMusicForTheWhole') },
+export const LABELS: Record<PickableCapability, { title: MessageRef }> = {
+  llm: { title: msg('settings.text') },
+  t2i: { title: msg('settings.images') },
+  i2v: { title: msg('settings.video') },
+  tts: { title: msg('settings.narration') },
+  music: { title: msg('settings.music') },
 }
 
 const ICONS: Record<PickableCapability, LucideIcon> = {
@@ -226,7 +226,6 @@ export function ModelsSection({
               {...(candidates.length === 0
                 ? { status: { tone: 'warn' as const, label: t('settings.addAKeyFirst') } }
                 : {})}
-              summary={t(LABELS[capability].hint)}
               body={
                 candidates.length === 0 ? (
                   <div className="flex flex-wrap items-center gap-3 text-sm text-fg-muted">

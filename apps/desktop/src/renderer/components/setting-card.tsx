@@ -13,8 +13,8 @@ export interface SettingCardProps {
   title: string
   /** 狀態燈（已填／沒填／連線中…）。 */
   status?: Pick<StatusLightProps, 'tone' | 'label' | 'testId'>
-  /** 一句白話：使用者需要知道的那一件事。太長的放進 `details`。 */
-  summary: string
+  /** 一句白話：只放會讓人做錯事的那一句（會花錢、不可逆…）；標題與控制項已經說明的就不要寫。太長的放進 `details`。 */
+  summary?: string | undefined
   /** 卡右上角的主要動作（開關或按鈕），最多一個；其他操作放進 `details`。 */
   action?: ReactNode
   /** 卡片中間、一句白話下面放一個行內控制項（三選一、一個數字欄位）；它算這張卡的那「一個動作」，不要再放 `action`。 */
@@ -67,12 +67,14 @@ export function SettingCard({
             {status ? <StatusLight {...status} /> : null}
           </div>
           {/* 不用 wrap-zh（keep-all）：長長一段中文不能斷，窄的時候前面的「AI」會單獨佔一行 */}
-          <p
-            className="mt-1 break-words text-pretty text-sm text-fg-muted"
-            data-testid="setting-card-summary"
-          >
-            {summary}
-          </p>
+          {summary ? (
+            <p
+              className="mt-1 break-words text-pretty text-sm text-fg-muted"
+              data-testid="setting-card-summary"
+            >
+              {summary}
+            </p>
+          ) : null}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>

@@ -154,7 +154,6 @@ export function ConnectionDiagram({ status, info, slima }: ConnectionDiagramProp
           />
         </div>
       </div>
-      <p className="mt-3 text-xs text-fg-muted">{t('settings.solidLinesAreConnectedDashed')}</p>
     </div>
   )
 }

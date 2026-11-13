@@ -7,19 +7,18 @@ import { channelText, ModelsSection } from './models-section'
 afterEach(cleanup)
 
 describe('ModelsSection', () => {
-  it('沒有任何模型 → 提示先填 Key 或開示範模式', () => {
+  it('沒有任何模型 → 一句話加「去填金鑰」按鈕', () => {
     installFakeSvs()
     render(<ModelsSection models={[]} selected={{}} onChanged={vi.fn()} onGoToKeys={vi.fn()} />)
-    expect(screen.getByTestId('models-empty').textContent).toContain('示範模式')
+    expect(screen.getByTestId('models-empty').textContent).toContain('還沒有可以選的模型')
   })
 
-  it('有一段等級說明：高品質、平衡、經濟各一句（價錢與速度）', () => {
+  it('價格說明只剩「估算的價格還沒跟官方核對」（等級名稱自明，不再寫圖例）', () => {
     installFakeSvs()
     render(<ModelsSection models={MODELS} selected={{}} onChanged={vi.fn()} onGoToKeys={vi.fn()} />)
     const legend = screen.getByTestId('tier-legend').textContent
-    expect(legend).toContain('高品質＝畫面最好、比較貴比較慢')
-    expect(legend).toContain('平衡＝畫面、價錢、速度都中等')
-    expect(legend).toContain('經濟＝便宜、快')
+    expect(legend).toContain('標「估算」的價格還沒有跟官方核對')
+    expect(legend).not.toContain('高品質＝')
   })
 
   it('沒有任何模型 → 「去填金鑰」會通知上層', () => {

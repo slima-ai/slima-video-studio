@@ -187,7 +187,7 @@ describe('Claude 對話面板：還不能開始時的說明卡', () => {
     await openPanel()
     const text = (await screen.findByTestId('chat-prereq')).textContent
     expect(text).toContain('受「AI 工具的總額度」限制')
-    expect(text).toContain('「設定 → AI 工具連線」調高「AI 工具的總額度」')
+    expect(text).toContain('預設是 US$0')
     expect(text).not.toContain('可以花多少')
   })
 
@@ -245,10 +245,10 @@ describe('Claude 對話面板：還不能開始時的說明卡', () => {
     await openPanel()
     // 說明的標點：句號後面沒有多的空格、不留兩個破折號
     const explain = (await screen.findByTestId('chat-prereq')).querySelector('p')?.textContent ?? ''
-    expect(explain).toContain('提供的工具。會花錢的步驟')
+    expect(explain).toContain('會花錢的步驟受「AI 工具的總額度」限制，預設是 US$0。')
     expect(explain).not.toMatch(/。 /)
     expect(explain).not.toContain('——')
-    expect(explain).toContain('預設是 US$0；示範模式不花錢')
+    expect(explain).not.toContain('示範模式')
     fireEvent.click(await screen.findByText('打開 AI 工具連線'))
     expect(await screen.findByTestId('chat-input')).toBeTruthy()
     expect(fake.calls.find((c) => c.channel === 'settings.update')?.payload).toEqual({
@@ -407,9 +407,7 @@ describe('Claude 對話面板：講話與串流', () => {
         message: message({ id: 'a', state: 'stopped' }),
       })
     })
-    expect(screen.getByTestId('chat-stopped').textContent).toContain(
-      '已經送出去的生成任務不會跟著取消',
-    )
+    expect(screen.getByTestId('chat-stopped').textContent).toContain('已送出的生成任務不會取消')
     act(() => {
       fake.emit('chat.event', {
         type: 'message',

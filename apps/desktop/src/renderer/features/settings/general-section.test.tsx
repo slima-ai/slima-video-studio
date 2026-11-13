@@ -74,13 +74,13 @@ describe('GeneralSection', () => {
     ])
   })
 
-  it('單次花費上限那張卡：開頭一句講「每按一次生成最多花多少」，並指到另一張卡（頁籤＋卡名），旁邊有「前往」', () => {
+  it('單次花費上限那張卡：一句講「預估超過就不開始」，並指到另一張卡（頁籤＋卡名），旁邊有「前往」', () => {
     installFakeSvs()
     render(<GeneralSection settings={SETTINGS} onChanged={vi.fn()} />)
     const card = screen.getByTestId('per-run-limit').closest('[data-testid]')
-    expect(document.body.textContent).toContain('每按一次生成，最多花多少')
+    expect(document.body.textContent).toContain('預估超過這個金額，那一次就不會開始')
     expect(screen.getByTestId('per-run-pointer').textContent).toBe(
-      '想調「AI 工具一共能花多少」？那是另一張卡：設定 → AI 工具連線的「AI 工具的總額度」。 前往',
+      'AI 工具的總額度在設定 → AI 工具連線的「AI 工具的總額度」。 前往',
     )
     expect(card).toBeTruthy()
     // 「前往」捲到 AI 工具那一區
@@ -105,9 +105,9 @@ describe('GeneralSection', () => {
         expect(screen.getByRole('status').textContent).toBe('Per-run spending limit saved as US$30')
       })
       expect(screen.getByTestId('per-run-pointer').textContent).toBe(
-        'Looking for how much AI tools can spend in total? That’s a different card: “Total allowance for AI tools” in Settings → AI tools. Go there',
+        'The total allowance for AI tools is in “Total allowance for AI tools” in Settings → AI tools. Go there',
       )
-      expect(document.body.textContent).toContain('The most a single generation can cost')
+      expect(document.body.textContent).toContain('won’t start')
     } finally {
       setLocale(DEFAULT_LOCALE)
     }

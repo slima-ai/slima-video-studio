@@ -231,7 +231,7 @@ export function TurnaroundPicker({ character, onChanged }: TurnaroundPickerProps
 
   const costText = check
     ? check.demoMode
-      ? t('chat.demoModeSampleResultsNothing')
+      ? ''
       : check.modelName
         ? t('chat.estimateAbout', { value: usd(check.estimatedUsd), modelName: check.modelName })
         : t('chat.estimateAbout2', { value: usd(check.estimatedUsd) })
@@ -241,7 +241,6 @@ export function TurnaroundPicker({ character, onChanged }: TurnaroundPickerProps
   return (
     <div className="space-y-3 rounded-md border border-border p-3" data-testid="turnaround-section">
       <h3 className="text-sm font-medium">{t('chat.turnaroundFrontSideBack')}</h3>
-      <p className="text-xs text-fg-muted">{t('chat.basedOnTheMainPicture')}</p>
 
       {character.turnaround ? (
         <div className="grid grid-cols-3 gap-2" data-testid="turnaround-adopted">

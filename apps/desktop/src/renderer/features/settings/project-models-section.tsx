@@ -48,7 +48,6 @@ export function ProjectModelsSection({
         icon={FolderCog}
         title={t('settings.defaultsForThisProject')}
         className="md:col-span-2"
-        summary={t('settings.appliesOnlyToJobsYou', { name: project.name })}
         body={
           <div className="divide-y divide-border">
             {PICKABLE_CAPABILITIES.map((capability) => {

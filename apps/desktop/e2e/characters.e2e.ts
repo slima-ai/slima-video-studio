@@ -191,7 +191,8 @@ test.describe('角色卡', () => {
     await page.getByTestId('character-appearance').fill('短黑髮、琥珀色眼睛')
     await page.getByTestId('character-save').click()
 
-    await expect(page.getByTestId('concept-cost')).toContainText('不會花錢')
+    await expect(page.getByTestId('concept-generate')).toBeEnabled()
+    await expect(page.getByTestId('concept-cost')).toHaveText('')
     await page.getByTestId('concept-generate').click()
     const round1 = page.getByTestId('concept-round-1')
     await expect(round1.getByRole('button')).toHaveCount(4, { timeout: 60_000 })
@@ -262,7 +263,8 @@ test.describe('角色卡', () => {
     await expect(page.getByTestId('concept-hero')).toBeVisible()
 
     await expect(page.getByTestId('turnaround-generate')).toBeEnabled()
-    await expect(page.getByTestId('turnaround-cost')).toContainText('不會花錢')
+    await expect(page.getByTestId('turnaround-generate')).toBeEnabled()
+    await expect(page.getByTestId('turnaround-cost')).toHaveText('')
     await page.getByTestId('turnaround-generate').click()
     const round1 = page.getByTestId('turnaround-round-1')
     await expect(round1.locator('[data-adopted]')).toHaveCount(4, {

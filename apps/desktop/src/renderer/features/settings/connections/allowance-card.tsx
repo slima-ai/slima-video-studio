@@ -113,7 +113,6 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
                   {t('settings.projectSpentSoFar', { value: usd(status.spentUsd) })}
                 </p>
               )}
-              <p data-testid="mcp-refund-note">{t('settings.reservationRefundNote')}</p>
             </div>
           ) : null}
           <AreaPointer
@@ -129,7 +128,6 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
       details={
         <div className="space-y-2 text-sm text-fg-muted">
           <p>{t('settings.onlyYouCanChangeThis')}</p>
-          <p>{t('settings.everyGenerationByAnAi')}</p>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="secondary"
@@ -140,7 +138,6 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
             >
               {t('settings.resetUsedAmount')}
             </Button>
-            <span>{t('settings.afterAResetTheSame')}</span>
           </div>
         </div>
       }

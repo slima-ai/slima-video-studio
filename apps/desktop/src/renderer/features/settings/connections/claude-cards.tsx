@@ -40,7 +40,6 @@ export function ClaudeDesktopCard({ mcp }: { mcp: McpConnection }) {
       icon={Monitor}
       title="Claude Desktop"
       status={{ ...desktopLight(info), testId: 'connect-desktop-status' }}
-      summary={t('settings.connectClaudeDesktopInOne')}
       action={
         info?.claudeDesktop.supported ? (
           <Button
@@ -92,7 +91,6 @@ export function ClaudeCodeCard({ mcp }: { mcp: McpConnection }) {
       icon={Terminal}
       title="Claude Code"
       status={{ ...codeLight(info), testId: 'connect-code-status' }}
-      summary={t('settings.connectThisAppToClaude')}
       action={
         <Button
           data-testid="mcp-connect-code"
@@ -112,11 +110,9 @@ export function ClaudeCodeCard({ mcp }: { mcp: McpConnection }) {
       body={<Note mcp={mcp} kind="code" />}
       details={
         <div className="space-y-2 text-sm text-fg-muted">
-          <p>
-            {t('settings.onceConnectedOpenANew', {
-              value: info && !info.claudeCode.installed ? t('settings.claudeCodeDoesnTSeemTo') : '',
-            })}
-          </p>
+          {info && !info.claudeCode.installed ? (
+            <p>{t('settings.claudeCodeDoesnTSeemTo')}</p>
+          ) : null}
           {status?.enabled && status.running && command ? (
             <div data-testid="mcp-connect">
               <p className="font-medium text-fg">{t('settings.manualSetupPasteThisLine')}</p>
