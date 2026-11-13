@@ -470,6 +470,21 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   )
   const growingRef = useRef(grow.running)
   growingRef.current = grow.running
+  const trailer = useTrailerStatus()
+  // 預告片：旁白在格子裡念不完的那幾格（檢查器的錯誤用「第幾格」說，這裡對到畫布上那一格）
+  const tooLong = useMemo(() => {
+    const sceneId = trailer.status?.settings.sceneId
+    if (sceneId === undefined || trailer.status === undefined) return new Set<string>()
+    const bad = new Set(
+      trailer.status.errors.flatMap((e) =>
+        e.code === 'narration_too_dense' && e.index !== undefined ? [e.index] : [],
+      ),
+    )
+    const ids = flow.nodes
+      .filter((n) => n.data.kind === 'shot' && n.data.sceneId === `scene:${sceneId}`)
+      .map((n) => n.id)
+    return new Set(ids.filter((_, index) => bad.has(index)))
+  }, [trailer.status, flow.nodes])
   const nodes = useMemo(
     () =>
       drag.nodes.map((n) => {
@@ -480,11 +495,12 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
         const busy =
           n.data.kind === 'oneliner' && (grow.running === n.id || grow.running === ANY_ONELINER)
         const glow = highlight.has(n.id)
-        if (!picked && !fresh && !busy && !glow && !aiTouched) return n
+        const long = tooLong.has(n.id)
+        if (!picked && !fresh && !busy && !glow && !aiTouched && !long) return n
         return {
           ...n,
           ...(picked ? { selected: true } : {}),
-          ...(fresh || busy || glow || aiTouched
+          ...(fresh || busy || glow || aiTouched || long
             ? {
                 data: {
                   ...n.data,
@@ -493,12 +509,23 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                   ...(aiFlash ? { aiFlash: true } : {}),
                   ...(busy ? { status: 'running' as const } : {}),
                   ...(glow ? { glow: true } : {}),
+                  ...(long ? { narrationTooLong: true } : {}),
                 },
               }
             : {}),
         }
       }),
-    [drag.nodes, selected, born, grown, grow.running, highlight, aiMarks.fresh, aiMarks.flash],
+    [
+      drag.nodes,
+      selected,
+      born,
+      grown,
+      grow.running,
+      highlight,
+      aiMarks.fresh,
+      aiMarks.flash,
+      tooLong,
+    ],
   )
   const lod = useStore((s): Lod =>
     s.transform[2] >= 0.5 ? 'full' : s.transform[2] >= 0.25 ? 'mid' : 'low',
@@ -790,7 +817,6 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   )
   // ── 貼一段故事拆分鏡（空白畫布的入口之一） ──
   const split = useStorySplit({ onChanged })
-  const trailer = useTrailerStatus()
 
   // ── 沒歸場的鏡頭：畫布上方提醒，一鍵看到它們、或歸進最後一個場 ──
   const loose = useMemo(

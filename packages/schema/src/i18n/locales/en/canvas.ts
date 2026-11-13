@@ -436,6 +436,7 @@ export const canvas = {
   'canvas.thisShotIsnTIn':
     'This shot isn’t in any scene, so it won’t be joined into the film. Drag it into a scene frame, or press “Move in” at the top of the canvas.',
   'canvas.noScene': 'No scene',
+  'canvas.narrationTooLong': 'Narration too long',
   'canvas.isLockedAtVersionGenerating':
     '{tag} is locked at version {value}: generating uses the fixed appearance and reference pictures',
   'canvas.promptSentToTheModel': 'Prompt sent to the model',

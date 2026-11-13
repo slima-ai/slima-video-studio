@@ -398,6 +398,7 @@ export const canvas = {
   'canvas.thisShotIsnTIn':
     '這個鏡頭不屬於任何場，不會接進成品；把它拖進場框，或按畫布上方的「歸進」',
   'canvas.noScene': '沒歸場',
+  'canvas.narrationTooLong': '旁白太長',
   'canvas.isLockedAtVersionGenerating': '{tag} 已鎖定第 {value} 版：生成時會帶入固定外觀與參考圖',
   'canvas.promptSentToTheModel': '畫面描述',
   'canvas.youEditedIt': '你改過了',
