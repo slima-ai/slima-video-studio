@@ -555,7 +555,7 @@ describe('SoundPanel：用我自己的音樂', () => {
         }),
     })
     renderPanel()
-    const own = await screen.findByTestId('sound-music-own')
+    await screen.findByTestId('sound-music-own')
     const button = screen.getByTestId('sound-import-music')
     expect(button.textContent).toMatch(/own music/i)
     expect(/[\u3400-\u9fff\uff00-\uffef]/.test(button.textContent)).toBe(false)
