@@ -143,10 +143,12 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
       timeout: 30_000,
     })
     await shoot(page, testInfo, '05-final-cut-30s.png')
-    // 匯出（不加片尾字卡）：24 fps × 30 秒 ＝ 720 格，誤差一格內
-    await page.getByTestId('final-cut-credits').uncheck()
+    // 匯出（勾著標註：併進片名卡，不另外接字卡）：24 fps × 30 秒 ＝ 720 格，誤差一格內
+    await expect(page.getByTestId('final-cut-credits')).toBeChecked()
+    await expect(page.getByTestId('final-cut-panel')).toContainText('片名卡標註 AI 服務（建議）')
     await page.getByTestId('final-cut-export').click()
     await expect(page.getByTestId('final-cut-exported')).toBeVisible({ timeout: 90_000 })
+    await expect(page.getByTestId('final-cut-exported')).not.toContainText('沒有加成功')
     expect(Math.abs(exportedFrames(userDataDir) - 720)).toBeLessThanOrEqual(1)
     await page.keyboard.press('Escape')
 

@@ -492,12 +492,14 @@ export function registerFilmTools(ctx: ToolContext): void {
     name: 'export_film',
     title: 'Save the film as an MP4',
     description:
-      "Copy the latest assembled film (with its sound) into the project's \"exports\" folder as an MP4 and return its file name (the user finds it in the app / in that folder; you do not get the folder path). Call assemble_film first (and mix_sound if you changed the sound after assembling). By default a 3-second card is added at the END of the exported file listing the AI services used (credits=true, the app's default; the project's film itself is not changed); pass credits=false for a file without it. If the card cannot be made the file is exported without it and creditsAdded says so. Free.",
+      "Copy the latest assembled film (with its sound) into the project's \"exports\" folder as an MP4 and return its file name (the user finds it in the app / in that folder; you do not get the folder path). Call assemble_film first (and mix_sound if you changed the sound after assembling). By default the AI services used are credited (credits=true, the app's default; the project's film itself is not changed): in a trailer project the credits are a small line at the bottom of the title card, so the length does not change; in any other project a 3-second card is added at the END of the exported file. Pass credits=false for a file without it. If the credits cannot be added the file is exported without them and creditsAdded says so. Free.",
     input: {
       credits: z
         .boolean()
         .default(true)
-        .describe('Add the closing card that lists the AI services used (default true)'),
+        .describe(
+          'Credit the AI services used (default true): on the title card of a trailer, or as a closing card otherwise',
+        ),
     },
     hints: { readOnly: false },
     run: async ({ credits }) => {

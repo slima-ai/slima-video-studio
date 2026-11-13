@@ -207,6 +207,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     log,
     projectsDir: options.projectsDir,
     sound: () => soundRef.current,
+    cardsFor,
     ...(options.renderCreditsCard ? { renderCreditsCard: options.renderCreditsCard } : {}),
     ...(options.creditsTimeoutMs ? { creditsTimeoutMs: options.creditsTimeoutMs } : {}),
     ...toolsOption,

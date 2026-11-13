@@ -1,3 +1,4 @@
+import { probe, resolveTools } from '@svs/media'
 import { encodePng } from '@svs/providers'
 import {
   DEFAULT_STORYBOARD_GUIDE,
@@ -349,4 +350,69 @@ describe('QuickStartService.export：畫片尾字卡不能把匯出卡住', () =
       process.off('unhandledRejection', unhandled)
     }
   })
+})
+
+describe('QuickStartService.export：預告片專案的標註併進片名卡，長度不變', () => {
+  const solidCard = ({ width, height }: { width: number; height: number }) =>
+    Promise.resolve(new Uint8Array(encodePng(width, height, new Uint8Array(width * height * 3))))
+
+  /** 跑完 2 鏡的快速開始；trailer＝true 時把第 2 鏡改成片名卡（4 秒）並重接成品。 */
+  async function film(options: { trailer: boolean }) {
+    const harness = setup({ renderCreditsCard: solidCard })
+    await harness.service.run(request({ shotCount: 2 }))
+    await harness.finished()
+    if (options.trailer) {
+      const handle = harness.projects.current()
+      handle?.repos.trailer.update({ title: '黑藤裂谷', author: '某作者' })
+      const second = harness.shots.list().shots[1]
+      if (!second) throw new Error('沒有第 2 鏡')
+      harness.shots.update(second.id, { beatKind: 'title', durationSec: 4 })
+      await harness.shots.regenerate(second.id, 'apply')
+      await harness.idle(second.id)
+      await harness.shots.whenMeasured()
+      await harness.shots.rejoin()
+    }
+    const lengthOf = async (path: string): Promise<number> => {
+      const tools = resolveTools()
+      return (await probe(tools, path)).durationSec
+    }
+    return { ...harness, lengthOf }
+  }
+
+  it('預告片專案：匯出的長度等於成品長度（不多 3 秒）；片名卡頁面最底下一行是標註加 Made with', async () => {
+    const h = await film({ trailer: true })
+    const finalHash = h.shots.finalVideoHash()
+    const handle = h.projects.current()
+    const finalPath = finalHash ? handle?.assets.find(finalHash)?.path : undefined
+    if (!finalPath) throw new Error('沒有成品')
+    const pagesBefore = h.cardPages.length
+    const out = await h.service.export()
+    expect(out.credits).toBe(true)
+    expect(await h.lengthOf(out.path)).toBeCloseTo(await h.lengthOf(finalPath), 1)
+    const footnotePages = h.cardPages
+      .slice(pagesBefore)
+      .filter((p) => p.includes('class="footnote"'))
+    expect(footnotePages).toHaveLength(1)
+    expect(footnotePages[0]).toContain('Made with Slima Video Studio')
+    expect(footnotePages[0]).toContain('黑藤裂谷')
+  }, 60_000)
+
+  it('預告片專案取消勾選：不重畫片名卡、檔案就是成品原樣', async () => {
+    const h = await film({ trailer: true })
+    const pagesBefore = h.cardPages.length
+    const out = await h.service.export({ credits: false })
+    expect(out.credits).toBe(false)
+    expect(h.cardPages.slice(pagesBefore).filter((p) => p.includes('class="footnote"'))).toEqual([])
+  }, 60_000)
+
+  it('一般專案（沒有預告片設定）：照舊多接 3 秒字卡，不畫片名卡', async () => {
+    const h = await film({ trailer: false })
+    const finalHash = h.shots.finalVideoHash()
+    const finalPath = finalHash ? h.projects.current()?.assets.find(finalHash)?.path : undefined
+    if (!finalPath) throw new Error('沒有成品')
+    const out = await h.service.export()
+    expect(out.credits).toBe(true)
+    expect(await h.lengthOf(out.path)).toBeCloseTo((await h.lengthOf(finalPath)) + 3, 0)
+    expect(h.cardPages.filter((p) => p.includes('class="footnote"'))).toEqual([])
+  }, 60_000)
 })

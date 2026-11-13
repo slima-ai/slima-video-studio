@@ -331,6 +331,9 @@ export const canvas = {
   'canvas.addAiServiceCreditsAt': 'AI service credits at the end',
   'canvas.exportedToTheEndCredits':
     'Exported to {exported} (the end credits weren’t added, so this version has no credits card)',
+  'canvas.creditsOnTitleCard': 'Credit AI services on the title card (recommended)',
+  'canvas.exportedToNoTitleCredits':
+    'Exported to {exported} (the credits weren’t added, so this version has none)',
   'canvas.exportedTo': 'Exported to {exported}',
   'canvas.panelTabs': 'Panel tabs',
   'canvas.edit': 'Edit',

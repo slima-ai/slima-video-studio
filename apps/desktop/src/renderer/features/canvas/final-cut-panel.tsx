@@ -129,7 +129,7 @@ export function FinalCutPanel({
       {finalVideoHash ? (
         <label
           className="flex items-center gap-2 text-xs text-fg-muted"
-          title={t('canvas.adds3SecondsAtThe')}
+          title={trailer?.exists === true ? undefined : t('canvas.adds3SecondsAtThe')}
         >
           <input
             type="checkbox"
@@ -140,14 +140,21 @@ export function FinalCutPanel({
               setCreditsPreferred(event.target.checked)
             }}
           />
-          {t('canvas.addAiServiceCreditsAt')}
+          {trailer?.exists === true
+            ? t('canvas.creditsOnTitleCard')
+            : t('canvas.addAiServiceCreditsAt')}
         </label>
       ) : null}
       {exported ? (
         <div className="flex flex-wrap items-center gap-x-2">
           <p className="text-sm text-success" data-testid="final-cut-exported">
             {creditsMissing
-              ? t('canvas.exportedToTheEndCredits', { exported })
+              ? t(
+                  trailer?.exists === true
+                    ? 'canvas.exportedToNoTitleCredits'
+                    : 'canvas.exportedToTheEndCredits',
+                  { exported },
+                )
               : t('canvas.exportedTo', { exported })}
           </p>
           <RevealButton

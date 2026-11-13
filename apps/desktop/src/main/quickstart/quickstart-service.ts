@@ -6,7 +6,8 @@ import {
   type EngineEvent,
   type NodeRegistry,
 } from '@svs/engine'
-import { appendEndCard, probe, type MediaTools } from '@svs/media'
+import type { ProjectHandle } from '@svs/db'
+import { appendEndCard, overlayCard, probe, type MediaTools } from '@svs/media'
 import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
@@ -14,6 +15,7 @@ import {
   billableChars,
   isAppError,
   resolveStoryboardGuide,
+  type CardJob,
   type QuickStartCheck,
   type QuickStartProgress,
   type QuickStartRequest,
@@ -37,6 +39,7 @@ import { markSoundAutoAdded, soundDoneNotice, soundStartNotice } from '../canvas
 import { avoidsOf, lockedAnchors, referenceEditModel } from '../characters/anchors'
 import { ensureProject, safeFileName, stamp } from '../ensure-project'
 import { createProjectEngine } from '../project-engine'
+import { cardJobFor, type CardService } from '../cards/card-service'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
@@ -68,6 +71,8 @@ export interface QuickStartDeps {
   sound?: () => Pick<SoundService, 'addAll' | 'plan' | 'state'> | undefined
   /** 把片尾字卡畫成圖（Electron 離屏視窗）；沒給就匯出時不加字卡。 */
   renderCreditsCard?: CardRenderer
+  /** 這個專案的字卡服務（預告片匯出時重畫帶標註的片名卡用）；沒給就預告片專案也照舊接 3 秒字卡。 */
+  cardsFor?: (handle: ProjectHandle) => CardService | undefined
   /** 畫字卡最多等幾毫秒（預設 20 秒）；測試縮短用。 */
   creditsTimeoutMs?: number
   now?: () => Date
@@ -123,6 +128,47 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
   const { projects, runtime, settings, settingsService, models, shots, broadcast, log } = deps
   const now = deps.now ?? (() => new Date())
   const tools = deps.tools ?? findTools
+
+  /**
+   * 預告片專案匯出時，標註要併進哪一張片名卡：有預告片設定、有一格在成品裡的片名卡、而且知道它在成品的第幾秒。
+   * 回傳 undefined ＝ 不適用（一般專案、沒有片名卡）：匯出照舊在最後接字卡。
+   */
+  const titleCardTarget = (
+    handle: ProjectHandle,
+  ):
+    | {
+        cards: CardService
+        job: Extract<CardJob, { kind: 'title' }>
+        fromSec: number
+        toSec: number
+      }
+    | undefined => {
+    const trailer = handle.repos.trailer.get()
+    const cards = deps.cardsFor?.(handle)
+    if (!trailer || !cards) return undefined
+    const title = handle.repos.shots
+      .list()
+      .filter((shot) => shot.inCut && shot.beatKind === 'title')
+      .at(-1)
+    if (!title) return undefined
+    const view = deps
+      .sound?.()
+      ?.state()
+      .shots.find((shot) => shot.shotId === title.id)
+    if (!view) return undefined
+    const job = cardJobFor(title, trailer)
+    if (job.kind !== 'title') return undefined
+    try {
+      return {
+        cards,
+        job,
+        fromSec: view.startSec,
+        toSec: view.startSec + view.durationSec,
+      }
+    } catch {
+      return undefined
+    }
+  }
 
   /** 對話框勾了旁白、配樂時，預估要多花的錢：配樂一首；旁白每鏡約 40 個字（鏡頭還沒拆出來，只能估）。 */
   const soundEstimate = (request: QuickStartRequest): number => {
@@ -457,7 +503,32 @@ export function createQuickStartService(deps: QuickStartDeps): QuickStartService
       // 片尾字卡：列出這個專案用了哪些 AI 服務（預設加；只加在匯出的檔案上，專案裡的成品不變）
       let credits = false
       const tool = tools()
-      if ((options.credits ?? true) && deps.renderCreditsCard && tool) {
+      const wantCredits = options.credits ?? true
+      // 預告片專案：標註併進片名卡（長度不變）；沒有片名卡的才照舊在最後接字卡
+      const onTitle = wantCredits && tool ? titleCardTarget(handle) : undefined
+      if (onTitle && tool) {
+        try {
+          const rendered = await onTitle.cards.render(
+            {
+              ...onTitle.job,
+              footnote: creditLines(collectAttributions(handle, models)).join(' · '),
+            },
+            handle.repos.projects.get().aspectRatio,
+          )
+          const card = handle.assets.find(rendered.assetHash)
+          if (!card) throw new Error('title card asset is missing')
+          await overlayCard(tool, source.path, card.path, path, {
+            fromSec: onTitle.fromSec,
+            toSec: onTitle.toSec,
+          })
+          credits = true
+        } catch (error) {
+          // 出問題不能害使用者匯不出影片：改匯出沒有標註的版本（不接字卡，長度才不會跑掉）
+          log.warn(
+            `The credits could not be added to the title card; exporting without: ${String(error)}`,
+          )
+        }
+      } else if (wantCredits && deps.renderCreditsCard && tool) {
         try {
           const info = await probe(tool, source.path)
           const png = await renderWithin(
