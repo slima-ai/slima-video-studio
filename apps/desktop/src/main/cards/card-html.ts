@@ -129,6 +129,13 @@ function fontFace(fontUrl: string | undefined): string {
 
 const CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src file:">`
 
+/** 最底下的小字：用「 · 」隔開的每一項不拆開、項與項之間只留空隙（放不下時整項換到下一行，不會把「Music generated」切成兩半，也不會有符號掛在行首行尾）。 */
+const footnoteHtml = (text: string): string =>
+  text
+    .split(' · ')
+    .map((part) => `<span>${textHtml(part)}</span>`)
+    .join(' ')
+
 const textHtml = (text: string): string => escapeHtml(text.trim()).replace(/\n/g, '<br>')
 
 function page(css: string, body: string, fontUrl: string | undefined): string {
@@ -228,13 +235,14 @@ export function titleCardHtml(input: TitleCardInput): string {
 .title{font-size:${String(title.fontSizePx)}px;line-height:${String(LINE_HEIGHT)};overflow-wrap:anywhere;}
 .author{margin-top:${String(Math.round(title.fontSizePx * 0.3))}px;font-size:${String(author?.fontSizePx ?? 0)}px;opacity:.85;overflow-wrap:anywhere;}
 .end{margin-top:${String(Math.round(title.fontSizePx * 0.5))}px;font-size:${String(end?.fontSizePx ?? 0)}px;opacity:.7;overflow-wrap:anywhere;}
-.footnote{position:absolute;left:0;right:0;bottom:${String(Math.round(height * 0.03))}px;text-align:center;font-size:${String(footPx)}px;opacity:.6;}`
+.footnote span{display:inline-block;margin:0 .7em;}
+.footnote{position:absolute;left:0;right:0;box-sizing:border-box;padding:0 5%;bottom:${String(Math.round(height * 0.03))}px;text-align:center;font-size:${String(footPx)}px;opacity:.6;}`
   const body =
     (hasCover ? `<div class="cover"><img src="${input.coverDataUri ?? ''}" alt=""></div>` : '') +
     `<div class="text"><div class="title">${textHtml(input.title)}</div>` +
     (author === undefined ? '' : `<div class="author">${textHtml(authorText)}</div>`) +
     (end === undefined ? '' : `<div class="end">${textHtml(endText)}</div>`) +
     `</div>` +
-    (footText === '' ? '' : `<div class="footnote">${textHtml(footText)}</div>`)
+    (footText === '' ? '' : `<div class="footnote">${footnoteHtml(footText)}</div>`)
   return page(css, body, input.fontUrl)
 }

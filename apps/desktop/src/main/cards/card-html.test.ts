@@ -198,6 +198,17 @@ describe('titleCardHtml：片名卡', () => {
     expect(html).toContain('Video generated with Kling AI &#60;b&#62;')
   })
 
+  it('標註用「 · 」隔開的每一項不拆開：放不下時整項換行，不會切在一項的中間', () => {
+    const html = titleCardHtml({
+      ...base,
+      footnote: 'Video generated with Kling AI · Music generated with Google Lyria',
+    })
+    expect(html).toContain(
+      '<span>Video generated with Kling AI</span> <span>Music generated with Google Lyria</span>',
+    )
+    expect(html).toContain('.footnote span{display:inline-block;')
+  })
+
   it('書名、作者、片尾那一行都被跳脫；橫式與直式的版面不同', () => {
     const html = titleCardHtml({ ...base, title: '<img src=x onerror=1>', author: '"A"&' })
     expect(html).not.toContain('<img src=x')

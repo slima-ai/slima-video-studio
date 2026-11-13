@@ -52,6 +52,40 @@ describe('FinalCutPanel：預告片的成品長度', () => {
   })
 })
 
+describe('FinalCutPanel：預告片專案的標註併進片名卡', () => {
+  it('預告片專案：勾選寫「片名卡標註 AI 服務（建議）」，沒有「多 3 秒」的說明；一般專案維持「片尾加上…」', async () => {
+    installFakeSvs({ 'trailer.status': () => TRAILER(30) })
+    const first = render(<FinalCutPanel finalVideoHash={'a'.repeat(64)} canRejoin={false} />)
+    await screen.findByTestId('final-cut-length')
+    const label = screen.getByTestId('final-cut-credits').closest('label')
+    expect(label?.textContent).toBe('片名卡標註 AI 服務（建議）')
+    expect(label?.getAttribute('title')).toBeNull()
+    first.unmount()
+
+    installFakeSvs()
+    render(<FinalCutPanel finalVideoHash={'a'.repeat(64)} canRejoin={false} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('final-cut-credits').closest('label')?.textContent).toBe(
+        '片尾加上 AI 服務標註（建議）',
+      )
+    })
+  })
+
+  it('預告片專案要了標註但沒加成功：說「標註沒有加成功」，不是「片尾字卡」', async () => {
+    installFakeSvs({
+      'trailer.status': () => TRAILER(30),
+      'quickstart.export': () => ({ path: '/p/exports/短片.mp4', credits: false }),
+    })
+    render(<FinalCutPanel finalVideoHash={'a'.repeat(64)} canRejoin={false} />)
+    await screen.findByTestId('final-cut-length')
+    fireEvent.click(screen.getByTestId('final-cut-export'))
+    await waitFor(() => {
+      expect(screen.getByTestId('final-cut-exported').textContent).toContain('標註沒有加成功')
+    })
+    expect(screen.getByTestId('final-cut-exported').textContent).not.toContain('字卡')
+  })
+})
+
 describe('FinalCutPanel：匯出的片尾字卡', () => {
   it('預設勾著「片尾加上 AI 服務標註（建議）」，匯出時帶 credits: true', async () => {
     const calls: unknown[] = []

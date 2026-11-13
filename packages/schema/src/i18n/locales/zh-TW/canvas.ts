@@ -323,6 +323,9 @@ export const canvas = {
   'canvas.addAiServiceCreditsAt': '片尾加上 AI 服務標註（建議）',
   'canvas.exportedToTheEndCredits':
     '已匯出到 {exported}（片尾字卡沒有加成功，匯出的是沒有字卡的版本）',
+  'canvas.creditsOnTitleCard': '片名卡標註 AI 服務（建議）',
+  'canvas.exportedToNoTitleCredits':
+    '已匯出到 {exported}（標註沒有加成功，匯出的是沒有標註的版本）',
   'canvas.exportedTo': '已匯出到 {exported}',
   'canvas.lastExport': '最近一次匯出：{lastExport}',
   'canvas.afterChangingAShotS': '換了鏡頭的版本或重新生成之後，按「接成成品」更新上面的完整影片。',
