@@ -53,7 +53,10 @@ test.describe('聲音跟著格子：旁白貼合、配樂照腳本（示範模�
     await page.getByTestId('shot-sound').scrollIntoViewIfNeeded()
     await page.getByTestId('shot-sound-narrate').click()
     await expect(page.getByTestId('shot-sound-confirm')).toBeVisible()
-    await shoot(page, testInfo, 'fit-01-confirm.png')
+    // 預估寫成範圍「約 US$a～b」（旁白可能改短重念），沒有括號說明
+    await expect(page.getByTestId('shot-sound-confirm')).toContainText(/約 US\$[\d.]+～[\d.]+/)
+    await expect(page.getByTestId('shot-sound-confirm')).not.toContainText('改短')
+    await shoot(page, testInfo, 'fit-01-confirm-range.png')
     await page.getByTestId('shot-sound-go').click()
 
     // 提示：第幾格、改成哪一句
@@ -72,6 +75,16 @@ test.describe('聲音跟著格子：旁白貼合、配樂照腳本（示範模�
     expect(state.warnings.map((w) => w.kind)).not.toContain('narration_too_long')
     expect(state.warnings.map((w) => w.kind)).not.toContain('narration_text_changed')
     await expect(page.getByTestId('shot-sound-dialogue')).toHaveValue(view?.dialogue ?? '')
+
+    // 復原：台詞回到原句、旁白回到「還沒有旁白」；重做又回到改短的
+    await toast.getByTestId('toast-action').click()
+    await expect(page.getByTestId('shot-sound-dialogue')).toHaveValue(LONG_LINE)
+    await expect.poll(async () => (await soundOf(page)).shots[0]?.narration).toBeUndefined()
+    await shoot(page, testInfo, 'fit-04-undone-original-line.png')
+    const redone = await page.evaluate(() => window.svs.invoke('history.redo', {}))
+    expect(redone.ok && redone.data.applied).toBe(true)
+    await expect(page.getByTestId('shot-sound-dialogue')).toHaveValue(view?.dialogue ?? '')
+    await expect.poll(async () => (await soundOf(page)).shots[0]?.narration?.version).toBe(2)
 
     // 時間軸（成品面板）上旁白不超出這一格
     await page.keyboard.press('Escape')

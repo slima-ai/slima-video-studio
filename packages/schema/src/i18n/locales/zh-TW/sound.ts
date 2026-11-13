@@ -73,6 +73,7 @@ export const sound = {
   'sound.narrationMissing_other':
     '{count} 個鏡頭有台詞，還沒有旁白。到鏡頭裡按「念出這句台詞」（會先給預估），就會念出來。',
   'sound.narrationsDeleted_other': '已刪除 {count} 句旁白，台詞還在，可以再念。',
+  'sound.range': '{from}～{to}',
   'sound.narrationShortened': '第 {value} 格的旁白太長，已改短成「{text}」，台詞也換成這句。',
   'sound.narrationsShortened_other': '有 {count} 格的旁白太長，已改短並重念，台詞也換成改短的。',
   'sound.import.button': '用我自己的音樂…',

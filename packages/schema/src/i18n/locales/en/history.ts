@@ -15,4 +15,5 @@ export const history = {
   'history.editTrailerSettings': 'Edit the trailer settings',
   'history.refitTrailer': 'Re-fit the trailer to the new length',
   'history.importMusic': 'Import your own music',
+  'history.shortenNarration': 'Shorten the narration',
 } as const

@@ -158,6 +158,8 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
   })
   // 聲音服務在鏡頭服務之後才建（它需要鏡頭服務推送快照），接片時再用 soundRef 呼叫它
   const soundRef: { current?: SoundService } = {}
+  // 歷史服務在聲音服務之後才建：旁白被改短的那一步復原要記進去
+  const historyRef: { current?: HistoryService } = {}
   // 字卡服務：每個專案一個（同樣的字卡不重畫的記憶跟著專案走）
   const cardServices = new WeakMap<ProjectHandle, CardService>()
   const cardsFor = (handle: ProjectHandle): CardService | undefined => {
@@ -241,6 +243,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     broadcast,
     log,
     shots,
+    beginHistory: (label) => historyRef.current?.begin(label) ?? (() => undefined),
     ...(options.pickMusic ? { pickMusic: options.pickMusic } : {}),
     ...toolsOption,
   })
@@ -286,6 +289,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     ...toolsOption,
   })
   const history = createHistoryService({ projects, broadcast })
+  historyRef.current = history
   const trailer = createTrailerService({
     projects,
     projectsDir: options.projectsDir,

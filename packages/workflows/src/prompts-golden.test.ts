@@ -68,6 +68,8 @@ const GOLDEN: Record<string, string> = {
     '82eff4b8b51c173681c21dbd39567c38e43f09731dc9a13f5cfb0d7217536ff1',
   '配樂描述：劇情型六段全上（照模板排 30 秒）':
     '0f5ea88f4b3172fd742c6564b5a97f6a787b20aafbe0a82dfd32c548f92b1ec8',
+  '配樂描述：模型寫的風格句接進來（人聲與時間碼的句子先濾掉）':
+    '8010f7622550463f2e4122dcfb8bb85e592dd538c83081a5eb160c01a61fb2cf',
   '配樂描述：預告片沒有段落時照模板排（懸念短版 15 秒）':
     'e2861a5a4e74374abd8791e4b848b05cfc2fc5c8fc2a949b3c2e4cc4c0ad2520',
   'shot：簡單': '6d959f112edf28ef834b0e681ec0361162b6dbd85041f1a505d2e53bfca4ec5f',
@@ -236,6 +238,20 @@ const OUTPUTS: Record<string, () => unknown> = {
     trailerMusicPrompt({
       settings: TrailerSettingsSchema.parse({}),
       spans: musicSpansOf(undefined, 'story', 30),
+      filmSec: 30,
+    }),
+  '配樂描述：模型寫的風格句接進來（人聲與時間碼的句子先濾掉）': () =>
+    trailerMusicPrompt({
+      settings: TrailerSettingsSchema.parse({
+        musicMood: '緊張、壓迫',
+        musicBrief:
+          '低沉的大提琴與合成器鋪底，緩慢推進。0:00–0:06 留白。人聲合唱在副歌進入。Dark cello and analog synth pads; choir enters at the chorus. 重音收尾。',
+      }),
+      spans: [
+        { key: 'hook', startSec: 0, endSec: 6 },
+        { key: 'escalate', startSec: 6, endSec: 26 },
+        { key: 'title', startSec: 26, endSec: 30 },
+      ],
       filmSec: 30,
     }),
   '配樂描述：預告片沒有段落時照模板排（懸念短版 15 秒）': () =>

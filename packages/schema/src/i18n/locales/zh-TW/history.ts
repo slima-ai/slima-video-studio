@@ -12,4 +12,5 @@ export const history = {
   'history.editTrailerSettings': '修改預告片設定',
   'history.refitTrailer': '照新長度重排預告片',
   'history.importMusic': '匯入自己的音樂',
+  'history.shortenNarration': '改短旁白',
 } as const

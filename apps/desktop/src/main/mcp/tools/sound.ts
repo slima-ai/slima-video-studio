@@ -120,7 +120,7 @@ export function registerSoundTools(ctx: ToolContext): void {
     name: 'plan_sound',
     title: 'Estimate the cost of narration and music',
     description:
-      'Before generating sound: the estimated cost per item and in total, and whether it can be done now (a model is available, within the limits). Default narration: every shot that has dialogue and no narration yet. Free.',
+      'Before generating sound: the estimated cost per item and in total, and whether it can be done now (a model is available, within the limits). Default narration: every shot that has dialogue and no narration yet. maxUsd (when present) is the worst case if a narration has to be shortened and read again. Free.',
     input: {
       narrationShotIds: z.array(z.string().min(1)).max(100).optional().describe('Only these shots'),
       narration: z.boolean().default(true).describe('Include narration'),
@@ -144,8 +144,11 @@ export function registerSoundTools(ctx: ToolContext): void {
           ...(i.shotId === undefined ? {} : { shotId: i.shotId }),
           model: i.modelId,
           estimatedUsd: i.estimatedUsd,
+          ...(i.maxUsd === undefined ? {} : { maxUsd: i.maxUsd }),
         })),
         totalUsd: plan.totalUsd,
+        // 旁白太長會改短重念：最壞情況的總額（比 totalUsd 大才有）
+        ...(plan.maxUsd === undefined ? {} : { maxUsd: plan.maxUsd }),
         demoMode: ctx.settings.get().demoMode,
         allowanceLeftUsd: Math.max(status.allowanceUsd - status.committedUsd, 0),
       }

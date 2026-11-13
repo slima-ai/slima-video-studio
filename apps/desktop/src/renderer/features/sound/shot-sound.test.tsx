@@ -152,6 +152,46 @@ describe('ShotSound：一個鏡頭的聲音', () => {
     })
   })
 
+  it('預估有最壞情況：寫成「約 US$a～b」（鏡頭面板的確認也一樣）；改短的提示附「復原」', async () => {
+    const undo = vi.fn(() => ({
+      applied: true,
+      label: '改短旁白',
+      state: { canUndo: false, canRedo: true },
+    }))
+    installFakeSvs({
+      'sound.get': () => state(),
+      'sound.plan': () => ({
+        ok: true,
+        totalUsd: 0.0018,
+        maxUsd: 0.0105,
+        items: [
+          { kind: 'narration', shotId: 's1', modelId: 'm', estimatedUsd: 0.0018, maxUsd: 0.0105 },
+        ],
+      }),
+      'sound.generateNarration': () => ({
+        clip: narration('s1'),
+        shortened: { shotNumber: 1, from: '很長很長的一句話', to: '短的一句。' },
+      }),
+      'sound.mix': () => ({ videoHash: 'h', version: 2 }),
+      'history.undo': undo,
+    })
+    render(
+      <ToastProvider>
+        <HistoryProvider enabled>
+          <ShotSound shotId="s1" />
+        </HistoryProvider>
+      </ToastProvider>,
+    )
+    fireEvent.click(await screen.findByTestId('shot-sound-narrate'))
+    const confirm = (await screen.findByTestId('shot-sound-confirm')).textContent
+    expect(confirm).toContain('約 US$0.0018～0.0105')
+    fireEvent.click(screen.getByTestId('shot-sound-go'))
+    fireEvent.click(await screen.findByTestId('toast-action'))
+    await waitFor(() => {
+      expect(undo).toHaveBeenCalledTimes(1)
+    })
+  })
+
   it('旁白放不進這一格、被改短重念：提示說第幾格、改成哪一句（台詞也換了）；沒改短就沒有提示', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     let shortened = true

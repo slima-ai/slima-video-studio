@@ -182,11 +182,15 @@ export const SoundPlanItemSchema = z.object({
   shotId: IdSchema.optional(),
   modelId: z.string(),
   estimatedUsd: UsdSchema,
+  /** 最壞情況的花費：旁白念完太長會改短、重念一次（念兩次加一次小的文字呼叫）。只有旁白有；沒有就是不會變。 */
+  maxUsd: UsdSchema.optional(),
 })
 
 export const SoundPlanSchema = z.object({
   items: z.array(SoundPlanItemSchema),
   totalUsd: UsdSchema,
+  /** 最壞情況的總額；比 totalUsd 大才有（畫面寫成「約 US$a～b」）。 */
+  maxUsd: UsdSchema.optional(),
   /** false 表示現在做不了（沒有可用的模型、或超過預算上限），原因寫在 issue。 */
   ok: z.boolean(),
   issue: z.string().optional(),

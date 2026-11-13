@@ -5,6 +5,7 @@ import { Button } from '../../components/button'
 import { LONG_TOAST_MS, useToast } from '../../components/toast'
 import { useHistory } from '../../lib/history'
 import { call, errorText } from '../../lib/svs'
+import { planUsd } from './plan-usd'
 import { LEVEL_LABELS, MUSIC_DB, NARRATION_DB, NATIVE_DB, levelOf, type Level } from './levels'
 import { SoundTimeline } from './sound-timeline'
 import { useAutoMix } from './use-auto-mix'
@@ -81,7 +82,7 @@ function planText(plan: SoundPlan): string {
     narrations > 0 ? t('sound.narrationLines', { count: narrations }) : '',
     music > 0 ? t('sound.musicTracks', { count: music }) : '',
   ].filter((p) => p !== '')
-  return t('sound.about', { value: usd(plan.totalUsd), value2: parts.join(t('list.comma')) })
+  return t('sound.about', { value: planUsd(plan, usd), value2: parts.join(t('list.comma')) })
 }
 
 /**
@@ -219,6 +220,10 @@ export function SoundPanel() {
             shortened.length === 1
               ? t('sound.narrationShortened', { value: String(only.shotNumber), text: only.to })
               : t('sound.narrationsShortened', { count: shortened.length }),
+          // 一句才附復原（復原一次只退一步；好幾句要一步步退，用上方列的復原）
+          ...(shortened.length === 1
+            ? { action: { label: t('sound.undo'), onAction: history.undo } }
+            : {}),
           ms: LONG_TOAST_MS,
         })
       }
