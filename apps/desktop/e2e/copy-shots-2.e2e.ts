@@ -104,3 +104,21 @@ test.describe('文案截圖第二批（改前改後對照）', () => {
     await shoot(page, testInfo, 's12-sound-narration-missing.png')
   })
 })
+
+// 英文介面的設定頁五區（確認英文字不會斷行、擠成一團）
+test.describe('文案截圖第二批（英文介面）', () => {
+  test.use({ appEnv: { SVS_LOCALE: 'en' } })
+  test.describe.configure({ timeout: 240_000 })
+
+  test('設定頁五區（英文）', async ({ page }, testInfo) => {
+    await page.getByRole('button', { name: 'Settings' }).click()
+    let index = 1
+    for (const id of ['general', 'connections', 'keys', 'models', 'experiments']) {
+      await page.locator(`#${id}`).evaluate((el) => {
+        el.scrollIntoView({ block: 'start' })
+      })
+      await shoot(page, testInfo, `en-s${String(index).padStart(2, '0')}-settings-${id}.png`)
+      index += 1
+    }
+  })
+})
