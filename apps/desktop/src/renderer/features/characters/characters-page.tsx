@@ -115,7 +115,6 @@ function AnchorEditor({ character, onChanged }: AnchorProps) {
           {t(STATUS_TEXT[character.anchorStatus])}
         </span>
       </div>
-      <p className="text-xs text-fg-muted">{t('chat.onceLockedEveryShotThis')}</p>
       <textarea
         data-testid="character-anchor"
         aria-label={t('chat.fixedAppearance')}
@@ -284,9 +283,6 @@ function CharacterCard({ character, onSaved, onDeleted }: CardProps) {
           }}
           className={FIELD}
         />
-        <span className="mt-1 block text-xs font-normal text-fg-muted">
-          {t('chat.whenMakingVideoShotsWith')}
-        </span>
       </label>
       <label className="block text-sm font-medium">
         {t('chat.outfit')}
@@ -465,11 +461,7 @@ export function CharactersPage() {
   }
 
   return (
-    <Page
-      title={t('chat.characters')}
-      hint={t('chat.writeDownACharacterS')}
-      testId="characters-page"
-    >
+    <Page title={t('chat.characters')} testId="characters-page">
       <div>
         {empty && !creating ? (
           <EmptyState

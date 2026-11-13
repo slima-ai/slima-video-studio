@@ -1,4 +1,10 @@
 export const trailer = {
+  'trailer.userRuleUnverifiedClaim':
+    'Shot {n} mentions a bestseller, award or blurb claim you did not provide; remove it if you have no source text.',
+  'trailer.userRuleNarrationShare':
+    'Shots with narration add up to {sec} seconds, over 60% of the film ({limit} seconds).',
+  'trailer.userRuleNarrationDense': 'Shot {n}’s narration is too long: {units}, at most {limit}.',
+  'trailer.userRuleLength': 'Total {total} seconds, target {target} seconds, {diff} seconds off.',
   'trailer.cardNoText': 'The text card has no text yet. Write the words to show first.',
   'trailer.titleCardNoName':
     'The trailer settings have no book title yet, so the title card has nothing to show.',
@@ -39,7 +45,7 @@ export const trailer = {
   'trailer.ruleUnverifiedClaim':
     'Shot {n} mentions a bestseller, award or blurb claim that you did not provide. Blurbs, awards and sales figures may only use text you provided; remove it if you have none.',
   'trailer.ruleNoEscalation':
-    'The last third of the shots is not shorter than the first third (average {last} seconds against {first} seconds). Trailers usually cut faster toward the end. This is only a reminder and does not block anything.',
+    'The last third isn’t shorter than the first (average {last} seconds against {first} seconds).',
   'trailer.beatVideo': 'Moving',
   'trailer.beatStill': 'Still',
   'trailer.beatCard': 'Text card',

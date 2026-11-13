@@ -22,20 +22,16 @@ export const records = {
   'records.estimated': '{usage}（估算）',
   'records.hide': '收起',
   'records.showTheFullPrompt': '看完整 prompt',
-  'records.thePromptForThisRecord': '這一筆的 prompt（可以改了再生成）',
+  'records.thePromptForThisRecord': 'prompt',
   'records.copied': '已複製',
   'records.copyPrompt': '複製 prompt',
-  'records.thisReplacesThePromptFor':
-    '會把{value}的 prompt 換成上面這段並再生成一次，大約再花 US${value2}；舊的版本都會保留。',
-  'records.thisReplacesThePromptFor2':
-    '會把{value}的 prompt 換成上面這段並再生成一次；舊的版本都會保留。',
-  'records.generateAgain': '確定重新生成',
+  'records.thisReplacesThePromptFor': '再花約 US${value2}；舊的版本都會保留。',
+  'records.thisReplacesThePromptFor2': '舊的版本都會保留。',
+  'records.generateAgain': '確定',
   'records.notNow': '先不要',
-  'records.generateAgainWithTheEdited': '用改過的 prompt 重新生成',
-  'records.generateAgainWithThisPrompt': '用這段 prompt 再生成一次',
+  'records.generateAgainWithTheEdited': '重新生成',
+  'records.generateAgainWithThisPrompt': '重新生成',
   'records.generationRecords': '生成紀錄',
-  'records.everyRequestSentToA':
-    '每一次送給模型的請求：用了什麼描述、哪個模型、花多久、花多少、結果是什麼',
   'records.type': '種類',
   'records.all': '全部',
   'records.result2': '結果',
@@ -44,7 +40,5 @@ export const records = {
   'records.recordsAboutUsSpent': '共 {total} 筆・花了約 US${value}',
   'records.seeProgressInTheStoryboard': '到分鏡表看進度',
   'records.noRecordsMatch': '沒有符合的紀錄。',
-  'records.nothingHasBeenGeneratedYet':
-    '還沒有生成過任何東西。到畫布寫一句話做一支影片，每一次生成都會記在這裡。',
-  'records.startedGeneratingAgain': '已開始重新生成{label}。',
+  'records.nothingHasBeenGeneratedYet': '還沒有生成紀錄。',
 } as const

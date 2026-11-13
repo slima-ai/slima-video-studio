@@ -1,4 +1,5 @@
 export const canvas = {
+  'canvas.undoGeneration': 'Undo generation',
   'canvas.couldnTAddTheScene': 'Couldn’t add the scene. Please try again.',
   'canvas.couldnTAddTheLocation': 'Couldn’t add the location. Please try again.',
   'canvas.newCharacter': 'New character',

@@ -33,14 +33,14 @@ test.describe('生成紀錄（示範模式）', () => {
 
     // 打開某一筆：看到完整 prompt，改一改重新生成
     const first = page.getByTestId('record').first()
-    const label = await first.getByTestId('record-target').innerText()
     await first.getByTestId('record-toggle').click()
     await expect(first.getByTestId('record-draft')).not.toHaveValue('')
     await first.getByTestId('record-draft').fill('貓咪蜷縮在窗邊看雨，溫暖的燈光')
     await first.getByTestId('record-redo').click()
     await expect(first.getByTestId('record-confirm-note')).toContainText('舊的版本都會保留')
     await first.getByTestId('record-redo-confirm').click()
-    await expect(page.getByTestId('records-notice')).toContainText(`已開始重新生成${label}`)
+    // 只留「到分鏡表看進度」的連結（不再寫「已開始重新生成」）
+    await expect(page.getByTestId('records-notice')).toHaveText('到分鏡表看進度')
 
     // 生成完成後紀錄多一筆，prompt 就是剛剛改的那一段
     await expect(page.getByTestId('record')).toHaveCount(images + 1, { timeout: 60_000 })

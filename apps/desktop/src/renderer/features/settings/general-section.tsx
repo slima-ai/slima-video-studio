@@ -1,5 +1,4 @@
 import {
-  DEFAULT_PER_RUN_LIMIT_USD,
   THEME_PREFERENCES,
   type AppSettings,
   type ThemePreference,
@@ -14,7 +13,7 @@ import { Button } from '../../components/button'
 import { SettingCard } from '../../components/setting-card'
 import { Switch } from '../../components/switch'
 import { call, errorText } from '../../lib/svs'
-import { AreaPointer, areaPath } from './area-pointer'
+import { AreaPointer } from './area-pointer'
 import { LanguageCard } from './language-card'
 
 export interface GeneralSectionProps {
@@ -74,7 +73,7 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
             ? { tone: 'ok', label: t('settings.onCostsNothing') }
             : { tone: 'warn', label: t('settings.offUsesRealServices') }
         }
-        summary={t('settings.runTheWholeProcessWith')}
+        summary={demo ? t('settings.demoOffWarning') : undefined}
         action={
           <Switch
             aria-label={t('settings.demoMode')}
@@ -94,7 +93,6 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
       <SettingCard
         icon={Palette}
         title={t('settings.appearance')}
-        summary={t('settings.lightDarkOrFollowThe')}
         body={
           <fieldset>
             <legend className="sr-only">{t('settings.appearance')}</legend>
@@ -165,9 +163,6 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
                 {t('settings.save')}
               </Button>
             </div>
-            <p className="mt-1 text-xs text-fg-muted">
-              {t('settings.ifItSOverYou', { value: String(DEFAULT_PER_RUN_LIMIT_USD) })}
-            </p>
             {valid ? null : (
               <p className="mt-1 text-sm text-danger">{t('settings.enterANumberGreaterThan')}</p>
             )}
@@ -182,10 +177,7 @@ export function GeneralSection({ settings, onChanged }: GeneralSectionProps) {
             <AreaPointer
               testId="per-run-pointer"
               targetId="connections"
-              text={t('settings.perRunPointer', {
-                where: areaPath('aiTools'),
-                card: t('mcp.allowanceCard'),
-              })}
+              text={t('settings.perRunPointer')}
             />
           </form>
         }

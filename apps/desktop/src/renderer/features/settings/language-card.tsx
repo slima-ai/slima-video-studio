@@ -34,7 +34,6 @@ export function LanguageCard({ value, onChanged }: LanguageCardProps) {
       icon={Languages}
       title={t('settings.language')}
       status={{ tone: 'ok', label: nameOf(chosen) }}
-      summary={t('settings.languageSummary')}
       body={
         <fieldset>
           <legend className="sr-only">{t('settings.language')}</legend>

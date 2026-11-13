@@ -38,12 +38,12 @@ export interface ModelsSectionProps {
   onGoToKeys: () => void
 }
 
-export const LABELS: Record<PickableCapability, { title: MessageRef; hint: MessageRef }> = {
-  llm: { title: msg('settings.text'), hint: msg('settings.splitTheStoryIntoPictures') },
-  t2i: { title: msg('settings.images'), hint: msg('settings.theFirstPictureOfEach') },
-  i2v: { title: msg('settings.video'), hint: msg('settings.makeThePicturesMove') },
-  tts: { title: msg('settings.narration'), hint: msg('settings.readEachShotSLines') },
-  music: { title: msg('settings.music'), hint: msg('settings.backgroundMusicForTheWhole') },
+export const LABELS: Record<PickableCapability, { title: MessageRef }> = {
+  llm: { title: msg('settings.text') },
+  t2i: { title: msg('settings.images') },
+  i2v: { title: msg('settings.video') },
+  tts: { title: msg('settings.narration') },
+  music: { title: msg('settings.music') },
 }
 
 const ICONS: Record<PickableCapability, LucideIcon> = {
@@ -96,6 +96,9 @@ function OptionContent({ model, recommended }: { model: ModelOption; recommended
     </span>
   )
 }
+
+/** 示範模型（不連網、不花錢）：頂列與選單上的「免費（示範）」已經說了，下面不再寫「透過示範」與說明。 */
+const isDemoModel = (model: ModelOption): boolean => model.id.startsWith('mock/')
 
 /** 走哪一家：同一個模型好幾家都有時，會自動選便宜的那家。 */
 export function channelText(model: ModelOption): string {
@@ -194,9 +197,12 @@ export function ModelsSection({
 
   return (
     <div className="contents" data-testid="models-section">
-      <p data-testid="tier-legend" className="text-xs leading-snug text-fg-muted md:col-span-2">
-        {t('settings.tiersHighQualityBestPicture')}
-      </p>
+      {/* 只有清單裡真的有「估算」的價格才說明它是什麼意思 */}
+      {[...models, ...locked].some((m) => !m.priceVerified) ? (
+        <p data-testid="tier-legend" className="text-xs leading-snug text-fg-muted md:col-span-2">
+          {t('settings.tiersHighQualityBestPicture')}
+        </p>
+      ) : null}
       {models.length === 0 ? (
         <div className="md:col-span-2">
           <EmptyState
@@ -226,7 +232,6 @@ export function ModelsSection({
               {...(candidates.length === 0
                 ? { status: { tone: 'warn' as const, label: t('settings.addAKeyFirst') } }
                 : {})}
-              summary={t(LABELS[capability].hint)}
               body={
                 candidates.length === 0 ? (
                   <div className="flex flex-wrap items-center gap-3 text-sm text-fg-muted">
@@ -253,7 +258,7 @@ export function ModelsSection({
                         choose(capability, id)
                       }}
                     />
-                    {detail ? (
+                    {detail && !isDemoModel(detail) ? (
                       <p
                         className="mt-1 text-xs text-fg-muted"
                         data-testid={`model-${capability}-channel`}
@@ -283,7 +288,7 @@ export function ModelsSection({
                         </div>
                       </div>
                     ) : null}
-                    {detail?.userNote ? (
+                    {detail?.userNote && !isDemoModel(detail) ? (
                       <p
                         className="mt-1 text-xs text-fg-muted"
                         data-testid={`model-${capability}-detail`}

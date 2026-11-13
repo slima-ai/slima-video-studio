@@ -23,20 +23,16 @@ export const records = {
   'records.estimated': '{usage} (estimated)',
   'records.hide': 'Hide',
   'records.showTheFullPrompt': 'Show the full prompt',
-  'records.thePromptForThisRecord': 'The prompt for this record (edit it, then generate again)',
+  'records.thePromptForThisRecord': 'Prompt',
   'records.copied': 'Copied',
   'records.copyPrompt': 'Copy prompt',
-  'records.thisReplacesThePromptFor':
-    'This replaces the prompt for {value} with the text above and generates again for about US${value2}. Your earlier versions are kept.',
-  'records.thisReplacesThePromptFor2':
-    'This replaces the prompt for {value} with the text above and generates again. Your earlier versions are kept.',
-  'records.generateAgain': 'Generate again',
+  'records.thisReplacesThePromptFor': 'About US${value2} more; your earlier versions are kept.',
+  'records.thisReplacesThePromptFor2': 'Your earlier versions are kept.',
+  'records.generateAgain': 'Confirm',
   'records.notNow': 'Not now',
-  'records.generateAgainWithTheEdited': 'Generate again with the edited prompt',
-  'records.generateAgainWithThisPrompt': 'Generate again with this prompt',
+  'records.generateAgainWithTheEdited': 'Generate again',
+  'records.generateAgainWithThisPrompt': 'Generate again',
   'records.generationRecords': 'Generation records',
-  'records.everyRequestSentToA':
-    'Every request sent to a model: description, model, time, cost and result',
   'records.type': 'Type',
   'records.all': 'All',
   'records.result2': 'Result',
@@ -45,7 +41,5 @@ export const records = {
   'records.recordsAboutUsSpent': '{total} records · about US${value} spent',
   'records.seeProgressInTheStoryboard': 'See progress in the storyboard',
   'records.noRecordsMatch': 'No records match.',
-  'records.nothingHasBeenGeneratedYet':
-    'Nothing has been generated yet. Write a one-liner on the canvas to make a film, and every generation will be recorded here.',
-  'records.startedGeneratingAgain': 'Started generating {label} again.',
+  'records.nothingHasBeenGeneratedYet': 'No generation records yet.',
 } as const

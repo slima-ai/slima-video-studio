@@ -18,7 +18,7 @@ export interface RecordsPageProps {
 export function RecordsPage({ onNavigate }: RecordsPageProps) {
   const [kind, setKind] = useState<JobKind | ''>('')
   const [outcome, setOutcome] = useState<'succeeded' | 'failed' | ''>('')
-  const [notice, setNotice] = useState<string>()
+  const [started, setStarted] = useState(false)
   const [problem, setProblem] = useState<string>()
   const filter: RecordsFilter = {
     ...(kind ? { kind } : {}),
@@ -29,7 +29,6 @@ export function RecordsPage({ onNavigate }: RecordsPageProps) {
   return (
     <Page
       title={t('records.generationRecords')}
-      hint={t('records.everyRequestSentToA')}
       testId="records-page"
       actions={
         <>
@@ -85,9 +84,8 @@ export function RecordsPage({ onNavigate }: RecordsPageProps) {
             {problem}
           </p>
         ) : null}
-        {notice ? (
+        {started ? (
           <p data-testid="records-notice" className="flex items-center gap-2 text-sm">
-            {notice}
             <Button
               size="sm"
               variant="ghost"
@@ -114,12 +112,12 @@ export function RecordsPage({ onNavigate }: RecordsPageProps) {
             <RecordRow
               key={record.id}
               record={record}
-              onRedo={(label) => {
+              onRedo={() => {
                 setProblem(undefined)
-                setNotice(t('records.startedGeneratingAgain', { label }))
+                setStarted(true)
               }}
               onError={(message) => {
-                setNotice(undefined)
+                setStarted(false)
                 setProblem(message)
               }}
             />

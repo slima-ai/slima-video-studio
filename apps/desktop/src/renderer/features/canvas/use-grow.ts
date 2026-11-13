@@ -69,9 +69,11 @@ export function useGrow(options: {
       setFinishing(true)
       const say = (): void => {
         setFinishing(false)
-        // 整次生成是一筆可以復原的動作：按「復原」回到按下「生成影片」之前（「取代全部」刪掉的也會回來）
+        // 整次生成是一筆可以復原的動作：按「退回生成前」回到按下「生成影片」之前（「取代全部」刪掉的也會回來）。
+        // 字要寫明退掉的是整次生成：角色頁、生成紀錄這些看不到上方列的地方，這是唯一的退路；
+        // 生成紀錄與「已花」都不會跟著退（錢已經花了）
         const action = {
-          label: t('canvas.undo'),
+          label: t('canvas.undoGeneration'),
           onAction: () => {
             undoRef.current()
           },

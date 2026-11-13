@@ -70,7 +70,7 @@ test.describe('設定頁：這個專案預設用什麼', () => {
     const row = page.getByTestId('project-model-i2v')
 
     await page.getByRole('button', { name: '設定' }).click()
-    await expect(section).toContainText('只套用在「乙」')
+    await expect(section).toBeVisible()
     await expect(row).toHaveAttribute('data-value', 'follow-app')
 
     await page.getByRole('button', { name: '畫布', exact: true }).click()
@@ -79,7 +79,7 @@ test.describe('設定頁：這個專案預設用什麼', () => {
       projectDir,
     )
     await page.getByRole('button', { name: '設定' }).click()
-    await expect(section).toContainText('只套用在「甲」')
+    await expect(section).toBeVisible()
     await expect(row).toHaveAttribute('data-value', 'fal/kling-3.0-pro')
   })
 

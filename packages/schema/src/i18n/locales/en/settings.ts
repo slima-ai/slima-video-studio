@@ -1,4 +1,5 @@
 export const settings = {
+  'settings.demoOffWarning': 'Turning it off uses your keys and costs money.',
   'settings.theSystemKeychainIsnT':
     'The system keychain isn’t available on this computer, so API keys can’t be stored safely. Sign in to the keychain and reopen the app.',
   'settings.noSystemKeychainFoundFor':
@@ -42,47 +43,31 @@ export const settings = {
   'settings.openOrCreateAProject': 'Open or create a project first.',
   'settings.allowAiToolsToConnect': 'Allow AI tools to connect',
   'settings.offByDefaultTurningIt':
-    'Off by default. Turning it off cuts the connection right away. Only this computer can connect, AI tools can’t see your API keys, and the app has to be open.',
+    'Only this computer can connect, and AI tools can’t see your API keys.',
   'settings.port': 'Port',
-  'settings.youUsuallyDonTNeed':
-    'You usually don’t need to change this. Pick another only if another program is using it.',
   'settings.save': 'Save',
   'settings.enterAWholeNumberFrom': 'Enter a whole number from 1024 to 65535.',
   'settings.totalAllowanceForAiTools': 'Total allowance for AI tools (US$)',
-  'settings.theMostAiToolsLike':
-    'How much AI tools (Claude and others) can spend in total: the most they can spend when they generate through this app (it comes out of your API key accounts). Default is US$0; once it’s used up, they can’t generate any more.',
-  'settings.allowancePointer':
-    'Looking for the most a single generation can cost? That’s a different card: “{card}” in {where}.',
-  'settings.perRunPointer':
-    'Looking for how much AI tools can spend in total? That’s a different card: “{card}” in {where}.',
+  'settings.theMostAiToolsLike': 'Default US$0. When it runs out, AI tools can’t generate more.',
+  'settings.allowancePointer': 'Each run also has a per-run limit.',
+  'settings.perRunPointer': 'AI tools also have a total allowance.',
   'settings.goThere': 'Go there',
   'settings.cardSavedAs': '{card} saved as US${value}',
   'settings.enter0OrALarger': 'Enter 0 or a larger number.',
   'settings.reservedLeftToSpend': '{value} reserved, {value2} left to spend.',
   'settings.notSavedYet': 'Not saved yet',
   'settings.projectSpentSoFar': 'Actual charges in this project so far: {value}.',
-  'settings.reservationRefundNote':
-    'A reservation is a cautious estimate (estimate × 1.25; text × 2). After a generation finishes, it is settled to the actual charge the next time an AI tool is used, and the unused part is returned.',
   'settings.onlyYouCanChangeThis':
-    'Only you can change this number; AI tools can’t. Steps that cost money (text, images, video) reserve their estimated cost first. Anything over the remaining allowance is refused.',
-  'settings.everyGenerationByAnAi':
-    'Every generation by an AI tool is also held to the “Per-run spending limit” under General. Demo mode costs nothing.',
+    'Only you can change this number; anything over the remaining allowance is refused.',
   'settings.resetUsedAmount': 'Reset used amount',
-  'settings.afterAResetTheSame': 'After a reset, the same allowance can be spent again.',
-  'settings.connectClaudeDesktopInOne':
-    'Connect Claude Desktop in one click and ask it to split storyboards and make videos for you. “Connect” also turns on “Allow AI tools to connect”.',
   'settings.connecting': 'Connecting…',
   'settings.reconnect': 'Reconnect',
   'settings.connect': 'Connect',
   'settings.connectTurnsOnAllowAi':
-    '“Connect” turns on “Allow AI tools to connect” and adds this app to Claude Desktop’s config file (only our entry, with a backup first). Nothing else to install. Afterwards, fully quit Claude Desktop and reopen it.',
+    'This edits Claude Desktop’s config file (backed up first); afterwards, fully quit Claude Desktop and reopen it.',
   'settings.claudeDesktopDoesnTSeem':
     'Claude Desktop doesn’t seem to be installed on this computer.',
   'settings.configFile': 'Config file: {configPath}',
-  'settings.connectThisAppToClaude':
-    'Connect this app to Claude Code in your terminal. One click sets it up (“Connect” also turns on “Allow AI tools to connect”), no commands to type.',
-  'settings.onceConnectedOpenANew':
-    'Once connected, open a new Claude Code and type /mcp to see slima-video-studio. {value}',
   'settings.manualSetupPasteThisLine': 'Manual setup: paste this line into Claude Code',
   'settings.hideToken': 'Hide token',
   'settings.showToken': 'Show token',
@@ -90,16 +75,12 @@ export const settings = {
   'settings.makeANewToken': 'Make a new token',
   'settings.copied': 'Copied.',
   'settings.theTokenOnlyWorksOn':
-    'The token only works on this computer. After you make a new one, the old command stops working right away.',
-  'settings.notOnYetClickConnect':
-    'Not on yet: click “Connect” below (it turns it on too), or turn on “Allow AI tools to connect” yourself',
+    'After you make a new one, the old command stops working right away.',
   'settings.anAiToolConnectedRecently': 'An AI tool connected recently: {value}',
   'settings.noAiToolHasConnected': 'No AI tool has connected since the app opened',
   'settings.connectionDiagram': 'Connection diagram',
   'settings.slimaVideoStudioThisApp': 'Slima Video Studio (this app)',
   'settings.slimaAccount': 'Slima account',
-  'settings.solidLinesAreConnectedDashed':
-    'Solid lines are connected; dashed lines are not. AI tools ask this app to do things; this app reads your novels or scripts from Slima.',
   'settings.checking': 'Checking…',
   'settings.off': 'Off',
   'settings.notRunning': 'Not running',
@@ -124,14 +105,12 @@ export const settings = {
   'settings.foundBooks_other': 'Found {count} books:',
   'settings.words': '{value} · {value2} words',
   'settings.slimaAccountOptional': 'Slima account (optional)',
-  'settings.connectYourSlimaAccountTo':
-    'Connect your Slima account to import a novel or script as an outline, characters and locations. Read-only: your books are never changed.',
+  'settings.connectYourSlimaAccountTo': 'Read-only: your books are never changed.',
   'settings.pasteANewTokenTo': 'Paste a new token to replace it',
-  'settings.pasteYourSlimaApiToken': 'Paste your Slima API token',
+  'settings.pasteYourSlimaApiToken': 'Slima API token',
   'settings.connecting3': 'Connecting…',
   'settings.connect2': 'Connect',
-  'settings.createTheTokenOnThe':
-    'Create the token on the API Token settings page of the Slima site (app.slima.ai). It’s stored on this computer using the system’s encryption.',
+  'settings.createTheTokenOnThe': 'Create it on the API Token settings page at app.slima.ai.',
   'settings.disconnectAndRemoveToken': 'Disconnect and remove token',
   'settings.writtenToClaudeDesktopS':
     'Written to Claude Desktop’s config file. Fully quit Claude Desktop and reopen it (Mac: ⌘Q). {value}',
@@ -140,32 +119,24 @@ export const settings = {
   'settings.claudeChatOnTheCanvas': 'Claude chat on the canvas',
   'settings.on': 'On',
   'settings.off2': 'Off',
-  'settings.opensAChatPanelBeside':
-    'Opens a chat panel beside the canvas. Use your own signed-in Claude Code to edit the project directly.',
   'settings.claudeCodeMustBeInstalled':
-    'Claude Code must be installed and signed in, and “Allow AI tools to connect” must be on. The chat uses your own Claude usage; generations that spend API key money (images, video…) are held to the “Total allowance for AI tools” and the “Per-run spending limit”. This is an experimental feature and may change at any time.',
+    'The chat uses your own Claude usage; generations that spend API key money are held to the “Total allowance for AI tools” and the “Per-run spending limit”.',
   'settings.theLimitPerSessionMust':
     'The limit per session must be between US${value} and US${value2}.',
   'settings.usageLimitPerClaudeChat': 'Usage limit per Claude chat session (about US$)',
   'settings.saved': 'Saved',
   'settings.thisIsYourOwnClaude':
-    'This is your own Claude usage; it’s separate from the “Per-run spending limit” and the “Total allowance for AI tools”. A session is one stretch of use: 10 idle minutes or pressing “Continue” starts a new one. At the limit, the chat stops and shows “Continue”; pressing it gives the same amount again. Leave empty for the default (about US${value}).',
+    'A session is one stretch of use: 10 idle minutes or pressing “Continue” starts a new one. Leave empty for the default (about US${value}).',
   'settings.followSystem': 'Follow system',
   'settings.light': 'Light',
   'settings.dark': 'Dark',
   'settings.demoMode': 'Demo mode',
-  'settings.onCostsNothing': 'On · costs nothing',
-  'settings.offUsesRealServices': 'Off · uses real services',
-  'settings.runTheWholeProcessWith':
-    'Run the whole process with sample results. No API keys, no cost. Good for learning your way around.',
+  'settings.onCostsNothing': 'On',
+  'settings.offUsesRealServices': 'Off',
   'settings.appearance': 'Appearance',
-  'settings.lightDarkOrFollowThe': 'Light, dark, or follow the system.',
   'settings.perRunSpendingLimit': 'Per-run spending limit',
-  'settings.eachTimeYouGenerateOr':
-    'The most a single generation can cost: each time you generate (or an AI tool asks to), a run whose estimated cost goes over this amount won’t start. The cost comes out of your accounts with OpenRouter, fal.ai and others.',
+  'settings.eachTimeYouGenerateOr': 'A run whose estimated cost goes over this amount won’t start.',
   'settings.perRunSpendingLimitUs': 'Per-run spending limit (US$)',
-  'settings.ifItSOverYou':
-    'If it’s over, you’ll see the estimate instead of the run starting. To do something bigger, raise it here and run it again. Default US${value}. Demo mode costs nothing.',
   'settings.enterANumberGreaterThan': 'Enter a number greater than 0.',
   'settings.saved2': 'Saved.',
   'settings.edited': 'Edited',
@@ -183,7 +154,6 @@ export const settings = {
     'Connected. The key works. About {value} left on the account.',
   'settings.setUp2': 'Set up',
   'settings.notSetUp': 'Not set up',
-  'settings.useYourOwnAccountTo': 'Use your own account to call this service.',
   'settings.apiKey': '{name} API key',
   'settings.pasteANewKeyTo': 'Paste a new key to replace it',
   'settings.pasteYourApiKey': 'Paste your API key',
@@ -193,11 +163,6 @@ export const settings = {
   'settings.removeKey': 'Remove key',
   'settings.thisComputerCanTStore': 'This computer can’t store keys safely right now.',
   'settings.goToSettings': 'Go to Settings',
-  'settings.splitTheStoryIntoPictures': 'Split the story into pictures and write what each shows.',
-  'settings.theFirstPictureOfEach': 'The first picture of each shot.',
-  'settings.makeThePicturesMove': 'Make the pictures move.',
-  'settings.readEachShotSLines': 'Read each shot’s lines aloud.',
-  'settings.backgroundMusicForTheWhole': 'Background music for the whole film.',
   'settings.highQuality': 'High quality',
   'settings.balanced': 'Balanced',
   'settings.economy': 'Economy',
@@ -211,21 +176,17 @@ export const settings = {
   'settings.needsKey2': '{displayName} · needs {value} key',
   'settings.addAKeyToUnlock': 'Add a {key} key to unlock: {value}',
   'settings.tiersHighQualityBestPicture':
-    'Tiers: High quality = best picture, costs more and is slower. Balanced = middle on picture, price and speed (used if you don’t choose). Economy = cheap and fast, good for drafts; redo the shots you like in High quality. Prices marked “Estimated” haven’t been checked against the provider, so go by the provider’s bill.',
-  'settings.noModelsToChooseFrom':
-    'No models to choose from yet. Add an OpenRouter key to start (this one key is enough), or turn on “Demo mode” above to try it out.',
+    'Prices marked “Estimated” haven’t been checked against the provider, so go by the provider’s bill.',
+  'settings.noModelsToChooseFrom': 'No models to choose from yet.',
   'settings.addAKey': 'Add a key',
   'settings.addAKeyFirst': 'Add a key first',
   'settings.noModelsForAreAvailable':
     'No models for “{value}” are available yet. Add the key for the matching service first.',
   'settings.voice': 'Voice',
   'settings.productionConsistencyGuide': 'Production & consistency guide',
-  'settings.whenAnAiToolSuch':
-    'When an AI tool (such as Claude Code) is connected to this app, it reads this guide while creating characters and locations, choosing reference pictures, and checking that pictures stay consistent. It’s in English because AI tools read English best. Edit it to suit you, or leave the default.',
-  'settings.savedAiToolsWillUse': 'Saved. AI tools will use it the next time they read this guide.',
+  'settings.whenAnAiToolSuch': 'AI tools read this guide (in English).',
+  'settings.savedAiToolsWillUse': 'Saved',
   'settings.defaultsForThisProject': 'Defaults for this project',
-  'settings.appliesOnlyToJobsYou':
-    'Applies only to “{name}”. Jobs you haven’t changed follow the models chosen above.',
   'settings.useDefault': 'Use default ({value})',
   'settings.useDefault2': 'Use default',
   'settings.noModelAvailable': 'No model available',
@@ -236,27 +197,18 @@ export const settings = {
   'settings.experiments': 'Experiments',
   'settings.settings': 'Settings',
   'settings.retry': 'Retry',
-  'settings.demoModeAppearanceAndThe':
-    'Demo mode, appearance, the per-run spending limit and the language.',
-  'settings.letYourOwnClaudeOr':
-    'Let your own Claude or other AI tools connect to this app. Demo mode needs no keys. You set how much AI tools can spend; by default they can’t spend anything.',
   'settings.callAiServicesWithYour':
     'Call AI services with your own accounts; providers bill you directly. Keys stay on this computer and are never uploaded.',
   'settings.modelsToUse': 'Models to use',
-  'settings.ifYouReNotSure': 'If you’re not sure, leave the defaults.',
-  'settings.featuresStillBeingTriedThey':
-    'Features still being tried. They may change at any time.',
   'settings.jumpToThisSectionOf': 'Jump to this section of Settings',
   'settings.storyboardGuide': 'Storyboard guide',
-  'settings.theAiFollowsThisGuide':
-    'The AI follows this guide when it splits a story into shots. Edit it to suit you, or leave the default.',
-  'settings.savedTheNextSplitWill': 'Saved. The next split will use this guide.',
+  'settings.savedTheNextSplitWill': 'Saved',
   'settings.negativePromptForVideo': 'Negative prompt for video',
   'settings.theCurrentVideoModelDoesn':
-    'The current video model doesn’t accept a negative prompt, so this list isn’t sent. Switch to a model that does (for example Kling 3.0 Standard) for it to have an effect.',
+    'The current video model doesn’t accept a negative prompt, so this list isn’t sent.',
   'settings.tellTheVideoModelWhat':
-    'Tell the video model what to avoid, such as warping, or extra faces or hands. For features a character shouldn’t have (such as no mouth), use the Characters page. Separate with commas.',
-  'settings.savedTheNextVideoGeneration': 'Saved. The next video generation will use this list.',
+    'In English, separated by commas. For features a character shouldn’t have, use the Characters page.',
+  'settings.savedTheNextVideoGeneration': 'Saved',
   'settings.freeDemo': 'Free (demo)',
   'settings.aboutSec': 'About {value}/sec',
   'settings.aboutSecSecWithSound': 'About {value}/sec ({value2}/sec with sound)',
@@ -282,8 +234,6 @@ export const settings = {
   'settings.theInputAndOutputToken': 'the input and output token counts',
   'settings.language': 'Language',
   'settings.followSystemShort': 'System',
-  'settings.languageSummary':
-    'Choose the language of the app. The prompts sent to AI models aren’t translated, so you may still see some Chinese in the generation queue and records.',
   'settings.listSeparator': ', ',
   'settings.listSeparator2': '; ',
   'settings.optionRecommended': ' (Recommended)',

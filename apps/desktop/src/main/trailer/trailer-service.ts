@@ -125,10 +125,15 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
     const finalHash = shots.list().finalVideoHash
     const filmSec =
       finalHash === undefined ? undefined : handle.assets.getMeta(finalHash)?.durationSec
-    const view = (issue: { code: string; index?: number; message: string }) => ({
+    const view = (issue: {
+      code: string
+      index?: number
+      message: string
+      userMessage?: string | undefined
+    }) => ({
       code: issue.code,
       ...(issue.index === undefined ? {} : { index: issue.index }),
-      message: issue.message,
+      message: issue.userMessage ?? issue.message,
     })
     return {
       exists: stored !== undefined,

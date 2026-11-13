@@ -20,8 +20,8 @@ export interface GuideEditorCardProps {
   /** 元素 id 與測試標記的前綴，例如 storyboard-guide。 */
   idPrefix: string
   title: string
-  summary: string
-  /** 存好之後的提示，例如「已儲存，下次拆鏡就會用這份準則。」 */
+  summary?: string | undefined
+  /** 存好之後的提示，例如「已儲存」。 */
   savedMessage: string
   icon?: LucideIcon
   rows?: number

@@ -1,4 +1,5 @@
 export const canvas = {
+  'canvas.undoGeneration': '退回生成前',
   'canvas.couldnTAddTheScene': '新增場失敗，請再試一次。',
   'canvas.couldnTAddTheLocation': '新增地點失敗，請再試一次。',
   'canvas.newCharacter': '新角色',

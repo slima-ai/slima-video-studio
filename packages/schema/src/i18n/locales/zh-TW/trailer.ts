@@ -1,4 +1,9 @@
 export const trailer = {
+  'trailer.userRuleUnverifiedClaim':
+    '第 {n} 格提到了暢銷、獎項或推薦語，但不是你提供的；沒有原文就拿掉。',
+  'trailer.userRuleNarrationShare': '有旁白的格子佔 {sec} 秒，超過全片 60%（{limit} 秒）。',
+  'trailer.userRuleNarrationDense': '第 {n} 格旁白太長：{units} 字，最多 {limit} 字。',
+  'trailer.userRuleLength': '總長 {total} 秒，目標 {target} 秒，差 {diff} 秒。',
   'trailer.cardNoText': '字卡還沒有字，請先寫上要顯示的文字。',
   'trailer.titleCardNoName': '預告片設定裡還沒有書名，片名卡不知道要放什麼。',
   'trailer.notACardShot': '這一格不是字卡或片名卡。',
@@ -28,8 +33,7 @@ export const trailer = {
   'trailer.ruleTitleNoAction': '沒填上市資訊，片名卡只會有書名。',
   'trailer.ruleUnverifiedClaim':
     '第 {n} 格提到了暢銷、獎項、推薦語之類的說法，但這不是你提供的。推薦語、獎項、銷量只能用你自己提供的原文；沒有就拿掉。',
-  'trailer.ruleNoEscalation':
-    '後面三分之一的格子沒有比前面三分之一短（平均 {last} 秒對 {first} 秒）。預告片通常越到後面剪得越快；這只是提醒，不會擋下。',
+  'trailer.ruleNoEscalation': '後段沒有比前段短（平均 {last} 秒對 {first} 秒）。',
   'trailer.beatVideo': '會動',
   'trailer.beatStill': '不動',
   'trailer.beatCard': '字卡',

@@ -7,7 +7,7 @@ import { allowanceLight } from './connection-state'
 import type { McpConnection } from './use-mcp'
 import { t } from '@svs/schema'
 
-import { AreaPointer, areaPath } from '../area-pointer'
+import { AreaPointer } from '../area-pointer'
 
 const usd = (value: number): string => `US$${value.toFixed(2)}`
 
@@ -113,23 +113,18 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
                   {t('settings.projectSpentSoFar', { value: usd(status.spentUsd) })}
                 </p>
               )}
-              <p data-testid="mcp-refund-note">{t('settings.reservationRefundNote')}</p>
             </div>
           ) : null}
           <AreaPointer
             testId="allowance-pointer"
             targetId="general"
-            text={t('settings.allowancePointer', {
-              where: areaPath('general'),
-              card: t('settings.perRunSpendingLimit'),
-            })}
+            text={t('settings.allowancePointer')}
           />
         </form>
       }
       details={
         <div className="space-y-2 text-sm text-fg-muted">
           <p>{t('settings.onlyYouCanChangeThis')}</p>
-          <p>{t('settings.everyGenerationByAnAi')}</p>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="secondary"
@@ -140,7 +135,6 @@ export function AllowanceCard({ mcp }: { mcp: McpConnection }) {
             >
               {t('settings.resetUsedAmount')}
             </Button>
-            <span>{t('settings.afterAResetTheSame')}</span>
           </div>
         </div>
       }

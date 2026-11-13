@@ -67,7 +67,6 @@ export function ProjectsPage({ onNavigate }: { onNavigate: (view: AppView) => vo
   return (
     <Page
       title={t('projects.project')}
-      hint={t('projects.eachProjectIsAFolder')}
       width="narrow"
       testId="projects-page"
       actions={

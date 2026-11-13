@@ -94,7 +94,7 @@ describe('VideoNegativeSection：影片的負面提示', () => {
     installFakeSvs()
     show(<VideoNegativeSection settings={SETTINGS} videoModel={kling} onChanged={vi.fn()} />)
     const text = screen.getByTestId('video-negative-section').textContent
-    expect(text).toContain('角色自己不該有的特徵（例如沒有嘴巴），到角色頁設定')
+    expect(text).toContain('角色自己不該有的特徵到角色頁設定')
     expect(text).toContain('用預設')
     expect(text).not.toContain('內建')
     expect(text).not.toContain('手腳')

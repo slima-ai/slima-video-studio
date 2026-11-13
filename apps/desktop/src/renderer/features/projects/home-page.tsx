@@ -60,12 +60,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
   const hasProjects = recent?.some((p) => !p.missing) ?? false
 
   return (
-    <Page
-      title={t('projects.home')}
-      hint={t('projects.newProjectOpenAProject')}
-      width="narrow"
-      testId="home-page"
-    >
+    <Page title={t('projects.home')} width="narrow" testId="home-page">
       <div className="space-y-6">
         {creating ? (
           <NewProjectDialog
@@ -92,7 +87,6 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
             <FolderPlus className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden />
             <span>
               <span className="block font-medium">{t('projects.newProject')}</span>
-              <span className="block text-sm text-fg-muted">{t('projects.nameItAndStartA')}</span>
             </span>
           </button>
           <button
@@ -107,9 +101,6 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
             <FolderOpen className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden />
             <span>
               <span className="block font-medium">{t('projects.openProject')}</span>
-              <span className="block text-sm text-fg-muted">
-                {t('projects.pickTheProjectFolderIts')}
-              </span>
             </span>
           </button>
         </div>
@@ -210,7 +201,6 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
             <button
               type="button"
               data-testid="home-skip"
-              title={t('projects.addingAnythingLaterCreatesA')}
               className="text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
               onClick={() => {
                 onNavigate('canvas')
@@ -231,9 +221,6 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
             >
               {t('projects.skipForNowAndGo')}
             </Button>
-            <p className="mt-1 text-xs text-fg-muted">
-              {t('projects.addingAnythingLaterCreatesA')}
-            </p>
           </div>
         )}
       </div>

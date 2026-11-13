@@ -48,7 +48,6 @@ export function ExperimentsSection({ settings, onChanged }: ExperimentsSectionPr
         status={
           on ? { tone: 'ok', label: t('settings.on') } : { tone: 'off', label: t('settings.off2') }
         }
-        summary={t('settings.opensAChatPanelBeside')}
         action={
           <Switch
             aria-label={t('settings.claudeChatOnTheCanvas')}

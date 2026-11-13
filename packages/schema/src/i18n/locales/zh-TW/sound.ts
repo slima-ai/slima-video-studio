@@ -1,4 +1,5 @@
 export const sound = {
+  'sound.narrateOnly': '只念旁白',
   'sound.low': '小',
   'sound.medium': '中',
   'sound.high': '大',

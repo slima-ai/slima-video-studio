@@ -94,6 +94,31 @@ describe('RecordsService.list', () => {
     expect(h.records.list({ outcome: 'failed' }).total).toBe(0)
   })
 
+  it('「退回生成前」：整次生成被退回（鏡頭不見）之後，生成紀錄與花費都還在，不會讓人以為錢也退了', async () => {
+    const h = setup()
+    // 跟 quickstart.run 的 IPC 一樣：整次生成記成一筆歷史
+    const finish = h.history.begin('一句話生成')
+    await h.runQuickStart({ shotCount: 2 })
+    finish()
+    const handle = h.projects.current()
+    if (!handle) throw new Error('應該有專案')
+    const before = h.records.list({})
+    const ledgerBefore = handle.repos.costs.totalUsd(handle.projectId)
+    expect(before.records.length).toBeGreaterThanOrEqual(5)
+    expect(ledgerBefore).toBeGreaterThanOrEqual(1)
+    expect(h.shots.list().shots).toHaveLength(2)
+
+    const undone = h.history.undo()
+    expect(undone.applied).toBe(true)
+    expect(h.shots.list().shots).toHaveLength(0)
+
+    // 紀錄還在（同一批，一筆不少）、總花費沒變、專案帳本沒變
+    const after = h.records.list({})
+    expect(after.records.map((r) => r.id)).toEqual(before.records.map((r) => r.id))
+    expect(after.totalCostUsd).toBeCloseTo(before.totalCostUsd, 9)
+    expect(handle.repos.costs.totalUsd(handle.projectId)).toBeCloseTo(ledgerBefore, 9)
+  })
+
   it('沒有專案：就是空的，不是錯誤', () => {
     const h = setup()
     expect(h.records.list({})).toEqual({ records: [], total: 0, totalCostUsd: 0 })

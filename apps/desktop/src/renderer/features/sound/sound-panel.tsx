@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { Button } from '../../components/button'
 import { LONG_TOAST_MS, useToast } from '../../components/toast'
+import { useAppNavigation } from '../../lib/app-navigation'
 import { useHistory } from '../../lib/history'
 import { call, errorText } from '../../lib/svs'
 import { planUsd } from './plan-usd'
@@ -85,6 +86,7 @@ export function SoundPanel() {
   const [importing, setImporting] = useState(false)
   const toast = useToast()
   const history = useHistory()
+  const { openSettings } = useAppNavigation()
   const {
     mixing,
     error: mixError,
@@ -143,10 +145,11 @@ export function SoundPanel() {
     </Button>
   )
 
-  const startAdd = (): void => {
+  /** `narration`：只念旁白（有台詞、還沒念的鏡頭），不加配樂。 */
+  const startAdd = (scope: 'all' | 'narration' = 'all'): void => {
     setActionError(undefined)
     setAdd({ step: 'planning' })
-    call('sound.plan', { narration: {}, music: {} })
+    call('sound.plan', scope === 'narration' ? { narration: {} } : { narration: {}, music: {} })
       .then((plan) => {
         if (!plan.ok) {
           setActionError(plan.issue ?? t('sound.canTAddSoundRight'))
@@ -207,6 +210,32 @@ export function SoundPanel() {
     }
   }
 
+  const confirmBlock =
+    add.step === 'confirm' ? (
+      <div className="space-y-2" data-testid="sound-add-confirm">
+        <p className="text-sm">{t('sound.about', { value: planUsd(add.plan, usd) })}</p>
+        <div className="flex gap-2">
+          <Button
+            variant="primary"
+            data-testid="sound-add-go"
+            onClick={() => {
+              void runAdd(add.plan)
+            }}
+          >
+            {t('sound.start')}
+          </Button>
+          <Button
+            data-testid="sound-add-cancel"
+            onClick={() => {
+              setAdd({ step: 'idle' })
+            }}
+          >
+            {t('sound.cancel')}
+          </Button>
+        </div>
+      </div>
+    ) : null
+
   const hasClips = state.music !== undefined || state.shots.some((s) => s.narration !== undefined)
   const noModels = state.models.tts === undefined && state.models.music === undefined
   const narrationCount = state.shots.filter((s) => s.narration).length
@@ -231,32 +260,15 @@ export function SoundPanel() {
     body = <p className="text-sm text-fg-muted">{t('sound.firstJoinTheShotsInto')}</p>
   } else if (!hasClips) {
     body =
-      add.step === 'confirm' ? (
-        <div className="space-y-2" data-testid="sound-add-confirm">
-          <p className="text-sm">{t('sound.about', { value: planUsd(add.plan, usd) })}</p>
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              data-testid="sound-add-go"
-              onClick={() => {
-                void runAdd(add.plan)
-              }}
-            >
-              {t('sound.start')}
-            </Button>
-            <Button
-              data-testid="sound-add-cancel"
-              onClick={() => {
-                setAdd({ step: 'idle' })
-              }}
-            >
-              {t('sound.cancel')}
+      confirmBlock ??
+      (noModels ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm text-fg-muted">{t('sound.noNarrationOrMusicModel')}</p>
+            <Button size="sm" data-testid="sound-go-settings" onClick={openSettings}>
+              {t('settings.goToSettings')}
             </Button>
           </div>
-        </div>
-      ) : noModels ? (
-        <div className="space-y-2">
-          <p className="text-sm text-fg-muted">{t('sound.noNarrationOrMusicModel')}</p>
           {importButton}
         </div>
       ) : (
@@ -265,7 +277,9 @@ export function SoundPanel() {
             variant="primary"
             data-testid="sound-add"
             disabled={add.step === 'planning'}
-            onClick={startAdd}
+            onClick={() => {
+              startAdd()
+            }}
           >
             {add.step === 'planning'
               ? t('sound.gettingAnEstimate')
@@ -273,7 +287,7 @@ export function SoundPanel() {
           </Button>
           {importButton}
         </div>
-      )
+      ))
   } else {
     body = (
       <div className="space-y-3" data-testid="sound-mixer">
@@ -310,10 +324,24 @@ export function SoundPanel() {
             }}
           />
         ) : dialogueShots > 0 ? (
-          // 有台詞、沒有旁白（例如旁白被刪掉了）：台詞還在，可以再念
-          <p className="text-sm text-fg-muted" data-testid="sound-narration-missing">
-            {t('sound.narrationMissing', { count: dialogueShots })}
-          </p>
+          // 有台詞、沒有旁白（例如旁白被刪掉了）：台詞還在，一顆「只念旁白」（先給預估、確認才花錢）
+          (confirmBlock ?? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-fg-muted" data-testid="sound-narration-missing">
+                {t('sound.narrationMissing', { count: dialogueShots })}
+              </span>
+              <Button
+                size="sm"
+                data-testid="sound-narrate-only"
+                disabled={add.step === 'planning'}
+                onClick={() => {
+                  startAdd('narration')
+                }}
+              >
+                {t('sound.narrateOnly')}
+              </Button>
+            </div>
+          ))
         ) : null}
         <LevelPicker
           testId="sound-music"

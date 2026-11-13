@@ -1,4 +1,5 @@
 export const settings = {
+  'settings.demoOffWarning': '關掉後會用你的金鑰、會花錢。',
   'settings.theSystemKeychainIsnT':
     '這台電腦的系統金鑰圈目前無法使用，所以不能安全地儲存服務金鑰。請先登入系統金鑰圈後重新開啟 App。',
   'settings.noSystemKeychainFoundFor':
@@ -37,61 +38,41 @@ export const settings = {
   'settings.thePerRunSpendingLimit': '單次花費上限要大於 0。',
   'settings.openOrCreateAProject': '請先開啟或建立一個專案。',
   'settings.allowAiToolsToConnect': '允許 AI 工具連線',
-  'settings.offByDefaultTurningIt':
-    '預設是關的，關掉之後連線立刻中斷。只能從這台電腦連進來，AI 工具看不到你的服務金鑰；App 要開著才連得上。',
+  'settings.offByDefaultTurningIt': '只能從這台電腦連進來，AI 工具看不到你的服務金鑰。',
   'settings.port': '連線埠',
-  'settings.youUsuallyDonTNeed': '一般不用改；被別的程式佔住了才換一個。',
   'settings.save': '儲存',
   'settings.enterAWholeNumberFrom': '請輸入 1024 到 65535 之間的整數。',
   'settings.totalAllowanceForAiTools': 'AI 工具的總額度（美金）',
-  'settings.theMostAiToolsLike':
-    'AI 工具（Claude 等）一共能花多少：透過 App 生成時累計最多花這麼多（花的是你服務金鑰帳戶的錢）；預設 US$0，用完就不能再生成。',
-  'settings.allowancePointer':
-    '想調「每按一次生成最多花多少」？那是另一張卡：{where}的「{card}」。',
-  'settings.perRunPointer': '想調「AI 工具一共能花多少」？那是另一張卡：{where}的「{card}」。',
+  'settings.theMostAiToolsLike': '預設 US$0，用完就不能再生成。',
+  'settings.allowancePointer': '每次另有單次上限。',
+  'settings.perRunPointer': 'AI 工具另有總額度。',
   'settings.goThere': '前往',
   'settings.cardSavedAs': '{card}已存為 US${value}',
   'settings.enter0OrALarger': '請輸入 0 或更大的數字。',
   'settings.reservedLeftToSpend': '已預留 {value}，還能花 {value2}。',
   'settings.notSavedYet': '還沒儲存',
   'settings.projectSpentSoFar': '目前專案的帳本實收 {value}。',
-  'settings.reservationRefundNote':
-    '預留是保守的估計（預估 × 1.25，文字 × 2）。生成做完後，AI 下一次使用工具時會改成實收，多預留的退回。',
-  'settings.onlyYouCanChangeThis':
-    '只有你能改這個數字，AI 工具改不了。要花錢的步驟（文字、圖片、影片）會先用預估金額預留；超過剩下的額度就拒絕。',
-  'settings.everyGenerationByAnAi':
-    'AI 工具的每一次生成，也受「一般」裡的「單次花費上限」管。示範模式不花錢。',
+  'settings.onlyYouCanChangeThis': '只有你能改這個數字；超過剩下的額度就拒絕。',
   'settings.resetUsedAmount': '已用的歸零',
-  'settings.afterAResetTheSame': '歸零後，可以再花同樣的額度。',
-  'settings.connectClaudeDesktopInOne':
-    '用 Claude 桌面版，一鍵連上這個 App，直接叫它幫你拆分鏡、做影片；按「連接」會一併打開「允許 AI 工具連線」。',
   'settings.connecting': '連接中…',
   'settings.reconnect': '重新連接',
   'settings.connect': '連接',
   'settings.connectTurnsOnAllowAi':
-    '按「連接」會自動打開「允許 AI 工具連線」，並把這個 App 加進 Claude Desktop 的設定檔（只加我們這一項，改之前先備份）。不需要另外安裝任何東西；寫好之後要完全關掉 Claude Desktop 再打開。',
+    '會改 Claude Desktop 的設定檔（先備份）；寫好後完全關掉 Claude Desktop 再打開。',
   'settings.claudeDesktopDoesnTSeem': '這台電腦好像還沒裝 Claude Desktop。',
   'settings.configFile': '設定檔：{configPath}',
-  'settings.connectThisAppToClaude':
-    '用終端機裡的 Claude Code 連上這個 App；按一下就設定好（按「連接」會一併打開「允許 AI 工具連線」），不用自己打指令。',
-  'settings.onceConnectedOpenANew':
-    '連好之後，開一個新的 Claude Code，輸入 /mcp 就看得到 slima-video-studio。{value}',
   'settings.manualSetupPasteThisLine': '手動連線：在 Claude Code 貼上這一行',
   'settings.hideToken': '隱藏 token',
   'settings.showToken': '顯示 token',
   'settings.copyCommand': '複製指令',
   'settings.makeANewToken': '換一組新的 token',
   'settings.copied': '已複製。',
-  'settings.theTokenOnlyWorksOn': 'token 只在這台電腦上有效；換一組之後，舊的指令立刻失效。',
-  'settings.notOnYetClickConnect':
-    '還沒打開：按下面的「連接」（會一併打開），或自己打開「允許 AI 工具連線」',
+  'settings.theTokenOnlyWorksOn': '換一組後，舊的指令立刻失效。',
   'settings.anAiToolConnectedRecently': '最近有 AI 工具連進來：{value}',
   'settings.noAiToolHasConnected': '這次開著 App，還沒有 AI 工具連進來',
   'settings.connectionDiagram': '連線示意圖',
   'settings.slimaVideoStudioThisApp': 'Slima Video Studio（這個 App）',
   'settings.slimaAccount': 'Slima 帳號',
-  'settings.solidLinesAreConnectedDashed':
-    '實線是已經連上，虛線是還沒連上。AI 工具叫這個 App 做事；這個 App 向 Slima 讀你的小說或劇本。',
   'settings.checking': '檢查中…',
   'settings.off': '已關閉',
   'settings.notRunning': '沒有啟動',
@@ -115,14 +96,12 @@ export const settings = {
   'settings.foundBooks_other': '找到 {count} 本書：',
   'settings.words': '{value}・{value2} 字',
   'settings.slimaAccountOptional': 'Slima 帳號（選用）',
-  'settings.connectYourSlimaAccountTo':
-    '連上你的 Slima 帳號，就能把小說或劇本匯入成大綱、角色和場景；只讀取，不會改你的書。',
+  'settings.connectYourSlimaAccountTo': '只讀取，不會改你的書。',
   'settings.pasteANewTokenTo': '貼上新的 Token 可以替換',
-  'settings.pasteYourSlimaApiToken': '貼上你的 Slima API Token',
+  'settings.pasteYourSlimaApiToken': 'Slima API Token',
   'settings.connecting3': '連線中…',
   'settings.connect2': '連線',
-  'settings.createTheTokenOnThe':
-    'Token 到 Slima 網站（app.slima.ai）的 API Token 設定頁產生。它會用系統的加密功能保存在這台電腦。',
+  'settings.createTheTokenOnThe': '到 app.slima.ai 的 API Token 設定頁產生。',
   'settings.disconnectAndRemoveToken': '中斷連線並清除 Token',
   'settings.writtenToClaudeDesktopS':
     '已寫進 Claude Desktop 的設定檔。請完全關掉 Claude Desktop 再重新打開（Mac：⌘Q）。{value}',
@@ -131,31 +110,23 @@ export const settings = {
   'settings.claudeChatOnTheCanvas': '畫布右下角的 Claude 對話',
   'settings.on': '開著',
   'settings.off2': '關著',
-  'settings.opensAChatPanelBeside':
-    '在畫布右邊開一個對話面板，用你自己登入的 Claude Code 直接幫你改專案。',
   'settings.claudeCodeMustBeInstalled':
-    '需要先裝好並登入 Claude Code，也要打開「AI 工具連線」。對話會用到你自己的 Claude 用量；要花服務金鑰的生成（圖片、影片…）受「AI 工具的總額度」和「單次花費上限」限制。 這是實驗功能，可能隨時改變。',
+    '對話用你自己的 Claude 用量；花服務金鑰的生成受「AI 工具的總額度」與「單次花費上限」限制。',
   'settings.theLimitPerSessionMust': '每一段的用量上限要在 US${value} 到 US${value2} 之間。',
   'settings.usageLimitPerClaudeChat': 'Claude 對話每一段的用量上限（約 US$）',
   'settings.saved': '已儲存',
   'settings.thisIsYourOwnClaude':
-    '花的是你自己的 Claude 用量，跟「單次花費上限」「AI 工具的總額度」不同。一段＝連續使用，閒置 10 分鐘或按「繼續」就算新的一段；到上限時對話會停下並出現「繼續」，按了再用同樣的量。留空用預設（約 US${value}）。',
+    '一段＝連續使用，閒置 10 分鐘或按「繼續」算新的一段；留空用預設（約 US${value}）。',
   'settings.followSystem': '跟隨系統',
   'settings.light': '淺色',
   'settings.dark': '深色',
   'settings.demoMode': '示範模式',
-  'settings.onCostsNothing': '開著・不花錢',
-  'settings.offUsesRealServices': '關著・會用真的服務',
-  'settings.runTheWholeProcessWith':
-    '用假的結果跑完整個流程，不需要金鑰、不會花錢，適合先熟悉操作。',
+  'settings.onCostsNothing': '開著',
+  'settings.offUsesRealServices': '關著',
   'settings.appearance': '外觀',
-  'settings.lightDarkOrFollowThe': '淺色、深色，或跟著系統換。',
   'settings.perRunSpendingLimit': '單次花費上限',
-  'settings.eachTimeYouGenerateOr':
-    '每按一次生成，最多花多少：預估花費超過這個金額，那一次就不會開始（你按的，或 AI 工具要求的都算）。花的是你在 OpenRouter、fal.ai 等服務的帳戶。',
+  'settings.eachTimeYouGenerateOr': '預估超過這個金額，那一次就不會開始。',
   'settings.perRunSpendingLimitUs': '單次花費上限（美金）',
-  'settings.ifItSOverYou':
-    '超過時會告訴你預估多少，不會直接做；要做更大的就到這裡調高，再做一次。預設 US${value}。示範模式不花錢。',
   'settings.enterANumberGreaterThan': '請輸入大於 0 的數字。',
   'settings.saved2': '已儲存。',
   'settings.edited': '已改過',
@@ -171,7 +142,6 @@ export const settings = {
   'settings.connectedTheKeyWorksAbout': '連線成功，金鑰有效。帳戶剩餘約 {value}。',
   'settings.setUp2': '已設定',
   'settings.notSetUp': '尚未設定',
-  'settings.useYourOwnAccountTo': '用你自己的帳號呼叫這家服務。',
   'settings.apiKey': '{name} 的服務金鑰',
   'settings.pasteANewKeyTo': '貼上新的金鑰可以替換',
   'settings.pasteYourApiKey': '貼上你的服務金鑰',
@@ -181,11 +151,6 @@ export const settings = {
   'settings.removeKey': '移除金鑰',
   'settings.thisComputerCanTStore': '這台電腦目前無法安全保存金鑰。',
   'settings.goToSettings': '到設定',
-  'settings.splitTheStoryIntoPictures': '把故事分成幾個畫面、寫畫面描述。',
-  'settings.theFirstPictureOfEach': '每個鏡頭的第一張畫面。',
-  'settings.makeThePicturesMove': '讓畫面動起來。',
-  'settings.readEachShotSLines': '把每個鏡頭的台詞念出來。',
-  'settings.backgroundMusicForTheWhole': '整支片子的背景音樂。',
   'settings.highQuality': '高品質',
   'settings.balanced': '平衡',
   'settings.economy': '經濟',
@@ -198,19 +163,16 @@ export const settings = {
   'settings.needsKey2': '{displayName}・需要 {value} 金鑰',
   'settings.addAKeyToUnlock': '填 {key} 的金鑰還能用：{value}',
   'settings.tiersHighQualityBestPicture':
-    '等級：高品質＝畫面最好、比較貴比較慢；平衡＝畫面、價錢、速度都中等（沒特別選就用這一級）； 經濟＝便宜、快，適合先出草稿，滿意的鏡頭再用高品質重做。標「估算」的價格還沒有跟官方核對過， 實際以服務商帳單為準。',
-  'settings.noModelsToChooseFrom':
-    '還沒有可以選的模型。填入 OpenRouter 的金鑰就能開始（只填這一把就夠），或打開上面的「示範模式」先試玩。',
+    '標「估算」的價格還沒有跟官方核對，實際以服務商帳單為準。',
+  'settings.noModelsToChooseFrom': '還沒有可以選的模型。',
   'settings.addAKey': '去填金鑰',
   'settings.addAKeyFirst': '要先填金鑰',
   'settings.noModelsForAreAvailable': '目前沒有可用的{value}模型，請先填入對應服務的金鑰。',
   'settings.voice': '聲音',
   'settings.productionConsistencyGuide': '製片與一致性指南',
-  'settings.whenAnAiToolSuch':
-    '用 AI 工具（例如 Claude Code）接上這個 App 時，AI 在建立角色與場景、挑參考圖、檢查畫面一不一致時會讀這份做法（英文，因為 AI 工具讀英文最準）；可以照你的習慣改，留成預設也沒問題。',
-  'settings.savedAiToolsWillUse': '已儲存，AI 工具下次讀這份指南就會用到。',
+  'settings.whenAnAiToolSuch': 'AI 工具會讀這份做法（英文）。',
+  'settings.savedAiToolsWillUse': '已儲存',
   'settings.defaultsForThisProject': '這個專案預設用什麼',
-  'settings.appliesOnlyToJobsYou': '只套用在「{name}」；沒改的用途跟著上面選的模型。',
   'settings.useDefault': '跟著預設（{value}）',
   'settings.useDefault2': '跟著預設',
   'settings.noModelAvailable': '沒有可用的模型',
@@ -221,25 +183,16 @@ export const settings = {
   'settings.experiments': '實驗功能',
   'settings.settings': '設定',
   'settings.retry': '重試',
-  'settings.demoModeAppearanceAndThe': '示範模式、外觀、單次花費上限與介面語言。',
-  'settings.letYourOwnClaudeOr':
-    '讓你自己的 Claude 等 AI 工具連到這個 App；用示範模式不需要金鑰就能玩；AI 工具花多少由你設定，預設不能花。',
   'settings.callAiServicesWithYour':
     '用你自己的帳號呼叫 AI 服務，費用由服務商直接向你收；金鑰只存在這台電腦、不會上傳。',
   'settings.modelsToUse': '使用的模型',
-  'settings.ifYouReNotSure': '不確定的話保持預設就好。',
-  'settings.featuresStillBeingTriedThey': '還在試的功能，可能隨時改變。',
   'settings.jumpToThisSectionOf': '跳到設定的這一區',
   'settings.storyboardGuide': '分鏡準則',
-  'settings.theAiFollowsThisGuide':
-    'AI 把故事拆成鏡頭時會參考這份做法；可以照你的習慣改，留成預設也沒問題。',
-  'settings.savedTheNextSplitWill': '已儲存，下次拆鏡就會用這份準則。',
+  'settings.savedTheNextSplitWill': '已儲存',
   'settings.negativePromptForVideo': '影片的負面提示',
-  'settings.theCurrentVideoModelDoesn':
-    '目前的影片模型不接受負面提示，這份清單不會送出；換成支援的模型（例如 Kling 3.0 Standard）才有用。',
-  'settings.tellTheVideoModelWhat':
-    '告訴影片模型不要出現什麼，例如變形、多出來的臉或手。角色自己不該有的特徵（例如沒有嘴巴），到角色頁設定。英文逗號分隔。',
-  'settings.savedTheNextVideoGeneration': '已儲存，下次生成影片就會用這份清單。',
+  'settings.theCurrentVideoModelDoesn': '目前的影片模型不接受負面提示，這份清單不會送出。',
+  'settings.tellTheVideoModelWhat': '英文，逗號分隔。角色自己不該有的特徵到角色頁設定。',
+  'settings.savedTheNextVideoGeneration': '已儲存',
   'settings.freeDemo': '免費（示範）',
   'settings.aboutSec': '約 {value}／秒',
   'settings.aboutSecSecWithSound': '約 {value}／秒（有聲 {value2}／秒）',
@@ -265,8 +218,6 @@ export const settings = {
   'settings.theInputAndOutputToken': '輸入與輸出 token 數',
   'settings.language': '語言',
   'settings.followSystemShort': '跟隨系統',
-  'settings.languageSummary':
-    '選擇 App 的介面語言。送給 AI 模型的提示詞不會翻譯，所以生成佇列與生成紀錄裡偶爾還是會看到中文。',
   'settings.listSeparator': '、',
   'settings.listSeparator2': '；',
   'settings.optionRecommended': '（推薦）',

@@ -688,6 +688,9 @@ describe('trailer.update／status', () => {
     expect(status.scriptSec).toBeCloseTo(30, 6)
     expect(status.matches).toBe(false)
     expect(status.errors.map((e) => e.code)).toContain('length')
+    // 面板看到的是短版（不帶「請調整各格的秒數…」這種給模型的指示句）
+    const length = status.errors.find((e) => e.code === 'length')
+    expect(length?.message).toMatch(/^總長 30\.0 秒，目標 20 秒，差 10\.0 秒。$/)
   })
 
   it('改目標秒數並「照新長度重排」：加總剛好等於新目標；復原回到 30', async () => {

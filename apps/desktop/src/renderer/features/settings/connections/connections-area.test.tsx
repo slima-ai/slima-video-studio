@@ -112,13 +112,16 @@ describe('連線示意圖', () => {
     expect(within(diagram).getByTestId('diagram-code-status').textContent).toBe('還沒連接')
     expect(within(diagram).getByTestId('diagram-slima-status').textContent).toBe('尚未連線')
     expect(diagram.querySelectorAll('[data-active="true"]')).toHaveLength(0)
-    // 提示要講清楚：按「連接」會一併打開，也可以自己打開（不能只叫人「要先打開」）
-    expect(diagram.textContent).toContain('按下面的「連接」（會一併打開）')
-    expect(diagram.textContent).toContain('自己打開「允許 AI 工具連線」')
-    expect(diagram.textContent).not.toContain('要先打開')
-    // 兩張「連接」卡的說明也說會一併打開
-    expect((await screen.findByTestId('connect-desktop')).textContent).toContain('會一併打開')
-    expect(screen.getByTestId('connect-code').textContent).toContain('會一併打開')
+    // 「這個 App」那格沒打開時只留狀態「已關閉」，不再寫「還沒打開：按下面的連接…」（開關就在正下方）
+    expect(diagram.textContent).not.toContain('還沒打開')
+    expect(diagram.textContent).not.toContain('按下面的「連接」')
+    // 兩張「連接」卡只有標題、狀態與按鈕，沒有副標
+    expect(
+      within(await screen.findByTestId('connect-desktop')).queryByTestId('setting-card-summary'),
+    ).toBeNull()
+    expect(
+      within(screen.getByTestId('connect-code')).queryByTestId('setting-card-summary'),
+    ).toBeNull()
   })
 
   it('App 開著、Claude Code 已設定：那一條線通了；最近有人連進來會說多久以前', async () => {
@@ -402,14 +405,14 @@ describe('AI 工具的總額度：輸入不能被吞掉', () => {
 })
 
 describe('AI 工具的總額度（沒開專案）', () => {
-  it('沒有專案就沒有實收這一行，說明仍然在', async () => {
+  it('沒有專案就沒有實收這一行；也沒有「預留是保守估計」的說明', async () => {
     installFakeSvs({ 'mcp.status': () => ({ ...ON, spentUsd: undefined }) })
     area()
     await waitFor(() => {
       expect(screen.getByTestId('mcp-committed')).toBeTruthy()
     })
     expect(screen.queryByTestId('mcp-spent')).toBeNull()
-    expect(screen.getByTestId('mcp-refund-note')).toBeTruthy()
+    expect(screen.queryByTestId('mcp-refund-note')).toBeNull()
   })
 })
 
@@ -424,9 +427,9 @@ describe('AI 工具的總額度', () => {
       expect(screen.getByTestId('mcp-committed').textContent).toContain('已預留 US$0.50')
     })
     expect(screen.getByTestId('mcp-committed').textContent).toContain('還能花 US$1.50')
-    // 預留是估計：旁邊另外顯示專案帳本的實收，並說明做完會把多預留的退回
+    // 預留是估計：旁邊另外顯示專案帳本的實收（機制說明不寫）
     expect(screen.getByTestId('mcp-spent').textContent).toBe('目前專案的帳本實收 US$0.12。')
-    expect(screen.getByTestId('mcp-refund-note').textContent).toContain('多預留的退回')
+    expect(screen.queryByTestId('mcp-refund-note')).toBeNull()
     expect(screen.getByTestId('mcp-allowance-status').textContent).toBe('還能花 US$1.50')
     fireEvent.change(screen.getByTestId('mcp-allowance'), { target: { value: '3.5' } })
     fireEvent.submit(screen.getByTestId('mcp-allowance'))
@@ -460,16 +463,14 @@ describe('AI 工具的總額度', () => {
     expect(screen.queryByTestId('mcp-allowance-saved')).toBeNull()
   })
 
-  it('開頭一句講「AI 工具一共能花多少」，並指到另一張卡（頁籤＋卡名），旁邊有「前往」；英文介面也是', async () => {
+  it('一句講「預設 US$0，用完就不能再生成」，並說每次另有單次上限，旁邊有「前往」；英文介面也是', async () => {
     installFakeSvs({ 'mcp.status': () => ON })
     area()
     await waitFor(() => {
       expect(screen.getByTestId('mcp-committed')).toBeTruthy()
     })
-    expect(document.body.textContent).toContain('AI 工具（Claude 等）一共能花多少')
-    expect(screen.getByTestId('allowance-pointer').textContent).toBe(
-      '想調「每按一次生成最多花多少」？那是另一張卡：設定 → 一般的「單次花費上限」。 前往',
-    )
+    expect(document.body.textContent).toContain('預設 US$0，用完就不能再生成')
+    expect(screen.getByTestId('allowance-pointer').textContent).toBe('每次另有單次上限。 前往')
     cleanup()
     setLocale('en')
     try {
@@ -479,24 +480,22 @@ describe('AI 工具的總額度', () => {
         expect(screen.getByTestId('mcp-committed')).toBeTruthy()
       })
       expect(document.body.textContent).toContain(
-        'How much AI tools (Claude and others) can spend in total',
+        'Default US$0. When it runs out, AI tools can’t generate more.',
       )
       expect(screen.getByTestId('allowance-pointer').textContent).toBe(
-        'Looking for the most a single generation can cost? That’s a different card: “Per-run spending limit” in Settings → General. Go there',
+        'Each run also has a per-run limit. Go there',
       )
     } finally {
       setLocale(DEFAULT_LOCALE)
     }
   })
 
-  it('用字：說清楚是累計、花服務金鑰帳戶的錢、也受單次花費上限管', async () => {
+  it('用字：預設 US$0、用完就不能再生成；也說另有單次上限', async () => {
     installFakeSvs({ 'mcp.status': () => OFF })
     area()
     const card = await screen.findByTestId('mcp-allowance-card')
     expect(card.textContent).toContain('預設 US$0')
-    expect(card.textContent).toContain('服務金鑰帳戶')
-    openMore('mcp-allowance-card')
-    expect(card.textContent).toContain('單次花費上限')
+    expect(card.textContent).toContain('每次另有單次上限')
   })
 })
 
@@ -511,6 +510,27 @@ describe('Slima 卡', () => {
     expect(screen.getByTestId('slima-connect').hasAttribute('disabled')).toBe(true)
     openMore('slima-section')
     expect(screen.queryByTestId('slima-disconnect')).toBeNull()
+  })
+
+  it('輸入框的提示字很短（不會被截斷）：中文「Slima API Token」，英文 “Slima API token”', async () => {
+    installFakeSvs()
+    area()
+    await waitFor(() => {
+      expect(screen.getByTestId('slima-status').textContent).toBe('尚未連線')
+    })
+    expect(screen.getByTestId('slima-token').getAttribute('placeholder')).toBe('Slima API Token')
+    cleanup()
+    setLocale('en')
+    try {
+      installFakeSvs()
+      area()
+      await waitFor(() => {
+        expect(screen.getByTestId('slima-status')).toBeTruthy()
+      })
+      expect(screen.getByTestId('slima-token').getAttribute('placeholder')).toBe('Slima API token')
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
   })
 
   it('貼上 Token 連線：送到主行程、清空輸入框；連上後列出書名與類型', async () => {

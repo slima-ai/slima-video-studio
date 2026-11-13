@@ -1,4 +1,5 @@
 export const sound = {
+  'sound.narrateOnly': 'Narration only',
   'sound.low': 'Low',
   'sound.medium': 'Medium',
   'sound.high': 'High',

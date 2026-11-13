@@ -106,7 +106,7 @@ function KeyRow({
             }
           : { tone: 'off', label: t('settings.notSetUp'), testId: `key-${id}-status` }
       }
-      summary={t(PURPOSE[id] ?? msg('settings.useYourOwnAccountTo'))}
+      summary={PURPOSE[id] ? t(PURPOSE[id]) : undefined}
       body={
         <div>
           <form

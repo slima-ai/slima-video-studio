@@ -92,7 +92,7 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
     if (!check) return ''
     if (!check.ok) return check.issue ?? ''
     return check.demoMode
-      ? t('chat.demoModeSampleResultsNothing')
+      ? ''
       : check.modelName
         ? t('chat.estimateAbout', { value: usd(check.estimatedUsd), modelName: check.modelName })
         : t('chat.estimateAbout2', { value: usd(check.estimatedUsd) })
@@ -132,7 +132,6 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
             className={FIELD}
           />
         </label>
-        <p className="text-xs text-fg-muted">{t('chat.onceLockedEveryShotSet')}</p>
         <div className="flex flex-wrap items-center gap-2">
           {locked ? (
             <Button
@@ -419,7 +418,7 @@ export function LocationsPage() {
   }
 
   return (
-    <Page title={t('chat.locations')} hint={t('chat.oneCardPerLocationIt')} testId="locations-page">
+    <Page title={t('chat.locations')} testId="locations-page">
       <div className="grid gap-6 md:grid-cols-[16rem_1fr]">
         <div className="space-y-3">
           <form

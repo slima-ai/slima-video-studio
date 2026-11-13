@@ -76,7 +76,7 @@ function Thumb({ record }: { record: GenerationRecord }) {
 export interface RecordRowProps {
   record: GenerationRecord
   /** 重新生成開始後（在背景進行）。 */
-  onRedo: (shotLabel: string) => void
+  onRedo: () => void
   onError: (message: string) => void
 }
 
@@ -101,7 +101,7 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
         jobId: record.id,
         ...(edited ? { prompt: draft } : {}),
       })
-      onRedo(record.target?.label ?? t('records.shot'))
+      onRedo()
     } catch (e) {
       onError(errorText(e))
     } finally {
@@ -210,12 +210,9 @@ export function RecordRow({ record, onRedo, onError }: RecordRowProps) {
                     <span data-testid="record-confirm-note" className="text-xs text-fg-muted">
                       {record.costUsd !== undefined
                         ? t('records.thisReplacesThePromptFor', {
-                            value: record.target?.label ?? t('records.shot'),
                             value2: record.costUsd.toFixed(2),
                           })
-                        : t('records.thisReplacesThePromptFor2', {
-                            value: record.target?.label ?? t('records.shot'),
-                          })}
+                        : t('records.thisReplacesThePromptFor2')}
                     </span>
                     <Button
                       size="sm"

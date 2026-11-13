@@ -4,8 +4,8 @@ export interface SettingGroupProps {
   /** 錨點 id（頂端的小標籤捲到這裡）。 */
   id: string
   title: string
-  /** 一句白話副標。 */
-  hint: string
+  /** 一句白話副標；只放會讓人做錯事的那一句，沒有就不寫。 */
+  hint?: string | undefined
   testId?: string
   children: ReactNode
 }
@@ -25,7 +25,7 @@ export function SettingGroup({ id, title, hint, testId, children }: SettingGroup
         <h2 id={headingId} className="text-base font-semibold">
           {title}
         </h2>
-        <p className="mt-0.5 text-sm text-fg-muted">{hint}</p>
+        {hint ? <p className="mt-0.5 text-sm text-fg-muted">{hint}</p> : null}
       </div>
       {/* 欄寬用 minmax(0, 1fr)：預設的 auto 欄會被裡面寫不下的內容（輸入框、圖）撐寬，窄視窗就超出右邊 */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[repeat(2,minmax(0,1fr))]">

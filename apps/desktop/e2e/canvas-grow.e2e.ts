@@ -354,7 +354,7 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await confirm.getByRole('button', { name: '取消' }).click()
     await expect(confirm).toHaveCount(0)
     await expect(toast).toBeVisible()
-    await expect(toast.getByTestId('toast-action')).toHaveText('復原')
+    await expect(toast.getByTestId('toast-action')).toHaveText('退回生成前')
   })
 
   test('步驟很多（27 鏡）：清單可以捲動，看得出下面還有；「用什麼」與價錢那行永遠看得到', async ({
@@ -535,7 +535,7 @@ test.describe('畫布上的一句話（示範模式）', () => {
     await finished(page)
     expect(await kindCount(page, 'shot')).toBe(3)
     // 長完的提示就有「復原」
-    await page.getByTestId('toast').getByRole('button', { name: '復原' }).click()
+    await page.getByTestId('toast').getByRole('button', { name: '退回生成前' }).click()
     await expect.poll(() => kindCount(page, 'shot')).toBe(0)
     expect(await kindCount(page, 'scene')).toBe(0)
     // 一句話本身還在（它是生成之前就新增的）
