@@ -57,7 +57,7 @@ test.describe('成品的聲音（示範模式）', () => {
     await panel.scrollIntoViewIfNeeded()
     await expect(page.getByTestId('sound-add')).toBeVisible()
     await page.getByTestId('sound-add').click()
-    await expect(page.getByTestId('sound-add-confirm')).toContainText('預估約')
+    await expect(page.getByTestId('sound-add-confirm')).toContainText('約 US$')
     await page.screenshot({ path: testInfo.outputPath('sound-confirm.png') })
 
     await page.getByTestId('sound-add-go').click()
@@ -105,7 +105,7 @@ test.describe('成品的聲音（示範模式）', () => {
     await page.getByTestId('shot-sound-dialogue-save').click()
     await expect(page.getByTestId('shot-sound-native')).toBeChecked()
     await page.getByTestId('shot-sound-narrate').click()
-    await expect(page.getByTestId('shot-sound-confirm')).toContainText('預估約')
+    await expect(page.getByTestId('shot-sound-confirm')).toContainText('約 US$')
     await page.getByTestId('shot-sound-go').click()
     await expect(page.getByTestId('shot-sound-narration')).toContainText('第 1 版', {
       timeout: 60_000,

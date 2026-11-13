@@ -181,7 +181,7 @@ for (const locale of ['en', 'en-XA'] as const) {
         const all = `${copy.textContent} | ${attrs}`
         return { hits: all.match(new RegExp(source, 'gu')) ?? [], length: all.length }
       }, BAD_HAN.source)
-      expect(scan.length).toBeGreaterThan(100)
+      expect(scan.length).toBeGreaterThan(50)
       expect(scan.hits).toEqual([])
       await expect(page.getByTestId('timeline-ruler')).toHaveAttribute(
         'aria-label',

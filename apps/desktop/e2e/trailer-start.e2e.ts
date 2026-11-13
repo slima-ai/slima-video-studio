@@ -156,7 +156,14 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     await pick(page, 'trailer-panel-length', '15')
     await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 15／15 秒')
     expect((await statusOf(page)).matches).toBe(true)
-    // 好幾格旁白念不完：面板不列、也沒有第二顆重寫鈕（那幾格在畫布上標示）
+    // 好幾格旁白念不完：面板不列、也沒有第二顆重寫鈕；那幾格在畫布上標「旁白太長」
+    const badges = (await statusOf(page)).errors.filter((e) => e.code === 'narration_too_dense')
+    expect(badges.length).toBeGreaterThan(1)
+    // 畫布節點上對到的格子數（畫面外的卡不一定畫出來，所以看節點資料）
+    const marked = (await canvasNodes(page)).filter(
+      (n) => (n.data as { narrationTooLong?: boolean }).narrationTooLong === true,
+    )
+    expect(marked).toHaveLength(badges.length)
     await expect(page.getByTestId('trailer-narration-summary')).toHaveCount(0)
     await expect(page.getByTestId('trailer-narration-rewrite')).toHaveCount(0)
     await expect(page.getByTestId('trailer-panel')).not.toContainText('這一格只有')
@@ -166,7 +173,9 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
 
     // 7. 用存著的原文重寫（示範模式不花錢）：已有生成過的格子，先確認；寫完還是 15／15
     await page.getByTestId('trailer-rewrite').click()
-    await expect(page.getByTestId('trailer-rewrite-confirm')).toContainText('已生成的畫面會被取代，可以復原')
+    await expect(page.getByTestId('trailer-rewrite-confirm')).toContainText(
+      '已生成的畫面會被取代，可以復原',
+    )
     await page.getByTestId('trailer-rewrite-confirm').scrollIntoViewIfNeeded()
     expect((await page.getByTestId('canvas-topbar').boundingBox())?.y).toBe(barTop)
     await shoot(page, testInfo, '06-rewrite-confirm.png')
@@ -242,7 +251,7 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     await page.getByTestId('trailer-text').fill(STORY)
     await page.getByTestId('trailer-go').click()
     await expect(page.getByTestId('trailer-badge')).toBeVisible({ timeout: 30_000 })
-    await page.getByRole('button', { name: '角色', exact: true }).click()
+    await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await expect(page.getByTestId('character-item-draft-小葉')).toHaveText('草稿')
     await expect(page.getByTestId('character-item-draft-老鐘')).toHaveText('草稿')
     await shoot(page, testInfo, '09-characters-draft-marker.png')
@@ -279,9 +288,7 @@ test.describe('做預告片：英文介面與窄視窗', () => {
 
       // 檢查器擋下：英文介面的錯誤也是英文
       await page.getByTestId('trailer-text').fill(`A bridge, a lamp, a knock.${BAD_MARK}`)
-      await expect(page.getByTestId('trailer-go')).toHaveText(
-        'Write the script first (demo mode, free)',
-      )
+      await expect(page.getByTestId('trailer-go')).toHaveText('Write the script first')
       await page.getByTestId('trailer-go').click()
       await expect(page.getByTestId('trailer-error')).toBeVisible({ timeout: 30_000 })
       expect(await han('trailer-error')).toEqual([])

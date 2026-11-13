@@ -189,7 +189,7 @@ test.describe('成品的聲音：用我自己的音樂（示範模式）', () =>
       await pickReturns(app, [file])
       await expect(page.getByTestId('sound-import-music')).toContainText('Use my own music')
       await page.getByTestId('sound-import-music').click()
-      await expect(page.getByTestId('sound-music-own')).toHaveText('my-song.mp3 (your own file)')
+      await expect(page.getByTestId('sound-music-own')).toHaveText('my-song.mp3')
       const text = await page.getByTestId('sound-panel').innerText()
       expect(HAN_OR_FULLWIDTH.test(text)).toBe(false)
       await shoot(page, testInfo, 'sound-import-05-english.png')
