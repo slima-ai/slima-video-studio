@@ -29,6 +29,8 @@ import { findTools, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
 import type { ShotService } from '../shots/shot-service'
+import { bookSpent, meteredStudio, type SpentCall } from '../costs/metering'
+import type { AppSpendLedger } from '../costs/app-ledger'
 import { createStudioServices } from '../studio-services'
 
 export interface StoryboardServiceDeps {
@@ -40,6 +42,8 @@ export interface StoryboardServiceDeps {
   shots: ShotService
   log: Pick<Logger, 'info' | 'warn' | 'error'>
   tools?: () => MediaTools | undefined
+  /** 專案已關掉時，失敗或晚到的花費記在這裡。 */
+  appLedger?: AppSpendLedger
 }
 
 export interface StoryboardService {
@@ -203,23 +207,18 @@ export function createStoryboardService(deps: StoryboardServiceDeps): Storyboard
         content,
       )
 
-      const studio = createStudioServices({ queue, handle, tools: tool, models })
-      const result = await generateStructured(
-        studio,
-        { modelId: model, system, messages: [{ role: 'user', content: brief.join('\n') }] },
-        LlmStoryboardSchema,
-        { signal: new AbortController().signal },
-      )
-      // 單獨呼叫不會經過引擎，自己記到花費帳本
-      if (result.costUsd !== undefined && !handle.closed) {
-        handle.repos.costs.record({
-          projectId: handle.projectId,
-          provider: result.provider,
-          modelId: model,
-          amountUsd: result.costUsd,
-          estimated: false,
-          jobId: result.jobId,
-        })
+      // 單獨呼叫不會經過引擎，自己記到花費帳本；成功或失敗（格式不對重試後還是不對…）都記
+      const spent: SpentCall[] = []
+      let result: Awaited<ReturnType<typeof generateStructured<typeof LlmStoryboardSchema>>>
+      try {
+        result = await generateStructured(
+          meteredStudio(createStudioServices({ queue, handle, tools: tool, models }), spent),
+          { modelId: model, system, messages: [{ role: 'user', content: brief.join('\n') }] },
+          LlmStoryboardSchema,
+          { signal: new AbortController().signal },
+        )
+      } finally {
+        bookSpent(handle, deps.appLedger, spent, 'storyboard.split')
       }
       if (handle.closed) throw invalid(t('services.theProjectWasClosedSo4'))
 

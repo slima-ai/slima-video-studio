@@ -56,6 +56,8 @@ import type { ProjectManager } from '../project-manager'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
+import type { AppSpendLedger } from '../costs/app-ledger'
+import { bookSpent, meteredStudio, type SpentCall } from '../costs/metering'
 import { createStudioServices } from '../studio-services'
 
 export interface SoundServiceDeps {
@@ -76,6 +78,8 @@ export interface SoundServiceDeps {
    * 要把「台詞換掉＋新的旁白版本」記成一步，復原就回到原句與原本的旁白。沒給就不記。
    */
   beginHistory?: (label: string) => () => void
+  /** 專案已關掉時，晚到的花費記在這裡（錢不會跟著專案消失）。 */
+  appLedger?: AppSpendLedger
 }
 
 /** 念好的旁白；放不進格子而被改短重念時，多帶一份說明（台詞已經換成新句）。 */
@@ -549,13 +553,20 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         userMessage: t('services.theGenerationServiceIsnT'),
       })
     }
-    const studio = createStudioServices({
-      queue,
-      handle,
-      tools: tool ?? { ffmpegPath: '', ffprobePath: null },
-      models,
-    })
+    const spent: SpentCall[] = []
+    const studio = meteredStudio(
+      createStudioServices({
+        queue,
+        handle,
+        tools: tool ?? { ffmpegPath: '', ffprobePath: null },
+        models,
+      }),
+      spent,
+    )
     const result = await studio.generate(request, { signal: new AbortController().signal })
+    // 回報了金額的錢一回來就入帳：後面專案被關掉、或結果不能用而失敗，這筆錢都已經花了
+    const reported = spent.length > 0
+    bookSpent(handle, deps.appLedger, spent, 'sound.generate')
     if (handle.closed) throw invalid(t('services.theProjectWasClosedSo3'))
     const asset = outputAsset(result.output)
     // 長度：用 FFmpeg 量；沒有工具或量不到就不填（之後混音時還是會量）
@@ -569,14 +580,16 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
       }
     }
     const costUsd = result.costUsd ?? estimateUsd
-    handle.repos.costs.record({
-      projectId: handle.projectId,
-      provider: result.provider,
-      modelId: request.modelId,
-      amountUsd: costUsd,
-      estimated: result.costUsd === undefined,
-      jobId: result.jobId,
-    })
+    if (!reported) {
+      handle.repos.costs.record({
+        projectId: handle.projectId,
+        provider: result.provider,
+        modelId: request.modelId,
+        amountUsd: costUsd,
+        estimated: result.costUsd === undefined,
+        jobId: result.jobId,
+      })
+    }
     return handle.repos.sound.addClip({
       kind: clip.kind,
       shotId: clip.shotId,
@@ -678,22 +691,30 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
         userMessage: t('services.theGenerationServiceIsnT'),
       })
     }
-    const studio = createStudioServices({
-      queue,
-      handle,
-      tools: tools() ?? { ffmpegPath: '', ffprobePath: null },
-      models,
-    })
+    const spent: SpentCall[] = []
+    const studio = meteredStudio(
+      createStudioServices({
+        queue,
+        handle,
+        tools: tools() ?? { ffmpegPath: '', ffprobePath: null },
+        models,
+      }),
+      spent,
+    )
     const result = await studio.generate(request, { signal: new AbortController().signal })
+    const reported = spent.length > 0
+    bookSpent(handle, deps.appLedger, spent, 'sound.callText')
     if (handle.closed) throw invalid(t('services.theProjectWasClosedSo3'))
-    handle.repos.costs.record({
-      projectId: handle.projectId,
-      provider: result.provider,
-      modelId: request.modelId,
-      amountUsd: result.costUsd ?? estimateUsd,
-      estimated: result.costUsd === undefined,
-      jobId: result.jobId,
-    })
+    if (!reported) {
+      handle.repos.costs.record({
+        projectId: handle.projectId,
+        provider: result.provider,
+        modelId: request.modelId,
+        amountUsd: result.costUsd ?? estimateUsd,
+        estimated: result.costUsd === undefined,
+        jobId: result.jobId,
+      })
+    }
     return result.output.kind === 'text' ? result.output.text : ''
   }
 

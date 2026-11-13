@@ -24,6 +24,8 @@ import type { ProjectManager } from '../project-manager'
 import { findTools, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
+import type { AppSpendLedger } from '../costs/app-ledger'
+import { bookSpent, meteredStudio, type SpentCall } from '../costs/metering'
 import { createStudioServices } from '../studio-services'
 
 export interface OutlineServiceDeps {
@@ -37,6 +39,8 @@ export interface OutlineServiceDeps {
   log: Pick<Logger, 'info' | 'warn' | 'error'>
   tools?: () => MediaTools | undefined
   now?: () => Date
+  /** 專案已關掉時，失敗或晚到的花費記在這裡。 */
+  appLedger?: AppSpendLedger
 }
 
 export interface OutlineService {
@@ -283,27 +287,22 @@ export function createOutlineService(deps: OutlineServiceDeps): OutlineService {
 
       const { outline, characters } = handle.repos
       const knownCharacters = characters.list().map((c) => c.name)
-      const studio = createStudioServices({ queue, handle, tools: tool, models })
-      const result = await generateStructured(
-        studio,
-        {
-          modelId: model,
-          system: outlineSystemPrompt(text, knownCharacters),
-          messages: [{ role: 'user', content: text }],
-        },
-        LlmOutlineSchema,
-        { signal: new AbortController().signal },
-      )
-      // 單獨呼叫不會經過引擎，自己記到花費帳本
-      if (result.costUsd !== undefined && !handle.closed) {
-        handle.repos.costs.record({
-          projectId: handle.projectId,
-          provider: result.provider,
-          modelId: model,
-          amountUsd: result.costUsd,
-          estimated: false,
-          jobId: result.jobId,
-        })
+      // 單獨呼叫不會經過引擎，自己記到花費帳本；成功或失敗（格式不對重試後還是不對…）都記
+      const spent: SpentCall[] = []
+      let result: Awaited<ReturnType<typeof generateStructured<typeof LlmOutlineSchema>>>
+      try {
+        result = await generateStructured(
+          meteredStudio(createStudioServices({ queue, handle, tools: tool, models }), spent),
+          {
+            modelId: model,
+            system: outlineSystemPrompt(text, knownCharacters),
+            messages: [{ role: 'user', content: text }],
+          },
+          LlmOutlineSchema,
+          { signal: new AbortController().signal },
+        )
+      } finally {
+        bookSpent(handle, deps.appLedger, spent, 'outline.split')
       }
       if (handle.closed) throw invalid(t('services.theProjectWasClosedSo'))
 

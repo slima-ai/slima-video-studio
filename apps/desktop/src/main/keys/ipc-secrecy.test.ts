@@ -107,6 +107,7 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'mcp.connectClaudeDesktop': [{}],
   'mcp.connectClaudeCode': [{}],
   'models.list': [{}],
+  'costs.reconcileNotice': [{}],
   'models.notices': [{}],
   'models.setProject': [{ models: { t2i: 'no/such-model' } }, { models: { t2i: null } }],
   'queue.list': [{}],

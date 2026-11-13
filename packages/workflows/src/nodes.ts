@@ -25,7 +25,7 @@ import {
 } from '@svs/schema'
 import { z } from 'zod'
 
-import { generateStructured } from './structured'
+import { generateStructured, tapGenerateCost } from './structured'
 import { getStudio, type StudioServices } from './services'
 import { QUICK_STYLES, QUICK_STYLE_IDS, type QuickStyleId } from './styles'
 
@@ -296,8 +296,9 @@ export const breakdownNode = defineNode({
       outputTokens: params.shotCount * (params.narration ? 200 : 150) + 50,
     }),
   run: async ({ params, modelId, signal, nodeRunId, services, reportCost }) => {
-    const studio = getStudio(services)
     const model = needModel(modelId, t('nodes.text'))
+    // 每次呼叫一回來就回報花費：格式不對重試、最後還是失敗時，花掉的錢也要入帳
+    const studio = tapGenerateCost(getStudio(services), reportCost)
     const result = await generateStructured(
       studio,
       {
@@ -321,8 +322,6 @@ export const breakdownNode = defineNode({
       number: i + 1,
       durationSec: params.durationSec,
     }))
-    const cost = costOf(result.provider, model, result.costUsd, result.jobId)
-    if (cost) reportCost(cost)
     return { shots, title: result.data.title }
   },
 })

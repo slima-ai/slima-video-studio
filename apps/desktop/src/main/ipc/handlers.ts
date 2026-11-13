@@ -30,6 +30,7 @@ import type { ShotService } from '../shots/shot-service'
 import type { QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
 import type { SettingsStore } from '../settings/settings-store'
+import type { CostReconciler } from '../costs/reconcile'
 import type { DemoSeeder } from '../perf/demo-seed'
 import { withChangeEvents } from './change-events'
 import type { HandlerContext, IpcRegistry } from './registry'
@@ -48,6 +49,8 @@ export interface HandlerDeps {
   keyTester: KeyTester
   settings: SettingsStore
   settingsService: SettingsService
+  /** 補記花費的提示（開專案時對帳）；測試可以不給。 */
+  costReconciler?: Pick<CostReconciler, 'takeNotice'>
   /** AI 工具連線（MCP）；測試可以不給（狀態會是「沒開」）。 */
   mcp?: McpController
   /** 一鍵連接 Claude Desktop／Claude Code；測試可以不給。 */
@@ -94,6 +97,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     keyTester,
     settings,
     settingsService,
+    costReconciler,
     mcp,
     mcpConnector,
     chat,
@@ -387,6 +391,9 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     settingsService.setProjectModels(models)
     return {}
   })
+  registry.registerHandler('costs.reconcileNotice', () => ({
+    notice: costReconciler?.takeNotice() ?? null,
+  }))
   registry.registerHandler('models.notices', () => ({ notices: settingsService.takeNotices() }))
 
   const requireQueue = () => {

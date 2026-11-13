@@ -35,6 +35,7 @@ import type { SettingsStore } from './settings/settings-store'
 import { createShotService, type ShotService } from './shots/shot-service'
 import { createStoryboardService, type StoryboardService } from './storyboard/storyboard-service'
 import { createAppLedger, type AppSpendLedger } from './costs/app-ledger'
+import { createCostReconciler, type CostReconciler } from './costs/reconcile'
 import { createTrailerService, type TrailerService } from './trailer/trailer-service'
 
 export interface StudioAppOptions {
@@ -87,6 +88,8 @@ export interface StudioAppOptions {
 
 export interface StudioApp {
   models: ModelRegistry
+  /** 開專案時對帳：任務上有金額、帳本沒記的補記，提示等畫面取走。 */
+  costReconciler: CostReconciler
   settingsService: SettingsService
   runtime: ProjectRuntime
   shots: ShotService
@@ -218,6 +221,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     projectsDir: options.projectsDir,
     suggestAnchor: createAnchorSuggester({
       projects,
+      appLedger,
       runtime,
       settingsService,
       models,
@@ -234,8 +238,17 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     log,
     ...toolsOption,
   })
+  const costReconciler = createCostReconciler({
+    projects,
+    appLedger,
+    subscribeJobs: (listener) => runtime.queue()?.subscribe(listener),
+    onNotice: () => {
+      broadcast('costs.reconciled', {})
+    },
+  })
   const sound = createSoundService({
     projects,
+    appLedger,
     runtime,
     settings,
     settingsService,
@@ -270,6 +283,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
   })
   const outline = createOutlineService({
     projects,
+    appLedger,
     projectsDir: options.projectsDir,
     runtime,
     settings,
@@ -280,6 +294,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
   })
   const storyboard = createStoryboardService({
     projects,
+    appLedger,
     runtime,
     settings,
     settingsService,
@@ -313,6 +328,7 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
   })
   return {
     models,
+    costReconciler,
     settingsService,
     runtime,
     shots,

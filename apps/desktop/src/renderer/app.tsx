@@ -17,6 +17,7 @@ import { OutlinePage } from './features/outline/outline-page'
 import { StoryboardPage } from './features/storyboard/storyboard-page'
 import { QueuePanel } from './features/queue/queue-panel'
 import { SetupWizard } from './features/onboarding/setup-wizard'
+import { CostReconcileNotice } from './features/records/cost-reconcile-notice'
 import { ModelNotices } from './features/settings/model-notices'
 import { SettingsPage } from './features/settings/settings-page'
 import { useAppData } from './features/settings/use-app-data'
@@ -79,6 +80,11 @@ export function App() {
   return (
     <ToastProvider>
       <ModelNotices onOpenSettings={openSettings} />
+      <CostReconcileNotice
+        onOpenRecords={() => {
+          setView('records')
+        }}
+      />
       <ChatProvider>
         <HistoryProvider enabled={view === 'canvas' || view === 'outline' || view === 'storyboard'}>
           <AppLayout
