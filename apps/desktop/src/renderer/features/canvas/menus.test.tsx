@@ -30,14 +30,13 @@ describe('AddMenu', () => {
     expect(names()).toHaveLength(2)
   })
 
-  it('搜尋：名稱符合就只列名稱符合的（打「地點」不會連「場」也跑出來）；名稱都不符合才看說明', () => {
+  it('搜尋：只用名稱搜尋（打「地點」不會連「場」也跑出來；說明句已拿掉，打說明裡的字不再有結果）', () => {
     open({ kinds: ['scene', 'shot', 'character', 'location'] })
     fireEvent.change(screen.getByLabelText('搜尋要新增的種類'), { target: { value: '地點' } })
     expect(names()).toHaveLength(1)
     expect(names()[0]).toContain('地點')
     fireEvent.change(screen.getByLabelText('搜尋要新增的種類'), { target: { value: '人物' } })
-    expect(names()).toHaveLength(1)
-    expect(names()[0]).toContain('角色')
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
     fireEvent.change(screen.getByLabelText('搜尋要新增的種類'), { target: { value: '火星' } })
     expect(screen.queryAllByRole('option')).toHaveLength(0)
     expect(screen.getByText('沒有符合的種類')).toBeTruthy()

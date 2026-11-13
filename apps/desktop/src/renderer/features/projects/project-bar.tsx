@@ -22,11 +22,9 @@ const RECENT_COUNT = 5
 
 const usd = (n: number): string => `US$${n.toFixed(2)}`
 
-/** 「儲存」的提示：專案是自動儲存的，告訴使用者最後一次是幾點。⌘S 與（之後）檔案選單的「儲存」都用它。 */
-export function saveHint(status: ProjectStatus | null | undefined): string {
-  return status
-    ? t('projects.projectsSaveThemselvesLastSaved', { value: clockTime(status.savedAt) })
-    : t('projects.noProjectYetAddingAnything')
+/** 「儲存」的提示：專案是自動儲存的，告訴使用者最後一次是幾點；還沒有專案就沒有東西可說。⌘S 與檔案選單的「儲存」都用它。 */
+export function saveHint(status: ProjectStatus | null | undefined): string | undefined {
+  return status ? t('projects.autoSavedAt', { time: clockTime(status.savedAt) }) : undefined
 }
 
 const IS_MAC = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac')
@@ -67,19 +65,16 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
   const name = status?.name ?? ''
   const hasProject = status !== null && status !== undefined
 
+  const showSaveHint = (): void => {
+    const message = saveHint(status)
+    if (message !== undefined) toast.show({ message, key: 'save-hint' })
+  }
+
   // 視窗上方選單（macOS 的「檔案」）選了哪一項：做的跟這一列的選單、快捷鍵是同一批動作。
   // 用 ref 拿最新的版本，訂閱才不用每次重畫都重掛
   const onMenuAction = useRef<(menu: MenuAction) => void>(() => undefined)
   onMenuAction.current = (menu) => {
     if (creating || savingAs) return
-    const noProject = (what: 'saveAs' | 'rename' | 'reveal'): void => {
-      const message = {
-        saveAs: t('projects.noProjectToSaveAs'),
-        rename: t('projects.noProjectToRename'),
-        reveal: t('projects.noProjectToReveal'),
-      }[what]
-      toast.show({ message })
-    }
     switch (menu.action) {
       case 'new':
         setCreating(true)
@@ -91,19 +86,16 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
         if (menu.dir !== undefined) finishWith(call('project.openRecent', { dir: menu.dir }), true)
         break
       case 'save':
-        toast.show({ message: saveHint(status), key: 'save-hint' })
+        showSaveHint()
         break
       case 'saveAs':
         if (hasProject) setSavingAs(true)
-        else noProject('saveAs')
         break
       case 'rename':
         if (hasProject) setRenaming(true)
-        else noProject('rename')
         break
       case 'reveal':
         if (hasProject) finishWith(call('project.reveal', {}), false)
-        else noProject('reveal')
         break
       case 'home':
         onNavigate('home')
@@ -130,7 +122,7 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
         event.key.toLowerCase() === 's'
       ) {
         event.preventDefault()
-        toast.show({ message: saveHint(status), key: 'save-hint' })
+        showSaveHint()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -179,7 +171,7 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
           type="button"
           data-testid="project-name"
           disabled={!hasProject}
-          title={hasProject ? t('projects.clickToRename') : t('projects.aProjectIsCreatedWhen')}
+          title={hasProject ? t('projects.clickToRename') : undefined}
           className="max-w-[24rem] truncate rounded-md px-2 py-0.5 text-sm font-semibold hover:bg-surface-overlay disabled:cursor-default disabled:hover:bg-transparent"
           onClick={() => {
             setRenaming(true)
@@ -294,11 +286,7 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
       ) : null}
 
       {hasProject ? (
-        <span
-          data-testid="save-status"
-          className="text-xs text-fg-muted"
-          title={t('projects.projectsSaveThemselvesNoNeed')}
-        >
+        <span data-testid="save-status" className="text-xs text-fg-muted">
           {t('projects.autoSavedAt', { time: clockTime(status.savedAt) })}
         </span>
       ) : null}
@@ -308,13 +296,6 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
           type="button"
           data-testid="mode-badge"
           data-mode={demoMode ? 'demo' : 'real'}
-          title={
-            demoMode
-              ? t('projects.runsTheWholeProcessWith')
-              : hasKey === false
-                ? t('projects.usesRealAiAndCosts')
-                : t('projects.usesRealAiAndCosts2')
-          }
           className={`ml-2 rounded-full border px-3 py-0.5 text-xs ${
             demoMode
               ? 'border-border text-fg-muted'
@@ -339,7 +320,7 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
           data-testid="spent"
           title={
             status.discardedSpentUsd === undefined
-              ? t('projects.whatThisProjectHasCost')
+              ? undefined
               : t('projects.whatThisProjectHasCostWithLeftover', {
                   usd: status.discardedSpentUsd.toFixed(2),
                 })

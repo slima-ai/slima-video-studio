@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom'
 
 import { Button } from '../../components/button'
 import { SimpleSelect } from '../../components/list-select'
-import { useToast } from '../../components/toast'
 import { cn } from '../../lib/cn'
 import { call, errorText } from '../../lib/svs'
 import { TRAILER_LENGTHS } from './trailer-start'
@@ -70,7 +69,6 @@ function TextSetting({
  * 一般專案（沒有預告片設定）不顯示。
  */
 export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) {
-  const toast = useToast()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState<'rewrite' | 'fit' | 'save'>()
@@ -140,8 +138,7 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
 
   if (!status?.exists) return null
   const { settings } = status
-  // 旁白念不完的格子收成一行（不一格一格列）；其他錯誤照列
-  const narrationCount = status.errors.filter((e) => e.code === 'narration_too_dense').length
+  // 旁白念不完的格子不在這裡列（標在那幾格上）；其他錯誤照列
   const otherErrors = status.errors.filter((e) => e.code !== 'narration_too_dense')
   const lengths: number[] = TRAILER_LENGTHS.includes(settings.targetSec as 15)
     ? [...TRAILER_LENGTHS]
@@ -151,11 +148,6 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
     setBusy(refit ? 'fit' : 'save')
     setError(undefined)
     call('trailer.update', { patch, ...(refit ? { refit } : {}) })
-      .then((next) => {
-        if (refit && next.matches) {
-          toast.show({ message: t('trailer.panel.fitDone', { sec: secLabel(next.scriptSec) }) })
-        }
-      })
       .catch((e: unknown) => {
         setError(errorText(e))
       })
@@ -181,14 +173,6 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
       musicMood: settings.musicMood,
       claims: settings.claims,
     })
-      .then((result) => {
-        toast.show({
-          message: t('trailer.panel.rewriteDone', {
-            count: result.beatCount,
-            sec: secLabel(result.scriptSec),
-          }),
-        })
-      })
       .catch((e: unknown) => {
         setError(errorText(e))
       })
@@ -211,7 +195,6 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
         data-matches={status.matches}
         aria-haspopup="dialog"
         aria-expanded={open}
-        title={t('trailer.badgeTip')}
         className={cn(
           'shrink-0 whitespace-nowrap rounded-lg border px-2.5 py-1 text-[13px] font-semibold',
           status.matches
@@ -257,17 +240,10 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
                   data-testid="trailer-mismatch"
                   className="flex flex-col gap-2 rounded-lg border border-warning/50 bg-warning/10 p-2.5 text-xs text-warning"
                 >
-                  <p>
-                    {t('trailer.panel.mismatch', {
-                      script: secLabel(status.scriptSec),
-                      target: secLabel(status.targetSec),
-                    })}
-                  </p>
                   <Button
                     variant="secondary"
                     size="sm"
                     data-testid="trailer-fit"
-                    title={t('trailer.panel.fitTip')}
                     disabled={busy !== undefined}
                     onClick={() => {
                       save({}, true)
@@ -352,20 +328,13 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
                 </label>
               </div>
               <div className="flex flex-col gap-2 border-t border-border pt-3">
-                {source === '' ? (
-                  <p data-testid="trailer-no-source" className="text-xs text-fg-subtle">
-                    {t('trailer.panel.noSource')}
-                  </p>
-                ) : confirming && check ? (
+                {source === '' ? null : confirming && check ? (
                   <div data-testid="trailer-rewrite-confirm" className="flex flex-col gap-2">
-                    <p className="text-xs text-warning">
-                      {check.generatedBeats > 0
-                        ? t('trailer.panel.replaceWarn', {
-                            count: check.existingBeats,
-                            generated: check.generatedBeats,
-                          })
-                        : t('trailer.panel.replaceWarnPlain', { count: check.existingBeats })}
-                    </p>
+                    {check.generatedBeats > 0 ? (
+                      <p className="text-xs text-warning">
+                        {t('trailer.panel.replaceWarn', { generated: check.generatedBeats })}
+                      </p>
+                    ) : null}
                     <div className="flex gap-2">
                       <Button
                         variant="primary"
@@ -399,35 +368,16 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
                         : check === undefined
                           ? t('trailer.panel.rewrite')
                           : check.demoMode
-                            ? t('trailer.panel.rewriteDemo')
+                            ? t('trailer.panel.rewrite')
                             : t('trailer.panel.rewriteReal', {
                                 usd: check.estimatedUsd.toFixed(2),
                               })}
                     </Button>
-                    <p className="text-xs text-fg-subtle">{t('trailer.panel.rewriteHint')}</p>
                   </>
                 )}
               </div>
               {status.errors.length + status.warnings.length > 0 ? (
                 <div data-testid="trailer-issues-box" className="flex flex-col gap-2 text-xs">
-                  {narrationCount > 0 ? (
-                    // 改短長度之後常有好幾格旁白念不完：收成一行，旁邊放重寫鈕（不擋）
-                    <div
-                      data-testid="trailer-narration-summary"
-                      className="flex flex-col gap-1.5 rounded-lg border border-warning/50 bg-warning/10 p-2.5 text-warning"
-                    >
-                      <p>{t('trailer.panel.narrationTooLong', { count: narrationCount })}</p>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        data-testid="trailer-narration-rewrite"
-                        disabled={busy !== undefined || source === '' || check === undefined}
-                        onClick={onRewrite}
-                      >
-                        {t('trailer.panel.narrationRewrite')}
-                      </Button>
-                    </div>
-                  ) : null}
                   <ul data-testid="trailer-issues" className="flex flex-col gap-1">
                     {otherErrors.map((issue, i) => (
                       <li key={`e${String(i)}`} className="text-danger">
@@ -436,7 +386,7 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
                     ))}
                     {status.warnings.map((issue, i) => (
                       <li key={`w${String(i)}`} className="text-warning">
-                        {t('trailer.panel.warningLine', { message: issue.message })}
+                        {issue.message}
                       </li>
                     ))}
                   </ul>

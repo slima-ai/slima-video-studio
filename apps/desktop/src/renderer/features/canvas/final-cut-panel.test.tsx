@@ -22,11 +22,11 @@ const TRAILER = (filmSec: number | undefined) => ({
 })
 
 describe('FinalCutPanel：預告片的成品長度', () => {
-  it('預告片專案：寫「成品 30 秒（目標 30 秒）」，差超過一格用警示色', async () => {
+  it('預告片專案：對得上目標就只寫「成品 30 秒」；差超過一格才多寫目標、用警示色', async () => {
     installFakeSvs({ 'trailer.status': () => TRAILER(30) })
     const first = render(<FinalCutPanel finalVideoHash={'a'.repeat(64)} canRejoin={false} />)
     const line = await screen.findByTestId('final-cut-length')
-    expect(line.textContent).toBe('成品 30 秒（目標 30 秒）')
+    expect(line.textContent).toBe('成品 30 秒')
     expect(line.className).not.toContain('text-warning')
     first.unmount()
 
@@ -105,8 +105,8 @@ describe('FinalCutPanel：匯出的片尾字卡', () => {
     })
   })
 
-  it('以前匯出過：面板一打開就寫「最近一次匯出：檔名」，附「在資料夾顯示」，按下去帶檔名', async () => {
-    const svs = installFakeSvs({
+  it('以前匯出過：面板一打開不寫「最近一次匯出」（只在剛匯出完才顯示路徑）', async () => {
+    installFakeSvs({
       'files.list': () => ({
         files: [],
         exports: [
@@ -116,27 +116,14 @@ describe('FinalCutPanel：匯出的片尾字卡', () => {
             bytes: 10,
             modifiedAt: '2026-10-20T08:00:00.000Z',
           },
-          {
-            name: '短片-舊.mp4',
-            path: '/p/exports/短片-舊.mp4',
-            bytes: 10,
-            modifiedAt: '2026-10-19T08:00:00.000Z',
-          },
         ],
-        totalBytes: 20,
+        totalBytes: 10,
       }),
-      'files.reveal': () => ({}),
     })
     render(<FinalCutPanel finalVideoHash={'a'.repeat(64)} canRejoin={false} />)
-    await waitFor(() => {
-      expect(screen.getByTestId('final-cut-last-export').textContent).toContain(
-        '最近一次匯出：短片-新.mp4',
-      )
-    })
-    fireEvent.click(screen.getByTestId('final-cut-reveal'))
-    await waitFor(() => {
-      expect(svs.payloadsOf('files.reveal')).toEqual([{ exportName: '短片-新.mp4' }])
-    })
+    await screen.findByTestId('final-cut-export')
+    expect(screen.queryByTestId('final-cut-last-export')).toBeNull()
+    expect(screen.queryByText(/最近一次匯出/)).toBeNull()
   })
 
   it('沒匯出過就不顯示；剛匯出完顯示完整路徑，也能在資料夾顯示', async () => {

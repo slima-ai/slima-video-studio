@@ -45,7 +45,7 @@ test.describe('成品面板的時間軸：秒數尺與拖格子邊緣剪頭尾�
     await page.keyboard.press('Space')
     const video = page.getByTestId('timeline-preview')
     await expect(video).toBeVisible()
-    await expect(page.getByTestId('timeline-play-hint')).toContainText('只播留下的 0.0–')
+    await expect(page.getByTestId('timeline-play-hint')).toHaveCount(0)
     await page.screenshot({ path: testInfo.outputPath('timeline-playing.png') })
     // 播到出點就停在出點，不會繼續播到影片結尾（影片 3 秒）
     await expect

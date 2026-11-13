@@ -182,42 +182,22 @@ export const canvas = {
   'canvas.loadingCanvas2': 'Loading canvas…',
   'canvas.retry': 'Retry',
   'canvas.whereToStart': 'Where to start?',
-  'canvas.anyOfTheFourWorks':
-    'Any of the four works; pick what feels easy. You can always add scenes, shots, characters, locations or pictures later with “Add” on the left.',
   'canvas.goStepByStep': 'Go step by step',
-  'canvas.addASceneAndA':
-    'Add a scene and a first shot, then write each shot’s description yourself. You decide each cell; press ▶ when you want to generate.',
-  'canvas.addingCostsNothingBeforeYou':
-    'Adding costs nothing. Before you press ▶ to generate, you’ll see an estimate.',
   'canvas.addTheFirstShot': 'Add the first shot',
   'canvas.pasteAStory': 'Paste a story',
-  'canvas.pasteAStoryAndAi':
-    'Paste a story and AI splits it into scenes and shots (the storyboard). You can look at it and change it first.',
-  'canvas.usesOnlyATextModel':
-    'Uses only a text model; no pictures or video are generated. You’ll see the estimated cost before confirming.',
   'canvas.pasteYourStoryOrPlot': 'Paste your story or plot outline',
   'canvas.splitting': 'Splitting…',
   'canvas.splitIntoStoryboard': 'Split into storyboard',
-  'canvas.writeOneLineLookAt':
-    'Write one line, look at the storyboard and adjust it, then decide whether to generate everything (or do it all in one go).',
-  'canvas.thisCostsMoneyPicturesAnd':
-    'This costs money (pictures and video). You’ll see an estimate before you press the button.',
   'canvas.forExampleACatFinds': 'For example: a cat finds a warm home on a rainy night',
   'canvas.addAOneLiner': 'Add a one-liner',
   'canvas.add2': '+ Add',
   'canvas.addPanel': 'Add panel',
   'canvas.addTab': 'Add (Tab)',
-  'canvas.closeThisPanelEsc': 'Close this panel (Esc)',
   'canvas.close': 'Close ‹',
   'canvas.closeTheAddPanel': 'Close the Add panel',
-  'canvas.closeTheAddPanelEsc': 'Close the Add panel (Esc)',
   'canvas.nothingToUndo': 'Nothing to undo',
   'canvas.nothingToRedo': 'Nothing to redo',
-  'canvas.putMovedCellsBackIn':
-    'Put moved cells back in their automatic positions, then show everything (can be undone)',
   'canvas.tidy': 'Tidy',
-  'canvas.betweenEachShotAndIts':
-    'Between each shot and its first frame, show the three steps: Prepare prompt, Pick references, Send to model',
   'canvas.collapseAllSteps': 'Collapse all steps',
   'canvas.expandAllSteps': 'Expand all steps',
   'canvas.generating': 'Generating',
@@ -226,10 +206,7 @@ export const canvas = {
   'canvas.everythingIsGenerated': 'Everything is generated',
   'canvas.joinIntoFilm': 'Join into film',
   'canvas.helpAndTools': 'Help and tools',
-  'canvas.howToStartKeyboardShortcuts': 'How to start, keyboard shortcuts, performance check',
   'canvas.changeTheme': 'Change theme',
-  'canvas.whenAiEditsSomethingThe':
-    'When AI edits something, the view follows it there (it won’t take over while you drag or zoom)',
   'canvas.followAiOn': 'Follow AI: on',
   'canvas.followAiOff': 'Follow AI: off',
   'canvas.zoomedOutTooFarTo':
@@ -349,20 +326,12 @@ export const canvas = {
   'canvas.thisLineIsFixedAnd': 'This line is fixed and can’t be cut',
   'canvas.cutThisLineCanBe': 'Cut this line (can be undone)',
   'canvas.close2': 'Close',
-  'canvas.thereSNoJoinedFilm':
-    'There’s no joined film yet. Once every shot has a video, press “Join the shots into one video” below, or press ▶ on the Cut on the canvas.',
   'canvas.exportMp4': 'Export MP4',
-  'canvas.joinEachShotSCurrent':
-    'Join each shot’s current video into the film (done on this computer, free)',
-  'canvas.adds3SecondsAtThe':
-    'Adds 3 seconds at the end listing the AI services used (for example “Video generated with Kling AI”). Only added to the exported file; the film in the project doesn’t change.',
-  'canvas.addAiServiceCreditsAt': 'Add AI service credits at the end (recommended)',
+  'canvas.adds3SecondsAtThe': 'Adds 3 seconds of AI service credits at the end',
+  'canvas.addAiServiceCreditsAt': 'AI service credits at the end',
   'canvas.exportedToTheEndCredits':
     'Exported to {exported} (the end credits weren’t added, so this version has no credits card)',
   'canvas.exportedTo': 'Exported to {exported}',
-  'canvas.lastExport': 'Last export: {lastExport}',
-  'canvas.afterChangingAShotS':
-    'After changing a shot’s version or regenerating, press “Join into film” to update the full video above.',
   'canvas.panelTabs': 'Panel tabs',
   'canvas.edit': 'Edit',
   'canvas.trialRun': 'Trial run',
@@ -416,15 +385,6 @@ export const canvas = {
   'canvas.showThem': 'Show them',
   'canvas.moveIntoANewScene': 'Move into a new scene',
   'canvas.moveInto': 'Move into “{sceneName}”',
-  'canvas.writeOneLineAndLook':
-    'Write one line and look at the storyboard before deciding to generate (costs money; you see an estimate first)',
-  'canvas.aPieceOfTheStory': 'A piece of the story: place, time, mood',
-  'canvas.onePictureDescriptionLinesCamera': 'One picture: description, lines, camera move',
-  'canvas.aPersonOrAnimalLook': 'A person or animal: look, outfit',
-  'canvas.aPlaceThatComesUp': 'A place that comes up often',
-  'canvas.uploadAPictureOrA': 'Upload a picture or a video',
-  'canvas.writeANoteToYourself': 'Write a note to yourself',
-  'canvas.frameAFewCellsAnd': 'Frame a few cells and move them together',
   'canvas.uploadPicture': 'Upload picture',
   'canvas.pickAPictureAndConnect': 'Pick a picture and connect it right away',
   'canvas.searchForWhatToAdd': 'Search for what to add',

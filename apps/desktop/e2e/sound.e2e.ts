@@ -99,7 +99,7 @@ test.describe('成品的聲音（示範模式）', () => {
     await expect(page.getByTestId('shot-panel')).toBeVisible()
     await page.getByTestId('shot-sound').scrollIntoViewIfNeeded()
     // 示範模式拆出來的鏡頭沒有台詞：直接在聲音區寫，存了才出現「念出這句台詞」
-    await expect(page.getByTestId('shot-sound-no-dialogue')).toBeVisible()
+    await expect(page.getByTestId('shot-sound-dialogue')).toBeVisible()
     await expect(page.getByTestId('shot-sound-narrate')).toHaveCount(0)
     await page.getByTestId('shot-sound-dialogue').fill('黑藤爬滿了斷橋。')
     await page.getByTestId('shot-sound-dialogue-save').click()
@@ -275,13 +275,11 @@ test.describe('成品的聲音（示範模式）', () => {
     // 刪旁白：不跳確認框，提示說台詞還在；成品自動重混（還有配樂，所以還是有聲音）；台詞沒動
     await page.getByTestId('sound-narration-delete').click()
     const toast = page.getByTestId('toast')
-    await expect(toast).toContainText('已刪除 1 句旁白，台詞還在，可以再念')
+    await expect(toast).toContainText('已刪除 1 句旁白')
     await expect.poll(narrated).toBe(0)
     expect(await dialogueOf()).toBe('黑藤爬滿了斷橋。')
-    // 台詞還在，所以不能說「鏡頭沒有台詞」：改說有台詞、還沒有旁白，並告訴怎麼再念
-    await expect(page.getByTestId('sound-narration-missing')).toContainText(
-      '1 個鏡頭有台詞，還沒有旁白',
-    )
+    // 台詞還在：旁白那排換成「1 個鏡頭還沒念」
+    await expect(page.getByTestId('sound-narration-missing')).toContainText('1 個鏡頭還沒念')
     await expect(page.getByTestId('sound-no-narration')).toHaveCount(0)
     await page.screenshot({ path: testInfo.outputPath('delete-narration.png') })
     await expect
@@ -295,7 +293,7 @@ test.describe('成品的聲音（示範模式）', () => {
     await expect
       .poll(async () => (await soundOf()).final?.soundStale, { timeout: 60_000 })
       .toBe(false)
-    await expect(page.getByTestId('sound-summary')).toContainText('1 個鏡頭有旁白')
+    await expect(page.getByTestId('sound-narration-delete')).toBeVisible()
 
     // 刪配樂，再刪旁白：聲音都沒了，成品回到沒有聲音的版本；復原一次，旁白回來
     await page.getByTestId('sound-music-delete').click()
@@ -322,7 +320,7 @@ test.describe('成品的聲音（示範模式）', () => {
     await page.getByTestId('shot-sound').scrollIntoViewIfNeeded()
     await expect(page.getByTestId('shot-sound-narration')).toBeVisible()
     await page.getByTestId('shot-sound-narration-delete').click()
-    await expect(page.getByTestId('toast')).toContainText('已刪除這一鏡的旁白，台詞還在')
+    await expect(page.getByTestId('toast')).toContainText('已刪除旁白')
     await expect(page.getByTestId('shot-sound-narration')).toHaveCount(0)
     await expect(page.getByTestId('shot-sound-dialogue')).toHaveValue('黑藤爬滿了斷橋。')
     await page.screenshot({ path: testInfo.outputPath('delete-shot-narration.png') })

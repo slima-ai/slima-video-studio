@@ -45,7 +45,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     render(<ProjectBar onNavigate={vi.fn()} demoMode={false} hasKey />)
     const spent = await screen.findByTestId('spent')
     expect(spent.textContent).toBe('已花 US$0.74')
-    expect(spent.getAttribute('title')).toContain('含之前沒寫成的腳本 US$0.74')
+    expect(spent.getAttribute('title')).toContain('含沒寫成的腳本 US$0.74')
   })
 
   it('沒有專案：寫「還沒有專案」（不是「未命名專案」），不能改名，沒有存檔狀態也沒有花費', async () => {
@@ -87,7 +87,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     installFakeSvs({ 'project.status': () => status() })
     const go = vi.fn()
     const { rerender } = render(<ProjectBar onNavigate={go} demoMode />)
-    expect(screen.getByTestId('mode-badge').textContent).toBe('示範模式・不花錢')
+    expect(screen.getByTestId('mode-badge').textContent).toBe('示範模式')
     rerender(<ProjectBar onNavigate={go} demoMode={false} hasKey />)
     expect(screen.getByTestId('mode-badge').textContent).toBe('真的 AI')
     rerender(<ProjectBar onNavigate={go} demoMode={false} hasKey={false} />)
@@ -282,7 +282,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     expect(go).not.toHaveBeenCalled()
   })
 
-  it('⌘S／Ctrl+S：專案自動儲存，跳出「專案會自動儲存，最後一次 12:03」；沒有專案也有說明；不會被當成真的存檔', async () => {
+  it('⌘S／Ctrl+S：專案自動儲存，跳出「已自動儲存・12:03」；不會被當成真的存檔', async () => {
     installFakeSvs({ 'project.status': () => status() })
     const { unmount } = render(
       <ToastProvider>
@@ -295,9 +295,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
       window.dispatchEvent(event)
     })
     expect(event.defaultPrevented).toBe(true)
-    expect((await screen.findByTestId('toast')).textContent).toContain(
-      '專案會自動儲存，最後一次 12:03',
-    )
+    expect((await screen.findByTestId('toast')).textContent).toContain('已自動儲存・12:03')
     // Ctrl+S 一樣；Shift+S（另存為的快捷鍵）不是這個提示
     const ctrl = new KeyboardEvent('keydown', { key: 'S', ctrlKey: true, cancelable: true })
     act(() => {
@@ -325,7 +323,9 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     act(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true }))
     })
-    expect((await screen.findByTestId('toast')).textContent).toContain('還沒有專案')
+    // 還沒有專案：沒有東西可以說，不跳提示
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.queryByTestId('toast')).toBeNull()
   })
 
   it('專案選單：另存為…——名字預設「<專案名> 副本」，另存後提示現在開著的是新的這一份', async () => {
@@ -423,9 +423,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
       })
 
       pick('save')
-      expect((await screen.findByTestId('toast')).textContent).toContain(
-        '專案會自動儲存，最後一次 12:03',
-      )
+      expect((await screen.findByTestId('toast')).textContent).toContain('已自動儲存・12:03')
 
       pick('rename')
       expect(await screen.findByTestId('project-rename')).toBeTruthy()
@@ -456,7 +454,7 @@ describe('ProjectBar：每頁最上面的專案列', () => {
       })
     })
 
-    it('沒有專案：另存為、改名、在資料夾中顯示都只說「還沒有專案…」，不去呼叫；儲存也說一聲', async () => {
+    it('沒有專案：另存為、改名、在資料夾中顯示、儲存都不做事、也不跳說明', async () => {
       const { fake } = setup(null)
       useMenu = (action, dir) => {
         fake.emit('menu.action', dir === undefined ? { action } : { action, dir })
@@ -464,15 +462,10 @@ describe('ProjectBar：每頁最上面的專案列', () => {
       await waitFor(() => {
         expect(fake.payloadsOf('project.status')).toHaveLength(1)
       })
-      for (const [action, text] of [
-        ['saveAs', '還沒有專案可以另存'],
-        ['rename', '還沒有專案可以改名'],
-        ['reveal', '還沒有專案可以在資料夾中顯示'],
-        ['save', '還沒有專案'],
-      ] as const) {
+      for (const action of ['saveAs', 'rename', 'reveal', 'save'] as const) {
         pick(action)
-        expect((await screen.findByTestId('toast')).textContent).toContain(text)
       }
+      expect(screen.queryByTestId('toast')).toBeNull()
       expect(fake.payloadsOf('project.reveal')).toEqual([])
       expect(screen.queryByTestId('save-as-dialog')).toBeNull()
     })

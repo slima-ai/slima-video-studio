@@ -341,15 +341,6 @@ export function SoundTimeline({
                         : 'absolute inset-y-0 border-l border-border text-center leading-5 focus-visible:outline-2 focus-visible:outline-fg'
                     }
                     style={{ left: pct(shot.startSec, total), width: pct(length, total) }}
-                    title={
-                      shot.trim
-                        ? t('sound.shotCellTip', {
-                            number: String(shot.number),
-                            kept: fmtSec1(length),
-                            total: fmtSec1(shot.trim.videoSec),
-                          })
-                        : undefined
-                    }
                   >
                     <CellLabel
                       number={shot.number}
@@ -407,10 +398,6 @@ export function SoundTimeline({
                       <div
                         key={shot.shotId}
                         data-testid={`timeline-cut-${String(shot.number)}`}
-                        title={t('sound.cutOffTip', {
-                          number: String(shot.number),
-                          cut: fmtSec1(cut),
-                        })}
                         className="absolute inset-y-0.5 min-w-1 rounded-sm border border-fg/50 bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--color-fg)_55%,transparent)_0_2px,transparent_2px_5px)]"
                         style={{
                           left: pct(shot.startSec + shot.durationSec, total),
@@ -517,13 +504,6 @@ export function SoundTimeline({
               setPlaying(false)
             }}
           />
-          <p className="text-xs text-fg-muted" data-testid="timeline-play-hint">
-            {t('sound.playHint', {
-              number: String(selected.number),
-              start: fmtSec1(selected.trim?.inSec ?? 0),
-              end: fmtSec1(selected.trim?.outSec ?? selected.durationSec),
-            })}
-          </p>
         </div>
       ) : null}
       {film && draggedPreview && dragged ? (

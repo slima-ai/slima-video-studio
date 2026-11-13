@@ -33,23 +33,23 @@ function fill(text: string): void {
 }
 
 describe('TrailerStartCard：做預告片', () => {
-  it('沒貼文字：按鈕停用，並寫出原因；也不去問估價', () => {
+  it('沒貼文字：按鈕停用（不另外寫原因）；也不去問估價', () => {
     const check = vi.fn(() => CHECK_DEMO)
     installFakeSvs({ 'trailer.check': check })
     render(<TrailerStartCard />)
     expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(true)
-    expect(screen.getByTestId('trailer-reason').textContent).toBe('先貼上文字，才能寫腳本。')
+    expect(screen.queryByTestId('trailer-reason')).toBeNull()
     expect(check).not.toHaveBeenCalled()
   })
 
-  it('示範模式：按鈕與說明都寫「不花錢」；真的模型：寫出預估的美元', async () => {
+  it('示範模式：按鈕只寫「先產生腳本」；真的模型：按鈕上寫預估的美元（卡片上沒有另外的說明行）', async () => {
     installFakeSvs({ 'trailer.check': () => CHECK_DEMO })
     const first = render(<TrailerStartCard />)
     fill('一座斷橋，一個老人。')
     await waitFor(() => {
-      expect(screen.getByTestId('trailer-go').textContent).toBe('先產生腳本（示範模式不花錢）')
+      expect(screen.getByTestId('trailer-go').textContent).toBe('先產生腳本')
     })
-    expect(screen.getByTestId('trailer-start-cost').textContent).toContain('不會花錢')
+    expect(screen.queryByTestId('trailer-start-cost')).toBeNull()
     first.unmount()
 
     installFakeSvs({
@@ -60,8 +60,7 @@ describe('TrailerStartCard：做預告片', () => {
     await waitFor(() => {
       expect(screen.getByTestId('trailer-go').textContent).toBe('先產生腳本（約 US$0.05）')
     })
-    expect(screen.getByTestId('trailer-start-cost').textContent).toContain('約 US$0.05')
-    expect(screen.getByTestId('trailer-start-cost').textContent).toContain('只用文字模型')
+    expect(screen.queryByTestId('trailer-start-cost')).toBeNull()
   })
 
   it('沒有文字模型：按鈕停用，原因照 trailer.check 的話寫', async () => {

@@ -65,7 +65,7 @@ describe('ShotPanel 內容', () => {
     expect(screen.getByTestId<HTMLTextAreaElement>('shot-prompt').value).toBe(
       '貓跳上窗台。日系動畫風格',
     )
-    expect(screen.getByText('（自動組出的）')).toBeTruthy()
+    expect(screen.queryByText('（自動組出的）')).toBeNull()
     expect(screen.queryByTestId('shot-prompt-reset')).toBeNull()
     const version = screen.getByTestId('shot-version-1')
     expect(version.getAttribute('data-adopted')).toBe('true')

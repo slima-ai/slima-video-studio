@@ -13,15 +13,10 @@ const TEXTAREA =
 function StartCard({
   icon,
   title,
-  intro,
-  cost,
   children,
 }: {
   icon: ReactNode
   title: string
-  intro: string
-  /** 一行說明：會不會花錢、花在哪。 */
-  cost: string
   children: ReactNode
 }) {
   return (
@@ -30,8 +25,6 @@ function StartCard({
         {icon}
         {title}
       </h3>
-      <p className="text-sm leading-snug text-fg-muted">{intro}</p>
-      <p className="text-xs leading-snug text-fg-subtle">{cost}</p>
       {children}
     </section>
   )
@@ -71,14 +64,11 @@ export function StartCards({
             <Mascot size={32} mood="idle" />
             {t('canvas.whereToStart')}
           </h2>
-          <p className="text-sm text-fg-muted">{t('canvas.anyOfTheFourWorks')}</p>
         </div>
         <div className="flex flex-wrap items-stretch justify-center gap-3">
           <StartCard
             icon={<PenLine className="size-4 text-accent" aria-hidden />}
             title={t('canvas.goStepByStep')}
-            intro={t('canvas.addASceneAndA')}
-            cost={t('canvas.addingCostsNothingBeforeYou')}
           >
             <div className="flex-1" />
             <Button variant="primary" data-testid="empty-manual" onClick={onManual}>
@@ -88,8 +78,6 @@ export function StartCards({
           <StartCard
             icon={<ClipboardPaste className="size-4 text-accent" aria-hidden />}
             title={t('canvas.pasteAStory')}
-            intro={t('canvas.pasteAStoryAndAi')}
-            cost={t('canvas.usesOnlyATextModel')}
           >
             <textarea
               data-testid="empty-paste-text"
@@ -117,8 +105,6 @@ export function StartCards({
           <StartCard
             icon={<Sparkles className="size-4 text-accent" aria-hidden />}
             title={t('canvas.oneLiner')}
-            intro={t('canvas.writeOneLineLookAt')}
-            cost={t('canvas.thisCostsMoneyPicturesAnd')}
           >
             <form
               className="flex flex-col gap-2.5"

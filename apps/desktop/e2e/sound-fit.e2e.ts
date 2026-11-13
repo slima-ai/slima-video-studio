@@ -31,7 +31,7 @@ const soundOf = async (page: Page) => {
 test.describe('聲音跟著格子：旁白貼合、配樂照腳本（示範模式）', () => {
   test.describe.configure({ timeout: 240_000 })
 
-  test('旁白放不進 3 秒的鏡頭：念完自動改短、重念，提示寫「第 1 格的旁白太長，已改短成…」，台詞跟著換，時間軸上不超出格子', async ({
+  test('旁白放不進 3 秒的鏡頭：念完自動改短、重念，提示寫「第 1 格旁白已改短」，台詞跟著換，時間軸上不超出格子', async ({
     page,
   }, testInfo) => {
     await generateAndOpenCanvas(page)
@@ -61,8 +61,7 @@ test.describe('聲音跟著格子：旁白貼合、配樂照腳本（示範模�
 
     // 提示：第幾格、改成哪一句
     const toast = page.getByTestId('toast')
-    await expect(toast).toContainText('第 1 格的旁白太長，已改短成「')
-    await expect(toast).toContainText('台詞也換成這句')
+    await expect(toast).toContainText('第 1 格旁白已改短')
     await shoot(page, testInfo, 'fit-02-shortened-toast.png')
 
     // 台詞換成改短的那句（比原句短、是原句的開頭），旁白念的就是它；新版本是第 2 版
@@ -133,7 +132,7 @@ test.describe('聲音跟著格子：旁白貼合、配樂照腳本（示範模�
     }
     await centerOn(page, 'cut')
     await page.getByTestId('open-cut').click()
-    await expect(page.getByTestId('final-cut-length')).toHaveText('成品 30 秒（目標 30 秒）', {
+    await expect(page.getByTestId('final-cut-length')).toHaveText('成品 30 秒', {
       timeout: 30_000,
     })
     await page.getByTestId('sound-panel').scrollIntoViewIfNeeded()

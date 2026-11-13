@@ -1,5 +1,5 @@
 import { secLabel } from '@svs/schema'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { Button } from '../../components/button'
 import { assetUrl } from '../../lib/asset'
@@ -40,26 +40,6 @@ export function FinalCutPanel({
   // 要了字卡但沒加成功（改匯出了沒有字卡的版本）
   const [creditsMissing, setCreditsMissing] = useState(false)
   const [error, setError] = useState<string | undefined>()
-  // 最近一次匯出的檔名（上次或別處匯出的也算；提示消失、關掉面板再打開之後還找得到）
-  const [lastExport, setLastExport] = useState<string | undefined>()
-
-  useEffect(() => {
-    let alive = true
-    call('files.list', {})
-      .then((snapshot) => {
-        if (alive) setLastExport(snapshot.exports[0]?.name)
-      })
-      .catch(() => undefined)
-    // 在畫布的「剪輯」卡上匯出也算（主程序匯出完會把路徑放在進度裡推過來）
-    const off = window.svs.on('quickstart.progress', (progress) => {
-      if (progress.exportedPath !== undefined) setLastExport(fileNameOf(progress.exportedPath))
-    })
-    return () => {
-      alive = false
-      off()
-    }
-  }, [])
-
   const reveal = (name: string): void => {
     call('files.reveal', { exportName: name }).catch((e: unknown) => {
       setError(errorText(e))
@@ -73,7 +53,6 @@ export function FinalCutPanel({
       kind === 'export'
         ? call('quickstart.export', { credits }).then(({ path, credits: added }) => {
             setExported(path)
-            setLastExport(fileNameOf(path))
             setCreditsMissing(credits && !added)
           })
         : call('shots.rejoin', {})
@@ -105,10 +84,12 @@ export function FinalCutPanel({
             Math.abs(trailer.filmSec - trailer.targetSec) > 1 / 24 + 1e-6 && 'text-warning',
           )}
         >
-          {t('trailer.filmLength', {
-            sec: secLabel(trailer.filmSec),
-            target: secLabel(trailer.targetSec),
-          })}
+          {Math.abs(trailer.filmSec - trailer.targetSec) > 1 / 24 + 1e-6
+            ? t('trailer.filmLengthOff', {
+                sec: secLabel(trailer.filmSec),
+                target: secLabel(trailer.targetSec),
+              })
+            : t('trailer.filmLength', { sec: secLabel(trailer.filmSec) })}
         </p>
       ) : null}
       {finalVideoHash ? (
@@ -118,9 +99,7 @@ export function FinalCutPanel({
           src={assetUrl(finalVideoHash)}
           className="w-full rounded-lg border border-border bg-black"
         />
-      ) : (
-        <p className="text-sm text-fg-muted">{t('canvas.thereSNoJoinedFilm')}</p>
-      )}
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         {finalVideoHash ? (
           <Button
@@ -139,7 +118,6 @@ export function FinalCutPanel({
             variant={finalVideoHash ? 'secondary' : 'primary'}
             data-testid="final-cut-rejoin"
             disabled={busy !== undefined}
-            title={t('canvas.joinEachShotSCurrent')}
             onClick={() => {
               act('rejoin')
             }}
@@ -178,18 +156,6 @@ export function FinalCutPanel({
             }}
           />
         </div>
-      ) : lastExport ? (
-        <div className="flex flex-wrap items-center gap-x-2" data-testid="final-cut-last-export">
-          <p className="text-sm text-fg-muted">{t('canvas.lastExport', { lastExport })}</p>
-          <RevealButton
-            onClick={() => {
-              reveal(lastExport)
-            }}
-          />
-        </div>
-      ) : null}
-      {canRejoin && finalVideoHash ? (
-        <p className="text-xs text-fg-muted">{t('canvas.afterChangingAShotS')}</p>
       ) : null}
       {error ? (
         <p role="alert" className="text-sm text-danger">

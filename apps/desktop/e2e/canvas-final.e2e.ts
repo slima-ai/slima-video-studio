@@ -68,7 +68,7 @@ test.describe('剪輯與成品', () => {
     await expect(page.getByTestId('cut-footer')).toContainText('成品 v2')
   })
 
-  test('剪輯卡的「匯出 MP4」：存到專案的「匯出」資料夾；提示寫檔名、留超過 10 秒、附「在 Finder 顯示」；成品面板留著「最近一次匯出」', async ({
+  test('剪輯卡的「匯出 MP4」：存到專案的「匯出」資料夾；提示寫檔名、留超過 10 秒、附「在 Finder 顯示」；成品面板不另外留「最近一次匯出」', async ({
     page,
   }) => {
     await generateAndOpenCanvas(page)
@@ -88,12 +88,10 @@ test.describe('剪輯與成品', () => {
     const name = files.data.exports[0]?.name ?? ''
     expect(await toast.innerText()).toContain(name)
 
-    // 提示消失之後，成品面板還寫著最近一次匯出的檔名和「在 Finder 顯示」
+    // 提示消失之後，成品面板不再另外寫「最近一次匯出」（只在剛匯出完顯示路徑）
     await expect(toast).toHaveCount(0, { timeout: 10_000 })
     await page.getByTestId('open-cut').click()
-    const last = page.getByTestId('final-cut-last-export')
-    await expect(last).toContainText(`最近一次匯出：${name}`)
-    await expect(last.getByRole('button', { name: /在 ?(Finder|檔案總管) ?顯示/ })).toBeVisible()
+    await expect(page.getByTestId('final-cut-last-export')).toHaveCount(0)
   })
 
   test('還沒接過成品：「接成成品」「匯出 MP4」按不了，要先按 ▶', async ({ page }) => {
