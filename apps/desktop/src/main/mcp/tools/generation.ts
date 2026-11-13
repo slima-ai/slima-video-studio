@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { McpToolError } from '../bridge'
 import { defineTool, type ToolContext } from './define'
 import { ACTIVE_JOB_STATUSES } from './settle'
 
@@ -9,10 +10,26 @@ const POLL_MS = 1500
 /** 一次最多等這麼久：MCP 客戶端的單次工具呼叫有逾時，所以分段等、沒好就再叫一次。 */
 export const MAX_WAIT_SEC = 45
 
+/**
+ * 還在做的鏡頭（第幾鏡）：一鏡的生成是一串步驟，每一步才各自進佇列，步驟之間佇列是空的，
+ * 但那一鏡還沒做完（剛按下去、機器忙時最明顯）。只看佇列會提早說「做完了」。
+ * 沒開專案、查不到鏡頭時當作沒有（只看佇列）。
+ */
+async function shotsInProgress(ctx: ToolContext): Promise<number[]> {
+  try {
+    const { shots } = await ctx.caller.call('shots.list', {})
+    return shots.filter((s) => s.activity !== undefined).map((s) => s.number)
+  } catch (error) {
+    if (error instanceof McpToolError) return []
+    throw error
+  }
+}
+
 /** 目前專案最近的生成任務摘要。 */
 async function status(ctx: ToolContext) {
   const { jobs } = await ctx.caller.call('queue.list', {})
   const active = jobs.filter((j) => ACTIVE_JOB_STATUSES.has(j.status))
+  const working = await shotsInProgress(ctx)
   const recent = jobs.slice(-12).map((j) => ({
     kind: j.kind,
     model: j.modelId,
@@ -24,8 +41,9 @@ async function status(ctx: ToolContext) {
       : { problem: j.error.userMessage, retryable: j.error.retryable }),
   }))
   return {
-    busy: active.length > 0,
+    busy: active.length > 0 || working.length > 0,
     running: active.length,
+    ...(working.length > 0 ? { shotsInProgress: working } : {}),
     failed: jobs.filter((j) => j.status === 'failed').length,
     recent,
   }
