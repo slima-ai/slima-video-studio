@@ -36,7 +36,7 @@ describe('鏡頭的「展開步驟」', { timeout: 30_000 }, () => {
     ).toBe(true)
   })
 
-  it('展開一鏡：鏡頭下面多三格（整理 Prompt、挑參考圖、送出模型），線改走這三格', async () => {
+  it('展開一鏡：鏡頭下面多三格（整理畫面描述、挑參考圖、送出模型），線改走這三格', async () => {
     const { h, shots } = await setup()
     const first = shots[0]
     if (!first) throw new Error('沒有鏡頭')
@@ -48,7 +48,7 @@ describe('鏡頭的「展開步驟」', { timeout: 30_000 }, () => {
       `${key}:step:refs`,
       `${key}:step:model`,
     ])
-    expect(steps.map((n) => n.title)).toEqual(['整理 Prompt', '挑參考圖', '送出模型'])
+    expect(steps.map((n) => n.title)).toEqual(['整理畫面描述', '挑參考圖', '送出模型'])
     const shot = graph.nodes.find((n) => n.key === key)
     expect(shot?.expanded).toBe(true)
     // 疊在鏡頭下面，和鏡頭同一欄，一格比一格低

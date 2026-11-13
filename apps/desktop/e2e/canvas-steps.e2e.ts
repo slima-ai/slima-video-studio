@@ -122,9 +122,7 @@ test.describe('畫布：鏡頭的「展開步驟」', () => {
     await viewportSettled(page)
     await box.fill('一隻橘貓坐在窗台上，窗外下著雨，暖色燈光')
     await box.blur()
-    await expect(
-      page.getByTestId('toast').filter({ hasText: '已改送給模型的 Prompt' }),
-    ).toBeVisible()
+    await expect(page.getByTestId('toast').filter({ hasText: '已改畫面描述' })).toBeVisible()
     await expect
       .poll(
         async () => (await graphOf(page)).nodes.find((n) => n.key === `${first.id}:image`)?.status,
