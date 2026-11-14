@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { installFakeSvs } from '../../test/fake-svs'
+import { ChatProvider } from '../chat/chat-context'
 import { beat, take } from './shots.fixture'
 import { trailerBeats, TrailerPage } from './trailer-page'
 
@@ -154,5 +155,20 @@ describe('TrailerPage：預告片整頁', () => {
     expect(screen.getByTestId('trailer-panel-narration')).toBeTruthy()
     expect(screen.queryByTestId('trailer-badge')).toBeNull()
     expect(screen.queryByText('關閉')).toBeNull()
+  })
+
+  it('右上角有 Claude 的入口（跟畫布頁同一個，功能打開時才出現）', async () => {
+    installFakeSvs({
+      'shots.list': () => ({ shots: [inScene(1)] }),
+      'app.getInfo': () => ({ name: 'x', version: '0', platform: 'darwin', packaged: false }),
+      'chat.status': () => ({ state: 'ready', version: '2.1.304' }),
+      'chat.list': () => ({ conversations: [] }),
+    })
+    render(
+      <ChatProvider>
+        <TrailerPage status={status()} />
+      </ChatProvider>,
+    )
+    expect(await screen.findByTestId('chat-launcher')).toBeTruthy()
   })
 })

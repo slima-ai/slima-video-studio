@@ -58,6 +58,11 @@ test.describe('預告片整頁：導覽、落點、腳本條、播放器（示�
     await expect(page.getByTestId('strip-cell-1')).toHaveAttribute('aria-pressed', 'true')
     await shoot(page, testInfo, 'b1-02-beat-selected.png')
 
+    // 預告片頁也有 Claude 的入口，按了抽屜滑出來
+    await page.getByTestId('chat-launcher').click()
+    await expect(page.getByTestId('chat-drawer')).toHaveAttribute('data-open', 'true')
+    await page.getByTestId('chat-launcher').click()
+
     // 3. 到畫布、再回預告片頁：兩邊都在，畫布上的標籤還在
     await page.getByRole('button', { name: '畫布', exact: true }).click()
     await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 30／30 秒')

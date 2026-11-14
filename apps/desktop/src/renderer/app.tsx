@@ -125,7 +125,7 @@ export function App() {
             }
           >
             <AppLayout
-              drawer={page === 'canvas' ? <ChatDrawer /> : undefined}
+              drawer={page === 'canvas' || page === 'trailer' ? <ChatDrawer /> : undefined}
               view={page}
               onNavigate={setView}
               queue={<QueuePanel />}

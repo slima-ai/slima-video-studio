@@ -6,6 +6,7 @@ import { cn } from '../../lib/cn'
 import { call } from '../../lib/svs'
 import { trailerBadgeLength, TrailerBadge } from '../canvas/trailer-badge'
 import { TrailerStartCard } from '../canvas/trailer-start'
+import { ChatLauncher } from '../chat/chat-launcher'
 import { useShots } from '../shots/use-shots'
 import { ScriptStrip } from './script-strip'
 import { beatIndexAt, cellStarts, FALLBACK_WIDTH_PX } from './strip-math'
@@ -150,6 +151,9 @@ export function TrailerPage({ status }: { status: TrailerStatus }) {
         >
           {trailerBadgeLength(status)}
         </span>
+        {/* 使用者在這一頁待最久：讓 Claude 幫忙的入口也在這裡（抽屜在 App 層，兩頁共用同一場對話） */}
+        <span className="flex-1" />
+        <ChatLauncher />
       </header>
       {beats.length === 0 ? (
         <div data-testid="trailer-page-empty" className="flex justify-center py-8">
