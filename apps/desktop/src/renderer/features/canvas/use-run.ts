@@ -259,7 +259,7 @@ export function usePendingCost(
                   steps: plan.steps.filter((step) => step.kind !== 'cut').length,
                   demo: plan.demoMode,
                 }
-              : { usd: undefined, done: false, joinOnly: false, steps: 0 },
+              : { usd: undefined, done: false, joinOnly: false, steps: 0, demo: false },
           )
         })
         .catch(() => {
