@@ -625,6 +625,17 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
     [toast],
   )
 
+  // 預告片專案「全部生成」做完：打開成品面板，並請裡面的播放器從頭播一次
+  const [filmPlay, setFilmPlay] = useState(0)
+  useEffect(
+    () =>
+      window.svs.on('canvas.openFilm', () => {
+        setPanel({ kind: 'cut' })
+        setFilmPlay((n) => n + 1)
+      }),
+    [],
+  )
+
   // ── 新增節點 ──
   // place：新節點想放的位置（畫布座標，節點上緣中間）；沒有就交給自動排版
   const [addMenu, setAddMenu] = useState<{ at: XY; place?: XY; from?: PortRef }>()
@@ -2102,6 +2113,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                 snapshot={shotsSnapshot}
                 nodes={flow.nodes}
                 refreshKey={graph}
+                playFilm={filmPlay}
                 onChanged={onChanged}
                 onRun={(request, plan) => {
                   runner.start({ request, plan })

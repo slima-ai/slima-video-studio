@@ -92,6 +92,7 @@ export function DetailPanel({
   snapshot,
   nodes,
   refreshKey,
+  playFilm,
   onChanged,
   onRun,
   quality,
@@ -106,6 +107,8 @@ export function DetailPanel({
   nodes: readonly CanvasNode[]
   /** 畫布重新載入時換一個值：面板裡從後端讀的內容跟著重讀。 */
   refreshKey: unknown
+  /** 每加一，成品面板的播放器就從頭播一次（預告片專案生成完自動打開成品）。 */
+  playFilm?: number
   /** 面板裡改了資料：畫布重新載入。 */
   onChanged: () => void
   /** 試跑分頁按「執行」。 */
@@ -148,7 +151,11 @@ export function DetailPanel({
       body = <TakesPanel key={`${shot.id}:${target.kind}`} shot={shot} kind={target.kind} />
     } else if (target.kind === 'cut') {
       body = (
-        <FinalCutPanel finalVideoHash={snapshot.finalVideoHash} canRejoin={canRejoin(snapshot)} />
+        <FinalCutPanel
+          finalVideoHash={snapshot.finalVideoHash}
+          canRejoin={canRejoin(snapshot)}
+          {...(playFilm === undefined ? {} : { playFilm })}
+        />
       )
     } else if (target.kind === 'character') {
       body = (

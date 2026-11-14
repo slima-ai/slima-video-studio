@@ -182,6 +182,13 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
     notify: (notice) => {
       broadcast('canvas.notice', notice)
     },
+    isTrailer: () => {
+      const handle = projects.current()
+      return handle !== undefined && !handle.closed && handle.repos.trailer.get() !== undefined
+    },
+    openFilm: () => {
+      broadcast('canvas.openFilm', {})
+    },
   })
   let revision = 0
 

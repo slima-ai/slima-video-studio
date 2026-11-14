@@ -1,5 +1,5 @@
 import { secLabel } from '@svs/schema'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '../../components/button'
 import { assetUrl } from '../../lib/asset'
@@ -10,6 +10,9 @@ import { call, errorText } from '../../lib/svs'
 import { SoundPanel } from '../sound/sound-panel'
 import { useTrailerStatus } from './use-trailer-status'
 import { t } from '@svs/schema'
+
+/** 要求播放之後，這段時間內載好的影片都從頭播。 */
+const PLAY_WINDOW_MS = 5000
 
 const fileNameOf = (path: string): string => path.split(/[\\/]/).pop() ?? path
 
@@ -25,15 +28,36 @@ function RevealButton({ onClick }: { onClick: () => void }) {
 export function FinalCutPanel({
   finalVideoHash,
   canRejoin,
+  playFilm = 0,
   onClose,
 }: {
   finalVideoHash: string | undefined
   /** 每個鏡頭都有採用中的影片，而且沒有鏡頭正在生成。 */
   canRejoin: boolean
+  /** 每加一就從頭播一次（預告片專案生成完自動打開成品時）。 */
+  playFilm?: number
   /** 沒給就不畫自己的標題列（放在畫布的浮動面板裡）。 */
   onClose?: () => void
 }) {
   const { status: trailer } = useTrailerStatus()
+  // 要求播放後的一小段時間內，每一次載好影片（成品剛換成加了聲音的那一版）都從頭播
+  const video = useRef<HTMLVideoElement>(null)
+  const playAskedAt = useRef(0)
+  // 同一次要求、同一版成品只從頭播一次（拉了時間軸再緩衝、又觸發 canplay 時不要又跳回開頭）
+  const startedFor = useRef('')
+  const startFromTop = (): void => {
+    const el = video.current
+    const id = `${String(playAskedAt.current)}:${finalVideoHash ?? ''}`
+    if (!el || startedFor.current === id) return
+    startedFor.current = id
+    el.currentTime = 0
+    el.play().catch(() => undefined)
+  }
+  useEffect(() => {
+    if (playFilm === 0) return
+    playAskedAt.current = Date.now()
+    if ((video.current?.readyState ?? 0) >= 3) startFromTop()
+  }, [playFilm])
   const [busy, setBusy] = useState<'export' | 'rejoin' | undefined>()
   const [exported, setExported] = useState<string | undefined>()
   const [credits, setCredits] = useState(creditsPreferred)
@@ -94,8 +118,12 @@ export function FinalCutPanel({
       ) : null}
       {finalVideoHash ? (
         <video
+          ref={video}
           data-testid="final-cut-video"
           controls
+          onCanPlay={() => {
+            if (Date.now() - playAskedAt.current < PLAY_WINDOW_MS) startFromTop()
+          }}
           src={assetUrl(finalVideoHash)}
           className="w-full rounded-lg border border-border bg-black"
         />

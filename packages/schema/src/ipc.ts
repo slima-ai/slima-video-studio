@@ -1273,6 +1273,8 @@ export const ipcEvents = {
   'canvas.changed': CanvasChangedSchema,
   /** 背景做完事的一行通知（例如生成完自動接片）。 */
   'canvas.notice': CanvasNoticeSchema,
+  /** 預告片專案「全部生成」做完（接片、旁白與配樂都好了）：畫面打開成品面板、從頭播一次。 */
+  'canvas.openFilm': z.object({}),
   /** AI 工具（MCP）剛改了畫布上的哪些節點：畫面亮一下、標「AI 剛改」、提示刪了什麼。 */
   'canvas.aiChanged': CanvasAiChangedSchema,
   /**
