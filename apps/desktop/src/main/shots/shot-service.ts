@@ -440,6 +440,8 @@ interface Session {
   handle: ProjectHandle
   /** 正在重新生成的鏡頭。 */
   regens: Map<string, AbortController>
+  /** 不動的格子：前一次重做還沒做完時又改了疊字，做完要再用最新的字重做一次。 */
+  redoStill: Set<string>
   /** 鏡頭目前進行的步驟（只存在記憶體）。 */
   activity: Map<string, 'prompt' | 'image' | 'video'>
   /** 最近一次失敗的原因。 */
@@ -506,6 +508,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ? {
           handle,
           regens: new Map(),
+          redoStill: new Set(),
           activity: new Map(),
           errors: new Map(),
           quickShotIds: [],
@@ -612,6 +615,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(shot.beatKind === 'video' ? {} : { beatKind: shot.beatKind }),
       ...(shot.card === undefined ? {} : { card: shot.card }),
       ...(shot.segment ? { segment: shot.segment } : {}),
+      ...(shot.overlay === undefined ? {} : { overlay: shot.overlay }),
       ...(overMax ? { lengthOverMax: overMax } : {}),
       ...(filmSeconds === undefined ? {} : { filmSeconds }),
       autoPrompt: auto,
@@ -793,6 +797,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           motion: stillMotionOf(cameraMove),
           durationSec,
           aspectRatio: context.aspectRatio,
+          // 有疊字才加這個欄位：沒有疊字的格子指紋跟以前一樣（不會被標成「需要重跑」）
+          ...(shot.overlay ? { overlay: shot.overlay } : {}),
         }),
       }
     }
@@ -1228,7 +1234,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(local === 'card'
         ? { beat: { kind: 'card' as const, job: cardJobOf(handle, shot) } }
         : local === 'still'
-          ? { beat: { kind: 'still' as const, motion: stillMotionOf(shot.cameraMove) } }
+          ? {
+              beat: {
+                kind: 'still' as const,
+                motion: stillMotionOf(shot.cameraMove),
+                ...(shot.overlay ? { overlay: shot.overlay } : {}),
+              },
+            }
           : {}),
       ...variations,
     })
@@ -1838,6 +1850,20 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     if (then === 'video') await launch(s, shot, 'video', quality)
   }
 
+  /** 不動的格子改了疊字：用採用中的首幀加新的字重做本機影片（不重生圖、不花錢）。 */
+  function redoStillVideo(s: Session, shotId: string): void {
+    const shot = s.handle.repos.shots.get(shotId)
+    if (!shot) return
+    launch(s, shot, 'video').catch((error: unknown) => {
+      s.errors.set(shotId, {
+        message: isAppError(error) ? error.userMessage : t('services.thisShotCanTStart'),
+        step: 'video',
+      })
+      changed(s)
+      if (!isAppError(error)) log.error(`Unexpected error redoing a still: ${String(error)}`)
+    })
+  }
+
   async function launch(
     s: Session,
     shot: Shot,
@@ -1940,6 +1966,10 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         s.regens.delete(shotId)
         s.activity.delete(shotId)
         changed(s)
+        // 做的時候又改了疊字：用最新的字再做一次（先接上，才不會被當成閒置）
+        if (s.redoStill.delete(shotId) && !handle.closed && !controller.signal.aborted) {
+          redoStillVideo(s, shotId)
+        }
         releaseIdle(s)
       })
       .then((result) => {
@@ -2102,8 +2132,24 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         // null＝清掉字卡
         ...(edit.card === undefined ? {} : { card: edit.card ?? undefined }),
         ...(edit.segment === undefined ? {} : { segment: text(edit.segment) }),
+        // null＝清掉疊字
+        ...(edit.overlay === undefined ? {} : { overlay: edit.overlay ?? undefined }),
       })
       changed(s)
+      // 不動的格子改了疊字：只重做本機那一步（用採用中的首幀加新的字重新做影片），不重生圖、不花錢
+      const overlayChanged =
+        edit.overlay !== undefined &&
+        JSON.stringify(shot.overlay ?? null) !== JSON.stringify(updated.overlay ?? null)
+      if (
+        overlayChanged &&
+        updated.beatKind === 'still' &&
+        !s.quick &&
+        s.handle.repos.shots.listTakes(shotId, 'video').some((t) => t.adopted)
+      ) {
+        // 前一次還在做：記下來，做完再重做一次，不要停在舊字
+        if (s.regens.has(shotId)) s.redoStill.add(shotId)
+        else redoStillVideo(s, shotId)
+      }
       return view(s, updated)
     },
 
@@ -2164,6 +2210,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         inCut: source.inCut,
         beatKind: source.beatKind,
         ...(source.card === undefined ? {} : { card: source.card }),
+        ...(source.overlay === undefined ? {} : { overlay: source.overlay }),
         ...(source.segment === undefined ? {} : { segment: source.segment }),
         ...(source.prompt === undefined ? {} : { prompt: source.prompt }),
         ...(source.locationId === undefined ? {} : { locationId: source.locationId }),

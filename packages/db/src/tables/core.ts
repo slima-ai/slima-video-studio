@@ -5,6 +5,7 @@ import type {
   Costume,
   PickableCapability,
   ShotCard,
+  ShotOverlay,
   Turnaround,
 } from '@svs/schema'
 
@@ -91,6 +92,8 @@ export const shots = sqliteTable(
     beatKind: text('beat_kind').notNull().default('video'),
     // 字卡內容 { text, subtext }；不是字卡就是 null
     card: text('card', { mode: 'json' }).$type<ShotCard | null>(),
+    // 疊在畫面上的字 { text, subtext }（不動的格子用）；沒有就是 null
+    overlay: text('overlay', { mode: 'json' }).$type<ShotOverlay | null>(),
     // 預告片腳本裡這一格屬於模板的哪一段（hook、world、turn、escalate、suspense、title…）；沒有就是空的
     beatSegment: text('beat_segment'),
   },

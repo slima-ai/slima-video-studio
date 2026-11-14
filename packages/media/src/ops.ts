@@ -298,6 +298,34 @@ export function buildStillFilter(options: StillFilterOptions): string {
   )
 }
 
+export interface StillOverlayGraphOptions extends StillFilterOptions {
+  /** 格子開始之後多久字才開始淡入（秒）。 */
+  delaySec: number
+  /** 淡入多久（秒）。 */
+  fadeInSec: number
+}
+
+/**
+ * 不動的畫面上疊字的濾鏡（`-filter_complex`）：圖照舊走 `buildStillFilter` 的運鏡，字（透明底的 PNG，是第三個輸入）
+ * 不經過運鏡、淡入後疊在最上面，所以圖在動、字不動。輸出標籤是 `[v]`。
+ */
+export function buildStillOverlayGraph(options: StillOverlayGraphOptions): string {
+  const base = buildStillFilter(options).replace(/,format=yuv420p$/, '')
+  const sec = (n: number): string => String(Math.round(n * 1000) / 1000)
+  return (
+    `[0:v]${base}[bg];` +
+    `[2:v]scale=${String(options.width)}:${String(options.height)},format=rgba,fade=t=in:st=${sec(options.delaySec)}:d=${sec(options.fadeInSec)}:alpha=1[fg];` +
+    '[bg][fg]overlay=0:0:format=auto,format=yuv420p[v]'
+  )
+}
+
+export interface StillOverlay {
+  /** 疊字的 PNG（透明底，跟輸出一樣的比例）。 */
+  path: string
+  delaySec: number
+  fadeInSec: number
+}
+
 export interface StillToVideoOptions extends RunOptions {
   durationSec: number
   /** 輸出的寬高（要是偶數）。 */
@@ -306,6 +334,8 @@ export interface StillToVideoOptions extends RunOptions {
   fps?: number
   /** 預設不動。 */
   motion?: StillMotion
+  /** 疊在畫面上的字（不跟著運鏡動）；沒有就跟以前完全一樣。 */
+  overlay?: StillOverlay
 }
 
 /**
@@ -323,13 +353,35 @@ export async function stillToVideo(
   }
   const fps = options.fps ?? 24
   const frames = Math.max(1, Math.round(options.durationSec * fps))
-  const filter = buildStillFilter({
+  const filterOptions = {
     width: even(options.width),
     height: even(options.height),
     fps,
     frames,
     motion: options.motion ?? 'none',
-  })
+  }
+  const { overlay } = options
+  // 有疊字：字的 PNG 當第三個輸入（循環成影片），用 filter_complex 疊上去；沒有就跟以前一模一樣（-vf）
+  const filterArgs = overlay
+    ? [
+        '-loop',
+        '1',
+        '-framerate',
+        String(fps),
+        '-i',
+        overlay.path,
+        '-filter_complex',
+        buildStillOverlayGraph({
+          ...filterOptions,
+          delaySec: overlay.delaySec,
+          fadeInSec: overlay.fadeInSec,
+        }),
+        '-map',
+        '[v]',
+        '-map',
+        '1:a',
+      ]
+    : ['-vf', buildStillFilter(filterOptions)]
   await runTool(
     tools.ffmpegPath,
     [
@@ -340,8 +392,7 @@ export async function stillToVideo(
       'lavfi',
       '-i',
       'anullsrc=r=44100:cl=stereo',
-      '-vf',
-      filter,
+      ...filterArgs,
       '-frames:v',
       String(frames),
       '-t',

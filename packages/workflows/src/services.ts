@@ -6,6 +6,7 @@ import {
   type GenerationOutput,
   type GenerationRequest,
   type NodeServices,
+  type ShotOverlay,
   type StillMotion,
   type Trim,
   t,
@@ -47,7 +48,14 @@ export interface StudioServices {
    */
   stillToVideo?: (
     image: AssetRef,
-    options: { durationSec: number; aspectRatio: AspectRatio; motion: StillMotion; fps: number },
+    options: {
+      durationSec: number
+      aspectRatio: AspectRatio
+      motion: StillMotion
+      fps: number
+      /** 疊在畫面上的字（本機畫成透明底的圖，疊在運鏡之後）。 */
+      overlay?: ShotOverlay
+    },
     ctx: { signal: AbortSignal },
   ) => Promise<AssetRef>
   /** 本機格子：畫一張字卡或片名卡，再變成指定長度的影片，存進素材庫。 */

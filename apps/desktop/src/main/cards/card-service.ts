@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { cardSizeFor, textCardHtml, titleCardHtml } from './card-html'
+import { cardSizeFor, overlayHtml, textCardHtml, titleCardHtml } from './card-html'
 
 /** 排版或內建字型有改動時加一：舊的字卡指紋就不會再被當成「已經畫過」。 */
 export const CARD_LAYOUT_VERSION = 1
@@ -27,6 +27,8 @@ export type HtmlRenderer = (request: {
   html: string
   width: number
   height: number
+  /** true＝透明底（疊字用：PNG 帶透明度，之後疊在圖上）；沒給就是黑底。 */
+  transparent?: boolean
   signal?: AbortSignal
 }) => Promise<{ png: Uint8Array; fontLoaded?: boolean }>
 
@@ -129,7 +131,8 @@ export function createCardService(deps: CardServiceDeps): CardService {
   return {
     async render(job, aspectRatio, signal) {
       const size = cardSizeFor(aspectRatio)
-      if (job.kind === 'card' && job.text.trim() === '') throw invalid(t('trailer.cardNoText'))
+      if ((job.kind === 'card' || job.kind === 'overlay') && job.text.trim() === '')
+        throw invalid(t('trailer.cardNoText'))
       if (job.kind === 'title' && job.title.trim() === '')
         throw invalid(t('trailer.titleCardNoName'))
       const fingerprint = createHash('sha256')
@@ -144,19 +147,26 @@ export function createCardService(deps: CardServiceDeps): CardService {
       const html =
         job.kind === 'card'
           ? textCardHtml({ ...size, text: job.text, subtext: job.subtext, fontUrl })
-          : titleCardHtml({
-              ...size,
-              title: job.title,
-              author: job.author,
-              endLine: job.endLine,
-              footnote: job.footnote,
-              coverDataUri:
-                job.coverAssetHash === undefined ? undefined : coverDataUri(job.coverAssetHash),
-              fontUrl,
-            })
+          : job.kind === 'overlay'
+            ? overlayHtml({ ...size, text: job.text, subtext: job.subtext, fontUrl })
+            : titleCardHtml({
+                ...size,
+                title: job.title,
+                author: job.author,
+                endLine: job.endLine,
+                footnote: job.footnote,
+                coverDataUri:
+                  job.coverAssetHash === undefined ? undefined : coverDataUri(job.coverAssetHash),
+                fontUrl,
+              })
       let rendered: Awaited<ReturnType<HtmlRenderer>>
       try {
-        rendered = await render({ html, ...size, ...(signal ? { signal } : {}) })
+        rendered = await render({
+          html,
+          ...size,
+          ...(job.kind === 'overlay' ? { transparent: true } : {}),
+          ...(signal ? { signal } : {}),
+        })
       } catch (error) {
         if (error instanceof AppError) throw error
         log(`card render failed: ${error instanceof Error ? error.message : String(error)}`)

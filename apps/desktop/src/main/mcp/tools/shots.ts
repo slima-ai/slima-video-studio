@@ -1,4 +1,12 @@
-import { CAMERA_MOVES, ShotEditSchema, type ShotView } from '@svs/schema'
+import {
+  CAMERA_MOVES,
+  OVERLAY_MAX_CJK,
+  OVERLAY_MAX_WORDS,
+  OVERLAY_SUB_MAX_CJK,
+  OVERLAY_SUB_MAX_WORDS,
+  ShotEditSchema,
+  type ShotView,
+} from '@svs/schema'
 import { z } from 'zod'
 
 import { defineTool, type ToolContext } from './define'
@@ -29,6 +37,7 @@ export function shotSummary(shot: ShotView) {
       ? {}
       : { beatKind: shot.beatKind }),
     ...(shot.card === undefined ? {} : { card: shot.card }),
+    ...(shot.overlay === undefined ? {} : { overlay: shot.overlay }),
     inCut: shot.inCut ?? true,
     firstFrame: {
       versions: shot.firstFrames.length,
@@ -200,7 +209,15 @@ export function registerShotTools(ctx: ToolContext): void {
     description:
       'Change fields of one shot (only the fields you pass). Does NOT generate anything and costs nothing; regenerating pictures/videos is a separate step. Fields: description (ONLY the still picture the first frame should show: who is where, pose, expression, setting — no movement and no camera move), action (what happens during the seconds of the shot, e.g. "the small yellow dome hops once to the left and lands; the vines behind it sway" — describe motion only, name each subject the way it looks in the picture (for example "the small yellow dome") and say what it does; do not re-describe how things look. When action is set, the video model gets the action first, then the "NO mouth / NO arms"-type limits of the locked characters, then the art style; the first-frame picture still comes from description alone. Leave it empty and the video prompt is the picture description as before; send "" to clear), endDescription (what the END frame should look like: the SAME picture a few seconds later, used by generate_end_frame. Write only what changes: where each character is now, its pose, what is lit up. The camera position, scene and style are kept from the first frame, so do not describe them. Name each character the way it looks in the picture. Do NOT write percentages or pixel sizes: give sizes relative to something else in the picture, e.g. "about one third of the height of the orc, both eyes visible". A character that moved appears once, in its new place; the old place is left empty), size (extreme_wide|wide|full|medium|close_up|extreme_close_up), angle, cameraMove (null, or a preset id: ' +
       CAMERA_MOVES.map((c) => c.id).join(', ') +
-      '; or your own short description such as "slow push in" — a text that is not a preset id is added to the video prompt exactly as written), durationSec (1–15; in a trailer, 0.75–15, and it IS the length of the shot in the final film: the shots of a trailer must add up to its target, see get_trailer. A moving shot shorter than 1.5 seconds is too short for a video, so the app makes it a still picture), beatKind (trailer shots only: video|still|card|title; prefer set_shot_motion and add_card), card ({text, subtext}; only for beatKind card), dialogue, characters (names), lighting, mood, timeOfDay, prompt (null = back to the automatic prompt), inCut. See load_guide("cinematography") for when to use each size, angle and camera move.',
+      '; or your own short description such as "slow push in" — a text that is not a preset id is added to the video prompt exactly as written), durationSec (1–15; in a trailer, 0.75–15, and it IS the length of the shot in the final film: the shots of a trailer must add up to its target, see get_trailer. A moving shot shorter than 1.5 seconds is too short for a video, so the app makes it a still picture), beatKind (trailer shots only: video|still|card|title; prefer set_shot_motion and add_card), card ({text, subtext}; only for beatKind card), overlay ({text, subtext} or null to clear; drawn only on a still shot (beatKind still): text over the lower part of the picture, e.g. a quote. Max ' +
+      String(OVERLAY_MAX_CJK) +
+      ' Chinese characters or ' +
+      String(OVERLAY_MAX_WORDS) +
+      ' English words; subtext (source) max ' +
+      String(OVERLAY_SUB_MAX_CJK) +
+      ' / ' +
+      String(OVERLAY_SUB_MAX_WORDS) +
+      '. Changing it re-makes only the local video, no new picture and no cost. Text must come from the user, never invented), dialogue, characters (names), lighting, mood, timeOfDay, prompt (null = back to the automatic prompt), inCut. See load_guide("cinematography") for when to use each size, angle and camera move.',
     input: { shotId: z.string().min(1), ...ShotEditSchema.shape },
     hints: { readOnly: false, idempotent: true },
     run: async ({ shotId, ...patch }) => {

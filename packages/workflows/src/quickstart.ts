@@ -2,6 +2,7 @@ import {
   type AspectRatio,
   type AssetRef,
   type CardJob,
+  type ShotOverlay,
   type StillMotion,
   type Workflow,
   type WorkflowEdge,
@@ -118,7 +119,10 @@ export interface ShotWorkflowOptions {
    * 本機格子（預告片）：card＝字卡或片名卡（一個本機節點，沒有圖片、影片模型）、still＝靜態鏡頭
    * （組提示 → 首幀圖 → 本機運鏡，不要影片模型）。沒傳或 kind 是 video 就是一般流程（逐字和以前相同）。
    */
-  beat?: { kind: 'video' } | { kind: 'still'; motion: StillMotion } | { kind: 'card'; job: CardJob }
+  beat?:
+    | { kind: 'video' }
+    | { kind: 'still'; motion: StillMotion; overlay?: ShotOverlay | undefined }
+    | { kind: 'card'; job: CardJob }
   now?: string
 }
 
@@ -206,6 +210,8 @@ export function buildShotWorkflow(options: ShotWorkflowOptions): Workflow {
               aspectRatio: options.aspectRatio,
               motion: still.motion,
               fps: LOCAL_BEAT_FPS,
+              // 沒有疊字就不放進參數：節點參數（與快取）跟以前完全一樣
+              ...(still.overlay ? { overlay: still.overlay } : {}),
             },
             undefined,
             stillVideoNode.version,

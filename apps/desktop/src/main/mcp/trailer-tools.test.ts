@@ -189,6 +189,51 @@ describe('預告片工具（示範模式，走完整條路）', () => {
     expect(textOf(refused)).toContain('no motion')
   })
 
+  it('update_shot 的 overlay：靜態格可以疊字、get_trailer 與 list_shots 看得到、null 清掉；太長被擋下', async () => {
+    const r = await start()
+    await r.call('create_project', { name: '預告片' })
+    const planned = dataOf(Planned, await r.call('plan_trailer', { text: STORY }))
+    const video = planned.beats.find((b) => b.beatKind === 'video')
+    if (!video) throw new Error('缺格子')
+    await r.call('set_shot_motion', { shotId: video.id, motion: 'still' })
+
+    const set = dataOf(
+      z.looseObject({ overlay: z.object({ text: z.string(), subtext: z.string() }) }),
+      await r.call('update_shot', {
+        shotId: video.id,
+        overlay: { text: '她守著最後一盞燈', subtext: '《斷橋》' },
+      }),
+    )
+    expect(set.overlay).toEqual({ text: '她守著最後一盞燈', subtext: '《斷橋》' })
+    const viewed = dataOf(Trailer, await r.call('get_trailer')).beats.find((b) => b.id === video.id)
+    expect(viewed?.overlay).toEqual({ text: '她守著最後一盞燈', subtext: '《斷橋》' })
+
+    const listed = dataOf(
+      z.object({
+        shots: z.array(z.looseObject({ id: z.string(), overlay: z.unknown().optional() })),
+      }),
+      await r.call('list_shots'),
+    )
+    expect(listed.shots.find((x) => x.id === video.id)?.overlay).toEqual({
+      text: '她守著最後一盞燈',
+      subtext: '《斷橋》',
+    })
+
+    // 太長：擋下並說明上限
+    const tooLong = await r.call('update_shot', {
+      shotId: video.id,
+      overlay: { text: '字'.repeat(81) },
+    })
+    expect(tooLong.isError).toBe(true)
+
+    // null 清掉：欄位消失
+    await r.call('update_shot', { shotId: video.id, overlay: null })
+    const cleared = dataOf(Trailer, await r.call('get_trailer')).beats.find(
+      (b) => b.id === video.id,
+    )
+    expect(cleared?.overlay).toBeUndefined()
+  }, 60_000)
+
   it('一般專案（沒寫過腳本）：get_trailer 說沒有；update_trailer、add_card 被擋下並指向 plan_trailer', async () => {
     const r = await start()
     await r.call('create_project', { name: '一般' })

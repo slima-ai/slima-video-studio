@@ -8,7 +8,7 @@ import {
   UsdSchema,
 } from './common'
 import { PickableCapabilitySchema } from './settings'
-import { BeatKindSchema, ShotCardSchema } from './trailer'
+import { BeatKindSchema, ShotCardSchema, ShotOverlaySchema } from './trailer'
 import { t } from '../i18n'
 
 export const BudgetSchema = z.object({
@@ -159,6 +159,8 @@ export const ShotSchema = z.object({
   beatKind: BeatKindSchema.default('video'),
   /** 字卡內容（只有 beatKind 是 card 才有）；片名卡用預告片設定的書名與封面，不用這個欄位。 */
   card: ShotCardSchema.optional(),
+  /** 疊在畫面上的字（只有不動的格子用；改成別的種類時留著不用）；沒有就沒有這個欄位。 */
+  overlay: ShotOverlaySchema.optional(),
   /** 預告片腳本裡這一格屬於模板的哪一段（hook、world、turn、escalate、suspense、title…）；沒有就沒有這個欄位。 */
   segment: z.string().optional(),
 })

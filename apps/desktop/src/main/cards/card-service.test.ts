@@ -34,7 +34,7 @@ const PNG = Uint8Array.from(
 function setup(options: { fontUrl?: string } = {}) {
   const dir = tmp()
   const files = new Map<string, { path: string; mime: string }>()
-  const calls: { html: string; width: number; height: number }[] = []
+  const calls: { html: string; width: number; height: number; transparent?: boolean }[] = []
   const logs: string[] = []
   const put = (bytes: Uint8Array, mime: string): { hash: string; path: string } => {
     const hash = createHash('sha256').update(bytes).digest('hex')
@@ -50,7 +50,12 @@ function setup(options: { fontUrl?: string } = {}) {
   }
   let counter = 0
   const render: HtmlRenderer = (req) => {
-    calls.push({ html: req.html, width: req.width, height: req.height })
+    calls.push({
+      html: req.html,
+      width: req.width,
+      height: req.height,
+      ...(req.transparent === undefined ? {} : { transparent: req.transparent }),
+    })
     counter++
     // 每次畫出來的 PNG 不同（尾巴多一個位元組），測試才分得出「重畫」與「沿用」
     return Promise.resolve({ png: Uint8Array.from([...PNG, counter]) })
@@ -259,5 +264,38 @@ describe('cardFontPath：內建字型在哪', () => {
     expect(
       cardFontPath({ resourcesPath: undefined, appPath: '/nowhere' }, exists()),
     ).toBeUndefined()
+  })
+})
+
+describe('疊字（overlay）卡：透明底的 PNG', () => {
+  it('畫成透明底：請渲染器開透明（transparent）；內容是疊字的頁面；一般卡不帶這個旗標', async () => {
+    const { service, calls } = setup()
+    await service.render({ kind: 'overlay', text: '寵辱不驚', subtext: '——《菜根譚》' }, '16:9')
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatchObject({ width: 1280, height: 720, transparent: true })
+    expect(calls[0]?.html).toContain('background:transparent')
+    expect(calls[0]?.html).toContain('寵辱不驚')
+    await service.render({ kind: 'card', text: '他回來了' }, '16:9')
+    expect(calls[1]?.transparent).toBeUndefined()
+  })
+
+  it('同樣的字與大小不重畫；換字、換比例才重畫；直式是 720×1280', async () => {
+    const { service, calls } = setup()
+    const job = { kind: 'overlay' as const, text: '寵辱不驚', subtext: '' }
+    const first = await service.render(job, '16:9')
+    const again = await service.render(job, '16:9')
+    expect(again).toMatchObject({ assetHash: first.assetHash, cached: true })
+    await service.render({ ...job, text: '閒看庭前花開花落' }, '16:9')
+    await service.render(job, '9:16')
+    expect(calls).toHaveLength(3)
+    expect(calls[2]).toMatchObject({ width: 720, height: 1280 })
+  })
+
+  it('沒有字：白話錯誤，不畫', async () => {
+    const { service, calls } = setup()
+    await expect(service.render({ kind: 'overlay', text: '  ' }, '16:9')).rejects.toThrow(
+      '字卡還沒有字',
+    )
+    expect(calls).toHaveLength(0)
   })
 })

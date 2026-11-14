@@ -58,6 +58,8 @@ export const trailer = {
   'trailer.cardText': '字卡上的字',
   'trailer.cardSubtext': '小字（可以不填）',
   'trailer.cardTextPlaceholder': '例如：有些光，要有人陪你一起守',
+  'trailer.overlayText': '疊在畫面上的字',
+  'trailer.overlaySubtext': '出處',
   'trailer.localFree': '本機・不花錢',
   'trailer.stepStill': '{no}：不動的畫面（本機，不花錢）',
   'trailer.stepCard': '{no}：字卡（本機，不花錢）',

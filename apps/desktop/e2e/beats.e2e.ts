@@ -200,4 +200,63 @@ test.describe('預告片的格子：會動、不動、字卡（示範模式）',
     expect(rerun?.videos.map((v) => v.version)).toEqual([1, 2])
     expect(rerun?.videos.at(-1)?.costUsd ?? 0).toBe(0)
   })
+
+  test('不動的格子疊字：在面板填字存檔，本機重做影片（不花錢、沒有新首幀），字數提示與清掉', async ({
+    page,
+  }, testInfo) => {
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    await page.getByTestId('palette-scene').click()
+    await page.getByTestId('palette-shot').click()
+    await expect.poll(async () => (await shotsOf(page)).length).toBe(1)
+    await expect
+      .poll(async () => (await canvasNodes(page)).filter((n) => n.data.kind === 'shot').length, {
+        timeout: 20000,
+      })
+      .toBe(1)
+    await openShot(page, 1)
+    await pick(page, 'shot-beat', 'still')
+    await page.getByTestId('shot-save').click()
+    await expect.poll(async () => (await shotsOf(page))[0]?.beatKind).toBe('still')
+    await page.keyboard.press('Escape')
+    await page.getByTestId('run-all').click()
+    await page.getByTestId('run-confirm-ok').click()
+    await expect(page.getByTestId('run-all')).toHaveText('全部都生成好了', { timeout: 90_000 })
+    const before = (await shotsOf(page))[0]
+    expect(before?.videos).toHaveLength(1)
+    const framesBefore = before?.firstFrames.length
+
+    await openShot(page, 1)
+    await expect(page.getByTestId('shot-overlay-count')).toHaveText('0/24')
+    await page.getByTestId('shot-overlay-text').fill('寵辱不驚，閒看庭前花開花落')
+    await page.getByTestId('shot-overlay-subtext').fill('——《菜根譚》')
+    await expect(page.getByTestId('shot-overlay-count')).toHaveText('13/24')
+    const shotPath = testInfo.outputPath('panel-overlay.png')
+    await page.screenshot({ path: shotPath })
+    await page.getByTestId('shot-save').click()
+    await expect
+      .poll(async () => (await shotsOf(page))[0]?.overlay?.text, { timeout: 20000 })
+      .toBe('寵辱不驚，閒看庭前花開花落')
+    // 本機重做影片：多一個版本，沒有新首幀，不花錢
+    await expect
+      .poll(async () => (await shotsOf(page))[0]?.videos.length, { timeout: 60_000 })
+      .toBe(2)
+    const after = (await shotsOf(page))[0]
+    expect(after?.firstFrames).toHaveLength(framesBefore ?? -1)
+    expect(after?.videos.at(-1)?.modelId).toBe('local-still')
+    expect(after?.videos.at(-1)?.costUsd ?? 0).toBe(0)
+
+    // 清掉字：影片回到沒有字的樣子，等於原來那一版，沿用它（不多出第三版）
+    await page.getByTestId('shot-overlay-text').fill('')
+    await page.getByTestId('shot-save').click()
+    await expect
+      .poll(async () => (await shotsOf(page))[0]?.overlay, { timeout: 20000 })
+      .toBeUndefined()
+    await expect
+      .poll(async () => (await shotsOf(page))[0]?.videos.find((v) => v.adopted)?.version, {
+        timeout: 60_000,
+      })
+      .toBe(1)
+    expect((await shotsOf(page))[0]?.videos).toHaveLength(2)
+  })
 })

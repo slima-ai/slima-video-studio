@@ -163,6 +163,161 @@ ${css}
 </style></head><body>${body}</body></html>`
 }
 
+// ---- 疊在畫面上的字（透明底） ----
+
+const BREAK_PUNCT = /[，、；：,;:]/u
+const unitsOf = (text: string): number => (text.match(/[\p{L}\p{N}]/gu) ?? []).length
+const trimPunct = (text: string): string =>
+  text.replace(/^[\s，、；：,;:]+|[\s，、；：,;:]+$/gu, '')
+
+/** 從頭數 n 個字（標點不算）的地方切開。 */
+function splitAtUnits(text: string, n: number): [string, string] {
+  const chars = Array.from(text)
+  let seen = 0
+  for (let i = 0; i < chars.length; i++) {
+    if (/[\p{L}\p{N}]/u.test(chars[i] ?? '')) seen++
+    if (seen === n) return [chars.slice(0, i + 1).join(''), chars.slice(i + 1).join('')]
+  }
+  return [text, '']
+}
+
+/** 平均分成 k 行（不看標點）。 */
+function evenSplit(text: string, k: number): string[] {
+  const lines: string[] = []
+  let rest = text
+  for (let left = k; left > 1; left--) {
+    const [first, remaining] = splitAtUnits(rest, Math.round(unitsOf(rest) / left))
+    lines.push(trimPunct(first))
+    rest = remaining
+  }
+  lines.push(trimPunct(rest))
+  return lines
+}
+
+/** 先找離「每行該有的字數」最近的標點（3 個字以內）斷開，行尾的標點拿掉；找不到就從那個字數切。 */
+function punctSplit(text: string, k: number): string[] {
+  if (k <= 1) return [trimPunct(text)]
+  const target = Math.round(unitsOf(text) / k)
+  const chars = Array.from(text)
+  let seen = 0
+  let best: { index: number; diff: number } | undefined
+  chars.forEach((ch, index) => {
+    if (/[\p{L}\p{N}]/u.test(ch)) seen++
+    else if (BREAK_PUNCT.test(ch) && seen >= 1) {
+      const diff = Math.abs(seen - target)
+      if (diff <= 3 && (best === undefined || diff < best.diff)) best = { index, diff }
+    }
+  })
+  const [first, rest] = best
+    ? [chars.slice(0, best.index).join(''), chars.slice(best.index + 1).join('')]
+    : splitAtUnits(text, target)
+  return [trimPunct(first), ...punctSplit(rest, k - 1)]
+}
+
+/**
+ * 疊字自己斷行（不交給瀏覽器）：一行放得下就一行；要兩行（直式可到三行）時，先在離正中間最近、3 個字以內的標點斷開
+ * （行尾的標點拿掉），沒有就從正中間斷；任何一行少於 3 個字（孤字）就改成平均分。英文照單字斷，行與行的長度盡量平均。
+ */
+export function breakOverlayText(
+  text: string,
+  limits: { perLine: number; maxLines: number },
+): string[] {
+  const clean = text.trim()
+  if (clean === '') return []
+  const { perLine, maxLines } = limits
+  if (/\p{Script=Han}/u.test(clean)) {
+    const total = unitsOf(clean)
+    if (total <= perLine || maxLines <= 1) return [clean]
+    const k = Math.min(maxLines, Math.max(2, Math.ceil(total / perLine)))
+    const lines = punctSplit(clean, k)
+    return lines.some((line) => unitsOf(line) < 3) ? evenSplit(clean, k) : lines
+  }
+  // 英文：一行放得下（約一個中文字兩個英文字母）就一行，不然照單字平均分
+  const words = clean.split(/\s+/u)
+  const capacity = perLine * 2
+  if (clean.length <= capacity || words.length < 2 || maxLines <= 1) return [clean]
+  const k = Math.min(maxLines, words.length, Math.max(2, Math.ceil(clean.length / capacity)))
+  const widthOf = (from: number, to: number): number => words.slice(from, to).join(' ').length
+  let best: number[] = []
+  let bestMax = Infinity
+  const search = (start: number, left: number, cuts: number[]): void => {
+    if (left === 1) {
+      const all = [...cuts, words.length]
+      let from = 0
+      const max = Math.max(
+        ...all.map((to) => {
+          const w = widthOf(from, to)
+          from = to
+          return w
+        }),
+      )
+      if (max < bestMax) {
+        bestMax = max
+        best = all
+      }
+      return
+    }
+    for (let cut = start + 1; cut <= words.length - (left - 1); cut++)
+      search(cut, left - 1, [...cuts, cut])
+  }
+  search(0, k, [])
+  let from = 0
+  return best.map((to) => {
+    const line = words.slice(from, to).join(' ')
+    from = to
+    return line
+  })
+}
+
+export interface OverlayInput extends CardSize {
+  text: string
+  subtext?: string | undefined
+  fontUrl?: string | undefined
+}
+
+/**
+ * 疊在不動畫面上的字（透明底，只有下方的暗帶和字；字壓在圖上，圖動、字不動）。版型照字數自動排，不給選：
+ * 橫式每行最多 12 個中文字、最多 2 行，字區水平置中、底邊離畫面底 12%；直式每行最多 9 個字、最多 3 行，字區中心在畫面高度的 68%。
+ * 字級是短邊的 7.5%（放不下才縮，最小 4.5%）。小字（出處）另起一行、字級一半、淡一點。暗帶是由下往上的黑色漸層（最底 62% 不透明）。
+ */
+export function overlayHtml(input: OverlayInput): string {
+  const { width, height } = input
+  const wide = width > height
+  const short = Math.min(width, height)
+  const lines = breakOverlayText(input.text, { perLine: wide ? 12 : 9, maxLines: wide ? 2 : 3 })
+  const subText = (input.subtext ?? '').trim()
+  const maxTextWidth = width * 0.76
+  // 字級：最寬的一行放得下才用 7.5%；放不下（英文長字、超過上限的字）就縮到放得下，最小 4.5%
+  const basePx = Math.round(short * 0.075)
+  const widest = Math.max(1, ...lines.map((line) => emWidth(line)))
+  const mainPx = Math.max(
+    Math.round(short * 0.045),
+    Math.min(basePx, Math.floor(maxTextWidth / (widest * 1.04))),
+  )
+  const subPx = Math.round(mainPx / 2)
+  const subFits =
+    subText === ''
+      ? subPx
+      : Math.min(subPx, Math.floor(maxTextWidth / (Math.max(1, emWidth(subText)) * 1.04)))
+  const bandHeight = wide ? 45 : 40
+  const position = wide ? 'bottom:12%;' : 'top:68%;transform:translateY(-50%);'
+  const css = `html,body{margin:0;height:100%;background:transparent;overflow:hidden;color:#fff;}
+body{font-family:'${CARD_FONT_FAMILY}',${SYSTEM_FONTS};font-weight:700;}
+.band{position:absolute;left:0;right:0;bottom:0;height:${String(bandHeight)}%;background:linear-gradient(to top,rgba(0,0,0,.62),rgba(0,0,0,0));}
+.block{position:absolute;left:12%;right:12%;${position}text-align:center;text-shadow:0 2px 10px rgba(0,0,0,.45);}
+.line{font-size:${String(mainPx)}px;line-height:${String(LINE_HEIGHT)};letter-spacing:.02em;white-space:nowrap;}
+.sub{margin-top:${String(Math.round(mainPx * 0.3))}px;font-size:${String(subFits)}px;line-height:${String(LINE_HEIGHT)};opacity:.8;white-space:nowrap;}`
+  const body =
+    `<div class="band"></div><div class="block">` +
+    lines.map((line) => `<div class="line">${textHtml(line)}</div>`).join('') +
+    (subText === '' ? '' : `<div class="sub">${textHtml(subText)}</div>`) +
+    `</div>`
+  return `<!doctype html><html><head><meta charset="utf-8">${CSP}<style>
+${fontFace(input.fontUrl)}
+${css}
+</style></head><body>${body}</body></html>`
+}
+
 export interface TextCardInput extends CardSize {
   text: string
   subtext?: string | undefined

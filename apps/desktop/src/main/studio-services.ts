@@ -11,6 +11,7 @@ import {
   type Job,
   type JobKind,
   type ModelCard,
+  type ShotOverlay,
   type StillMotion,
   type VideoRequest,
   t,
@@ -112,7 +113,14 @@ export function createStudioServices({
   /** 一張圖做成影片存進素材庫（靜態鏡頭、字卡共用）。 */
   const imageToStoredVideo = async (
     imageHash: string,
-    options: { durationSec: number; aspectRatio: AspectRatio; fps: number; motion: StillMotion },
+    options: {
+      durationSec: number
+      aspectRatio: AspectRatio
+      fps: number
+      motion: StillMotion
+      /** 疊在畫面上的字：本機畫成透明底的圖，運鏡之後疊上去（字不動）。 */
+      overlay?: ShotOverlay
+    },
     signal: AbortSignal,
   ): Promise<AssetRef> => {
     const found = handle.assets.find(imageHash)
@@ -120,6 +128,28 @@ export function createStudioServices({
       throw new AppError({ code: 'invalid_request', userMessage: t('services.canTFindOneOf') })
     }
     const { width, height } = cardSizeFor(options.aspectRatio)
+    // 疊字：透明底的 PNG（字卡服務畫的）；格子開始 0.2 秒後用 0.3 秒淡入
+    let overlayPath: string | undefined
+    if (options.overlay) {
+      if (!cards) {
+        throw new AppError({
+          code: 'internal_error',
+          userMessage: t('nodes.theGenerationServiceIsnT'),
+        })
+      }
+      const drawn = await cards.render(
+        { kind: 'overlay', text: options.overlay.text, subtext: options.overlay.subtext },
+        options.aspectRatio,
+        signal,
+      )
+      overlayPath = handle.assets.find(drawn.assetHash)?.path
+      if (!overlayPath) {
+        throw new AppError({
+          code: 'internal_error',
+          userMessage: t('trailer.cardRenderFailed'),
+        })
+      }
+    }
     const dir = await mkdtemp(join(tmpdir(), 'svs-beat-'))
     try {
       const out = join(dir, 'beat.mp4')
@@ -129,6 +159,7 @@ export function createStudioServices({
         height,
         fps: options.fps,
         motion: options.motion,
+        ...(overlayPath ? { overlay: { path: overlayPath, delaySec: 0.2, fadeInSec: 0.3 } } : {}),
         signal,
       })
       const info = await probe(tools, out, { signal })

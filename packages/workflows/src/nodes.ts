@@ -9,6 +9,7 @@ import {
   DEFAULT_CHARACTER_PROMPTS,
   ShotAngleSchema,
   ShotSizeSchema,
+  ShotOverlaySchema,
   StillMotionSchema,
   defineNode,
   renderCharacterPrompt,
@@ -1099,6 +1100,8 @@ export const stillVideoNode = defineNode({
     aspectRatio: AspectRatioSchema.default('16:9'),
     motion: StillMotionSchema.default('none'),
     fps: z.number().int().positive().default(LOCAL_BEAT_FPS),
+    /** 疊在畫面上的字（不跟著運鏡動）；沒有就沒有這個參數。 */
+    overlay: ShotOverlaySchema.optional(),
   }),
   run: async ({ inputs, params, signal, services }) => {
     const studio = getStudio(services)
@@ -1111,6 +1114,7 @@ export const stillVideoNode = defineNode({
         aspectRatio: params.aspectRatio,
         motion: params.motion,
         fps: params.fps,
+        ...(params.overlay ? { overlay: params.overlay } : {}),
       },
       { signal },
     )
