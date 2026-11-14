@@ -689,6 +689,16 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   )
 
   registry.registerHandler('locations.list', () => ({ locations: locations.list() }))
+  registry.registerHandler('locations.create', ({ name, description, anchorText }) =>
+    history.record(outlineLabel({ op: 'addLocation' }), () =>
+      locations.create({ name, description, ...(anchorText === undefined ? {} : { anchorText }) }),
+    ),
+  )
+  registry.registerHandler('locations.update', ({ locationId, patch }) =>
+    history.record(outlineLabel({ op: 'updateLocation', locationId, patch }), () =>
+      locations.update(locationId, patch),
+    ),
+  )
   registry.registerHandler('locations.setAnchor', ({ locationId, text }) =>
     locations.setAnchor(locationId, text),
   )

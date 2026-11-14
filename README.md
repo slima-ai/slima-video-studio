@@ -129,7 +129,7 @@ Once it is added, two things are left: switch on **Allow AI tools to connect** u
 
 **If Claude says the connection failed or the tools do not load:** check that the app is open and that **Settings → AI tools → Allow AI tools to connect** is switched on, then open a new conversation in Claude Desktop or Claude Code. When the app is closed the assistant only sees "connection failed"; the plain-language explanation appears once the app is running.
 
-**What the assistant can do** (66 tools; it reads the guides with `load_guide` and sees each tool's description):
+**What the assistant can do** (73 tools; it reads the guides with `load_guide` and sees each tool's description):
 
 | Area               | Tools                                                                                                                                                                                                                                                           |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -138,6 +138,7 @@ Once it is added, two things are left: switch on **Allow AI tools to connect** u
 | Story              | `split_story_into_scenes`, `get_outline`, `edit_outline`, `split_scene_into_shots`                                                                                                                                                                              |
 | Shots              | `list_shots`, `get_shot`, `update_shot`, `create_shot`, `delete_shots`, `reorder_shots`, `get_shot_references`, `set_shot_references`, `set_shot_end_frame`, `clear_shot_end_frame`                                                                             |
 | Characters         | `list_characters`, `create_character`, `update_character`, `suggest_character_anchor`, `set_character_anchor`, `list_project_images`, `add_character_reference`, `generate_character_images`, `view_character_images`, `pick_character_image`, `lock_character` |
+| Locations          | `list_locations`, `create_location`, `update_location`, `generate_location_images`, `view_location_images`, `pick_location_image`, `lock_location`                                                                                                              |
 | Pictures and video | `generate_first_frames`, `generate_end_frame`, `view_first_frames`, `generate_videos`, `view_video_stills`, `regenerate_shot`, `adopt_version`, `cancel_generation`, `wait_for_generation`, `get_generation_status`                                             |
 | Film               | `trim_shot` (cut the start or end off a shot), `assemble_film`, `export_film` (with `credits`: the AI-service credits, on by default)                                                                                                                           |
 | Trailer            | `plan_trailer` (write a book trailer's script from a text), `get_trailer`, `update_trailer`, `add_card` (a text card), `set_shot_motion` (a shot moves or stands still); read `load_guide("trailer")` first                                                     |

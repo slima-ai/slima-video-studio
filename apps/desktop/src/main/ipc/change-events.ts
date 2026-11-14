@@ -23,6 +23,9 @@ export const CHANGE_EVENTS: Partial<Record<IpcChannel, readonly DataEvent[]>> = 
   'characters.adoptTurnaround': CHARACTERS,
   'characters.reslice': CHARACTERS,
   'characters.restoreVersion': CHARACTERS,
+  // 地點的名字與說明存在大綱，新增與改名也要通知大綱頁
+  'locations.create': ALL,
+  'locations.update': ['outline.changed', 'locations.changed'],
   'locations.setAnchor': LOCATIONS,
   'locations.pickMain': LOCATIONS,
   'locations.lock': LOCATIONS,

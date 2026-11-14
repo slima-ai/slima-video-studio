@@ -70,7 +70,7 @@ describe('load_guide("production")', () => {
     expect(guideText('getting-started', '')).toContain('load_guide("production")')
   })
 
-  it('約 1,100 字以內：每個工作階段載入都要花 token（原則勝過硬規則，不寫死張數與模型）。上限從 1,000 放寬到 1,100：場景卡「不能建立就直說、每一鏡的地點用字一字不改」擋的是很常見的走樣，比字數重要', () => {
+  it('約 1,100 字以內：每個工作階段載入都要花 token（原則勝過硬規則，不寫死張數與模型）。上限從 1,000 放寬到 1,100：場景卡「每一鏡的地點用字一字不改」擋的是很常見的走樣，比字數重要', () => {
     expect(production.split(/\s+/).length).toBeLessThan(1100)
     expect(production).not.toMatch(/\b\d+ (reference )?(images|pictures)\b/i)
   })
@@ -100,8 +100,10 @@ describe('load_guide("production")', () => {
     expect(unproven).toContain('not been tested here')
   })
 
-  it('場景卡還不能由 AI 建立：直說，並且每一鏡的地點用字一字不改，不要每鏡重新描述', () => {
-    expect(production).toContain('You cannot create place cards yet: say so')
+  it('場景卡 AI 可以建了：指南寫出建立到鎖定的工具順序，並且每一鏡的地點用字一字不改，不要每鏡重新描述', () => {
+    expect(production).not.toContain('You cannot create place cards')
+    expect(production).toContain('create_location')
+    expect(production).toContain('lock_location')
     expect(production).toContain("keep each place's words identical across shots")
   })
 
