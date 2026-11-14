@@ -17,12 +17,18 @@ async function shoot(page: Page, testInfo: TestInfo, name: string): Promise<void
   }
 }
 
+const statusOf = async (page: Page) => {
+  const result = await page.evaluate(() => window.svs.invoke('trailer.status', {}))
+  if (!result.ok) throw new Error(result.error.userMessage)
+  return result.data
+}
+
 const nav = (page: Page) => page.getByTestId('layout-nav').getByRole('button')
 
 test.describe('預告片整頁：導覽、落點、腳本條、播放器（示範模式，不花錢）', () => {
   test.describe.configure({ timeout: 120_000 })
 
-  test('寫完腳本落在「預告片」頁（標題列、播放器、設定）；導覽最前面是「預告片」；到畫布再回來', async ({
+  test('寫完腳本落在「預告片」頁；腳本條的格數等於腳本的格數；點一格、方向鍵換格；導覽最前面是「預告片」', async ({
     page,
   }, testInfo) => {
     await page.getByRole('button', { name: '畫布', exact: true }).click()
@@ -34,13 +40,25 @@ test.describe('預告片整頁：導覽、落點、腳本條、播放器（示�
     await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('trailer-page-title')).toHaveText('斷橋')
     await expect(page.getByTestId('trailer-page-length')).toHaveText('30／30 秒')
-    await expect(page.getByTestId('trailer-player')).toHaveAttribute('data-source', 'beat')
+    const status = await statusOf(page)
+    await expect(page.locator('[data-testid^="strip-cell-"]')).toHaveCount(status.beatCount)
+    await expect(page.getByTestId('strip-segment').first()).toBeVisible()
     await expect(page.getByTestId('trailer-panel-title')).toHaveValue('斷橋')
     await expect(nav(page).first()).toHaveAttribute('aria-label', '預告片')
     await expect(nav(page).first()).toHaveAttribute('aria-current', 'page')
     await shoot(page, testInfo, 'b1-01-script-written-trailer-page.png')
 
-    // 2. 到畫布、再回預告片頁：兩邊都在，畫布上的標籤還在
+    // 2. 點第 2 格：選到、播放器換成那一格（還沒生成，顯示那一格的畫面描述）；← → 換格
+    await page.getByTestId('strip-cell-1').click()
+    await expect(page.getByTestId('strip-cell-1')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('trailer-player')).toHaveAttribute('data-source', 'beat')
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByTestId('strip-cell-2')).toHaveAttribute('aria-pressed', 'true')
+    await page.keyboard.press('ArrowLeft')
+    await expect(page.getByTestId('strip-cell-1')).toHaveAttribute('aria-pressed', 'true')
+    await shoot(page, testInfo, 'b1-02-beat-selected.png')
+
+    // 3. 到畫布、再回預告片頁：兩邊都在，畫布上的標籤還在
     await page.getByRole('button', { name: '畫布', exact: true }).click()
     await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 30／30 秒')
     await nav(page).first().click()

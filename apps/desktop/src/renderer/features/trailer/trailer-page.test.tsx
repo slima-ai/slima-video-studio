@@ -1,5 +1,5 @@
 import type { ShotView, TrailerStatus } from '@svs/schema'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { installFakeSvs } from '../../test/fake-svs'
@@ -70,6 +70,7 @@ describe('TrailerPage：預告片整頁', () => {
     open([])
     render(<TrailerPage status={status({ beatCount: 0 })} />)
     expect(screen.getByTestId('trailer-start')).toBeTruthy()
+    expect(screen.queryByTestId('script-strip')).toBeNull()
   })
 
   it('只取預告片那個場的格子、依鏡號排；沒放進成品的不列', () => {
@@ -83,42 +84,58 @@ describe('TrailerPage：預告片整頁', () => {
     expect(trailerBeats(list, undefined)).toHaveLength(4)
   })
 
-  it('播放器：沒有成品時顯示第一格：有影片播影片；只有首幀顯示圖；字卡用文字排出並標「示意」；什麼都沒有寫畫面描述', async () => {
-    const check = async (first: Partial<ShotView>, testId: string) => {
-      open([inScene(1, first)])
-      const view = render(<TrailerPage status={status()} />)
-      await waitFor(() => {
-        expect(screen.getByTestId(testId)).toBeTruthy()
-      })
-      expect(screen.getByTestId('trailer-player').dataset.source).toBe('beat')
-      const shown = screen.getByTestId(testId)
-      view.unmount()
-      return shown
-    }
-    expect(
-      (await check({ videos: [take('v1')] }, 'trailer-player-video')).getAttribute('src'),
-    ).toContain('v1')
-    expect(
-      (await check({ firstFrames: [take('f2')] }, 'trailer-player-image')).getAttribute('src'),
-    ).toContain('f2')
-    const mock = await check(
-      { beatKind: 'card', card: { text: '有些光', subtext: '要有人陪你' } },
-      'trailer-player-mock',
-    )
-    expect(mock.textContent).toContain('有些光')
-    expect(mock.textContent).toContain('示意')
-    expect((await check({ description: '一座斷橋' }, 'trailer-player-text')).textContent).toBe(
-      '一座斷橋',
-    )
+  it('點一格選它（播放器換成那一格）；← → 換格；打字時不搶按鍵', async () => {
+    open([
+      inScene(1, { description: '第一格描述' }),
+      inScene(2, { description: '第二格描述' }),
+      inScene(3, { description: '第三格描述' }),
+    ])
+    render(<TrailerPage status={status()} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('strip-cell-0')).toBeTruthy()
+    })
+    expect(screen.getByTestId('trailer-player-text').textContent).toBe('第一格描述')
+    fireEvent.click(screen.getByTestId('strip-cell-1'))
+    expect(screen.getByTestId('trailer-player-text').textContent).toBe('第二格描述')
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(screen.getByTestId('trailer-player-text').textContent).toBe('第三格描述')
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    expect(screen.getByTestId('trailer-player-text').textContent).toBe('第一格描述')
+    // 設定欄的輸入框裡按 ←：不換格
+    fireEvent.keyDown(screen.getByTestId('trailer-panel-title'), { key: 'ArrowRight' })
+    expect(screen.getByTestId('trailer-player-text').textContent).toBe('第一格描述')
   })
 
-  it('有成品：播成品', async () => {
+  it('播放器：沒有成品時，有影片播那一格的影片、只有首幀顯示圖、字卡用文字排出並標「示意」', async () => {
+    open([
+      inScene(1, { videos: [take('v1')] }),
+      inScene(2, { firstFrames: [take('f2')] }),
+      inScene(3, { beatKind: 'card', card: { text: '有些光', subtext: '要有人陪你' } }),
+    ])
+    render(<TrailerPage status={status()} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('trailer-player-video').getAttribute('src')).toContain('v1')
+    })
+    expect(screen.getByTestId('trailer-player').dataset.source).toBe('beat')
+    fireEvent.click(screen.getByTestId('strip-cell-1'))
+    expect(screen.getByTestId('trailer-player-image').getAttribute('src')).toContain('f2')
+    fireEvent.click(screen.getByTestId('strip-cell-2'))
+    expect(screen.getByTestId('trailer-player-mock').textContent).toContain('有些光')
+    expect(screen.getByTestId('trailer-player-mock').textContent).toContain('示意')
+  })
+
+  it('有成品：播成品，腳本條上有播放線', async () => {
     open([inScene(1), inScene(2)], { finalVideoHash: 'final9' })
     render(<TrailerPage status={status()} />)
     await waitFor(() => {
       expect(screen.getByTestId('trailer-player').dataset.source).toBe('final')
     })
     expect(screen.getByTestId('trailer-player-video').getAttribute('src')).toContain('final9')
+    fireEvent.timeUpdate(screen.getByTestId('trailer-player-video'), { target: { currentTime: 3 } })
+    expect(screen.getByTestId('strip-playhead')).toBeTruthy()
+    // 播到第 2 格（2 秒起）：選取跟著走
+    expect(screen.getByTestId('strip-cell-1').getAttribute('aria-pressed')).toBe('true')
   })
 
   it('直式專案：播放器 9:16，置中', async () => {

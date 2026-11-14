@@ -32,7 +32,7 @@ export function TrailerPlayer({
   /** 片名卡的字（設定裡的書名）。 */
   title: string
   videoRef: RefObject<HTMLVideoElement | null>
-  onTime?: (sec: number) => void
+  onTime: (sec: number) => void
 }) {
   const shown = beat ? previewOf(beat) : {}
   const isTextBeat = beat?.beatKind === 'card' || beat?.beatKind === 'title'
@@ -59,7 +59,7 @@ export function TrailerPlayer({
             controls
             className="size-full object-contain"
             onTimeUpdate={(event) => {
-              onTime?.(event.currentTarget.currentTime)
+              onTime(event.currentTarget.currentTime)
             }}
           />
         ) : shown.video ? (
