@@ -581,6 +581,18 @@ describe('trailer.plan：檢查器接在寫腳本後面', () => {
       expect(h.shots.list().shots).toHaveLength(1)
     })
 
+    it('還沒有專案、沒填書名、寫成功：專案名取腳本的片名（不是「預告片」或「我的短片」）；已經開著的專案不改名', async () => {
+      const h = setup()
+      h.projects.close()
+      const result = await h.trailer.plan({ text: STORY })
+      expect(result.settings.title).not.toBe('')
+      expect(h.projects.current()?.repos.projects.get().name).toBe(result.settings.title)
+      // 同一個專案再寫一次：不是這次建的，名字不動
+      h.projects.rename('我改過的名字')
+      await h.trailer.plan({ text: STORY })
+      expect(h.projects.current()?.repos.projects.get().name).toBe('我改過的名字')
+    })
+
     it('還沒有專案、寫成功：專案留下，名字取書名', async () => {
       const h = setup()
       h.projects.close()

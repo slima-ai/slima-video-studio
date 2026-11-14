@@ -411,7 +411,17 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
       // 這次真的花了錢的呼叫（不管最後成不成功都要記帳：被檢查器擋下、回亂碼、重寫那一次也一樣）
       const spent: SpentCall[] = []
       try {
-        return await planOnto(handle, parsed, spent)
+        const result = await planOnto(handle, parsed, spent)
+        // 這次自己建的專案、使用者沒填書名：專案名改成腳本的片名（資料夾名字不變）
+        const title = result.settings.title.trim()
+        if (created && (parsed.title ?? '').trim() === '' && title !== '') {
+          try {
+            projects.rename(title.slice(0, 60))
+          } catch {
+            // 改名失敗不影響腳本
+          }
+        }
+        return result
       } catch (error) {
         const removed = created && discardNewProject(handle)
         settleSpent(handle, spent, removed)

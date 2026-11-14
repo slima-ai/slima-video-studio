@@ -253,6 +253,10 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     await page.getByTestId('trailer-text').fill(STORY)
     await page.getByTestId('trailer-go').click()
     await expect(page.getByTestId('trailer-badge')).toBeVisible({ timeout: 30_000 })
+    // 沒填書名：專案名是腳本的片名，不是「預告片」或「我的短片」
+    const title = (await statusOf(page)).settings.title
+    expect(title).not.toBe('')
+    expect((await currentProject(page))?.name).toBe(title)
     await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await expect(page.getByTestId('character-item-draft-小葉')).toHaveText('草稿')
     await expect(page.getByTestId('character-item-draft-老鐘')).toHaveText('草稿')
