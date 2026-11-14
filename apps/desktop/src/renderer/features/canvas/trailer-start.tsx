@@ -6,6 +6,7 @@ import { Button } from '../../components/button'
 import { SimpleSelect } from '../../components/list-select'
 import { call, errorText } from '../../lib/svs'
 import { t } from '@svs/schema'
+import { AspectChoice, useProjectAspect } from './aspect-choice'
 
 const TEXTAREA =
   'resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm font-normal placeholder:text-fg-subtle'
@@ -37,6 +38,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
   const [check, setCheck] = useState<TrailerPlanCheck>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  const ratio = useProjectAspect()
   const busyRef = useRef(false)
   const empty = text.trim() === ''
 
@@ -153,10 +155,26 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
           />
         </div>
       </div>
+      <div className="flex items-center gap-2 text-xs text-fg-muted">
+        <span className="shrink-0">{t('trailer.aspect.label')}</span>
+        <div className="min-w-0 flex-1">
+          <AspectChoice
+            testIdPrefix="trailer"
+            aspect={ratio.aspect}
+            disabled={busy}
+            onChoose={ratio.choose}
+          />
+        </div>
+      </div>
+      {ratio.error !== undefined ? (
+        <p role="alert" data-testid="trailer-aspect-error" className="text-xs text-danger">
+          {ratio.error}
+        </p>
+      ) : null}
       <Button
         variant="primary"
         data-testid="trailer-go"
-        disabled={busy || empty || blocked}
+        disabled={busy || empty || blocked || ratio.pending}
         onClick={go}
       >
         {busy ? t('trailer.start.going') : trailerGoLabel(check)}

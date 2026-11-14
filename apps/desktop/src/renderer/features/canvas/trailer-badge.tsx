@@ -7,6 +7,7 @@ import { Button } from '../../components/button'
 import { SimpleSelect } from '../../components/list-select'
 import { cn } from '../../lib/cn'
 import { call, errorText } from '../../lib/svs'
+import { AspectChoice, useProjectAspect } from './aspect-choice'
 import { TRAILER_LENGTHS } from './trailer-start'
 
 /** 面板寬度（窄視窗會縮到視窗寬減 24）。 */
@@ -77,6 +78,7 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
   const [busy, setBusy] = useState<'rewrite' | 'fit' | 'save'>()
   const [check, setCheck] = useState<TrailerPlanCheck>()
   const [confirming, setConfirming] = useState(false)
+  const ratio = useProjectAspect()
   const root = useRef<HTMLDivElement>(null)
   const button = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
@@ -273,6 +275,25 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
                     }}
                   />
                 </div>
+              </div>
+              <div className="flex flex-col gap-1 text-xs text-fg-muted">
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0">{t('trailer.aspect.label')}</span>
+                  <div className="min-w-0 flex-1">
+                    <AspectChoice
+                      testIdPrefix="trailer-panel"
+                      aspect={ratio.aspect}
+                      disabled={busy !== undefined || ratio.pending}
+                      onChoose={ratio.choose}
+                    />
+                  </div>
+                </div>
+                <p data-testid="trailer-panel-aspect-note">{t('trailer.aspect.note')}</p>
+                {ratio.error !== undefined ? (
+                  <p role="alert" data-testid="trailer-panel-aspect-error" className="text-danger">
+                    {ratio.error}
+                  </p>
+                ) : null}
               </div>
               <TextSetting
                 testId="trailer-panel-title"

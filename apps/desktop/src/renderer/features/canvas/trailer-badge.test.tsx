@@ -181,4 +181,25 @@ describe('TrailerBadge：頂列的預告片標籤', () => {
     expect(screen.queryByTestId('trailer-no-source')).toBeNull()
     expect(screen.queryByText(/沒辦法重寫/)).toBeNull()
   })
+
+  it('設定面板有「橫式｜直式」，點了改專案的比例，並說明已經做好的畫面不會跟著變', async () => {
+    const configure = vi.fn((payload: { aspectRatio?: string }) => ({
+      styleId: 'realistic',
+      aspectRatio: payload.aspectRatio ?? '16:9',
+    }))
+    installFakeSvs({ 'trailer.check': () => CHECK, 'project.configure': configure })
+    render(<TrailerBadge status={status()} />)
+    fireEvent.click(screen.getByTestId('trailer-badge'))
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('trailer-panel-aspect-landscape').getAttribute('aria-checked'),
+      ).toBe('true')
+    })
+    expect(screen.getByTestId('trailer-panel-aspect-note').textContent).toContain('不會跟著變')
+    fireEvent.click(screen.getByTestId('trailer-panel-aspect-portrait'))
+    expect(configure).toHaveBeenCalledWith({ aspectRatio: '9:16' })
+    expect(screen.getByTestId('trailer-panel-aspect-portrait').getAttribute('aria-checked')).toBe(
+      'true',
+    )
+  })
 })
