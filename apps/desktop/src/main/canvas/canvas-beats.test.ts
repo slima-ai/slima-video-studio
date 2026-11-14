@@ -60,6 +60,19 @@ describe('畫布：預告片格子的標記與節點', () => {
   })
 })
 
+describe('畫布：預告片格子的標題寫段落', () => {
+  it('有段落的格子寫「鉤子・1」；沒有段落（一般鏡頭、手動加的格子）照舊「第 N 鏡」；不認得的代號原樣', () => {
+    const h = setup()
+    const ids = threeBeats(h)
+    const shots = h.projects.current()?.repos.shots
+    shots?.update(ids.video, { segment: 'hook' })
+    shots?.update(ids.card, { segment: 'pull_quote' })
+    expect(nodeOf(h, `shot:${ids.video}`)?.title).toBe('鉤子・1')
+    expect(nodeOf(h, `shot:${ids.still}`)?.title).toBe('第 2 鏡')
+    expect(nodeOf(h, `shot:${ids.card}`)?.title).toBe('pull_quote・3')
+  })
+})
+
 describe('畫布：腳本的秒數（1/24 秒的整數倍）顯示成兩位小數', () => {
   it('2.0833… 秒寫成 2.08；整數秒、2.5 秒照舊', () => {
     const h = setup()

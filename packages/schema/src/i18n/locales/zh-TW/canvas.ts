@@ -598,4 +598,12 @@ export const canvas = {
     '{count} 個鏡頭標了需要重跑，這次不會動（要重跑請在那一鏡按 ▶）',
   'canvas.staleFramesUsedAsIs_other':
     '其中 {count} 鏡的首幀是舊描述畫的，這次只補影片、首幀照用，不會更新',
+  'canvas.segment.hook': '鉤子',
+  'canvas.segment.world': '世界',
+  'canvas.segment.turn': '轉折',
+  'canvas.segment.escalate': '升高',
+  'canvas.segment.suspense': '懸念',
+  'canvas.segment.montage': '快切',
+  'canvas.segment.title': '片名',
+  'canvas.beatTitle': '{segment}・{value}',
 } as const

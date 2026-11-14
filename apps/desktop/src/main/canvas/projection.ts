@@ -11,6 +11,7 @@ import {
   type CanvasNodeKind,
   type CanvasNodeStatus,
   type Location,
+  type MessageRef,
   type OnelinerParams,
   type Scene,
   type Shot,
@@ -99,6 +100,27 @@ export interface CanvasSource {
 }
 
 /** 影片卡片上的裁切徽章要的資料：有裁切、而且知道影片多長才有。 */
+/** 預告片段落代號的顯示名；不認得的代號原樣顯示。 */
+const SEGMENT_NAMES: Record<string, MessageRef> = {
+  hook: msg('canvas.segment.hook'),
+  world: msg('canvas.segment.world'),
+  turn: msg('canvas.segment.turn'),
+  escalate: msg('canvas.segment.escalate'),
+  suspense: msg('canvas.segment.suspense'),
+  montage: msg('canvas.segment.montage'),
+  title: msg('canvas.segment.title'),
+}
+
+/** 鏡頭卡的標題：預告片的格子（有段落）寫「鉤子・1」，一般鏡頭寫「第 1 鏡」。 */
+function shotTitleOf(shot: Pick<Shot, 'segment' | 'number'>): string {
+  if (!shot.segment) return t('canvas.shot', { value: String(shot.number) })
+  const name = SEGMENT_NAMES[shot.segment]
+  return t('canvas.beatTitle', {
+    segment: name ? t(name) : shot.segment,
+    value: String(shot.number),
+  })
+}
+
 function trimOf(
   take: Take,
   videoSec: number | undefined,
@@ -296,7 +318,7 @@ export function projectCanvas(source: CanvasSource): CanvasGraph {
         x: at.x,
         y: at.y,
         auto: savedShot === undefined,
-        title: t('canvas.shot', { value: String(shot.number) }),
+        title: shotTitleOf(shot),
         ...(stepInfo ? { expanded: true } : {}),
         // 字卡的鏡頭卡上寫字卡的字（畫面描述對字卡沒有用）
         summary: shot.beatKind === 'card' && shot.card ? shot.card.text : shot.description,
