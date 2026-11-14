@@ -458,6 +458,175 @@ describe('trailer.plan：觀點型（示範模式）', () => {
   })
 })
 
+describe('trailer.plan：腳本裡的外觀寫進草稿卡（角色與場景卡）', () => {
+  interface PeopleScript extends Script {
+    people: { name: string; look: string; outfit: string }[]
+    places: { name: string; look: string }[]
+  }
+  const withPeople = (edit: (script: PeopleScript) => void) => () => {
+    const script = good(30)() as PeopleScript
+    edit(script)
+    return script
+  }
+  const cardOf = (h: ReturnType<typeof setup>, name: string) => {
+    const card = h.characters.list().find((c) => c.name === name)
+    if (!card) throw new Error(`沒有角色 ${name}`)
+    return card
+  }
+
+  it('示範腳本：新建的草稿角色卡有長相、服裝、固定外觀描述（草稿，沒有自動鎖定）', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    for (const name of ['小葉', '老鐘']) {
+      const card = cardOf(h, name)
+      expect(card.appearance, name).not.toBe('')
+      expect(card.outfit, name).not.toBe('')
+      expect(card.anchorText, name).toBe(`${card.appearance}，${card.outfit}`)
+      expect(card.anchorStatus, name).toBe('draft')
+    }
+  })
+
+  it('people 沒寫某個角色：那張卡照舊是空的（沒有固定外觀描述）', async () => {
+    const llm = scripted(
+      withPeople((script) => {
+        script.people = script.people.filter((p) => p.name === '小葉')
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY })
+    expect(cardOf(h, '小葉').anchorText).not.toBe('')
+    const empty = cardOf(h, '老鐘')
+    expect(empty).toMatchObject({ appearance: '', outfit: '', anchorText: '' })
+  })
+
+  it('只有長相、沒有服裝：固定外觀描述只放長相；兩個都空：空草稿卡', async () => {
+    const llm = scripted(
+      withPeople((script) => {
+        script.people = [
+          { name: '小葉', look: '短髮的少女', outfit: '' },
+          { name: '老鐘', look: '', outfit: '' },
+        ]
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY })
+    expect(cardOf(h, '小葉')).toMatchObject({ appearance: '短髮的少女', anchorText: '短髮的少女' })
+    expect(cardOf(h, '老鐘').anchorText).toBe('')
+  })
+
+  it('已經有卡的角色不動（使用者可能改過）；people 裡有、但沒有任何一格用到的名字不建卡', async () => {
+    const llm = scripted(
+      withPeople((script) => {
+        script.people = [
+          ...script.people,
+          { name: '路人甲', look: '戴帽子的男人', outfit: '灰外套' },
+        ]
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    h.shots.create({})
+    const mine = h.characters.create('小葉')
+    h.characters.update(mine.id, { appearance: '我自己寫的長相' })
+    await h.trailer.plan({ text: STORY })
+    const kept = cardOf(h, '小葉')
+    expect(kept.appearance).toBe('我自己寫的長相')
+    expect(kept.outfit).toBe('')
+    expect(kept.anchorText).toBe('')
+    expect(h.characters.list().map((c) => c.name)).not.toContain('路人甲')
+  })
+
+  it('名字比對不分大小寫、去頭尾空白；長相與服裝各截到 300 字', async () => {
+    const llm = scripted(
+      withPeople((script) => {
+        script.people = [
+          { name: ' 小葉 ', look: '長'.repeat(500), outfit: '衣'.repeat(500) },
+          { name: '老鐘', look: '瘦長的老人', outfit: '褐色長袍' },
+        ]
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY })
+    const card = cardOf(h, '小葉')
+    expect(card.appearance).toHaveLength(300)
+    expect(card.outfit).toHaveLength(300)
+    expect(card.anchorStatus).toBe('draft')
+  })
+
+  it('復原一次：角色卡連同外觀、固定外觀描述一起退回，沒有殘留', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    expect(cardOf(h, '小葉').anchorText).not.toBe('')
+    h.history.undo()
+    expect(h.characters.list()).toEqual([])
+    h.history.redo()
+    expect(cardOf(h, '小葉').anchorText).not.toBe('')
+  })
+
+  it('場景卡：腳本的地點外觀也存成固定描述（草稿，不自動鎖定）；故事裡的說明照舊也有', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    const cards = h.projects.current()?.repos.locationCards.list() ?? []
+    expect(cards.map((c) => c.name).sort()).toEqual(['斷橋', '河岸'])
+    for (const card of cards) {
+      expect(card.anchorText, card.name).not.toBe('')
+      expect(card.anchorText, card.name).toBe(card.description)
+      expect(card.status, card.name).toBe('draft')
+    }
+  })
+
+  it('場景卡：已經有的卡不動（說明與固定描述都不蓋）', async () => {
+    const h = setup()
+    h.shots.create({})
+    h.outline.edit({ op: 'addLocation' })
+    const created = h.outline.get().locations[0]
+    if (!created) throw new Error('沒有建出地點')
+    h.outline.edit({
+      op: 'updateLocation',
+      locationId: created.id,
+      patch: { name: '斷橋', description: '我自己的斷橋' },
+    })
+    await h.trailer.plan({ text: STORY })
+    const mine = h.projects
+      .current()
+      ?.repos.locationCards.list()
+      .find((c) => c.name === '斷橋')
+    expect(mine?.description).toBe('我自己的斷橋')
+    expect(mine?.anchorText).toBe('')
+    const fresh = h.projects
+      .current()
+      ?.repos.locationCards.list()
+      .find((c) => c.name === '河岸')
+    expect(fresh?.anchorText).not.toBe('')
+  })
+
+  it('場景卡：外觀裡有角色名字（被當成沒寫）就兩邊都不存；沒寫外觀也是空的', async () => {
+    const llm = scripted(
+      withPeople((script) => {
+        script.places = [
+          { name: '斷橋', look: '小葉站在橋上守著燈' },
+          { name: '河岸', look: '' },
+        ]
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY })
+    const cards = h.projects.current()?.repos.locationCards.list() ?? []
+    expect(cards.map((c) => [c.name, c.description, c.anchorText])).toEqual(
+      expect.arrayContaining([
+        ['斷橋', '', ''],
+        ['河岸', '', ''],
+      ]) as unknown,
+    )
+  })
+
+  it('復原：場景卡的固定描述跟著退回', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    h.history.undo()
+    expect(h.projects.current()?.repos.locationCards.list()).toEqual([])
+  })
+})
+
 describe('trailer.plan：角色與地點的草稿卡', () => {
   it('建角色與地點草稿卡，鏡頭掛上地點與角色名字；字卡與片名卡沒有地點', async () => {
     const h = setup()

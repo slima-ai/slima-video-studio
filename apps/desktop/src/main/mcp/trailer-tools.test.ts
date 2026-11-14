@@ -276,6 +276,42 @@ describe('預告片工具：金句／觀點型（idea）', () => {
   })
 })
 
+describe('預告片指南：角色與場景的草稿已經帶外觀（A1）', () => {
+  it('第 3 步說草稿角色與場景卡是從文本寫出來的；第 6 步：先看外觀、缺或不對就補、鎖定才會進提示、概念圖是選做', async () => {
+    const r = await start()
+    const { text } = dataOf(
+      z.object({ text: z.string() }),
+      await r.call('load_guide', { topic: 'trailer' }),
+    )
+    const step3 = text.split('\n').find((l) => l.startsWith('3. ')) ?? ''
+    expect(step3).toContain('draft characters')
+    expect(step3).toContain('look and outfit')
+    expect(step3).toContain('place')
+    const step6 = text.split('\n').find((l) => l.startsWith('6. ')) ?? ''
+    for (const part of [
+      'list_characters',
+      'update_character',
+      'suggest_character_anchor',
+      'set_character_anchor',
+      'lock_character',
+      'optional',
+    ]) {
+      expect(step6, part).toContain(part)
+    }
+    expect(step6).toContain('only locked')
+    // 順序：先 update_character → suggest → set_anchor → lock
+    expect(step6.indexOf('update_character')).toBeLessThan(
+      step6.indexOf('suggest_character_anchor'),
+    )
+    expect(step6.indexOf('suggest_character_anchor')).toBeLessThan(
+      step6.indexOf('set_character_anchor'),
+    )
+    expect(step6.indexOf('set_character_anchor')).toBeLessThan(step6.indexOf('lock_character'))
+    // 舊的那句（草稿角色沒鎖定、外觀會跑掉）不再當成唯一的說法
+    expect(step6).not.toContain('Draft characters from the script are not locked')
+  })
+})
+
 describe('預告片工具：花錢與額度（真實模式、假的 OpenRouter 伺服器）', () => {
   const startReal = async () => {
     const fake = await startFakeOpenRouter()

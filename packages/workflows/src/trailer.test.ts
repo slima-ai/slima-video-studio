@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { StudioServices } from './services'
 import {
+  PEOPLE_LOOK_INSTRUCTION,
   ensureTagline,
   MUSIC_END_FADE_SEC,
   MUSIC_EXTRA_SEC,
@@ -43,6 +44,7 @@ const script = (beats: ReturnType<typeof beat>[], title = '黑藤裂谷'): Trail
   title,
   music: '留白、推進、停一拍、重音',
   places: [],
+  people: [],
   beats,
 })
 
@@ -569,5 +571,58 @@ describe('觀點型：配樂不停一拍、單一樂器平穩、片名進來時�
     expect(p).toContain('每一句都要讀得完')
     expect(p).toContain('15 秒')
     expect(p).toContain('60 秒')
+  })
+})
+
+describe('A1：寫腳本時把角色的外觀一起寫出來（people）', () => {
+  const promptOf = (
+    kind: 'story' | 'teaser' | 'idea',
+    text = '黑藤爬滿了斷橋。',
+    known: string[] = [],
+  ) =>
+    trailerSystemPrompt({
+      text,
+      settings: TrailerSettingsSchema.parse({ kind, title: '黑藤裂谷' }),
+      guide: '',
+      knownCharacters: known,
+      style: 'realistic',
+    })
+
+  it('劇情型與懸念短版的提示帶著 people 的要求（放在地點外觀的要求後面）', () => {
+    for (const kind of ['story', 'teaser'] as const) {
+      const p = promptOf(kind)
+      expect(p).toContain(PEOPLE_LOOK_INSTRUCTION)
+      expect(p.indexOf(PEOPLE_LOOK_INSTRUCTION)).toBeGreaterThan(p.indexOf('places 欄位'))
+    }
+  })
+
+  it('要求的內容：長相與服裝各 15 到 40 個字、只寫看得到的、文本沒寫的依時代身分補、不模仿任何改編作品的造型、已建好的不用寫、描述畫面用名字稱呼', () => {
+    const t = PEOPLE_LOOK_INSTRUCTION
+    for (const part of [
+      'people 欄位',
+      '{ name, look, outfit }',
+      '15 到 40 個字',
+      '只寫看得到的',
+      '時代、身分和描述',
+      '不要模仿任何改編作品的造型',
+      '電視劇、電影、動畫、遊戲、漫畫',
+      '已經建好的角色不用寫',
+      '用名字稱呼角色',
+    ]) {
+      expect(t, part).toContain(part)
+    }
+  })
+
+  it('英文故事：多一句用故事的語言寫的清單裡也列了 people 的 look 與 outfit', () => {
+    const p = promptOf('story', 'Black vines cover the broken bridge.')
+    expect(p).toContain('people 的 look、outfit')
+    // 中文故事沒有這一句
+    expect(promptOf('story')).not.toContain('people 的 look、outfit')
+  })
+
+  it('觀點型沒有角色：people 也一律是空陣列，不帶外觀要求', () => {
+    const p = promptOf('idea')
+    expect(p).toContain('people 一律是空陣列')
+    expect(p).not.toContain(PEOPLE_LOOK_INSTRUCTION)
   })
 })

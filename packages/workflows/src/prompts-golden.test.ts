@@ -33,6 +33,7 @@ import {
 import { QUICK_STYLES } from './styles'
 import { NARRATION_SHORTEN_SYSTEM, narrationShortenMessage } from './narration'
 import {
+  PEOPLE_LOOK_INSTRUCTION,
   PLACE_LOOK_INSTRUCTION,
   musicSpansOf,
   trailerMusicPrompt,
@@ -53,20 +54,22 @@ const sha = (value: unknown): string =>
  * （另有 4 個 system prompt 的雜湊在 apps/desktop/src/main/story-language-prompts.test.ts。）
  */
 const GOLDEN: Record<string, string> = {
+  '寫預告片腳本：角色外觀的要求（people）':
+    '67c4c0905b7da0178d2aa6d9d867624bf367dc45eb0ca6600917c6d3e234e37e',
   '寫預告片腳本 system prompt：觀點型 30 秒、沒有推薦語、有作者':
-    'd3e72abeaefd701e6e7f3176883dce9c79e6b0dc1f3d97c1eba5768c198a918a',
+    '3739f991db79645578b3b29555cb7c2bb1ded3e7bce4e86262b6105cd3b53904',
   '寫預告片腳本 system prompt：觀點型 60 秒、有推薦語、沒有作者、不要旁白':
-    '42b1cd80a16a022f99d8286a239ab1e71fb4f5ffa0f338cf8bad15d8c5bc3e9b',
+    'c8859c7cfc2cd12f2a72fd5b499b6ec8546e22bf86410d4531d5247d95108709',
   '配樂描述：觀點型（不停一拍、單一樂器、片名進來時加一層）':
     '1059fd11a119db6f5495efeebf3791492ffacfd410f68741c81d1648f1b14263',
   '寫預告片腳本：地點外觀的要求（只寫地方本身，不寫人與動作）':
     '88c94e7aa1f05905d82ba240a14417b1de7c6760c62ae95761af3ef1324f9fed',
   '寫預告片腳本 system prompt：劇情型 30 秒、中文故事、有旁白':
-    '165ce9985119dcb178aec5897a4091a7b5f99e4b48cf8a5de21a6451867cf472',
+    'ca4bc7c19261a070f7a36efb620fd44dc6fb1495358e42bb17d458863561473b',
   '寫預告片腳本 system prompt：懸念短版 15 秒、不要旁白':
-    '1e72f13a56fea4d8a544280bc0cff2a37e63f4d5f3887c77c9702a953c2a321f',
+    'e6dc650db22e873d26010c9b191db4783e13b726ab7435164029786cf133efbf',
   '寫預告片腳本 system prompt：英文故事（多一句用故事的語言寫）':
-    '5c68bbbebdc143ff2dab35225a2f802b9a32250d8dd8a3fa490d3efda2d7447d',
+    '020686bb2ce47fbae7ed4ef4be2d2b9b9bfde79b581bbaf045f418bdaa2b5230',
   寫預告片腳本的使用者訊息: '918dcf011f5ea370bb4484e2a76a9d8c91d41caaad9fd226aa19b831b49fe6ba',
   '旁白改短 system prompt': '93540aa3e1416bab242263b06180124cc96b717b8abff2a2f0d9f22713f68dd6',
   旁白改短的使用者訊息: 'c23f9f39329bc4147e7e2e0e7fe3f324207c5e10abcfdc6e893baf7c6648900d',
@@ -256,6 +259,7 @@ const OUTPUTS: Record<string, () => unknown> = {
       style: 'realistic',
     }),
   '寫預告片腳本：地點外觀的要求（只寫地方本身，不寫人與動作）': () => PLACE_LOOK_INSTRUCTION,
+  '寫預告片腳本：角色外觀的要求（people）': () => PEOPLE_LOOK_INSTRUCTION,
   寫預告片腳本的使用者訊息: () =>
     trailerUserMessage('黑藤爬滿了斷橋。', TrailerSettingsSchema.parse({ targetSec: 45 })),
   '旁白改短 system prompt': () => NARRATION_SHORTEN_SYSTEM,

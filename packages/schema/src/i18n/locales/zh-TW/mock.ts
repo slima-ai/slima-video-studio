@@ -61,6 +61,10 @@ export const mock = {
   'mock.trailerLine6': '一切從今夜起',
   'mock.trailerLine7': '沒有人知道',
   'mock.trailerLine8': '還有一個秘密',
+  'mock.trailerCharLook1': '十七八歲的少女，齊耳黑短髮，圓臉，身形瘦小，左眉有一道小疤',
+  'mock.trailerCharOutfit1': '洗舊的靛藍粗布短衫，背後掛著草編斗笠，赤腳',
+  'mock.trailerCharLook2': '六十多歲的男人，灰白短鬚，臉瘦長、皺紋深，背微駝，皮膚黝黑',
+  'mock.trailerCharOutfit2': '深褐色舊長袍，腰間繫麻繩，手提一盞鐵皮燈',
   'mock.trailerPlaceLook1':
     '一座爬滿黑藤的舊石橋，石面潮濕發亮，只有一盞燈懸在橋中央，四周是低低的霧',
   'mock.trailerPlaceLook2': '長滿蘆葦的河岸，泥土鬆軟，水面映著灰藍色的天光，風很輕',

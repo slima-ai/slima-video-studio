@@ -64,6 +64,13 @@ export const mock = {
   'mock.trailerLine6': 'It starts tonight',
   'mock.trailerLine7': 'No one knows',
   'mock.trailerLine8': 'One secret remains',
+  'mock.trailerCharLook1':
+    'A girl of about seventeen, short black hair at ear length, round face, slight build, a small scar through her left eyebrow',
+  'mock.trailerCharOutfit1':
+    'A faded indigo cotton jacket, a straw hat slung on her back, barefoot',
+  'mock.trailerCharLook2':
+    'A man in his sixties, short grey beard, long thin face with deep wrinkles, slightly stooped, dark weathered skin',
+  'mock.trailerCharOutfit2': 'A worn dark-brown long robe tied with a rope, carrying a tin lantern',
   'mock.trailerPlaceLook1':
     'An old stone bridge covered in black vines, the stone wet and gleaming, one lamp hanging at its centre, low mist all around',
   'mock.trailerPlaceLook2':

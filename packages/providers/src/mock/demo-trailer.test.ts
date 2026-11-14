@@ -271,3 +271,41 @@ describe('示範模式的假腳本：觀點型', () => {
     }
   })
 })
+
+describe('示範模式的假腳本：角色的外觀（people）', () => {
+  const scriptOf = (kind: 'story' | 'teaser' | 'idea', sec = 30) =>
+    TrailerScriptSchema.parse(demoTrailerScript(request(STORY, kind, sec)))
+
+  for (const kind of ['story', 'teaser'] as const) {
+    it(`${kind}：people 兩筆，名字跟 characters 用到的完全一樣，長相與服裝都有字`, () => {
+      const script = scriptOf(kind)
+      const used = new Set(script.beats.flatMap((b) => b.characters))
+      expect([...used].length).toBeGreaterThanOrEqual(1)
+      expect(script.people.map((p) => p.name).sort()).toEqual([...used].sort())
+      for (const person of script.people) {
+        expect(person.look.length).toBeGreaterThanOrEqual(15)
+        expect(person.outfit.length).toBeGreaterThanOrEqual(8)
+        // 只寫看得到的：不出現「性格」「勇敢」這類
+        expect(`${person.look}${person.outfit}`).not.toMatch(/個性|性格|勇敢|善良/)
+      }
+    })
+  }
+
+  it('觀點型沒有角色，也沒有 people', () => {
+    expect(scriptOf('idea').people).toEqual([])
+  })
+
+  it('英文介面：外觀是英文', async () => {
+    const { setLocale } = await import('@svs/schema')
+    setLocale('en')
+    try {
+      const script = scriptOf('story')
+      expect(script.people.length).toBeGreaterThan(0)
+      expect(script.people.map((p) => `${p.look}${p.outfit}`).join('')).not.toMatch(
+        /\p{Script=Han}/u,
+      )
+    } finally {
+      setLocale('zh-TW')
+    }
+  })
+})

@@ -242,6 +242,7 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
     title: story === '' ? t('mock.trailerTitle') : cut(clauses[0] ?? t('mock.trailerTitle'), 16),
     music: t('mock.ideaMusic'),
     places: places.map((name, i) => ({ name, look: looks[i] ?? '' })),
+    people: [],
     beats: out,
   }
 }
@@ -388,6 +389,19 @@ export function demoTrailerScript(request: LlmRequest): unknown {
       { name: places[0] ?? '', look: t('mock.trailerPlaceLook1') },
       { name: places[1] ?? '', look: t('mock.trailerPlaceLook2') },
     ],
+    // 角色的外觀：只寫有出場的角色（草稿角色卡就是從這裡填的）
+    people: [
+      {
+        name: heroes[0] ?? '',
+        look: t('mock.trailerCharLook1'),
+        outfit: t('mock.trailerCharOutfit1'),
+      },
+      {
+        name: heroes[1] ?? '',
+        look: t('mock.trailerCharLook2'),
+        outfit: t('mock.trailerCharOutfit2'),
+      },
+    ].filter((person) => out.some((beat) => beat.characters.includes(person.name))),
     beats: out,
   }
 }

@@ -47,6 +47,13 @@ import { generateStructured } from './structured'
 export const PLACE_LOOK_INSTRUCTION =
   'places 欄位：location 裡用到的每個地點各寫一筆 { name, look }，name 跟 location 一模一樣；look 是這個地方本身的外觀（材質、光線、氣氛，一兩句），絕對不要寫人、角色、動作或正在發生的事，也不要寫畫面裡的文字。'
 
+/**
+ * 角色外觀的要求（寫進 system prompt；用雜湊釘住）。寫出來的外觀存成草稿角色卡的長相、服裝與固定外觀描述，
+ * 使用者鎖定之前都看得到、改得動；文本沒寫的外觀由模型依時代與身分補上，因為同一個人每一格都要長得一樣。
+ */
+export const PEOPLE_LOOK_INSTRUCTION =
+  'people 欄位：characters 裡用到的每個角色各寫一筆 { name, look, outfit }，name 跟 characters 裡一模一樣。look 是這個人固定不變的長相（年齡感與性別印象、髮型與髮色、臉型、身形、膚色、一個認得出來的小特徵）；outfit 是這支預告片裡穿的那一套服裝。兩個都用逗號分隔的短句，各 15 到 40 個字，只寫看得到的，不寫個性、表情、動作、背景，也不要寫畫面裡的文字。文本有寫的照文本；文本沒寫到的，只依文本的時代、身分和描述來推，補上具體的樣子，因為同一個人每一格都要長得一樣。不要模仿任何改編作品的造型（電視劇、電影、動畫、遊戲、漫畫裡的扮相）。已經建好的角色不用寫。描述畫面（description）時用名字稱呼角色，不要在那裡另外寫他的長相與服裝。'
+
 const SEGMENT_NAMES: Readonly<Record<string, string>> = {
   hook: '鉤子（全片最強的畫面，第一格不放字卡）',
   world: '世界與主角（誰、在哪裡、平常的樣子）',
@@ -135,7 +142,7 @@ function ideaSystemPrompt(input: TrailerPromptInput): string {
     '描述畫面（description）寫一個隱喻畫面（例如「凌晨還亮著燈的辦公室」「一張被劃掉的待辦清單」），優先用物件、環境、剪影，不是人物劇情；一格只做一件事，不要寫招牌、字幕、標題這類畫面裡的文字；所有的字都用字卡。' +
     `${SIZE_HINTS}。${ANGLE_HINTS}。cameraMove 只能是 null（固定）或下列其中一個：${CAMERA_MOVES.map((c) => `${c.id}（${c.label}）`).join('、')}（still 格的運鏡決定推近、拉遠或搖鏡）。` +
     `長度與句數：30 秒＝1 個鉤子＋3 句＋1 句收穫＋片名；60 秒最多 5 句；15 秒＝1 句＋片名。每一句都要讀得完（字卡的停留秒數夠長），句與句之間留一點只有音樂的空檔，不要塞滿。` +
-    `這一型沒有角色：每一格的 characters 一律是空陣列。角色那一步改成 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個主視覺：location 欄位寫這一格用的主視覺名字（短，例如「深夜辦公室」「待辦清單」），整支用 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個，同一個畫面每次用同一個名字，同一個主視覺可以給好幾格用（一次推近、一次平移）；字卡與片名卡留空。` +
+    `這一型沒有角色：每一格的 characters 一律是空陣列，people 一律是空陣列。角色那一步改成 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個主視覺：location 欄位寫這一格用的主視覺名字（短，例如「深夜辦公室」「待辦清單」），整支用 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個，同一個畫面每次用同一個名字，同一個主視覺可以給好幾格用（一次推近、一次平移）；字卡與片名卡留空。` +
     PLACE_LOOK_INSTRUCTION +
     'look 要寫畫得出來的具體地方與物件（例如「一張被劃掉大半的待辦清單」「凌晨還亮著一盞燈的辦公桌」），不要寫抽象的詞（例如「成功」「焦慮」「效率」），因為抽象的詞畫不出來。' +
     ((input.knownLocations ?? []).length > 0
@@ -192,6 +199,7 @@ export function trailerSystemPrompt(input: TrailerPromptInput): string {
       : '同一個角色在不同格子用同一個名字。') +
     `location 欄位：這一格發生的地點名字（短，例如「斷橋」「河岸」），整支用 1 到 3 個地點，同一個地方每次用同一個名字；字卡與片名卡留空。` +
     PLACE_LOOK_INSTRUCTION +
+    PEOPLE_LOOK_INSTRUCTION +
     ((input.knownLocations ?? []).length > 0
       ? `已經建好的場景卡有：${(input.knownLocations ?? []).join('、')}。發生在這些地方時，location 一定要用一模一樣的名字。`
       : '') +
@@ -201,7 +209,7 @@ export function trailerSystemPrompt(input: TrailerPromptInput): string {
     `畫風是「${QUICK_STYLES[input.style].label}」。只輸出 JSON。` +
     storyLanguageNote(
       input.text,
-      '文本不是中文：description、action、dialogue、cardText、cardSubtext、music、title 這些給人看的文字請用文本使用的語言寫，角色名照原文，不要翻成中文；beatKind、size、angle、cameraMove 這類固定選項照上面規定的值。',
+      '文本不是中文：description、action、dialogue、cardText、cardSubtext、music、title、places 的 look、people 的 look、outfit 這些給人看的文字請用文本使用的語言寫，角色名照原文，不要翻成中文；beatKind、size、angle、cameraMove 這類固定選項照上面規定的值。',
     ) +
     (input.guide.trim() === ''
       ? ''
