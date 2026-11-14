@@ -33,12 +33,15 @@ export function TrailerStartCard({
   onDone,
   wide = false,
   beforePlan,
+  restore,
 }: {
   onDone?: () => void
   /** 首頁的大卡：撐滿寬度、文字框高一點（畫布上的是 264 px 的小卡）。 */
   wide?: boolean
   /** 寫腳本之前先做的事（首頁：先關掉開著的專案，腳本寫進新專案，不寫進舊的）。失敗就不寫。 */
   beforePlan?: () => Promise<void>
+  /** 寫腳本前關掉了別的專案、寫失敗時：卡片上多一顆「重新打開《舊專案名》」，作者回得去原本的地方。 */
+  restore?: { name: string; reopen: () => Promise<void> }
 }) {
   const [text, setText] = useState('')
   const [title, setTitle] = useState('')
@@ -187,6 +190,21 @@ export function TrailerStartCard({
         >
           <p className="font-semibold">{t('trailer.start.failed')}</p>
           <p className="mt-1 whitespace-pre-wrap">{error}</p>
+          {restore ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-2"
+              data-testid="trailer-reopen"
+              onClick={() => {
+                restore.reopen().catch((e: unknown) => {
+                  setError(errorText(e))
+                })
+              }}
+            >
+              {t('trailer.start.reopen', { name: restore.name })}
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </section>

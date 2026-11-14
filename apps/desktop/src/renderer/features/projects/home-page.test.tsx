@@ -261,5 +261,43 @@ describe('HomePage：新專案、開啟舊專案、最近的專案', () => {
     fireEvent.click(screen.getByTestId('trailer-go'))
     expect((await screen.findByTestId('trailer-error')).textContent).toContain('專案沒有被改')
     expect(go).not.toHaveBeenCalled()
+    // 沒有關掉任何專案：不需要「重新打開」
+    expect(screen.queryByTestId('trailer-reopen')).toBeNull()
+  })
+
+  it('開著別的專案、寫腳本失敗：卡片上有「重新打開《舊專案名》」，按了回到舊專案', async () => {
+    const go = vi.fn()
+    const reopen = vi.fn(() => info('貓'))
+    installFakeSvs({
+      'project.recent': () => ({ projects: [row('貓', { current: true })] }),
+      'project.close': () => ({}),
+      'project.openRecent': reopen,
+      'trailer.plan': () => {
+        throw appError('腳本沒有通過檢查，專案沒有被改。')
+      },
+      'trailer.check': () => ({
+        ok: true,
+        estimatedUsd: 0,
+        demoMode: true,
+        existingBeats: 0,
+        generatedBeats: 0,
+      }),
+    })
+    render(<HomePage onNavigate={go} />)
+    await screen.findByTestId('home-current')
+    expect(screen.queryByTestId('trailer-reopen')).toBeNull()
+    fireEvent.change(screen.getByTestId('trailer-text'), { target: { value: '一座斷橋。' } })
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+    fireEvent.click(screen.getByTestId('trailer-go'))
+    const button = await screen.findByTestId('trailer-reopen')
+    expect(button.textContent).toBe('重新打開《貓》')
+    expect(go).not.toHaveBeenCalled()
+    fireEvent.click(button)
+    await waitFor(() => {
+      expect(go).toHaveBeenCalledWith('canvas')
+    })
+    expect(reopen).toHaveBeenCalledWith({ dir: '/p/貓.svsproj' })
   })
 })

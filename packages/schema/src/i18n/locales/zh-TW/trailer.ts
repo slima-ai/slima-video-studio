@@ -98,4 +98,5 @@ export const trailer = {
   'trailer.panel.cancel': '先不要',
   'trailer.panel.rewriteConfirm': '確定重寫',
   'trailer.panel.replaceWarn': '{generated} 格已生成的畫面會被取代，可以復原',
+  'trailer.start.reopen': '重新打開《{name}》',
 } as const
