@@ -115,4 +115,7 @@ export const trailer = {
   'trailer.page.cellEmpty': '還沒做',
   'trailer.page.narrationRow': '旁白',
   'trailer.page.musicRow': '配樂',
+  'trailer.beatNotInScript': '這一格不在預告片腳本裡。',
+  'trailer.beatSecondsImpossible': '其他格已經是最短了，這一格最多只能到 {max} 秒。',
+  'trailer.firstBeatTooLong': '第一格最長 {max} 秒。',
 } as const

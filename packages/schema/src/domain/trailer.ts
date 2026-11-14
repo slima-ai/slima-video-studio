@@ -599,6 +599,52 @@ export function fitToTarget(
   return { durations: frames.map((f) => f / fps), ok: true }
 }
 
+export interface FitAroundResult {
+  /** 每一格的新秒數（整數格／fps）；ok 為 false 時沒有意義。 */
+  durations: number[]
+  ok: boolean
+  /** ok 為 false 時：固定的那一格最多能到幾秒（其他格都已經是最短）；其他情況沒有。 */
+  maxSec?: number
+}
+
+/**
+ * 固定幾格的秒數（`pins`：格子序號 → 秒數），其餘的格子用 `fitToTarget` 重排成「目標 − 固定的那幾格」，
+ * 總長不變。固定的秒數也對齊 1/fps，字卡與片名卡不低於最短停留。其餘的格子排不下時 ok 是 false，
+ * 並說固定的第一格最多能到幾秒；這時沒有任何一格被動到，由呼叫的人決定要不要改。
+ */
+export function fitAround(
+  beats: readonly Pick<TrailerBeat, 'beatKind' | 'durationSec' | 'card'>[],
+  pins: ReadonlyMap<number, number>,
+  targetSec: number,
+  fps: number,
+): FitAroundResult {
+  const total = Math.round(targetSec * fps)
+  const pinned = new Map<number, number>()
+  for (const [index, sec] of pins) {
+    const beat = beats[index]
+    if (beat) pinned.set(index, Math.max(Math.round(sec * fps), beatMinFrames(beat, fps)))
+  }
+  const restIndexes = beats.map((_, i) => i).filter((i) => !pinned.has(i))
+  const rest = restIndexes.flatMap((i) => (beats[i] ? [beats[i]] : []))
+  const pinnedSum = [...pinned.values()].reduce((sum, f) => sum + f, 0)
+  const restMin = rest.reduce((sum, beat) => sum + beatMinFrames(beat, fps), 0)
+  const firstPinned = pinned.values().next().value ?? 0
+  if (rest.length === 0 || total - pinnedSum < restMin) {
+    const ok = rest.length === 0 && pinnedSum === total
+    return {
+      durations: beats.map((b, i) => (pinned.get(i) ?? Math.round(b.durationSec * fps)) / fps),
+      ok,
+      ...(ok ? {} : { maxSec: Math.max(0, total - restMin - (pinnedSum - firstPinned)) / fps }),
+    }
+  }
+  const fit = fitToTarget(rest, (total - pinnedSum) / fps, fps)
+  const durations = beats.map((_, i) => (pinned.get(i) ?? 0) / fps)
+  restIndexes.forEach((beatIndex, k) => {
+    durations[beatIndex] = fit.durations[k] ?? 0
+  })
+  return { durations, ok: fit.ok }
+}
+
 // ---- 預告片準則（內建，先不開放在設定頁改；第二階段再開放） ----
 
 /**

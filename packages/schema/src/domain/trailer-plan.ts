@@ -131,3 +131,10 @@ export const TrailerAddCardRequestSchema = z.object({
   durationSec: z.number().min(0.25).max(15).optional(),
 })
 export type TrailerAddCardRequest = z.input<typeof TrailerAddCardRequestSchema>
+
+/** 把腳本的某一格定成指定的秒數，其他格讓出（或補上）時間，總長不變。 */
+export const TrailerSetBeatSecondsRequestSchema = z.object({
+  shotId: z.string().min(1),
+  durationSec: z.number().min(0.25).max(15),
+})
+export type TrailerSetBeatSecondsRequest = z.input<typeof TrailerSetBeatSecondsRequestSchema>

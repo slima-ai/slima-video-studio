@@ -17,6 +17,7 @@ import {
   cardMinSec,
   checkTrailerScript,
   defaultTrailerGuide,
+  fitAround,
   fitToTarget,
   textUnits,
   type TrailerBeat,
@@ -635,5 +636,59 @@ describe('fitToTarget', () => {
 
   it('沒有任何一格：回空的，ok 是 false', () => {
     expect(fitToTarget([], 30, FPS)).toEqual({ durations: [], ok: false })
+  })
+})
+
+describe('fitAround：固定一格的秒數，其他格讓時間，總長不變', () => {
+  const frames = (sec: number) => Math.round(sec * FPS)
+  const sum = (d: number[]) => d.reduce((a, b) => a + frames(b), 0)
+
+  it('固定那一格就是指定的秒數（對齊 1/24），其餘照比例讓出，加總剛好等於目標', () => {
+    const beats = [video(3), video(2.5), video(2.5), video(2), video(20)]
+    const result = fitAround(beats, new Map([[1, 4]]), 30, FPS)
+    expect(result.ok).toBe(true)
+    expect(result.durations[1]).toBeCloseTo(4, 9)
+    expect(sum(result.durations)).toBe(frames(30))
+    // 其他格都比原本短一點，沒有一格比原本長
+    result.durations.forEach((d, i) => {
+      if (i !== 1) expect(d).toBeLessThanOrEqual((beats[i]?.durationSec ?? 0) + 1e-9)
+    })
+  })
+
+  it('指定的秒數不是整數格：對齊到最近的一格（2.43 秒 → 58 格）', () => {
+    const result = fitAround([video(2), video(2), video(6)], new Map([[0, 2.43]]), 10, FPS)
+    expect(result.durations[0]).toBeCloseTo(58 / FPS, 9)
+    expect(sum(result.durations)).toBe(frames(10))
+  })
+
+  it('字卡不低於最短停留：其他格排不下時 ok 是 false，並說這一格最多能到幾秒', () => {
+    // 兩張字卡（各 0.8＋0.2×5 ＝ 1.8 秒）加片名卡最短，剩下的時間才是這一格能用的
+    const beats = [video(3), card('一二三四五', 1.8), card('一二三四五', 1.8), title(3)]
+    const minRest =
+      beatMinFrames(beats[1] as TrailerBeat, FPS) * 2 + beatMinFrames(beats[3] as TrailerBeat, FPS)
+    const result = fitAround(beats, new Map([[0, 10]]), 10, FPS)
+    expect(result.ok).toBe(false)
+    expect(result.maxSec).toBeCloseTo((frames(10) - minRest) / FPS, 9)
+  })
+
+  it('只有一格：指定的秒數剛好等於目標才行', () => {
+    expect(fitAround([video(5)], new Map([[0, 5]]), 5, FPS).ok).toBe(true)
+    expect(fitAround([video(5)], new Map([[0, 4]]), 5, FPS).ok).toBe(false)
+  })
+
+  it('固定兩格（例如第一格定在 4 秒）：兩格都不動，其餘照比例', () => {
+    const result = fitAround(
+      [video(6), video(3), video(3), video(3)],
+      new Map([
+        [1, 5],
+        [0, 4],
+      ]),
+      20,
+      FPS,
+    )
+    expect(result.ok).toBe(true)
+    expect(result.durations[0]).toBeCloseTo(4, 9)
+    expect(result.durations[1]).toBeCloseTo(5, 9)
+    expect(sum(result.durations)).toBe(frames(20))
   })
 })

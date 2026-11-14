@@ -136,4 +136,8 @@ export const trailer = {
   'trailer.page.cellEmpty': 'Not made yet',
   'trailer.page.narrationRow': 'Narration',
   'trailer.page.musicRow': 'Music',
+  'trailer.beatNotInScript': 'That beat is not in the trailer script.',
+  'trailer.beatSecondsImpossible':
+    'The other beats are already as short as they can be. This one can be at most {max} seconds.',
+  'trailer.firstBeatTooLong': 'The first beat can be at most {max} seconds.',
 } as const

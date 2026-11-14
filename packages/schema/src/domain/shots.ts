@@ -137,6 +137,8 @@ export const ShotEditSchema = z.object({
   beatKind: BeatKindSchema.optional(),
   /** 字卡內容；null 代表清掉。 */
   card: ShotCardSchema.nullable().optional(),
+  /** 預告片的段落代號（hook、world…）；空字串代表清掉（這一格不屬於任何段落）。 */
+  segment: z.string().max(40).optional(),
 })
 export type ShotEdit = z.infer<typeof ShotEditSchema>
 
