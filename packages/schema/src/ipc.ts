@@ -537,6 +537,11 @@ export const ipcContract = {
     request: CanvasUpdateOnelinerSchema,
     response: z.object({}),
   },
+  /** 「全部生成」接好片之後，旁白與配樂是不是還在加（加好之前成品是沒有聲音的，不能匯出）。 */
+  'canvas.soundAdding': {
+    request: z.object({}),
+    response: z.object({ adding: z.boolean() }),
+  },
   /** 執行之前的檢查：這次會跑哪些節點、預估花費、要標亮哪一串。 */
   'canvas.runPlan': {
     request: CanvasRunRequestSchema,
@@ -1275,6 +1280,8 @@ export const ipcEvents = {
   'canvas.notice': CanvasNoticeSchema,
   /** 預告片專案「全部生成」做完（接片、旁白與配樂都好了）：畫面打開成品面板、從頭播一次。 */
   'canvas.openFilm': z.object({}),
+  /** 旁白與配樂開始加／加完（加好之前成品面板的匯出鈕停用）。 */
+  'canvas.soundAddingChanged': z.object({ adding: z.boolean() }),
   /** AI 工具（MCP）剛改了畫布上的哪些節點：畫面亮一下、標「AI 剛改」、提示刪了什麼。 */
   'canvas.aiChanged': CanvasAiChangedSchema,
   /**

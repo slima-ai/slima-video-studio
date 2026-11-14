@@ -328,6 +328,7 @@ export const canvas = {
   'canvas.cutThisLineCanBe': 'Cut this line (can be undone)',
   'canvas.close2': 'Close',
   'canvas.exportMp4': 'Export MP4',
+  'canvas.stillAddingNarrationAndMusic': 'Still adding narration and music',
   'canvas.adds3SecondsAtThe': 'Adds 3 seconds of AI service credits at the end',
   'canvas.addAiServiceCreditsAt': 'AI service credits at the end',
   'canvas.exportedToTheEndCredits':

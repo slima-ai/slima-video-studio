@@ -554,6 +554,48 @@ describe('預告片專案：全部生成做完打開成品', { timeout: 120_000 
     expect(names(h).at(-1)).toBe('canvas.openFilm')
   })
 
+  it('加旁白與配樂的這段時間 soundAdding 是 true（發 canvas.soundAddingChanged），加完（或失敗）放開，而且在打開成品之前', async () => {
+    const h = createStudioHarness()
+    harnesses.push(h)
+    await h.trailer.plan({ text: STORY })
+    expect(h.canvas.soundAdding()).toBe(false)
+    // 加聲音卡住，才量得到「還在加」
+    let release: (() => void) | undefined
+    const realAddAll = h.sound.addAll.bind(h.sound)
+    h.sound.addAll = (...args) =>
+      new Promise((resolve, reject) => {
+        release = () => {
+          realAddAll(...args).then(resolve, reject)
+        }
+      })
+    await h.canvas.run({ keys: [], all: true })
+    await vi.waitFor(
+      () => {
+        expect(h.canvas.soundAdding()).toBe(true)
+      },
+      { timeout: 90_000, interval: 20 },
+    )
+    expect(
+      h.events.filter((e) => e.name === 'canvas.soundAddingChanged').map((e) => e.payload),
+    ).toEqual([{ adding: true }])
+    // 還在加的時候還沒打開成品
+    expect(names(h)).not.toContain('canvas.openFilm')
+    release?.()
+    await vi.waitFor(
+      () => {
+        expect(names(h)).toContain('canvas.openFilm')
+      },
+      { timeout: 90_000, interval: 50 },
+    )
+    expect(h.canvas.soundAdding()).toBe(false)
+    expect(
+      h.events.filter((e) => e.name === 'canvas.soundAddingChanged').map((e) => e.payload),
+    ).toEqual([{ adding: true }, { adding: false }])
+    expect(names(h).indexOf('canvas.soundAddingChanged', 2)).toBeLessThan(
+      names(h).indexOf('canvas.openFilm'),
+    )
+  })
+
   it('預告片專案但是聲音出了問題：還是打開成品，失敗的通知照寫', async () => {
     const h = createStudioHarness()
     harnesses.push(h)

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { installFakeSvs } from '../../test/fake-svs'
@@ -231,5 +231,41 @@ describe('FinalCutPanel：生成完自動打開時從頭播', () => {
     Object.defineProperty(video, 'readyState', { configurable: true, value: 4 })
     view.rerender(<FinalCutPanel finalVideoHash={HASH} canRejoin={false} playFilm={1} />)
     expect(play).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('FinalCutPanel：旁白與配樂還在加的時候不能匯出', () => {
+  const HASH = 'a'.repeat(64)
+
+  it('主程序說還在加：匯出鈕停用、寫「還在加旁白與配樂」；加完通知一來就恢復成「匯出 MP4」', async () => {
+    const fake = installFakeSvs({ 'canvas.soundAdding': () => ({ adding: true }) })
+    render(<FinalCutPanel finalVideoHash={HASH} canRejoin={false} />)
+    const button = screen.getByTestId<HTMLButtonElement>('final-cut-export')
+    await waitFor(() => {
+      expect(button.textContent).toBe('還在加旁白與配樂')
+    })
+    expect(button.disabled).toBe(true)
+    fireEvent.click(button)
+    expect(fake.payloadsOf('quickstart.export')).toHaveLength(0)
+    act(() => {
+      fake.emit('canvas.soundAddingChanged', { adding: false })
+    })
+    await waitFor(() => {
+      expect(button.textContent).toBe('匯出 MP4')
+    })
+    expect(button.disabled).toBe(false)
+  })
+
+  it('面板開著的時候才開始加：收到通知就停用；沒有在加（預設）一直是「匯出 MP4」', async () => {
+    const fake = installFakeSvs()
+    render(<FinalCutPanel finalVideoHash={HASH} canRejoin={false} />)
+    const button = screen.getByTestId<HTMLButtonElement>('final-cut-export')
+    expect(button.textContent).toBe('匯出 MP4')
+    act(() => {
+      fake.emit('canvas.soundAddingChanged', { adding: true })
+    })
+    await waitFor(() => {
+      expect(button.disabled).toBe(true)
+    })
   })
 })
