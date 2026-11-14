@@ -916,6 +916,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     if (event.nodeId === 'image' && isDone(event.nodeRun) && ctx.fixedFrame !== true) {
       const out = ImageOutputSchema.safeParse(event.nodeRun.output)
       if (out.success) {
+        const priorHash = shots.listTakes(shotId, 'first_frame').find((t) => t.adopted)?.assetHash
         const take = saveTake(s, shotId, 'first_frame', out.data.image, {
           modelId: ctx.models.image,
           seed: ctx.imageVariation,
@@ -924,6 +925,10 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         })
         shots.adoptTake(take.id)
         changed(s)
+        // 預告片：這一格的首幀換了新版本，原本共用同一張的不動格跟著換（不花錢），不會出現兩種長相
+        if (priorHash !== undefined && priorHash !== take.assetHash) {
+          followSharedFrame(s, shotId, priorHash, take)
+        }
       }
     } else if (event.nodeId === 'video' && isDone(event.nodeRun)) {
       const out = VideoOutputSchema.safeParse(event.nodeRun.output)
@@ -1691,6 +1696,34 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       })
     shots.adoptTake(take.id)
     changed(s)
+  }
+
+  /**
+   * 共用首幀的領頭重畫出新版本：原本用同一張舊首幀（`oldHash`）的不動格換成新的，它們的（本機）影片用新首幀重做，不花錢。
+   * 之前自己重畫過、已經不是同一張的格子不動。
+   */
+  const followSharedFrame = (s: Session, sourceId: string, oldHash: string, frame: Take): void => {
+    const { shots } = s.handle.repos
+    if (s.handle.repos.trailer.get() === undefined) return
+    const source = shots.get(sourceId)
+    if (source?.beatKind !== 'still' || source.locationId === undefined) return
+    for (const other of shots.list()) {
+      if (other.id === sourceId || other.beatKind !== 'still') continue
+      if (other.locationId !== source.locationId || s.regens.has(other.id)) continue
+      const adopted = shots.listTakes(other.id, 'first_frame').find((t) => t.adopted)
+      if (adopted?.assetHash !== oldHash) continue
+      adoptSharedFrame(s, other, frame)
+      if (!shots.listTakes(other.id, 'video').some((t) => t.adopted)) continue
+      launch(s, other, 'video').catch((error: unknown) => {
+        s.errors.set(other.id, {
+          message: isAppError(error) ? error.userMessage : t('services.thisShotCanTStart'),
+          step: 'video',
+        })
+        changed(s)
+        if (!isAppError(error))
+          log.error(`Unexpected error following a shared frame: ${String(error)}`)
+      })
+    }
   }
 
   /** 領頭那一格結束了：等它的格子用它的首幀（再做影片）；它沒畫出首幀就照原本的方式自己畫。 */

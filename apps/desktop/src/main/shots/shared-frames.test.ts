@@ -177,6 +177,62 @@ describe('同一張主視覺的不動格共用一張首幀（只做不動的格�
     expect(frameOf(h, follower.id)?.runId).toBeDefined()
   })
 
+  it('領頭的那一格重畫出新版本：跟隨的格子自動換成新的那張（不花錢），它們的（本機）影片跟著重做；不會出現兩種長相', async () => {
+    const h = await trailer()
+    await h.canvas.run({ keys: [], all: true })
+    await h.shots.whenIdle()
+    const [group] = stillGroups(h).filter((g) => g.length >= 2)
+    const [leader, ...followers] = group ?? []
+    if (!leader || followers.length === 0) throw new Error('需要同一個地點的兩個不動格')
+    const oldHash = frameOf(h, leader.id)?.assetHash
+    const before = generatedFrames(h)
+    const videosBefore = followers.map((f) => repos(h).shots.listTakes(f.id, 'video').length)
+    await h.canvas.run({ keys: [`shot:${leader.id}:image`], scope: 'this' })
+    await h.shots.whenIdle()
+    const newHash = frameOf(h, leader.id)?.assetHash
+    expect(newHash).toBeDefined()
+    expect(newHash).not.toBe(oldHash)
+    // 只多畫了領頭的這一張
+    expect(generatedFrames(h)).toBe(before + 1)
+    followers.forEach((follower, i) => {
+      expect(frameOf(h, follower.id)?.assetHash, `第 ${String(follower.number)} 鏡`).toBe(newHash)
+      // 影片跟著用新的首幀重做（本機，不花錢）
+      expect(repos(h).shots.listTakes(follower.id, 'video').length).toBeGreaterThan(
+        videosBefore[i] ?? 0,
+      )
+    })
+    expect(h.shots.staleness().size).toBe(0)
+  })
+
+  it('跟隨的格子是使用者自己接上去的另一張圖（不再是同一張）：領頭重畫時不動它', async () => {
+    const h = await trailer()
+    await h.canvas.run({ keys: [], all: true })
+    await h.shots.whenIdle()
+    const [group] = stillGroups(h).filter((g) => g.length >= 2)
+    const [leader, follower] = group ?? []
+    const moving = pictureShots(h).find((s) => s.beatKind === 'video')
+    const mine = moving ? frameOf(h, moving.id)?.assetHash : undefined
+    if (!leader || !follower || !mine) throw new Error('需要兩個不動格和一張別的圖')
+    h.shots.setUploadedFrame(follower.id, mine)
+    await h.canvas.run({ keys: [`shot:${leader.id}:image`], scope: 'this' })
+    await h.shots.whenIdle()
+    expect(frameOf(h, follower.id)?.assetHash).toBe(mine)
+    expect(frameOf(h, leader.id)?.assetHash).not.toBe(mine)
+  })
+
+  it('不管哪一格重畫：同一個地點共用同一張的格子都跟著換（對跟隨的那一格按重做也一樣）', async () => {
+    const h = await trailer()
+    await h.canvas.run({ keys: [], all: true })
+    await h.shots.whenIdle()
+    const [group] = stillGroups(h).filter((g) => g.length >= 2)
+    const follower = group?.[1]
+    if (!group || !follower) throw new Error('需要同一個地點的兩個不動格')
+    await h.canvas.run({ keys: [`shot:${follower.id}:image`], scope: 'this' })
+    await h.shots.whenIdle()
+    const hashes = group.map((shot) => frameOf(h, shot.id)?.assetHash)
+    expect(new Set(hashes).size).toBe(1)
+  })
+
   it('領頭的那一格畫不出來：跟隨的格子改成自己畫，不會一直等下去', async () => {
     const h = createStudioHarness({ mockRejectText: '壞掉記號' })
     harnesses.push(h)
