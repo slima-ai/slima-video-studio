@@ -234,4 +234,29 @@ describe('TrailerStartCard：橫式｜直式', () => {
     expect(checked('landscape')).toBe('true')
     expect(checked('portrait')).toBe('false')
   })
+  it('比例還在改的時候，「先產生腳本」暫時按不了（免得腳本在比例定下來之前就寫了）', async () => {
+    let finish: (value: unknown) => void = () => undefined
+    installFakeSvs({
+      'project.current': project('16:9'),
+      'project.configure': () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+      'trailer.check': () => CHECK_DEMO,
+    })
+    render(<TrailerStartCard />)
+    await waitFor(() => {
+      expect(checked('landscape')).toBe('true')
+    })
+    fill('一座斷橋。')
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+    fireEvent.click(screen.getByTestId('trailer-aspect-portrait'))
+    expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(true)
+    finish({ styleId: 'realistic', aspectRatio: '9:16' })
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+  })
 })
