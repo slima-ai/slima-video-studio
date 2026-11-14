@@ -241,7 +241,7 @@ export const chat = {
   'chat.unlockToEdit': '解除鎖定才能修改',
   'chat.saveDescription2': '存下描述',
   'chat.useTheStorySDescription': '用故事裡的說明',
-  'chat.writeADescriptionAndPick': '要先寫好描述、挑好主場景圖才能鎖定',
+  'chat.writeADescriptionAndPick': '要先寫好描述才能鎖定',
   'chat.mainPictureAndOtherAngles': '主場景圖與其他角度',
   'chat.mainPicture': '主場景圖',
   'chat.reverseAngle': '反方向',

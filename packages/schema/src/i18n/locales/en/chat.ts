@@ -264,8 +264,7 @@ export const chat = {
   'chat.unlockToEdit': 'Unlock to edit',
   'chat.saveDescription2': 'Save description',
   'chat.useTheStorySDescription': 'Use the story’s description',
-  'chat.writeADescriptionAndPick':
-    'Write a description and pick a main location picture before locking',
+  'chat.writeADescriptionAndPick': 'Write a description before locking',
   'chat.mainPictureAndOtherAngles': 'Main picture and other angles',
   'chat.mainPicture': 'Main picture',
   'chat.reverseAngle': 'Reverse angle',

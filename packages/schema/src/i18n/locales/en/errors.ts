@@ -30,7 +30,6 @@ export const errors = {
   'errors.couldnTFindThatLocation': 'Couldn’t find that location card.',
   'errors.thisLocationCardIsLocked': 'This location card is locked. Unlock it before editing.',
   'errors.writeDownWhatThisLocation': 'Write down what this location always looks like first.',
-  'errors.pickAMainLocationPicture': 'Pick a main location picture first.',
   'errors.couldnTFind': 'Couldn’t find {what} ({id}).',
   'errors.thatAct': 'that act',
   'errors.thatLocation': 'that location',
