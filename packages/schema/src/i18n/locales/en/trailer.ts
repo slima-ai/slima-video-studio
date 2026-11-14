@@ -90,6 +90,8 @@ export const trailer = {
   'trailer.lengthSec': '{n} s',
   'trailer.start.title': 'Make a trailer',
   'trailer.start.textPlaceholder': 'Paste a passage or story from the book',
+  'trailer.start.count': '{used} / {max} characters',
+  'trailer.start.onlyFirst': 'Only the first {max} characters will be used.',
   'trailer.start.titlePlaceholder': 'Book title',
   'trailer.start.length': 'Length',
   'trailer.start.kind': 'Type',

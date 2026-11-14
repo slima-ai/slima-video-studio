@@ -15,6 +15,17 @@ const FIELD =
 /** 長度選單：常用的四種（寫預告片的目標秒數）。 */
 export const TRAILER_LENGTHS = [15, 30, 60, 90] as const
 
+/** 寫腳本最多讀這麼多字（schema 的上限）；貼得更長的，多的不會被用。 */
+export const TRAILER_TEXT_MAX = 60_000
+
+/** 只留前 60,000 字（不把一個表情符號從中間切開）。 */
+export function clipTrailerText(text: string): string {
+  if (text.length <= TRAILER_TEXT_MAX) return text
+  const cut = text.slice(0, TRAILER_TEXT_MAX)
+  const last = cut.charCodeAt(cut.length - 1)
+  return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut
+}
+
 /** 估價要等使用者停手這麼久才問（打字時不連續呼叫）。 */
 const CHECK_DEBOUNCE_MS = 400
 
@@ -39,6 +50,9 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
   const [error, setError] = useState<string>()
   const busyRef = useRef(false)
   const empty = text.trim() === ''
+  // 貼得比上限長也讓他貼（不默默截掉）：下面寫字數，超過就說只會用前面那些
+  const chars = text.trim().length
+  const tooLong = chars > TRAILER_TEXT_MAX
 
   // 有字就問一次預估花費與有沒有文字模型；沒字就不問
   useEffect(() => {
@@ -48,7 +62,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
     }
     let stale = false
     const timer = setTimeout(() => {
-      call('trailer.check', { text: text.trim() })
+      call('trailer.check', { text: clipTrailerText(text.trim()) })
         .then((next) => {
           if (!stale) setCheck(next)
         })
@@ -67,7 +81,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
     setBusy(true)
     setError(undefined)
     call('trailer.plan', {
-      text: text.trim(),
+      text: clipTrailerText(text.trim()),
       targetSec: length,
       kind,
       ...(title.trim() === '' ? {} : { title: title.trim() }),
@@ -97,7 +111,6 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
         data-testid="trailer-text"
         rows={3}
         value={text}
-        maxLength={60_000}
         disabled={busy}
         placeholder={t('trailer.start.textPlaceholder')}
         onChange={(event) => {
@@ -105,6 +118,22 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
         }}
         className={TEXTAREA}
       />
+      {empty ? null : (
+        <p
+          data-testid="trailer-count"
+          className={tooLong ? 'text-xs text-warning' : 'text-xs text-fg-subtle'}
+        >
+          {t('trailer.start.count', {
+            used: chars.toLocaleString('en-US'),
+            max: TRAILER_TEXT_MAX.toLocaleString('en-US'),
+          })}
+          {tooLong ? (
+            <span className="block">
+              {t('trailer.start.onlyFirst', { max: TRAILER_TEXT_MAX.toLocaleString('en-US') })}
+            </span>
+          ) : null}
+        </p>
+      )}
       <input
         data-testid="trailer-title"
         value={title}

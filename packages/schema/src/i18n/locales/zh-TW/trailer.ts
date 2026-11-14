@@ -70,6 +70,8 @@ export const trailer = {
   'trailer.lengthSec': '{n} 秒',
   'trailer.start.title': '做預告片',
   'trailer.start.textPlaceholder': '貼上書的一段文字或故事',
+  'trailer.start.count': '{used}／{max} 字',
+  'trailer.start.onlyFirst': '只會用前 {max} 字。',
   'trailer.start.titlePlaceholder': '書名',
   'trailer.start.length': '長度',
   'trailer.start.kind': '類型',
