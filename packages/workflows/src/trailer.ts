@@ -5,6 +5,9 @@ import {
   CARD_MAX_CJK,
   CARD_MAX_COUNT,
   CARD_MAX_WORDS,
+  IDEA_CARD_MAX_COUNT,
+  IDEA_VISUALS_MAX,
+  IDEA_VISUALS_MIN,
   CARD_SEC_PER_UNIT,
   FIRST_BEAT_MAX_SEC,
   NARRATION_MAX_CJK_PER_SEC,
@@ -54,6 +57,16 @@ const SEGMENT_NAMES: Readonly<Record<string, string>> = {
   title: '片名與行動（片名卡，什麼都不用寫）',
 }
 
+/** 觀點型各段的說明（key 跟劇情型的 hook 同名，但意思不一樣，所以分開放）。 */
+const IDEA_SEGMENT_NAMES: Readonly<Record<string, string>> = {
+  hook: '鉤子（一個反直覺的問句，或讀者的痛點：一張大字卡加一個隱喻畫面；第一格仍然是畫面）',
+  claim: '核心主張（「如果……呢？」這本書的那一個想法，用一句話說清楚）',
+  gains: '三個收穫（三張字卡，各配一個隱喻畫面，不是人物劇情；一張字卡講一個收穫）',
+  author: '作者憑什麼（作者是誰、做過什麼，只用使用者提供的字）',
+  praise: '推薦語（只用使用者提供的原文）',
+  title: '封面與行動（片名卡，什麼都不用寫：封面、書名、作者、上市資訊由程式放）',
+}
+
 const DENSITY_TEXT = {
   none: '不說話',
   sparse: '旁白只有片語或一句',
@@ -68,8 +81,7 @@ const ANGLE_HINTS =
 /** 目標秒數寫成「30」「7.5」。 */
 const secText = (sec: number): string => String(Math.round(sec * 100) / 100)
 
-/** 寫腳本給文字模型的 system prompt。故事不是中文時多一句「用故事的語言寫」；中文的內容不變。 */
-export function trailerSystemPrompt(input: {
+interface TrailerPromptInput {
   text: string
   settings: TrailerSettings
   guide: string
@@ -77,7 +89,75 @@ export function trailerSystemPrompt(input: {
   /** 已經建好的場景卡名字：同一個地方要用一模一樣的名字（沿用既有的卡）。 */
   knownLocations?: readonly string[]
   style: QuickStyleId
-}): string {
+}
+
+/**
+ * 觀點型（商業書、工具書、非虛構）的 system prompt。跟劇情型的差別：旁白是連續、有自信的說明口吻（對讀者說話，講觀念與做法，
+ * 不賣關子）；沒有角色，改成 3～5 個主視覺（場景卡）；字卡是主角（全片最多 7 張）；推薦語與作者只用使用者提供的字。
+ * 劇情型與懸念短版的提示一字不動（`trailerSystemPrompt` 對它們照舊），逐字釘在 prompts-golden.test.ts。
+ */
+function ideaSystemPrompt(input: TrailerPromptInput): string {
+  const { settings } = input
+  const template = TRAILER_TEMPLATES.idea
+  const hasClaims = settings.claims.length > 0
+  const hasAuthor = settings.author.trim() !== ''
+  const outline = template.segments
+    .map(
+      (segment) =>
+        `${segment.key}＝${IDEA_SEGMENT_NAMES[segment.key] ?? segment.key}，約 ${secText(segment.share * settings.targetSec)} 秒，${DENSITY_TEXT[segment.narrationDensity]}，字卡最多 ${String(segment.maxCards)} 張`,
+    )
+    .join('；')
+  const given = [
+    settings.title ? `書名「${settings.title}」（title 欄位照這個寫）` : '',
+    hasAuthor ? `作者「${settings.author}」` : '',
+    settings.tagline ? `標語「${settings.tagline}」：放成一張字卡，字一個都不要改` : '',
+    settings.endLine ? `片尾那一行「${settings.endLine}」（片名卡會放，你不用寫）` : '',
+    settings.musicMood ? `配樂情緒：${settings.musicMood}` : '',
+  ].filter((line) => line !== '')
+  return (
+    '你是書籍預告片的腳本助手。讀使用者給的文本（商業書、工具書或非虛構的內文、摘要），寫一支「觀點型」預告片：一串依序排列的格子（beats），每一格有種類與秒數。' +
+    '觀點型預告片的目的是讓人想讀這本書：用說明的口吻講清楚這本書的那一個想法，和它帶給讀者的三個收穫；不要照順序摘要整本書，也沒有劇情與角色。' +
+    `格子種類 beatKind 只有四種：video（會動的畫面）、still（一張靜態畫面慢慢推近或拉遠）、card（只有字的字卡）、title（片名卡，最後一格，只放書名與行動，不用寫其他欄位）。` +
+    `依序分成這幾段：${outline}。每一格的 segment 填段落代號。字卡比畫面重要：每個重點都用一張字卡寫出來，畫面只負責配上一個隱喻。` +
+    (hasClaims
+      ? `推薦語（praise 那一段）：字卡與旁白只能逐字使用使用者提供的這些原文：${settings.claims.map((c) => `「${c}」`).join('、')}，不要改寫、不要自己加。`
+      : '使用者沒有提供推薦語：整支不要有 praise 那一段（不要寫任何推薦語、獎項、銷量或名人背書），把這一段的時間還給 gains。') +
+    (hasAuthor
+      ? '作者憑什麼（author 那一段）：只用使用者提供的作者名字，以及文本裡明明寫著的作者經歷；文本沒寫就只放名字，不要編造頭銜或經歷。'
+      : '使用者沒有提供作者：整支不要有 author 那一段，把這一段的時間還給 gains。') +
+    `目標總長 ${secText(settings.targetSec)} 秒：所有格子的 durationSec 加起來必須剛好等於 ${secText(settings.targetSec)}，每格秒數是 1/${String(LOCAL_BEAT_FPS)} 秒的整數倍（例如 2.5、0.75）。` +
+    `第一格必須是畫面（video 或 still），不能是字卡，最長 ${String(FIRST_BEAT_MAX_SEC)} 秒。節奏平穩，不必越剪越快；最後一格是片名卡，至少 ${String(TITLE_MIN_SEC)} 秒。` +
+    `字卡 card：cardText 最多 ${String(CARD_MAX_CJK)} 個中文字（英文最多 ${String(CARD_MAX_WORDS)} 個單字），cardSubtext 可以留空；停留秒數至少 ${String(CARD_BASE_SEC)} 加上每個字 ${String(CARD_SEC_PER_UNIT)} 秒；字卡是這一型的主角，全片最多 ${String(IDEA_CARD_MAX_COUNT)} 張（片名卡不算）。` +
+    (settings.narration
+      ? `旁白 dialogue 用說明的口吻：連續、有自信，像一個懂行的人直接對讀者說話（可以用「你」），講清楚觀念與做法，用肯定句，不要賣關子、不要用問句吊胃口。每格最多一句、不跨格，中文每秒最多 ${String(NARRATION_MAX_CJK_PER_SEC)} 個字（英文每秒最多 ${String(NARRATION_MAX_WORDS_PER_SEC)} 個單字），有旁白的格子加起來不超過全片的 ${String(Math.round(NARRATION_MAX_SHARE * 100))}%；字卡與片名卡的 dialogue 留空字串。`
+      : '這一支不要旁白：每一格的 dialogue 都是空字串。') +
+    '推薦語、獎項、銷量、名人背書只能用使用者提供的原文；沒提供就不要寫，也不要暗示。' +
+    '描述畫面（description）寫一個隱喻畫面（例如「凌晨還亮著燈的辦公室」「一張被劃掉的待辦清單」），優先用物件、環境、剪影，不是人物劇情；一格只做一件事，不要寫招牌、字幕、標題這類畫面裡的文字；所有的字都用字卡。' +
+    `${SIZE_HINTS}。${ANGLE_HINTS}。cameraMove 只能是 null（固定）或下列其中一個：${CAMERA_MOVES.map((c) => `${c.id}（${c.label}）`).join('、')}（still 格的運鏡決定推近、拉遠或搖鏡）。` +
+    `長度與句數：30 秒＝1 個鉤子＋3 句＋1 句收穫＋片名；60 秒最多 5 句；15 秒＝1 句＋片名。每一句都要讀得完（字卡的停留秒數夠長），句與句之間留一點只有音樂的空檔，不要塞滿。` +
+    `這一型沒有角色：每一格的 characters 一律是空陣列。角色那一步改成 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個主視覺：location 欄位寫這一格用的主視覺名字（短，例如「深夜辦公室」「待辦清單」），整支用 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個，同一個畫面每次用同一個名字，同一個主視覺可以給好幾格用（一次推近、一次平移）；字卡與片名卡留空。` +
+    PLACE_LOOK_INSTRUCTION +
+    'look 要寫畫得出來的具體地方與物件（例如「一張被劃掉大半的待辦清單」「凌晨還亮著一盞燈的辦公桌」），不要寫抽象的詞（例如「成功」「焦慮」「效率」），因為抽象的詞畫不出來。' +
+    ((input.knownLocations ?? []).length > 0
+      ? `已經建好的場景卡有：${(input.knownLocations ?? []).join('、')}。要用同樣的主視覺時，location 一定要用一模一樣的名字。`
+      : '') +
+    `music 欄位：一段配樂說明，照腳本的時間寫成有時間碼的描述（開場留白、單一樂器穩定推進、片名進來時多加一層、收尾），中間不要停一拍，純音樂、不要人聲。` +
+    `title 欄位：書名${settings.title ? '（使用者已提供，照寫）' : '（使用者沒提供，從文本取）'}。` +
+    (given.length > 0 ? `使用者提供的資訊：${given.join('；')}。` : '') +
+    `畫風是「${QUICK_STYLES[input.style].label}」。只輸出 JSON。` +
+    storyLanguageNote(
+      input.text,
+      '文本不是中文：description、action、dialogue、cardText、cardSubtext、music、title 這些給人看的文字請用文本使用的語言寫；beatKind、size、angle、cameraMove 這類固定選項照上面規定的值。',
+    ) +
+    (input.guide.trim() === ''
+      ? ''
+      : `\n\n預告片準則（安排格子時照這些原則，但不要違反上面的輸出格式；準則裡講劇情、角色與「不給答案」的部分，這一型不適用）：\n${input.guide.trim()}`)
+  )
+}
+
+/** 寫腳本給文字模型的 system prompt。故事不是中文時多一句「用故事的語言寫」；中文的內容不變。 */
+export function trailerSystemPrompt(input: TrailerPromptInput): string {
+  if (input.settings.kind === 'idea') return ideaSystemPrompt(input)
   const { settings } = input
   const template = TRAILER_TEMPLATES[settings.kind]
   const outline = template.segments
@@ -145,6 +225,7 @@ export function toCheckBeat(beat: TrailerScriptBeat): TrailerBeat {
       ? { card: { text: beat.cardText.trim(), subtext: beat.cardSubtext.trim() } }
       : {}),
     ...(beat.segment === '' ? {} : { segment: beat.segment }),
+    ...(picture && beat.location.trim() !== '' ? { location: beat.location.trim() } : {}),
   }
 }
 
@@ -398,6 +479,12 @@ export const MUSIC_END_FADE_SEC = 1.5
 /** 片名出現前先留多久的靜音（秒）。 */
 const MUSIC_SILENCE_BEFORE_TITLE_SEC = 0.8
 
+/** 觀點型各段的配樂情緒（沒列的段落用 SEGMENT_MUSIC_MOODS）：平穩，不停一拍。 */
+const IDEA_MUSIC_MOODS: Readonly<Record<string, string>> = {
+  hook: 'a single instrument, calm and steady, one clear opening thought',
+  title: 'the same single instrument carries on, one more layer joins as the title appears',
+}
+
 const SEGMENT_MUSIC_MOODS: Readonly<Record<string, string>> = {
   hook: 'a quiet, mysterious opening with sparse texture, an unanswered question',
   world: 'establish the world, steady and restrained, slowly warming',
@@ -405,6 +492,10 @@ const SEGMENT_MUSIC_MOODS: Readonly<Record<string, string>> = {
   escalate: 'rising intensity, driving rhythm, getting faster and louder',
   suspense: 'held breath, sustained tension at its peak, almost still',
   montage: 'fast cuts, relentless momentum, building to a peak',
+  claim: 'a clear, confident idea lands, steady pulse, calm and certain',
+  gains: 'three clear beats, one per takeaway, bright and forward-moving, never frantic',
+  author: 'warm and credible, a little more grounded and human',
+  praise: 'a brief lift, light and affirming, then settle before the title',
   title: 'the music falls away, then a single strong ending',
 }
 
@@ -480,7 +571,11 @@ export function musicStyleHint(brief: string): string {
 
 /** 預告片的配樂描述：純音樂、各段的時間與情緒、片名前短暫靜音、結尾一個重音、使用者選的情緒。 */
 export function trailerMusicPrompt(input: {
-  settings: Pick<TrailerSettings, 'musicMood'> & { musicBrief?: string | undefined }
+  settings: Pick<TrailerSettings, 'musicMood'> & {
+    musicBrief?: string | undefined
+    /** 沒給就當劇情型（舊的呼叫不用改）。 */
+    kind?: TrailerKind | undefined
+  }
   spans: readonly MusicSpan[]
   filmSec: number
   /** 專案的畫風代號；沒有就不寫。 */
@@ -490,18 +585,23 @@ export function trailerMusicPrompt(input: {
   const length = Math.round((filmSec + MUSIC_EXTRA_SEC) * 10) / 10
   const mood = input.settings.musicMood.trim()
   const style = musicStyleHint(input.settings.musicBrief ?? '')
+  const idea = input.settings.kind === 'idea'
+  const moodOf = (key: string): string =>
+    (idea ? IDEA_MUSIC_MOODS[key] : undefined) ?? SEGMENT_MUSIC_MOODS[key] ?? 'follow the picture'
   const timeline = spans
-    .map(
-      (span) =>
-        `${sec1(span.startSec)}–${sec1(span.endSec)} s ${span.key}: ${SEGMENT_MUSIC_MOODS[span.key] ?? 'follow the picture'}`,
-    )
+    .map((span) => `${sec1(span.startSec)}–${sec1(span.endSec)} s ${span.key}: ${moodOf(span.key)}`)
     .join('; ')
   const title = spans.find(
     (span) => span.key === 'title' && span.startSec > MUSIC_SILENCE_BEFORE_TITLE_SEC,
   )
-  const ending = title
-    ? `Leave a short silence at ${sec1(title.startSec - MUSIC_SILENCE_BEFORE_TITLE_SEC)}–${sec1(title.startSec)} s, right before the title card. Land one final accent at ${sec1(title.startSec)} s (when the title appears) and let it ring until ${sec1(filmSec)} s.`
-    : `Land one final accent at ${sec1(filmSec)} s (the end of the film).`
+  // 觀點型是講道理：單一樂器、平穩，不停一拍；片名進來時只多加一層
+  const ending = idea
+    ? title
+      ? `Keep one single instrument, steady and unhurried, from start to finish, with no silent break. When the title appears at ${sec1(title.startSec)} s, add one more layer and let it ring until ${sec1(filmSec)} s.`
+      : `Keep one single instrument, steady and unhurried, from start to finish. Land one soft final note at ${sec1(filmSec)} s.`
+    : title
+      ? `Leave a short silence at ${sec1(title.startSec - MUSIC_SILENCE_BEFORE_TITLE_SEC)}–${sec1(title.startSec)} s, right before the title card. Land one final accent at ${sec1(title.startSec)} s (when the title appears) and let it ring until ${sec1(filmSec)} s.`
+      : `Land one final accent at ${sec1(filmSec)} s (the end of the film).`
   return [
     'Instrumental only, no vocals, no singing, no spoken words.',
     `Original cinematic score for a book trailer, ${String(length)} s long. The film itself is ${String(Math.round(filmSec * 10) / 10)} s: the track is cut there and ends with a ${String(MUSIC_END_FADE_SEC)} s fade-out.`,

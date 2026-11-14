@@ -236,6 +236,46 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   })
 })
 
+describe('預告片工具：金句／觀點型（idea）', () => {
+  const IDEA =
+    '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半。'
+
+  it('plan_trailer(kind: idea)：腳本過檢查、5 張字卡（比劇情型的 4 張多）、沒有草稿角色；update_trailer 也收 idea', async () => {
+    const r = await start()
+    await r.call('create_project', { name: '金句' })
+    const planned = dataOf(
+      Planned,
+      await r.call('plan_trailer', { text: IDEA, kind: 'idea', targetSec: 30, title: '深度工作' }),
+    )
+    expect(planned.kind).toBe('idea')
+    expect(planned.matches).toBe(true)
+    expect(planned.errors).toEqual([])
+    expect(planned.beats.filter((b) => b.beatKind === 'card')).toHaveLength(5)
+    const chars = textOf(await r.call('list_characters', {}))
+    expect(chars).not.toContain('小葉')
+    expect(chars).not.toContain('老鐘')
+    const updated = dataOf(Trailer, await r.call('update_trailer', { kind: 'story' }))
+    expect(updated.kind).toBe('story')
+    expect(dataOf(Trailer, await r.call('update_trailer', { kind: 'idea' })).kind).toBe('idea')
+  })
+
+  it('指南說明金句／觀點型：沒有角色、用 3～5 個主視覺（場景卡）、字卡最多 7 張、推薦語與作者只用使用者給的字', async () => {
+    const r = await start()
+    const { text } = dataOf(
+      z.object({ text: z.string() }),
+      await r.call('load_guide', { topic: 'trailer' }),
+    )
+    const line = text.split('\n').find((l) => l.startsWith('- idea: ')) ?? ''
+    expect(line).toContain('no characters')
+    expect(line).toContain('3–5 main visuals')
+    expect(line).toContain('place cards')
+    expect(line).toContain('up to 7')
+    expect(line).toContain('only the user')
+    // 順序裡的「角色」那一步也說了觀點型不做
+    expect(text).toMatch(/6\. Characters[^\n]*idea/)
+  })
+})
+
 describe('預告片工具：花錢與額度（真實模式、假的 OpenRouter 伺服器）', () => {
   const startReal = async () => {
     const fake = await startFakeOpenRouter()

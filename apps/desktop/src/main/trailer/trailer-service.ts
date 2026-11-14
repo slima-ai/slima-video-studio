@@ -112,6 +112,8 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
         ...(shot.beatKind === 'card' && shot.card ? { card: shot.card } : {}),
         // 段落存在鏡頭上：跟寫腳本當下用同一套檢查（「懸念」那一格不算進節奏）
         ...(shot.segment === undefined ? {} : { segment: shot.segment }),
+        // 觀點型數「主視覺」有幾個：用場景卡的 id（同一張卡就是同一個）
+        ...(shot.locationId === undefined ? {} : { location: shot.locationId }),
       })),
       trailer,
       FPS,
@@ -314,7 +316,7 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
       // 一樣，就當沒寫。
       const peopleNames = new Set([
         ...handle.repos.characters.list().map((c) => c.name),
-        ...written.script.beats.flatMap((b) => b.characters),
+        ...(merged.kind === 'idea' ? [] : written.script.beats.flatMap((b) => b.characters)),
       ])
       const pictureTexts = new Set(written.script.beats.map((b) => b.description.trim()))
       const lookOf = (name: string): string => {
@@ -353,7 +355,8 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
         size: beat.size,
         angle: beat.angle,
         cameraMove: beat.cameraMove,
-        characters: beat.characters,
+        // 觀點型沒有角色（角色那一步改成主視覺＝場景卡）：模型就算寫了也不建角色卡
+        characters: merged.kind === 'idea' ? [] : beat.characters,
         ...(beat.beatKind === 'video' || beat.beatKind === 'still'
           ? { locationId: placeOf(beat.location) }
           : {}),

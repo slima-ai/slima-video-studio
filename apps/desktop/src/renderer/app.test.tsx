@@ -40,6 +40,44 @@ describe('App', () => {
     expect(await screen.findByTestId('canvas-root')).toBeTruthy()
   })
 
+  it('觀點型預告片專案：導覽列的「場景卡」叫「主視覺」；一般專案不變', async () => {
+    installFakeSvs({
+      'trailer.status': () => ({
+        exists: true,
+        settings: {
+          kind: 'idea',
+          targetSec: 30,
+          title: '',
+          author: '',
+          tagline: '',
+          endLine: '',
+          narration: true,
+          music: true,
+          musicMood: '',
+          musicBrief: '',
+          sourceText: '',
+          claims: [],
+        },
+        targetSec: 30,
+        scriptSec: 0,
+        beatCount: 0,
+        matches: false,
+        errors: [],
+        warnings: [],
+      }),
+    })
+    render(<App />)
+    expect(await screen.findByRole('button', { name: '主視覺' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '場景卡' })).toBeNull()
+  })
+
+  it('一般專案：導覽列還是「場景卡」', async () => {
+    installFakeSvs()
+    render(<App />)
+    expect(await screen.findByRole('button', { name: '場景卡' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '主視覺' })).toBeNull()
+  })
+
   it('沒有獨立的「快速開始」頁：一句話生成只在畫布上', async () => {
     installFakeSvs()
     render(<App />)

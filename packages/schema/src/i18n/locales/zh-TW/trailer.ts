@@ -33,6 +33,9 @@ export const trailer = {
   'trailer.ruleTitleNoAction': '沒填上市資訊，片名卡只會有書名。',
   'trailer.ruleUnverifiedClaim':
     '第 {n} 格提到了暢銷、獎項、推薦語之類的說法，但這不是你提供的。推薦語、獎項、銷量只能用你自己提供的原文；沒有就拿掉。',
+  'trailer.ruleTooManyVisuals':
+    '主視覺（地點）用了 {count} 個，最多 {max} 個。每個主視覺都要另外畫一張場景卡，請合併成較少的幾個，同一個畫面用同一個名字。',
+  'trailer.ruleFewVisuals': '主視覺（地點）只有 {count} 個，建議 {min} 個以上，畫面才不單調。',
   'trailer.ruleNoEscalation': '後段沒有比前段短（平均 {last} 秒對 {first} 秒）。',
   'trailer.beatVideo': '會動',
   'trailer.beatStill': '不動',
@@ -67,6 +70,8 @@ export const trailer = {
   'trailer.noTextModel': '現在沒有可用的文字模型，沒辦法寫腳本。請到設定選一個文字模型。',
   'trailer.kindStory': '劇情',
   'trailer.kindTeaser': '懸念短版',
+  'trailer.kindIdea': '金句',
+  'trailer.visuals': '主視覺',
   'trailer.lengthSec': '{n} 秒',
   'trailer.start.title': '做預告片',
   'trailer.start.textPlaceholder': '貼上書的一段文字或故事',

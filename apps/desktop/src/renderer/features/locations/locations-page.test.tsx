@@ -31,6 +31,60 @@ const images = (extra: Partial<LocationImagesState> = {}): LocationImagesState =
   ...extra,
 })
 
+describe('LocationsPage：觀點型專案的標題叫「主視覺」', () => {
+  const ideaStatus =
+    (kind: 'idea' | 'story', exists = true) =>
+    () => ({
+      exists,
+      settings: {
+        kind,
+        targetSec: 30,
+        title: '',
+        author: '',
+        tagline: '',
+        endLine: '',
+        narration: true,
+        music: true,
+        musicMood: '',
+        musicBrief: '',
+        sourceText: '',
+        claims: [],
+      },
+      targetSec: 30,
+      scriptSec: 0,
+      beatCount: 0,
+      matches: false,
+      errors: [],
+      warnings: [],
+    })
+
+  it('觀點型：頁面標題是「主視覺」；劇情型與一般專案還是「場景卡」', async () => {
+    installFakeSvs({
+      'locations.list': () => ({ locations: [] }),
+      'trailer.status': ideaStatus('idea'),
+    })
+    const first = render(<LocationsPage />)
+    expect(await screen.findByRole('heading', { name: '主視覺' })).toBeTruthy()
+    first.unmount()
+
+    installFakeSvs({
+      'locations.list': () => ({ locations: [] }),
+      'trailer.status': ideaStatus('story'),
+    })
+    const second = render(<LocationsPage />)
+    expect(await screen.findByRole('heading', { name: '場景卡' })).toBeTruthy()
+    second.unmount()
+
+    // 一般專案（沒有預告片設定）預設是劇情型，但沒有預告片：也是「場景卡」
+    installFakeSvs({
+      'locations.list': () => ({ locations: [] }),
+      'trailer.status': ideaStatus('idea', false),
+    })
+    render(<LocationsPage />)
+    expect(await screen.findByRole('heading', { name: '場景卡' })).toBeTruthy()
+  })
+})
+
 describe('LocationsPage', () => {
   it('沒有地點時說明怎麼開始；輸入名字新增後出現在清單並被選取', async () => {
     let created = false

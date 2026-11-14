@@ -13,6 +13,7 @@ import { Button } from '../../components/button'
 import { assetUrl } from '../../lib/asset'
 import { useDataVersion } from '../../lib/data-version'
 import { call, errorText } from '../../lib/svs'
+import { useTrailerStatus } from '../canvas/use-trailer-status'
 import { useLocationImages } from './use-location-images'
 import { Page } from '../../components/page'
 
@@ -365,6 +366,9 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
 const LOCATION_EVENTS = ['locations.changed', 'outline.changed'] as const
 
 export function LocationsPage() {
+  // 觀點型預告片專案：這一頁叫「主視覺」（只換標題，功能一樣）
+  const { status: trailerStatus } = useTrailerStatus()
+  const isIdea = trailerStatus?.exists === true && trailerStatus.settings.kind === 'idea'
   const [cards, setCards] = useState<LocationCardView[]>([])
   const [loaded, setLoaded] = useState(false)
   const [selectedId, setSelectedId] = useState<string>()
@@ -418,7 +422,7 @@ export function LocationsPage() {
   }
 
   return (
-    <Page title={t('chat.locations')} testId="locations-page">
+    <Page title={isIdea ? t('trailer.visuals') : t('chat.locations')} testId="locations-page">
       <div className="grid gap-6 md:grid-cols-[16rem_1fr]">
         <div className="space-y-3">
           <form

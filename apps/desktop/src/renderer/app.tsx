@@ -7,6 +7,7 @@ import { ChatProvider } from './features/chat/chat-context'
 import { ChatDrawer } from './features/chat/chat-drawer'
 import { CharactersPage } from './features/characters/characters-page'
 import { CanvasPage } from './features/canvas/canvas-page'
+import { useTrailerStatus } from './features/canvas/use-trailer-status'
 import { FilesPage } from './features/files/files-page'
 import { HomePage } from './features/projects/home-page'
 import { ProjectBar } from './features/projects/project-bar'
@@ -32,6 +33,9 @@ import { t } from '@svs/schema'
 
 export function App() {
   const { state, reload } = useAppData()
+  // 觀點型預告片專案：導覽列的「場景卡」叫「主視覺」
+  const { status: trailerStatus } = useTrailerStatus()
+  const ideaProject = trailerStatus?.exists === true && trailerStatus.settings.kind === 'idea'
   // 開 App 先到哪一頁：沒有專案可以接就是首頁，否則畫布。問到之前是 undefined（不畫，免得閃一下畫布）
   // 換介面語言時整棵樹會重新掛上（見 lib/i18n.tsx）：目前在哪一頁記在樹外面，重新掛上後回到同一頁
   const [view, setViewState] = useState<AppView | undefined>(viewMemory.view)
@@ -95,6 +99,7 @@ export function App() {
               drawer={view === 'canvas' ? <ChatDrawer /> : undefined}
               view={view}
               onNavigate={setView}
+              locationsLabel={ideaProject ? t('trailer.visuals') : undefined}
               queue={<QueuePanel />}
               showSlima={slima !== undefined && slima.state !== 'no_token'}
               header={

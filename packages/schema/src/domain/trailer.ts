@@ -92,8 +92,8 @@ export type CardJob = z.infer<typeof CardJobSchema>
 
 // ---- 預告片設定 ----
 
-/** 類型：story＝劇情型（小說、故事）、teaser＝懸念短版（15～30 秒，社群用）。知識觀點型（idea）留到第三階段。 */
-export const TrailerKindSchema = z.enum(['story', 'teaser'])
+/** 類型：story＝劇情型（小說、故事）、teaser＝懸念短版（15～30 秒，社群用）、idea＝觀點型（商業書、工具書、非虛構：沒有角色，字卡是主角）。 */
+export const TrailerKindSchema = z.enum(['story', 'teaser', 'idea'])
 export type TrailerKind = z.infer<typeof TrailerKindSchema>
 
 export const TRAILER_MIN_TARGET_SEC = 10
@@ -182,7 +182,10 @@ export interface TrailerTemplate {
   segments: readonly TrailerSegment[]
 }
 
-/** 劇情型：開場鉤子＋三幕＋片名（規劃第 2.2 節 A）；懸念短版：最強畫面開場、快切夾字卡、片名（B）。 */
+/**
+ * 劇情型：開場鉤子＋三幕＋片名（規劃第 2.2 節 A）；懸念短版：最強畫面開場、快切夾字卡、片名（B）；
+ * 觀點型：鉤子、核心主張、三個收穫、作者憑什麼、推薦語、封面與行動（C；這個六段是規劃自己設計的，不是業界結構）。
+ */
 export const TRAILER_TEMPLATES: Readonly<Record<TrailerKind, TrailerTemplate>> = {
   story: {
     kind: 'story',
@@ -203,6 +206,17 @@ export const TRAILER_TEMPLATES: Readonly<Record<TrailerKind, TrailerTemplate>> =
       { key: 'title', share: 0.17, narrationDensity: 'none', maxCards: 0 },
     ],
   },
+  idea: {
+    kind: 'idea',
+    segments: [
+      { key: 'hook', share: 0.15, narrationDensity: 'sparse', maxCards: 1 },
+      { key: 'claim', share: 0.2, narrationDensity: 'normal', maxCards: 1 },
+      { key: 'gains', share: 0.35, narrationDensity: 'normal', maxCards: 3 },
+      { key: 'author', share: 0.12, narrationDensity: 'normal', maxCards: 1 },
+      { key: 'praise', share: 0.08, narrationDensity: 'sparse', maxCards: 1 },
+      { key: 'title', share: 0.1, narrationDensity: 'none', maxCards: 0 },
+    ],
+  },
 }
 
 // ---- 規則用的常數（規劃第 2.3 節） ----
@@ -218,7 +232,13 @@ export const NARRATION_MAX_SHARE = 0.6
 /** 規則 6：字卡每張最多幾個中文字／英文單字；全片最多幾張；停留秒數 ＝ 0.8 ＋ 字數 × 0.2。 */
 export const CARD_MAX_CJK = 12
 export const CARD_MAX_WORDS = 6
+/** 全片字卡上限的預設值（劇情型、懸念短版）；觀點型的字卡是主角，上限另外算，見 `cardLimitOf`。 */
 export const CARD_MAX_COUNT = 4
+/** 觀點型的字卡上限：鉤子 1、核心主張 1、三個收穫 3、作者 1、推薦語 1。 */
+export const IDEA_CARD_MAX_COUNT = 7
+/** 觀點型的主視覺（用場景卡）要 3～5 個：太多每一個都要生成一張圖，太少看起來單調。 */
+export const IDEA_VISUALS_MIN = 3
+export const IDEA_VISUALS_MAX = 5
 export const CARD_BASE_SEC = 0.8
 export const CARD_SEC_PER_UNIT = 0.2
 /** 規則 7：片名卡最短幾秒。 */
@@ -254,6 +274,13 @@ export interface TrailerBeat {
   card?: { text: string; subtext?: string | undefined } | undefined
   /** 這一格屬於模板的哪一段（`TrailerSegment.key`）；規則 3 用它略過「懸念」那一格。可以不填。 */
   segment?: string | undefined
+  /** 這一格的地點（名字或代號，同一個地方要一樣）；觀點型用它數「主視覺」有幾個。可以不填。 */
+  location?: string | undefined
+}
+
+/** 全片字卡最多幾張（片名卡不算）：依類型。 */
+export function cardLimitOf(kind: TrailerKind): number {
+  return kind === 'idea' ? IDEA_CARD_MAX_COUNT : CARD_MAX_COUNT
 }
 
 export type TrailerIssueCode =
@@ -274,6 +301,8 @@ export type TrailerIssueCode =
   | 'title_no_action'
   | 'unverified_claim'
   | 'no_escalation'
+  | 'too_many_visuals'
+  | 'few_visuals'
 
 export interface TrailerIssue {
   code: TrailerIssueCode
@@ -417,7 +446,8 @@ export function checkTrailerScript(
     )
   }
 
-  // 規則 6：字卡
+  // 規則 6：字卡（上限依類型：觀點型的字卡是主角）
+  const cardLimit = cardLimitOf(settings.kind)
   let cardCount = 0
   beats.forEach((beat, index) => {
     if (beat.beatKind !== 'card') return
@@ -448,12 +478,8 @@ export function checkTrailerScript(
         index,
       )
     }
-    if (cardCount === CARD_MAX_COUNT + 1) {
-      error(
-        'too_many_cards',
-        t('trailer.ruleTooManyCards', { limit: String(CARD_MAX_COUNT) }),
-        index,
-      )
+    if (cardCount === cardLimit + 1) {
+      error('too_many_cards', t('trailer.ruleTooManyCards', { limit: String(cardLimit) }), index)
     }
   })
 
@@ -491,9 +517,11 @@ export function checkTrailerScript(
   beats.forEach((beat, index) => {
     const narrated = beat.beatKind === 'video' || beat.beatKind === 'still'
     const texts = [beat.card?.text, beat.card?.subtext, narrated ? beat.dialogue : undefined]
+    // 觀點型的「推薦語」那一段：整段都只能是使用者給的原文（不只是看起來像推薦語的字）
+    const quoted = settings.kind === 'idea' && beat.segment === 'praise'
     const invented = texts.some((text) => {
       const value = (text ?? '').trim()
-      if (value === '' || !CLAIM_PATTERN.test(value)) return false
+      if (value === '' || !(quoted || CLAIM_PATTERN.test(value))) return false
       const flat = normalize(value)
       return !allowed.some((source) => source.includes(flat))
     })
@@ -507,11 +535,39 @@ export function checkTrailerScript(
     }
   })
 
-  // 規則 3：一路升高（只提醒）。片名卡與「懸念」那一格不算。
+  // 觀點型：主視覺（地點）3～5 個
+  if (settings.kind === 'idea') {
+    const visuals = new Set(
+      beats.flatMap((beat) =>
+        (beat.beatKind === 'video' || beat.beatKind === 'still') && (beat.location ?? '') !== ''
+          ? [(beat.location ?? '').trim().toLowerCase()]
+          : [],
+      ),
+    )
+    if (visuals.size > IDEA_VISUALS_MAX) {
+      error(
+        'too_many_visuals',
+        t('trailer.ruleTooManyVisuals', {
+          count: String(visuals.size),
+          max: String(IDEA_VISUALS_MAX),
+        }),
+      )
+    } else if (visuals.size > 0 && visuals.size < IDEA_VISUALS_MIN) {
+      warnings.push({
+        code: 'few_visuals',
+        message: t('trailer.ruleFewVisuals', {
+          count: String(visuals.size),
+          min: String(IDEA_VISUALS_MIN),
+        }),
+      })
+    }
+  }
+
+  // 規則 3：一路升高（只提醒）。片名卡與「懸念」那一格不算。觀點型是講道理，節奏平沒關係，不比。
   const counted = beats.flatMap((beat, index) =>
     beat.beatKind === 'title' || beat.segment === 'suspense' ? [] : [secs[index] ?? 0],
   )
-  if (counted.length >= ESCALATION_MIN_BEATS) {
+  if (settings.kind !== 'idea' && counted.length >= ESCALATION_MIN_BEATS) {
     const third = Math.floor(counted.length / 3)
     const avg = (values: number[]) => values.reduce((s, v) => s + v, 0) / values.length
     const head = avg(counted.slice(0, third))

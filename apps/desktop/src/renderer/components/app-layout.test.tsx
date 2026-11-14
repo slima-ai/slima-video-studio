@@ -103,4 +103,11 @@ describe('AppLayout', () => {
       expect(within(button).getAllByText(visible).length).toBeGreaterThanOrEqual(1)
     }
   })
+
+  it('觀點型專案：導覽列的「場景卡」改叫「主視覺」（頁面一樣，只換名字）', () => {
+    render(<AppLayout view="canvas" locationsLabel="主視覺" />)
+    const nav = within(screen.getByTestId('layout-nav'))
+    expect(nav.getByRole('button', { name: '主視覺' })).toBeTruthy()
+    expect(nav.queryByRole('button', { name: '場景卡' })).toBeNull()
+  })
 })

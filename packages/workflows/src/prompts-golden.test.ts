@@ -53,6 +53,12 @@ const sha = (value: unknown): string =>
  * （另有 4 個 system prompt 的雜湊在 apps/desktop/src/main/story-language-prompts.test.ts。）
  */
 const GOLDEN: Record<string, string> = {
+  '寫預告片腳本 system prompt：觀點型 30 秒、沒有推薦語、有作者':
+    'd3e72abeaefd701e6e7f3176883dce9c79e6b0dc1f3d97c1eba5768c198a918a',
+  '寫預告片腳本 system prompt：觀點型 60 秒、有推薦語、沒有作者、不要旁白':
+    '42b1cd80a16a022f99d8286a239ab1e71fb4f5ffa0f338cf8bad15d8c5bc3e9b',
+  '配樂描述：觀點型（不停一拍、單一樂器、片名進來時加一層）':
+    '1059fd11a119db6f5495efeebf3791492ffacfd410f68741c81d1648f1b14263',
   '寫預告片腳本：地點外觀的要求（只寫地方本身，不寫人與動作）':
     '88c94e7aa1f05905d82ba240a14417b1de7c6760c62ae95761af3ef1324f9fed',
   '寫預告片腳本 system prompt：劇情型 30 秒、中文故事、有旁白':
@@ -211,6 +217,42 @@ const OUTPUTS: Record<string, () => unknown> = {
       settings: TrailerSettingsSchema.parse({ author: 'A. Writer', endLine: 'Out Dec 5' }),
       guide: DEFAULT_TRAILER_GUIDE_EN,
       knownCharacters: [],
+      style: 'realistic',
+    }),
+  '寫預告片腳本 system prompt：觀點型 30 秒、沒有推薦語、有作者': () =>
+    trailerSystemPrompt({
+      text: '越忙越沒進度，是因為優先順序錯了。',
+      settings: TrailerSettingsSchema.parse({ kind: 'idea', title: '深度工作', author: '某作者' }),
+      guide: DEFAULT_TRAILER_GUIDE,
+      knownCharacters: [],
+      knownLocations: ['深夜的辦公室'],
+      style: 'realistic',
+    }),
+  '寫預告片腳本 system prompt：觀點型 60 秒、有推薦語、沒有作者、不要旁白': () =>
+    trailerSystemPrompt({
+      text: 'Focus beats busyness.',
+      settings: TrailerSettingsSchema.parse({
+        kind: 'idea',
+        targetSec: 60,
+        narration: false,
+        claims: ['每個經理人都該讀——某某雜誌'],
+        tagline: '少做，才做得好',
+        endLine: '12 月 1 日上市',
+      }),
+      guide: DEFAULT_TRAILER_GUIDE_EN,
+      knownCharacters: [],
+      style: 'anime',
+    }),
+  '配樂描述：觀點型（不停一拍、單一樂器、片名進來時加一層）': () =>
+    trailerMusicPrompt({
+      settings: TrailerSettingsSchema.parse({ kind: 'idea', musicMood: '沉穩' }),
+      spans: [
+        { key: 'hook', startSec: 0, endSec: 4.5 },
+        { key: 'claim', startSec: 4.5, endSec: 10.5 },
+        { key: 'gains', startSec: 10.5, endSec: 27 },
+        { key: 'title', startSec: 27, endSec: 30 },
+      ],
+      filmSec: 30,
       style: 'realistic',
     }),
   '寫預告片腳本：地點外觀的要求（只寫地方本身，不寫人與動作）': () => PLACE_LOOK_INSTRUCTION,

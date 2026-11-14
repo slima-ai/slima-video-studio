@@ -11,7 +11,7 @@ import { demoTrailerScript, parseTrailerRequest } from './demo-trailer'
 
 const request = (
   story: string,
-  kind: 'story' | 'teaser',
+  kind: 'story' | 'teaser' | 'idea',
   sec: number,
   narration = true,
 ): LlmRequest => ({
@@ -34,6 +34,7 @@ const beatsOf = (script: ReturnType<typeof TrailerScriptSchema.parse>): TrailerB
     ...(b.dialogue === '' ? {} : { dialogue: b.dialogue }),
     ...(b.beatKind === 'card' ? { card: { text: b.cardText, subtext: b.cardSubtext } } : {}),
     segment: b.segment,
+    ...(b.location === '' ? {} : { location: b.location }),
   }))
 
 describe('示範模式的假腳本', () => {
@@ -47,6 +48,10 @@ describe('示範模式的假腳本', () => {
     ).toBeUndefined()
   })
 
+  it('讀得到 idea 類型', () => {
+    expect(parseTrailerRequest(request(STORY, 'idea', 30))).toMatchObject({ kind: 'idea' })
+  })
+
   it('讀得到類型、目標秒數、旁白開關', () => {
     expect(parseTrailerRequest(request(STORY, 'teaser', 15, false))).toMatchObject({
       kind: 'teaser',
@@ -55,7 +60,7 @@ describe('示範模式的假腳本', () => {
     })
   })
 
-  for (const kind of ['story', 'teaser'] as const) {
+  for (const kind of ['story', 'teaser', 'idea'] as const) {
     for (const sec of [10, 15, 30, 60, 90, 120]) {
       it(`${kind}、${String(sec)} 秒：格式對、加總剛好、一定過檢查器（沒有 error）`, () => {
         const script = TrailerScriptSchema.parse(demoTrailerScript(request(STORY, kind, sec)))
@@ -111,6 +116,9 @@ describe('示範模式的假腳本', () => {
     ['teaser', 15],
     ['teaser', 30],
     ['teaser', 90],
+    ['idea', 30],
+    ['idea', 60],
+    ['idea', 120],
   ] as const) {
     it(`${kind}、${String(sec)} 秒：每一格的畫面描述、旁白、字卡都不重複（看起來不像壞掉）`, () => {
       const script = TrailerScriptSchema.parse(demoTrailerScript(request(STORY, kind, sec)))
@@ -175,5 +183,91 @@ describe('示範模式的假腳本', () => {
     const a = JSON.stringify(demoTrailerScript(request(STORY, 'story', 30)))
     const b = JSON.stringify(demoTrailerScript(request(STORY, 'story', 30)))
     expect(a).toBe(b)
+  })
+})
+
+describe('示範模式的假腳本：觀點型', () => {
+  const IDEA_TEXT =
+    '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半。'
+  const scriptOf = (sec: number, narration = true) =>
+    TrailerScriptSchema.parse(demoTrailerScript(request(IDEA_TEXT, 'idea', sec, narration)))
+  const pictures = (script: ReturnType<typeof scriptOf>) =>
+    script.beats.filter((b) => b.beatKind === 'video' || b.beatKind === 'still')
+
+  it('10～120 秒（每 1 秒一個）、旁白開關：一定過檢查器，沒有 error 也沒有主視覺或節奏提醒', () => {
+    const bad: string[] = []
+    for (let sec = 10; sec <= 120; sec += 1) {
+      for (const narration of [true, false]) {
+        const script = scriptOf(sec, narration)
+        const settings = TrailerSettingsSchema.parse({
+          kind: 'idea',
+          targetSec: sec,
+          title: script.title,
+        })
+        const check = checkTrailerScript(beatsOf(script), settings, 24)
+        const problems = [
+          ...check.errors,
+          ...check.warnings.filter((w) => w.code !== 'title_no_action'),
+        ]
+        if (problems.length > 0 || Math.abs(check.totalSec - sec) > 0.05) {
+          bad.push(
+            `${String(sec)}s narration=${String(narration)}: ${problems.map((p) => p.code).join(',')}`,
+          )
+        }
+      }
+    }
+    expect(bad).toEqual([])
+  })
+
+  it('沒有角色：每一格 characters 都是空的；主視覺 3～5 個，字卡與片名卡沒有地點', () => {
+    for (const sec of [15, 30, 60, 120]) {
+      const script = scriptOf(sec)
+      expect(script.beats.every((b) => b.characters.length === 0)).toBe(true)
+      const visuals = new Set(pictures(script).map((b) => b.location))
+      expect(visuals.has('')).toBe(false)
+      expect(visuals.size).toBeGreaterThanOrEqual(3)
+      expect(visuals.size).toBeLessThanOrEqual(5)
+      expect(script.places.map((p) => p.name).sort()).toEqual([...visuals].sort())
+      expect(
+        script.beats
+          .filter((b) => b.beatKind === 'card' || b.beatKind === 'title')
+          .every((b) => b.location === ''),
+      ).toBe(true)
+    }
+  })
+
+  it('字卡是主角：30 秒有 5 張字卡（鉤子、主張、三個收穫）；段落只用 hook、claim、gains、title（示範沒有推薦語與作者可用）', () => {
+    const script = scriptOf(30)
+    expect(script.beats.filter((b) => b.beatKind === 'card')).toHaveLength(5)
+    expect(new Set(script.beats.map((b) => b.segment))).toEqual(
+      new Set(['hook', 'claim', 'gains', 'title']),
+    )
+    expect(script.beats[0]?.beatKind === 'video' || script.beats[0]?.beatKind === 'still').toBe(
+      true,
+    )
+  })
+
+  it('地點外觀只寫地方（沒有人物、沒有動作）；旁白是說明的口吻、不是問句', () => {
+    const script = scriptOf(30)
+    expect(script.places.length).toBeGreaterThanOrEqual(3)
+    for (const place of script.places) expect(place.look).not.toBe('')
+    const lines = script.beats.map((b) => b.dialogue).filter((d) => d !== '')
+    expect(lines.length).toBeGreaterThan(0)
+    for (const line of lines) expect(line).not.toMatch(/[？?]/)
+  })
+
+  it('英文介面：字卡、旁白、主視覺都是英文', async () => {
+    const { setLocale } = await import('@svs/schema')
+    setLocale('en')
+    try {
+      const script = scriptOf(30)
+      const words = [
+        ...script.beats.map((b) => `${b.cardText} ${b.dialogue}`),
+        ...script.places.map((p) => p.name),
+      ]
+      expect(words.join(' ')).not.toMatch(/\p{Script=Han}/u)
+    } finally {
+      setLocale('zh-TW')
+    }
   })
 })

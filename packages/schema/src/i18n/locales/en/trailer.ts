@@ -44,6 +44,10 @@ export const trailer = {
   'trailer.ruleTitleNoAction': 'No release info, so the title card will show only the book title.',
   'trailer.ruleUnverifiedClaim':
     'Shot {n} mentions a bestseller, award or blurb claim that you did not provide. Blurbs, awards and sales figures may only use text you provided; remove it if you have none.',
+  'trailer.ruleTooManyVisuals':
+    'The script uses {count} main visuals (places); the most is {max}. Each one needs its own place card, so merge them into fewer and use the same name for the same picture.',
+  'trailer.ruleFewVisuals':
+    'Only {count} main visual(s) (places); {min} or more keeps the pictures from feeling flat.',
   'trailer.ruleNoEscalation':
     'The last third isn’t shorter than the first (average {last} seconds against {first} seconds).',
   'trailer.beatVideo': 'Moving',
@@ -87,6 +91,8 @@ export const trailer = {
     'There is no text model available, so a script cannot be written. Pick a text model in Settings.',
   'trailer.kindStory': 'Story',
   'trailer.kindTeaser': 'Teaser',
+  'trailer.kindIdea': 'Key quotes',
+  'trailer.visuals': 'Key visuals',
   'trailer.lengthSec': '{n} s',
   'trailer.start.title': 'Make a trailer',
   'trailer.start.textPlaceholder': 'Paste a passage or story from the book',

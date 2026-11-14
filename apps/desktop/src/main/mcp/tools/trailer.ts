@@ -24,6 +24,7 @@ const KIND_NOTES: Partial<Record<TrailerKind, string>> = {
     'A novel or story. hook: the strongest 1–2 pictures, no card or logo first; world: who and where; turn: the moment it goes wrong ("until…"); escalate: fast cuts of 1.5–2.5 s with little or no narration; suspense: one held picture, a question, a beat of near silence; title: cover, title, where to buy.',
   teaser:
     'A 15–30 s social cut. The strongest picture first (about 2 s), then 3–5 fast picture shots with 2–3 short cards that together read as one question, then the title card. No narration; it must make sense with the sound off.',
+  idea: "A book of ideas (business, how-to, quotes, non-fiction): the words matter more than the pictures. There are no characters: the picture shots use 3–5 main visuals (concrete things and places, made as place cards; one visual can serve several shots). Narration is a continuous, confident explaining voice, never a mystery. The whole film may have up to 7 text cards. hook: a counter-intuitive question or the reader's pain; claim: the book's one idea; gains: three takeaways, one card each; author and praise: only the user's own words (author, claims), and if there are none, that segment is skipped and its time goes to gains. The pace stays steady (no speeding up) and the music does not stop before the title.",
 }
 
 /** 指南的「Shape of the film」：每一種類型的各段與佔比（從模板資料產生）加上有寫的說明。 */

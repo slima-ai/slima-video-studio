@@ -16,6 +16,8 @@ import {
   repairScript,
   toCheckBeat,
   trailerMusicPrompt,
+  trailerSystemPrompt,
+  trailerUserMessage,
   truncateUnits,
   writeTrailerScript,
 } from './trailer'
@@ -366,5 +368,206 @@ describe('trailerMusicPrompt：模型寫的風格句接進來（T6c）', () => {
         filmSec: 10,
       }),
     ).toBe(base)
+  })
+})
+
+// ---- 觀點型 ----
+
+describe('觀點型：寫腳本的提示改成說明的口吻', () => {
+  const ideaSettings = (patch: Record<string, unknown> = {}) =>
+    TrailerSettingsSchema.parse({
+      kind: 'idea',
+      targetSec: 30,
+      title: '深度工作',
+      author: '某作者',
+      ...patch,
+    })
+  const promptOf = (patch: Record<string, unknown> = {}, guide = '') =>
+    trailerSystemPrompt({
+      text: '這本書說：越忙越沒進度，是因為優先順序錯了。',
+      settings: ideaSettings(patch),
+      guide,
+      knownCharacters: [],
+      style: 'realistic',
+    })
+
+  it('是商業書、工具書的預告片：旁白是連續、有自信的說明口吻，對讀者說話，不賣關子、不用懸念', () => {
+    const p = promptOf()
+    expect(p).toContain('觀點型')
+    expect(p).toContain('說明的口吻')
+    expect(p).toContain('連續')
+    expect(p).toContain('你')
+    // 劇情型的那套（只給處境與問題、不給答案、懸念）不能出現在這裡
+    expect(p).not.toContain('不給答案')
+    expect(p).not.toContain('劇情摘要')
+    expect(p).not.toContain('懸念')
+    expect(p).not.toContain('越到後面剪得越快')
+  })
+
+  it('依序列出六段、各段約幾秒；字卡是主角：全片最多 7 張（不是 4 張）', () => {
+    const p = promptOf()
+    for (const key of ['hook', 'claim', 'gains', 'author', 'praise', 'title']) {
+      expect(p).toContain(`${key}＝`)
+    }
+    expect(p).toContain('hook＝鉤子')
+    expect(p).toContain('約 4.5 秒') // 30 秒的 15%
+    expect(p).toContain('約 10.5 秒') // 三個收穫 35%
+    expect(p).toContain('全片最多 7 張')
+    expect(p).not.toContain('全片最多 4 張')
+    expect(p).toContain('字卡比畫面重要')
+  })
+
+  it('沒有角色：角色那一步改成 3～5 個主視覺，用場景卡（location＋places）；畫面是隱喻、不是人物劇情', () => {
+    const p = promptOf()
+    expect(p).toContain('characters 一律是空陣列')
+    expect(p).toContain('3 到 5 個主視覺')
+    expect(p).toContain('location')
+    expect(p).toContain('places')
+    expect(p).toContain('隱喻')
+    expect(p).not.toContain('同一個角色在不同格子用同一個名字')
+  })
+
+  it('沒提供推薦語：整支不要「praise」那一段，時間還給 gains；提供了：只能逐字用那些原文', () => {
+    const none = promptOf()
+    expect(none).toContain('沒有提供推薦語')
+    const given = promptOf({ claims: ['每個經理人都該讀——某某雜誌'] })
+    expect(given).not.toContain('沒有提供推薦語')
+    expect(given).toContain('「每個經理人都該讀——某某雜誌」')
+    expect(given).toContain('逐字')
+  })
+
+  it('沒提供作者：不要「author」那一段；使用者給的書名、標語、上市資訊照劇情型的規矩帶進去', () => {
+    expect(promptOf({ author: '' })).toContain('沒有提供作者')
+    expect(promptOf()).not.toContain('沒有提供作者')
+    const p = promptOf({ tagline: '少做，才做得好', endLine: '12 月 1 日上市' })
+    expect(p).toContain('標語「少做，才做得好」')
+    expect(p).toContain('12 月 1 日上市')
+    expect(p).toContain('書名「深度工作」')
+  })
+
+  it('規則不變的部分照舊：加總剛好等於目標、第一格是畫面、片名卡、畫面裡不生成文字、不編造', () => {
+    const p = promptOf({}, '這是準則')
+    expect(p).toContain('剛好等於 30')
+    expect(p).toContain('第一格必須是畫面')
+    expect(p).toContain('片名卡')
+    expect(p).toContain('不要寫招牌、字幕、標題這類畫面裡的文字')
+    expect(p).toContain('只能用使用者提供的原文')
+    expect(p).toContain('這是準則')
+    expect(p).toContain('只輸出 JSON')
+  })
+
+  it('不要旁白時：每一格 dialogue 都是空字串', () => {
+    expect(promptOf({ narration: false })).toContain('這一支不要旁白')
+  })
+
+  it('使用者訊息帶類型 idea（示範模式的假模型靠它認得）', () => {
+    expect(trailerUserMessage('文字', ideaSettings())).toContain('類型：idea')
+  })
+
+  it('劇情型的提示一個字都沒變（逐字釘在 prompts-golden.test.ts）：仍然講處境與問題、最多 4 張', () => {
+    const p = trailerSystemPrompt({
+      text: '故事',
+      settings: TrailerSettingsSchema.parse({ title: 'x' }),
+      guide: '',
+      knownCharacters: [],
+      style: 'realistic',
+    })
+    expect(p).toContain('不給答案')
+    expect(p).toContain('全片最多 4 張')
+  })
+})
+
+describe('觀點型：toCheckBeat 帶地點、腳本過檢查器', () => {
+  it('畫面的格子帶 location，字卡與片名卡不帶', () => {
+    expect(toCheckBeat(beat({ location: '辦公室' })).location).toBe('辦公室')
+    expect(
+      toCheckBeat(beat({ beatKind: 'card', cardText: '字', location: '辦公室' })).location,
+    ).toBeUndefined()
+  })
+
+  it('主視覺用了 6 個：第一版被退回，錯誤訊息講的是「最多 5 個」；第二版合併成 3 個就過', async () => {
+    const ideaSettings = TrailerSettingsSchema.parse({
+      kind: 'idea',
+      targetSec: 21,
+      title: '深度工作',
+    })
+    const pics = (names: string[]) =>
+      names.map((location) => beat({ durationSec: 3, location, characters: [], segment: 'gains' }))
+    const make = (names: string[]) =>
+      script([
+        ...pics(names),
+        beat({ beatKind: 'title', durationSec: 3, description: '', segment: 'title' }),
+      ])
+    const tooMany = make(['a', 'b', 'c', 'd', 'e', 'f'])
+    // 6 × 3 ＋ 3 ＝ 21
+    const fixed = make(['a', 'b', 'c', 'a', 'b', 'c'])
+    const { studio, requests } = studioOf([tooMany, fixed])
+    const result = await writeTrailerScript(studio, { ...input, settings: ideaSettings }, ctx)
+    expect(result.retried).toBe(true)
+    expect(requests).toHaveLength(2)
+    const retryMessage = JSON.stringify(requests[1]?.messages.at(-1))
+    expect(retryMessage).toContain('最多 5 個')
+    expect(result.script.beats.map((b) => b.location)).toContain('c')
+  })
+})
+
+describe('觀點型：配樂描述有新段落的情緒', () => {
+  it('沒存段落的舊腳本照 idea 模板排六段；各段都有自己的情緒', () => {
+    const spans = musicSpansOf(undefined, 'idea', 30)
+    expect(spans.map((s) => s.key)).toEqual(['hook', 'claim', 'gains', 'author', 'praise', 'title'])
+    const text = trailerMusicPrompt({
+      settings: TrailerSettingsSchema.parse({ kind: 'idea' }),
+      spans,
+      filmSec: 30,
+    })
+    for (const key of ['claim', 'gains', 'author', 'praise']) {
+      expect(text).toContain(`s ${key}: `)
+      expect(text).not.toContain(`s ${key}: follow the picture`)
+    }
+  })
+})
+
+describe('觀點型：配樂不停一拍、單一樂器平穩、片名進來時加一層', () => {
+  const spans = musicSpansOf(undefined, 'idea', 30)
+  const idea = trailerMusicPrompt({
+    settings: TrailerSettingsSchema.parse({ kind: 'idea' }),
+    spans,
+    filmSec: 30,
+  })
+
+  it('沒有「片名前留一小段靜音」那句；有單一樂器、平穩、片名進來時多一層', () => {
+    expect(idea).not.toContain('Leave a short silence')
+    expect(idea).not.toContain('the music falls away')
+    expect(idea).toContain('single instrument')
+    expect(idea).toContain('steady')
+    expect(idea).toContain('add one more layer')
+    // 片名那一段是 27～30 秒（10%）：就在這個時間點加一層
+    expect(idea).toMatch(/at 27\.0 s/)
+    expect(idea).toContain('Instrumental only, no vocals')
+  })
+
+  it('其他類型的配樂描述不變（片名前留靜音）', () => {
+    const story = trailerMusicPrompt({
+      settings: TrailerSettingsSchema.parse({ kind: 'story' }),
+      spans: musicSpansOf(undefined, 'story', 30),
+      filmSec: 30,
+    })
+    expect(story).toContain('Leave a short silence')
+  })
+
+  it('寫腳本的提示：地方只寫畫得出來的具體東西，不寫抽象詞；各長度的句數', () => {
+    const p = trailerSystemPrompt({
+      text: '文本',
+      settings: TrailerSettingsSchema.parse({ kind: 'idea', targetSec: 30 }),
+      guide: '',
+      knownCharacters: [],
+      style: 'realistic',
+    })
+    expect(p).toContain('畫得出來的具體')
+    expect(p).toContain('不要寫抽象')
+    expect(p).toContain('1 個鉤子')
+    expect(p).toContain('每一句都要讀得完')
+    expect(p).toContain('15 秒')
+    expect(p).toContain('60 秒')
   })
 })
