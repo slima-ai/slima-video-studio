@@ -140,4 +140,16 @@ export const trailer = {
   'trailer.beatSecondsImpossible':
     'The other beats are already as short as they can be. This one can be at most {max} seconds.',
   'trailer.firstBeatTooLong': 'The first beat can be at most {max} seconds.',
+  'trailer.edit.beat': 'Beat {n}',
+  'trailer.edit.seconds': 'Length in seconds',
+  'trailer.edit.secondsUnit': 's',
+  'trailer.edit.shorter': 'Shorten by 0.25 s',
+  'trailer.edit.longer': 'Lengthen by 0.25 s',
+  'trailer.edit.segment': 'Section',
+  'trailer.edit.noSegment': '(No section)',
+  'trailer.edit.action': 'Action',
+  'trailer.edit.narration': 'Narration',
+  'trailer.edit.countChars': '{n}/{max} characters',
+  'trailer.edit.countWords': '{n}/{max} words',
+  'trailer.edit.titleNote': 'The title card text is changed in Settings on the right.',
 } as const

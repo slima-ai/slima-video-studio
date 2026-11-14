@@ -70,6 +70,43 @@ test.describe('預告片整頁：導覽、落點、腳本條、播放器（示�
     await expect(page.getByTestId('trailer-page')).toBeVisible()
   })
 
+  test('點一格在下面改：[＋] 加 0.25 秒、標題列仍是 30／30 秒；字卡的編輯區沒有影片的欄位；復原', async ({
+    page,
+  }, testInfo) => {
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await page.getByTestId('trailer-text').fill(STORY)
+    await page.getByTestId('trailer-go').click()
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
+
+    // 第 2 格是影片格：描述、動作、旁白、秒數
+    await page.getByTestId('strip-cell-1').click()
+    await expect(page.getByTestId('beat-editor')).toBeVisible()
+    await expect(page.getByTestId('beat-description')).toBeVisible()
+    await expect(page.getByTestId('beat-action')).toBeVisible()
+    const before = Number(await page.getByTestId('beat-seconds-input').inputValue())
+    await page.getByTestId('beat-seconds-plus').click()
+    await expect
+      .poll(async () => Number(await page.getByTestId('beat-seconds-input').inputValue()))
+      .toBeCloseTo(before + 0.25, 1)
+    await expect(page.getByTestId('trailer-page-length')).toHaveText('30／30 秒')
+    await shoot(page, testInfo, 'b1-03-beat-seconds-plus.png')
+
+    // 字卡格：只有字、小字、秒數，沒有入點出點、原聲、旁白
+    const cardCell = page.locator('[data-testid^="strip-cell-"][data-kind="card"]').first()
+    await cardCell.click()
+    await expect(page.getByTestId('beat-card-text')).toBeVisible()
+    await expect(page.getByTestId('beat-editor')).not.toContainText(/入點|出點|原聲|旁白|再花一次/)
+    await shoot(page, testInfo, 'b1-04-card-editor.png')
+
+    // 復原：回到加之前的秒數，總長一直是 30
+    await page.keyboard.press('ControlOrMeta+z')
+    await page.getByTestId('strip-cell-1').click()
+    await expect
+      .poll(async () => Number(await page.getByTestId('beat-seconds-input').inputValue()))
+      .toBeCloseTo(before, 1)
+    await expect(page.getByTestId('trailer-page-length')).toHaveText('30／30 秒')
+  })
+
   test('一般專案（沒有預告片設定）：導覽沒有「預告片」這一項，落點是畫布', async ({ page }) => {
     await page.getByRole('button', { name: '畫布', exact: true }).click()
     await expect(page.getByTestId('trailer-start')).toBeVisible()

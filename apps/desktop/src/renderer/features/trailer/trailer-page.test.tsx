@@ -171,4 +171,20 @@ describe('TrailerPage：預告片整頁', () => {
     )
     expect(await screen.findByTestId('chat-launcher')).toBeTruthy()
   })
+
+  it('選到哪一格，下面的編輯區就是那一格（字卡格沒有畫面描述與旁白）', async () => {
+    open([
+      inScene(1, { description: '第一格描述' }),
+      inScene(2, { beatKind: 'card', card: { text: '有些光', subtext: '' } }),
+    ])
+    render(<TrailerPage status={status()} />)
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLTextAreaElement>('beat-description').value).toBe('第一格描述')
+    })
+    fireEvent.click(screen.getByTestId('strip-cell-1'))
+    expect(screen.getByTestId('beat-editor').dataset.kind).toBe('card')
+    expect(screen.getByTestId<HTMLInputElement>('beat-card-text').value).toBe('有些光')
+    expect(screen.queryByTestId('beat-description')).toBeNull()
+    expect(screen.queryByTestId('beat-narration')).toBeNull()
+  })
 })

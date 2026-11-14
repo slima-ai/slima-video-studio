@@ -8,6 +8,7 @@ import { trailerBadgeLength, TrailerBadge } from '../canvas/trailer-badge'
 import { TrailerStartCard } from '../canvas/trailer-start'
 import { ChatLauncher } from '../chat/chat-launcher'
 import { useShots } from '../shots/use-shots'
+import { BeatEditor } from './beat-editor'
 import { ScriptStrip } from './script-strip'
 import { beatIndexAt, cellStarts, FALLBACK_WIDTH_PX } from './strip-math'
 import { TrailerPlayer } from './trailer-player'
@@ -180,6 +181,7 @@ export function TrailerPage({ status }: { status: TrailerStatus }) {
                 musicOn={status.settings.music}
               />
             </div>
+            {selected ? <BeatEditor key={selected.id} beat={selected} status={status} /> : null}
           </div>
           <aside
             data-testid="trailer-page-settings"
