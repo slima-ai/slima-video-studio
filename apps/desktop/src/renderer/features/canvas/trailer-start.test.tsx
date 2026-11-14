@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { appError, installFakeSvs } from '../../test/fake-svs'
-import { choose } from '../../test/select'
+import { choose, optionLabels } from '../../test/select'
 import { TrailerStartCard } from './trailer-start'
 
 afterEach(cleanup)
@@ -149,5 +149,29 @@ describe('TrailerStartCard：做預告片', () => {
     })
     fireEvent.click(screen.getByTestId('trailer-go'))
     expect((await screen.findByTestId('trailer-error')).textContent).toContain('縮短一點再試')
+  })
+
+  it('懸念短版只能選 15、30 秒；已經選了 60 秒再改成懸念短版，長度回到 30 秒；改回劇情型四個都有', async () => {
+    const plan = vi.fn(() => RESULT)
+    installFakeSvs({ 'trailer.check': () => CHECK_DEMO, 'trailer.plan': plan })
+    render(<TrailerStartCard />)
+    expect(optionLabels('trailer-length')).toEqual(['15 秒', '30 秒', '60 秒', '90 秒'])
+    choose('trailer-length', '60')
+    choose('trailer-kind', 'teaser')
+    expect(screen.getByTestId('trailer-length').textContent).toContain('30 秒')
+    expect(optionLabels('trailer-length')).toEqual(['15 秒', '30 秒'])
+    choose('trailer-kind', 'story')
+    expect(optionLabels('trailer-length')).toEqual(['15 秒', '30 秒', '60 秒', '90 秒'])
+    // 送出的請求：改成懸念短版之後長度是 30
+    choose('trailer-length', '90')
+    choose('trailer-kind', 'teaser')
+    fill('一座斷橋。')
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+    fireEvent.click(screen.getByTestId('trailer-go'))
+    await waitFor(() => {
+      expect(plan).toHaveBeenCalledWith({ text: '一座斷橋。', targetSec: 30, kind: 'teaser' })
+    })
   })
 })

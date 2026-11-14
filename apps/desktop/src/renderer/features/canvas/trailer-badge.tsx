@@ -7,7 +7,7 @@ import { Button } from '../../components/button'
 import { SimpleSelect } from '../../components/list-select'
 import { cn } from '../../lib/cn'
 import { call, errorText } from '../../lib/svs'
-import { TRAILER_LENGTHS } from './trailer-start'
+import { lengthsFor } from './trailer-start'
 
 /** 面板寬度（窄視窗會縮到視窗寬減 24）。 */
 const PANEL_WIDTH = 320
@@ -143,9 +143,11 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
   const { settings } = status
   // 旁白念不完的格子不在這裡列（標在那幾格上）；其他錯誤照列
   const otherErrors = status.errors.filter((e) => e.code !== 'narration_too_dense')
-  const lengths: number[] = TRAILER_LENGTHS.includes(settings.targetSec as 15)
-    ? [...TRAILER_LENGTHS]
-    : [...TRAILER_LENGTHS, settings.targetSec].sort((a, b) => a - b)
+  // 這個類型能選的長度；目前的長度不在裡面（Claude 設的、舊專案）就照原樣列出，不要悄悄換掉
+  const allowed = lengthsFor(settings.kind)
+  const lengths: number[] = allowed.includes(settings.targetSec)
+    ? [...allowed]
+    : [...allowed, settings.targetSec].sort((a, b) => a - b)
 
   const save = (patch: Record<string, unknown>, refit = false): void => {
     setBusy(refit ? 'fit' : 'save')

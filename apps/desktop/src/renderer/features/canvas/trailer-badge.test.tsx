@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { installFakeSvs } from '../../test/fake-svs'
-import { choose } from '../../test/select'
+import { choose, optionLabels } from '../../test/select'
 import { TrailerBadge, trailerBadgeText } from './trailer-badge'
 
 afterEach(cleanup)
@@ -180,5 +180,16 @@ describe('TrailerBadge：頂列的預告片標籤', () => {
     expect(screen.queryByTestId('trailer-rewrite')).toBeNull()
     expect(screen.queryByTestId('trailer-no-source')).toBeNull()
     expect(screen.queryByText(/沒辦法重寫/)).toBeNull()
+  })
+
+  it('懸念短版的設定面板只列 15、30 秒；已經是 60 秒的（Claude 設的）照原樣多列一個', () => {
+    installFakeSvs({ 'trailer.check': () => CHECK })
+    const first = render(<TrailerBadge status={status({}, { kind: 'teaser' })} />)
+    fireEvent.click(screen.getByTestId('trailer-badge'))
+    expect(optionLabels('trailer-panel-length')).toEqual(['15 秒', '30 秒'])
+    first.unmount()
+    render(<TrailerBadge status={status({ targetSec: 60 }, { kind: 'teaser', targetSec: 60 })} />)
+    fireEvent.click(screen.getByTestId('trailer-badge'))
+    expect(optionLabels('trailer-panel-length')).toEqual(['15 秒', '30 秒', '60 秒'])
   })
 })

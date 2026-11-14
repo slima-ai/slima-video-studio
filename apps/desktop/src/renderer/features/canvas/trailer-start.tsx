@@ -15,6 +15,10 @@ const FIELD =
 /** 長度選單：常用的四種（寫預告片的目標秒數）。 */
 export const TRAILER_LENGTHS = [15, 30, 60, 90] as const
 
+/** 懸念短版是給社群看的 15～30 秒；選它的時候長度只留這兩個。劇情型四個都有。 */
+export const lengthsFor = (kind: TrailerKind): readonly number[] =>
+  kind === 'teaser' ? TRAILER_LENGTHS.filter((n) => n <= 30) : TRAILER_LENGTHS
+
 /** 估價要等使用者停手這麼久才問（打字時不連續呼叫）。 */
 const CHECK_DEBOUNCE_MS = 400
 
@@ -125,7 +129,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
             label={t('trailer.start.length')}
             value={String(length)}
             disabled={busy}
-            options={TRAILER_LENGTHS.map((n) => ({
+            options={lengthsFor(kind).map((n) => ({
               value: String(n),
               label: t('trailer.lengthSec', { n }),
             }))}
@@ -148,7 +152,10 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
               { value: 'teaser', label: t('trailer.kindTeaser') },
             ]}
             onChange={(value) => {
-              setKind(value === 'teaser' ? 'teaser' : 'story')
+              const next = value === 'teaser' ? 'teaser' : 'story'
+              setKind(next)
+              // 60、90 秒不能用在懸念短版：已經選了就改回 30 秒
+              if (!lengthsFor(next).includes(length)) setLength(30)
             }}
           />
         </div>
