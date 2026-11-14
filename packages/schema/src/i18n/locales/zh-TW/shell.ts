@@ -1,6 +1,7 @@
 export const shell = {
   'shell.loading': '載入中',
   'shell.loading2': '載入中…',
+  'shell.trailer': '預告片',
   'shell.canvas': '畫布',
   'shell.outline': '大綱',
   'shell.storyboard': '分鏡表',

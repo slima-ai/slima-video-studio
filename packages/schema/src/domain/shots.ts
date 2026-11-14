@@ -74,6 +74,8 @@ export const ShotViewSchema = z.object({
   beatKind: BeatKindSchema.optional(),
   /** 字卡內容（beatKind 是 card）；沒有就沒有這個欄位。 */
   card: ShotCardSchema.optional(),
+  /** 預告片的段落代號（hook、world…）；沒有段落（一般鏡頭、手動加的格子）就沒有這個欄位。 */
+  segment: z.string().optional(),
   /**
    * 預告片專案的影片格：格長超過現在影片模型一支影片的上限（影片只會有上限那麼長，比格長短）。
    * 其他情況沒有這個欄位。

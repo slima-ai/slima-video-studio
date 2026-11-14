@@ -252,6 +252,10 @@ describe('trailer.status：跟寫腳本當下用同一套節奏檢查（段落�
         ?.repos.shots.list()
         .map((s) => s.segment),
     ).toEqual(script.beats.map((b) => (b.segment === '' ? undefined : b.segment)))
+    // 畫面（預告片頁的腳本條、畫布卡片）看到的鏡頭也帶著段落；沒有段落就沒有這個欄位
+    expect(shotsOf(h).map((s) => s.segment)).toEqual(
+      script.beats.map((b) => (b.segment === '' ? undefined : b.segment)),
+    )
   })
 })
 

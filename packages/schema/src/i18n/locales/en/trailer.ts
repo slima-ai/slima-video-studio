@@ -119,4 +119,7 @@ export const trailer = {
   'trailer.panel.rewriteConfirm': 'Rewrite it',
   'trailer.panel.replaceWarn':
     '{generated} generated pictures will be replaced. You can undo this.',
+  'trailer.page.mock': 'Preview',
+  'trailer.page.player': 'Trailer player',
+  'trailer.page.noPicture': 'This beat has no picture yet',
 } as const

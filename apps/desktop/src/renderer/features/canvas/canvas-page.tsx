@@ -36,6 +36,7 @@ import {
 import { Button } from '../../components/button'
 import { Spinner } from '../../components/skeleton'
 import { LONG_TOAST_MS, useToast } from '../../components/toast'
+import { useAppNavigation } from '../../lib/app-navigation'
 import { useHistory } from '../../lib/history'
 import { useShots } from '../shots/use-shots'
 import { creditsPreferred } from '../../lib/export-credits'
@@ -185,6 +186,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const toast = useToast()
   const theme = useResolvedTheme()
   const history = useHistory()
+  const { openTrailer } = useAppNavigation()
   const containerRef = useRef<HTMLDivElement>(null)
 
   // 一開始的視角只決定一次：上次的視角（縮到看不清楚的不算，卡片只剩色塊）；
@@ -2168,7 +2170,10 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                     })
                   }}
                   onSplit={split.start}
-                  onTrailerDone={onChanged}
+                  onTrailerDone={() => {
+                    onChanged()
+                    openTrailer()
+                  }}
                   onOneliner={(story) => {
                     // 放在內容的左邊（自動排版的場從它右邊長出來），畫面會平移過去
                     addNode('oneliner', undefined, undefined, story)

@@ -7,6 +7,8 @@ import { ChatProvider } from './features/chat/chat-context'
 import { ChatDrawer } from './features/chat/chat-drawer'
 import { CharactersPage } from './features/characters/characters-page'
 import { CanvasPage } from './features/canvas/canvas-page'
+import { useTrailerStatus } from './features/canvas/use-trailer-status'
+import { TrailerPage } from './features/trailer/trailer-page'
 import { FilesPage } from './features/files/files-page'
 import { HomePage } from './features/projects/home-page'
 import { ProjectBar } from './features/projects/project-bar'
@@ -39,11 +41,31 @@ export function App() {
     viewMemory.view = next
     setViewState(next)
   }, [])
+  // 打開專案後落在哪：有預告片設定的專案是「預告片」頁，其他專案照舊是畫布
+  const landing = useCallback(async (): Promise<AppView> => {
+    try {
+      return (await call('trailer.status', {})).exists ? 'trailer' : 'canvas'
+    } catch {
+      return 'canvas'
+    }
+  }, [])
+  // 專案頁、首頁、專案列在開好專案之後說「去畫布」，那其實是「去這個專案的落點」；左邊導覽的「畫布」是真的去畫布
+  const goFromPage = useCallback(
+    (next: AppView) => {
+      if (next === 'canvas') void landing().then(setView)
+      else setView(next)
+    },
+    [landing, setView],
+  )
+  const openTrailer = useCallback(() => {
+    setView('trailer')
+  }, [setView])
   useEffect(() => {
     let alive = true
     call('app.startView', {})
-      .then(({ view: first }) => {
-        if (alive) setViewState((now) => now ?? first)
+      .then(async ({ view: first }) => {
+        const start = first === 'canvas' ? await landing() : first
+        if (alive) setViewState((now) => now ?? start)
       })
       // 問不到就照老樣子進畫布
       .catch(() => {
@@ -57,6 +79,15 @@ export function App() {
     setView('settings')
   }, [])
   const slima = useSlimaStatus()
+  const trailer = useTrailerStatus()
+  // 這個專案沒有預告片設定（換了專案、或設定被清掉）時，不停在預告片頁
+  const page: AppView =
+    view === 'trailer' && trailer.status?.exists === false ? 'canvas' : (view ?? 'canvas')
+  const refreshTrailer = trailer.refresh
+  // 換頁時重問一次：換了專案之後，導覽上的「預告片」跟著新專案
+  useEffect(() => {
+    refreshTrailer()
+  }, [view, refreshTrailer])
 
   // 外觀跟著設定走（設定還沒載入時維持目前的樣子）
   const theme = state.status === 'ready' ? state.data.settings.theme : undefined
@@ -80,7 +111,7 @@ export function App() {
 
   return (
     <ToastProvider>
-      <AppNavigationProvider value={{ openSettings }}>
+      <AppNavigationProvider value={{ openSettings, openTrailer }}>
         <ModelNotices onOpenSettings={openSettings} />
         <CostReconcileNotice
           onOpenRecords={() => {
@@ -89,17 +120,20 @@ export function App() {
         />
         <ChatProvider>
           <HistoryProvider
-            enabled={view === 'canvas' || view === 'outline' || view === 'storyboard'}
+            enabled={
+              page === 'canvas' || page === 'trailer' || page === 'outline' || page === 'storyboard'
+            }
           >
             <AppLayout
-              drawer={view === 'canvas' ? <ChatDrawer /> : undefined}
-              view={view}
+              drawer={page === 'canvas' ? <ChatDrawer /> : undefined}
+              view={page}
               onNavigate={setView}
               queue={<QueuePanel />}
               showSlima={slima !== undefined && slima.state !== 'no_token'}
+              showTrailer={trailer.status?.exists === true}
               header={
                 <ProjectBar
-                  onNavigate={setView}
+                  onNavigate={goFromPage}
                   demoMode={state.status === 'ready' ? state.data.settings.demoMode : undefined}
                   hasKey={
                     state.status === 'ready' ? state.data.keys.some((k) => k.configured) : undefined
@@ -107,30 +141,34 @@ export function App() {
                 />
               }
             >
-              {view === 'home' ? (
-                <HomePage onNavigate={setView} />
-              ) : view === 'settings' ? (
+              {page === 'home' ? (
+                <HomePage onNavigate={goFromPage} />
+              ) : page === 'trailer' ? (
+                trailer.status ? (
+                  <TrailerPage status={trailer.status} />
+                ) : null
+              ) : page === 'settings' ? (
                 <SettingsPage state={state} reload={reload} />
-              ) : view === 'characters' ? (
+              ) : page === 'characters' ? (
                 <CharactersPage />
-              ) : view === 'locations' ? (
+              ) : page === 'locations' ? (
                 <LocationsPage />
-              ) : view === 'slima' ? (
+              ) : page === 'slima' ? (
                 <SlimaImportPage
                   onOpenSettings={() => {
                     setView('settings')
                   }}
                   onNavigate={setView}
                 />
-              ) : view === 'records' ? (
+              ) : page === 'records' ? (
                 <RecordsPage onNavigate={setView} />
-              ) : view === 'files' ? (
+              ) : page === 'files' ? (
                 <FilesPage />
-              ) : view === 'projects' ? (
-                <ProjectsPage onNavigate={setView} />
-              ) : view === 'outline' ? (
+              ) : page === 'projects' ? (
+                <ProjectsPage onNavigate={goFromPage} />
+              ) : page === 'outline' ? (
                 <OutlinePage />
-              ) : view === 'storyboard' ? (
+              ) : page === 'storyboard' ? (
                 <StoryboardPage />
               ) : (
                 <CanvasPage />

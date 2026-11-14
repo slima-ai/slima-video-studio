@@ -1,6 +1,6 @@
 import type { TrailerPlanCheck, TrailerStatus } from '@svs/schema'
 import { secLabel, t } from '@svs/schema'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 import { Button } from '../../components/button'
@@ -70,8 +70,15 @@ function TextSetting({
  * 頂列的預告片標籤與設定面板：腳本加總／目標長度（對不上時用警示色），
  * 點開可以改長度與書名等設定、「自動調整」各格秒數、用原文「重寫腳本」。
  * 一般專案（沒有預告片設定）不顯示。
+ * `inline`：「預告片」頁右邊的設定欄用——不要標籤、不浮出，面板內容直接放在原地（同一份內容與存檔邏輯）。
  */
-export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) {
+export function TrailerBadge({
+  status,
+  inline = false,
+}: {
+  status: TrailerStatus | undefined
+  inline?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState<'rewrite' | 'fit' | 'save'>()
@@ -83,6 +90,7 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
   // 面板用視窗座標放（夾在畫面內，窄視窗也不會伸出左右邊，也不會撐出畫布）
   const [at, setAt] = useState<{ left: number; top: number; width: number; maxHeight: number }>()
   const source = status?.settings.sourceText ?? ''
+  const shown = inline || open
 
   useLayoutEffect(() => {
     if (!open) return
@@ -127,7 +135,7 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
 
   // 打開面板時問一次：重寫要花多少、會取代幾格
   useEffect(() => {
-    if (!open || source === '') return
+    if (!shown || source === '') return
     let stale = false
     call('trailer.check', { text: source })
       .then((next) => {
@@ -137,7 +145,7 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
     return () => {
       stale = true
     }
-  }, [open, source, status?.beatCount])
+  }, [shown, source, status?.beatCount])
 
   if (!status?.exists) return null
   const { settings } = status
@@ -189,54 +197,67 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
     else rewrite()
   }
 
+  // 浮出的面板放進 body（不被畫布裁掉）；頁面上的設定欄就放在原地
+  const place = (panelElement: ReactNode): ReactNode =>
+    inline ? panelElement : createPortal(panelElement, document.body)
+
   return (
     <div ref={root} className="relative">
-      <button
-        ref={button}
-        type="button"
-        data-testid="trailer-badge"
-        data-matches={status.matches}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className={cn(
-          'shrink-0 whitespace-nowrap rounded-lg border px-2.5 py-1 text-[13px] font-semibold',
-          status.matches
-            ? 'border-border bg-surface-raised text-fg'
-            : 'border-warning bg-warning/10 text-warning',
-        )}
-        onClick={() => {
-          setOpen((v) => !v)
-        }}
-      >
-        {/* 窄視窗頂列擠：只留長度，名字藏起來（螢幕閱讀器與文字內容仍然完整） */}
-        <span className="hidden sm:inline">{t('trailer.badgeName')} </span>
-        {trailerBadgeLength(status)}
-      </button>
-      {open
-        ? createPortal(
+      {inline ? null : (
+        <button
+          ref={button}
+          type="button"
+          data-testid="trailer-badge"
+          data-matches={status.matches}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          className={cn(
+            'shrink-0 whitespace-nowrap rounded-lg border px-2.5 py-1 text-[13px] font-semibold',
+            status.matches
+              ? 'border-border bg-surface-raised text-fg'
+              : 'border-warning bg-warning/10 text-warning',
+          )}
+          onClick={() => {
+            setOpen((v) => !v)
+          }}
+        >
+          {/* 窄視窗頂列擠：只留長度，名字藏起來（螢幕閱讀器與文字內容仍然完整） */}
+          <span className="hidden sm:inline">{t('trailer.badgeName')} </span>
+          {trailerBadgeLength(status)}
+        </button>
+      )}
+      {shown
+        ? place(
             <div
               ref={panel}
-              role="dialog"
+              role={inline ? 'region' : 'dialog'}
               aria-label={t('trailer.panel.title')}
               data-testid="trailer-panel"
               style={
-                at
-                  ? { left: at.left, top: at.top, width: at.width, maxHeight: at.maxHeight }
-                  : { visibility: 'hidden' }
+                inline
+                  ? undefined
+                  : at
+                    ? { left: at.left, top: at.top, width: at.width, maxHeight: at.maxHeight }
+                    : { visibility: 'hidden' }
               }
-              className="fixed z-40 flex flex-col gap-3 overflow-y-auto rounded-2xl border border-border bg-surface-raised p-4 shadow-panel"
+              className={cn(
+                'flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-4',
+                !inline && 'fixed z-40 overflow-y-auto shadow-panel',
+              )}
             >
               <header className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold">{t('trailer.panel.title')}</h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setOpen(false)
-                  }}
-                >
-                  {t('trailer.panel.close')}
-                </Button>
+                {inline ? null : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setOpen(false)
+                    }}
+                  >
+                    {t('trailer.panel.close')}
+                  </Button>
+                )}
               </header>
               {!status.matches ? (
                 <div
@@ -406,7 +427,6 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
                 </p>
               ) : null}
             </div>,
-            document.body,
           )
         : null}
     </div>

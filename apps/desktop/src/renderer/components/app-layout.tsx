@@ -1,5 +1,6 @@
 import {
   Clapperboard,
+  Film,
   LayoutDashboard,
   Download,
   FolderOpen,
@@ -19,6 +20,7 @@ import { msg, t, type MessageRef } from '@svs/schema'
 
 export type AppView =
   | 'home'
+  | 'trailer'
   | 'canvas'
   | 'outline'
   | 'storyboard'
@@ -36,11 +38,13 @@ interface NavItem {
   short?: string
   icon: LucideIcon
   view?: AppView
-  /** false 的項目要有對應的條件才顯示（Slima 連上了）。 */
+  /** false 的項目要有對應的條件才顯示：`when` 說是哪一個條件。 */
   always: boolean
+  when?: 'slima' | 'trailer'
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { label: msg('shell.trailer'), icon: Film, view: 'trailer', always: false, when: 'trailer' },
   { label: msg('shell.canvas'), icon: LayoutDashboard, view: 'canvas', always: true },
   { label: msg('shell.outline'), icon: ListTree, view: 'outline', always: true },
   { label: msg('shell.storyboard'), icon: LayoutList, view: 'storyboard', always: true },
@@ -54,6 +58,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: Download,
     view: 'slima',
     always: false,
+    when: 'slima',
   },
   { label: msg('shell.projects'), icon: Clapperboard, view: 'projects', always: true },
 ]
@@ -113,6 +118,8 @@ export interface AppLayoutProps {
   queue?: ReactNode
   /** 有連上（或設定了）Slima 才顯示「從 Slima 匯入」。 */
   showSlima?: boolean
+  /** 目前的專案有預告片設定才顯示「預告片」。 */
+  showTrailer?: boolean
   /** 最上面一條，每一頁都在（專案名、存檔狀態、模式、花費）。 */
   header?: ReactNode
   /** 整條從右邊滑出的面板（Claude 對話）：占自己的位置，中央區與詳細面板讓出空間，不被蓋住。 */
@@ -129,6 +136,7 @@ export function AppLayout({
   onNavigate,
   queue,
   showSlima = false,
+  showTrailer = false,
   header,
   drawer,
 }: AppLayoutProps) {
@@ -159,18 +167,18 @@ export function AppLayout({
             data-testid="layout-nav"
             className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-border bg-surface-raised py-2"
           >
-            {NAV_ITEMS.filter((item) => item.always || showSlima).map(
-              ({ label, short, icon, view: target }) => (
-                <NavButton
-                  key={label.msgKey}
-                  label={t(label)}
-                  short={short}
-                  icon={icon}
-                  active={target !== undefined && target === view}
-                  onClick={target ? () => onNavigate?.(target) : undefined}
-                />
-              ),
-            )}
+            {NAV_ITEMS.filter(
+              (item) => item.always || (item.when === 'slima' ? showSlima : showTrailer),
+            ).map(({ label, short, icon, view: target }) => (
+              <NavButton
+                key={label.msgKey}
+                label={t(label)}
+                short={short}
+                icon={icon}
+                active={target !== undefined && target === view}
+                onClick={target ? () => onNavigate?.(target) : undefined}
+              />
+            ))}
             <div className="flex-1" />
             <NavButton
               label={t('shell.settings')}
