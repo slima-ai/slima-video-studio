@@ -112,7 +112,7 @@ test.describe('畫布執行（示範模式）', () => {
     await expect(page.getByRole('button', { name: '執行', exact: true })).toHaveCount(0)
   })
 
-  test('上方列「生成空的」：顯示預估、只補沒生成的；補完後變成「全部都生成好了」', async ({
+  test('上方列「生成空的」：顯示步驟數（示範模式不寫金額）、只補沒生成的；補完後變成「全部都生成好了」', async ({
     page,
   }) => {
     await generateAndOpenCanvas(page)
@@ -120,7 +120,9 @@ test.describe('畫布執行（示範模式）', () => {
     await expect(page.getByTestId('run-all')).toBeDisabled()
 
     await addEmptyShot(page)
-    await expect(page.getByTestId('run-all')).toContainText('生成空的（2 步，約 US$')
+    // 示範模式不會花錢：按鈕只寫步驟數，沒有金額
+    await expect(page.getByTestId('run-all')).toHaveText('生成空的（2 步）')
+    await expect(page.getByTestId('run-all')).not.toContainText('US$')
     await page.getByTestId('run-all').click()
     // 補兩步，再把四段接成成品（成品對不上了，所以包括接片）
     await expect(page.getByTestId('run-confirm')).toContainText('會生成 2 個空著的步驟')

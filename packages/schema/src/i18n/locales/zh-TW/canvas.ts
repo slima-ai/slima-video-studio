@@ -583,6 +583,7 @@ export const canvas = {
   'canvas.quotedName': '「{name}」',
   'canvas.labelAndHint': '{label}：{hint}',
   'canvas.fillEmpty': '生成空的',
+  'canvas.fillEmptySteps_other': '生成空的（{count} 步）',
   'canvas.fillEmptyAbout_other': '生成空的（{count} 步，約 US${usd}）',
   'canvas.moreWaysToGenerate': '更多生成方式',
   'canvas.redoMarkedShots_other': '重跑標了需要重跑的（{count} 鏡，{cost}）',

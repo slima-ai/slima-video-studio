@@ -645,6 +645,8 @@ export const canvas = {
   'canvas.quotedName': '“{name}”',
   'canvas.labelAndHint': '{label}: {hint}',
   'canvas.fillEmpty': 'Generate what’s empty',
+  'canvas.fillEmptySteps_one': 'Generate what’s empty ({count} step)',
+  'canvas.fillEmptySteps_other': 'Generate what’s empty ({count} steps)',
   'canvas.fillEmptyAbout_one': 'Generate what’s empty ({count} step, about US${usd})',
   'canvas.fillEmptyAbout_other': 'Generate what’s empty ({count} steps, about US${usd})',
   'canvas.moreWaysToGenerate': 'More ways to generate',

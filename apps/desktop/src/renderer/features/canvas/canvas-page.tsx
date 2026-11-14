@@ -2043,6 +2043,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
                     }
                   : {})}
                 pendingCostUsd={pendingCost.usd}
+                pendingDemo={pendingCost.demo}
                 fillSteps={pendingCost.steps}
                 allDone={pendingCost.done}
                 joinOnly={pendingCost.joinOnly}

@@ -139,6 +139,8 @@ export interface TopBarProps {
   fillSteps?: number
   /** 還沒生成的部分預估多少錢；沒給是現在算不出來。 */
   pendingCostUsd?: number | undefined
+  /** 示範模式：不會花錢，主按鈕只寫步驟數、不寫金額。 */
+  pendingDemo?: boolean
   /** 所有鏡頭都生成好了，沒有要補跑的。 */
   allDone?: boolean
   /** 素材都生成好了，只剩把成品接起來（或重新接）。 */
@@ -259,10 +261,12 @@ export function TopBar(props: TopBarProps) {
                 ? t('canvas.joinIntoFilm')
                 : pending === undefined
                   ? t('canvas.fillEmpty')
-                  : t('canvas.fillEmptyAbout', {
-                      count: props.fillSteps ?? 0,
-                      usd: pending.toFixed(2),
-                    })}
+                  : props.pendingDemo === true
+                    ? t('canvas.fillEmptySteps', { count: props.fillSteps ?? 0 })
+                    : t('canvas.fillEmptyAbout', {
+                        count: props.fillSteps ?? 0,
+                        usd: pending.toFixed(2),
+                      })}
           </button>
           {props.onRunMore ? (
             <button
