@@ -7,6 +7,7 @@ import { Button } from '../../components/button'
 import { Page } from '../../components/page'
 import { call, errorText } from '../../lib/svs'
 import { timeAgo } from '../../lib/usage'
+import { TrailerStartCard } from '../canvas/trailer-start'
 import { NewProjectDialog } from './new-project-dialog'
 import { t } from '@svs/schema'
 
@@ -73,6 +74,23 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
             }}
           />
         ) : null}
+
+        {/* 第一張大卡：貼一本書的文字，一顆按鈕寫腳本。開著別的專案時，腳本寫進新專案（先關掉舊的） */}
+        <section data-testid="home-trailer" aria-label={t('trailer.start.title')}>
+          <TrailerStartCard
+            wide
+            onDone={() => {
+              onNavigate('canvas')
+            }}
+            {...(current
+              ? {
+                  beforePlan: async () => {
+                    await call('project.close', {})
+                  },
+                }
+              : {})}
+          />
+        </section>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <button

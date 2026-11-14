@@ -29,7 +29,17 @@ export function trailerGoLabel(check: TrailerPlanCheck | undefined): string {
  * 空白畫布的第 4 個起點：貼書的文字，選長度與類型，先產生腳本（只用文字模型，不生成圖片和影片）。
  * 腳本被檢查器擋下時，那則錯誤直接寫在卡片上（不只是一閃而過的提示）。
  */
-export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
+export function TrailerStartCard({
+  onDone,
+  wide = false,
+  beforePlan,
+}: {
+  onDone?: () => void
+  /** 首頁的大卡：撐滿寬度、文字框高一點（畫布上的是 264 px 的小卡）。 */
+  wide?: boolean
+  /** 寫腳本之前先做的事（首頁：先關掉開著的專案，腳本寫進新專案，不寫進舊的）。失敗就不寫。 */
+  beforePlan?: () => Promise<void>
+}) {
   const [text, setText] = useState('')
   const [title, setTitle] = useState('')
   const [length, setLength] = useState<number>(30)
@@ -66,12 +76,15 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
     busyRef.current = true
     setBusy(true)
     setError(undefined)
-    call('trailer.plan', {
-      text: text.trim(),
-      targetSec: length,
-      kind,
-      ...(title.trim() === '' ? {} : { title: title.trim() }),
-    })
+    ;(beforePlan?.() ?? Promise.resolve())
+      .then(() =>
+        call('trailer.plan', {
+          text: text.trim(),
+          targetSec: length,
+          kind,
+          ...(title.trim() === '' ? {} : { title: title.trim() }),
+        }),
+      )
       .then(() => {
         onDone?.()
       })
@@ -87,7 +100,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
   return (
     <section
       data-testid="trailer-start"
-      className="pointer-events-auto flex w-[264px] flex-col gap-2.5 rounded-2xl border border-border bg-surface-raised p-5 shadow-panel"
+      className={`pointer-events-auto flex flex-col gap-2.5 rounded-2xl border border-border bg-surface-raised p-5 shadow-panel ${wide ? 'w-full' : 'w-[264px]'}`}
     >
       <h3 className="flex items-center gap-2 text-base font-semibold">
         <Clapperboard className="size-4 text-accent" aria-hidden />
@@ -95,7 +108,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
       </h3>
       <textarea
         data-testid="trailer-text"
-        rows={3}
+        rows={wide ? 6 : 3}
         value={text}
         maxLength={60_000}
         disabled={busy}
