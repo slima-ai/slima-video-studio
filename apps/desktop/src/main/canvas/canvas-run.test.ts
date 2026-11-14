@@ -521,3 +521,70 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
     expect(node()?.soundAutoAddedAt).toBeUndefined()
   })
 })
+
+// 預告片專案按「全部生成」：做完（接片、旁白與配樂）就請畫面打開成品、從頭播；不另外寫「加好了」
+describe('預告片專案：全部生成做完打開成品', { timeout: 120_000 }, () => {
+  const STORY =
+    '黑藤爬滿了斷橋。她一個人守著最後一盞燈，直到有人敲門。門外的人說，他來自河的另一邊。'
+
+  const names = (h: ReturnType<typeof createStudioHarness>): string[] => h.events.map((e) => e.name)
+  const messages = (h: ReturnType<typeof createStudioHarness>): string[] =>
+    h.events
+      .filter((e) => e.name === 'canvas.notice')
+      .map((e) => (e.payload as { message: string }).message)
+
+  it('預告片專案：生成、接片、旁白與配樂都好了才發 canvas.openFilm；沒有「旁白與配樂也加好了」', async () => {
+    const h = createStudioHarness()
+    harnesses.push(h)
+    await h.trailer.plan({ text: STORY })
+    await h.canvas.run({ keys: [], all: true })
+    await vi.waitFor(
+      () => {
+        expect(names(h)).toContain('canvas.openFilm')
+      },
+      { timeout: 90_000, interval: 50 },
+    )
+    // 發的時候聲音已經混進成品了（畫面一開就是最後那一版）
+    expect(h.sound.state().music).toBeDefined()
+    expect(h.sound.state().final?.hasSound).toBe(true)
+    // 只發一次；說了「正在加…」，但不說「加好了」
+    expect(names(h).filter((n) => n === 'canvas.openFilm')).toHaveLength(1)
+    expect(messages(h).join('｜')).not.toContain('加好了')
+    // openFilm 是最後一件事：在它之後沒有別的通知
+    expect(names(h).at(-1)).toBe('canvas.openFilm')
+  })
+
+  it('預告片專案但是聲音出了問題：還是打開成品，失敗的通知照寫', async () => {
+    const h = createStudioHarness()
+    harnesses.push(h)
+    await h.trailer.plan({ text: STORY })
+    h.sound.addAll = () => Promise.reject(new Error('配音壞了'))
+    await h.canvas.run({ keys: [], all: true })
+    await vi.waitFor(
+      () => {
+        expect(names(h)).toContain('canvas.openFilm')
+      },
+      { timeout: 90_000, interval: 50 },
+    )
+    expect(
+      h.events.some(
+        (e) => e.name === 'canvas.notice' && (e.payload as { tone: string }).tone === 'danger',
+      ),
+    ).toBe(true)
+  })
+
+  it('一般專案：全部生成做完照舊說成品接好了，不發 canvas.openFilm', async () => {
+    const h = createStudioHarness()
+    harnesses.push(h)
+    await h.runQuickStart()
+    h.shots.create({})
+    await h.canvas.run({ keys: [], all: true })
+    await vi.waitFor(
+      () => {
+        expect(messages(h)).toContain('成品接好了')
+      },
+      { timeout: 30_000, interval: 20 },
+    )
+    expect(names(h)).not.toContain('canvas.openFilm')
+  })
+})

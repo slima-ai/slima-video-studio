@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { canvasNodes, centerOn, kindCount } from './canvas-helpers'
+import { canvasNodes, kindCount } from './canvas-helpers'
 import { expect, test } from './fixtures'
 import { pick } from './pick'
 
@@ -137,11 +137,21 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     await page.getByTestId('run-all').click()
     await page.getByTestId('run-confirm-ok').click()
     await expect(page.getByTestId('run-all')).toHaveText('全部都生成好了', { timeout: 120_000 })
-    await centerOn(page, 'cut')
-    await page.getByTestId('open-cut').click()
+    // 做完自動打開成品面板、從頭播一次；不用再找「剪輯」格；也沒有「旁白與配樂也加好了」那則提示
+    await expect(page.getByTestId('final-cut-panel')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('final-cut-length')).toHaveText('成品 30 秒', {
       timeout: 30_000,
     })
+    await expect
+      .poll(
+        () =>
+          page
+            .getByTestId('final-cut-video')
+            .evaluate((el: HTMLVideoElement) => !el.paused && el.currentTime > 0 && !el.ended),
+        { timeout: 15_000 },
+      )
+      .toBe(true)
+    await expect(page.getByTestId('toast').filter({ hasText: '加好了' })).toHaveCount(0)
     await shoot(page, testInfo, '05-final-cut-30s.png')
     // 匯出（勾著標註：併進片名卡，不另外接字卡）：24 fps × 30 秒 ＝ 720 格，誤差一格內
     await expect(page.getByTestId('final-cut-credits')).toBeChecked()

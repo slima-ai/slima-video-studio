@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { installFakeSvs } from '../../test/fake-svs'
 import { FinalCutPanel } from './final-cut-panel'
@@ -183,5 +183,53 @@ describe('FinalCutPanel：匯出的片尾字卡', () => {
     installFakeSvs()
     render(<FinalCutPanel finalVideoHash={undefined} canRejoin={false} />)
     expect(screen.queryByTestId('final-cut-credits')).toBeNull()
+  })
+})
+
+describe('FinalCutPanel：生成完自動打開時從頭播', () => {
+  const HASH = 'a'.repeat(64)
+  let play: ReturnType<typeof vi.fn>
+  beforeEach(() => {
+    play = vi.fn(() => Promise.resolve())
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', { configurable: true, value: play })
+  })
+
+  it('要求播放後影片載好就從頭播一次；同一版再緩衝（又一次 canplay）不會又跳回開頭', () => {
+    installFakeSvs()
+    render(<FinalCutPanel finalVideoHash={HASH} canRejoin={false} playFilm={1} />)
+    const video = screen.getByTestId<HTMLVideoElement>('final-cut-video')
+    video.currentTime = 7
+    fireEvent.canPlay(video)
+    expect(play).toHaveBeenCalledTimes(1)
+    expect(video.currentTime).toBe(0)
+    video.currentTime = 7
+    fireEvent.canPlay(video)
+    expect(play).toHaveBeenCalledTimes(1)
+    expect(video.currentTime).toBe(7)
+  })
+
+  it('成品換成加了聲音的那一版：新的一版也從頭播', () => {
+    installFakeSvs()
+    const view = render(<FinalCutPanel finalVideoHash={HASH} canRejoin={false} playFilm={1} />)
+    fireEvent.canPlay(screen.getByTestId('final-cut-video'))
+    view.rerender(<FinalCutPanel finalVideoHash={'b'.repeat(64)} canRejoin={false} playFilm={1} />)
+    fireEvent.canPlay(screen.getByTestId('final-cut-video'))
+    expect(play).toHaveBeenCalledTimes(2)
+  })
+
+  it('沒有要求播放（平常打開成品面板）：不自動播', () => {
+    installFakeSvs()
+    render(<FinalCutPanel finalVideoHash={HASH} canRejoin={false} />)
+    fireEvent.canPlay(screen.getByTestId('final-cut-video'))
+    expect(play).not.toHaveBeenCalled()
+  })
+
+  it('面板開著、再要求一次（playFilm 加一）：影片已經能播就馬上從頭播', () => {
+    installFakeSvs()
+    const view = render(<FinalCutPanel finalVideoHash={HASH} canRejoin={false} />)
+    const video = screen.getByTestId<HTMLVideoElement>('final-cut-video')
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 4 })
+    view.rerender(<FinalCutPanel finalVideoHash={HASH} canRejoin={false} playFilm={1} />)
+    expect(play).toHaveBeenCalledTimes(1)
   })
 })

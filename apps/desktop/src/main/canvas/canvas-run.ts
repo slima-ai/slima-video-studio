@@ -25,6 +25,10 @@ export interface CanvasRunnerDeps {
   log: Pick<Logger, 'info' | 'warn'>
   /** 「全部生成」之後照一句話卡片記住的聲音勾選自動加旁白與配樂；沒給就不加。 */
   runSound?: RunSound
+  /** 現在的專案是預告片專案嗎（有預告片設定）。 */
+  isTrailer?: () => boolean
+  /** 預告片專案「全部生成」做完：請畫面打開成品面板、從頭播一次。 */
+  openFilm?: () => void
 }
 
 export interface CanvasRunner {
@@ -50,7 +54,7 @@ interface Target {
  * 已經有結果的不重跑，只有直接按在單一個已完成的圖或影片上才會重做那個節點。
  */
 export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
-  const { shots, notify, log, runSound } = deps
+  const { shots, notify, log, runSound, isTrailer, openFilm } = deps
 
   const resolve = (request: CanvasRunRequest): Target => {
     const views = shots.list().shots
@@ -313,18 +317,25 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
           ? await shots.run(items, request.quality)
           : { started: 0, failed: [] as never[] }
       if (rejoin) {
+        // 預告片專案的「全部生成」：做完就打開成品、從頭播，畫面自己會說，不另外寫「加好了」
+        const opensFilm = target.all && isTrailer?.() === true
+        // 平常的成功通知照舊；預告片專案打開成品就不用寫了，失敗的通知照寫
+        const done = (notice: CanvasNotice): void => {
+          if (!opensFilm || notice.tone === 'danger') notify(notice)
+          if (opensFilm) openFilm?.()
+        }
         // 背景等所有鏡頭做完再接片；有鏡頭沒有影片時 rejoin 會說是第幾鏡
         void shots
           .whenIdle()
           .then(() => shots.rejoin())
           .then(async () => {
             if (!soundWant || !runSound) {
-              notify({ tone: 'success', message: t('canvas.theFilmIsJoined') })
+              done({ tone: 'success', message: t('canvas.theFilmIsJoined') })
               return
             }
             const started = soundStartNotice(runSound.plan(soundWant))
             if (started) notify(started)
-            notify(soundDoneNotice(await runSound.add(soundWant)))
+            done(soundDoneNotice(await runSound.add(soundWant)))
           })
           .catch((error: unknown) => {
             log.warn(`Canvas join failed: ${String(error)}`)
