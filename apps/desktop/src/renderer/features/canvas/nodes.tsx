@@ -16,6 +16,7 @@ import {
   useLod,
   type RunEstimate,
 } from './canvas-actions'
+import { useSoundAdding } from './use-sound-adding'
 import { fmtSec1 } from '../shots/trim-math'
 import { isRenamable } from './rename-box'
 import { choicesFor } from './connection-rules'
@@ -1284,6 +1285,8 @@ function FinalPreview({ data }: { data: CanvasNodeData }) {
 /** 剪輯：直長型，每一場一個編號輸入槽，下面是成品縮圖。 */
 function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
   const { run, rejoinFinal, exportFinal } = useCanvasActions()
+  // 旁白與配樂還在加：成品現在沒有聲音，不讓匯出
+  const soundAdding = useSoundAdding()
   const hasFinal = data.videoSrc !== undefined
   const slots = data.slots ?? []
   const linkState = useLinkState(id)
@@ -1385,12 +1388,12 @@ function CutImpl({ id, data, selected }: NodeProps<CanvasNode>) {
             <button
               type="button"
               data-testid="cut-export"
-              disabled={!hasFinal || !exportFinal}
+              disabled={!hasFinal || !exportFinal || soundAdding}
               title={t('canvas.saveTheFilmAsAn')}
               className="nodrag flex-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-fg/10 disabled:opacity-40"
               onClick={() => exportFinal?.()}
             >
-              {t('canvas.exportMp4')}
+              {soundAdding ? t('canvas.stillAddingNarrationAndMusic') : t('canvas.exportMp4')}
             </button>
           </div>
         </div>

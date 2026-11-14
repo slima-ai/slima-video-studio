@@ -8,6 +8,7 @@ import { creditsPreferred, setCreditsPreferred } from '../../lib/export-credits'
 import { revealLabel } from '../../lib/reveal-label'
 import { call, errorText } from '../../lib/svs'
 import { SoundPanel } from '../sound/sound-panel'
+import { useSoundAdding } from './use-sound-adding'
 import { useTrailerStatus } from './use-trailer-status'
 import { t } from '@svs/schema'
 
@@ -40,6 +41,8 @@ export function FinalCutPanel({
   onClose?: () => void
 }) {
   const { status: trailer } = useTrailerStatus()
+  // 旁白與配樂還在加：成品現在沒有聲音，匯出會拿到全靜音的檔
+  const soundAdding = useSoundAdding()
   // 要求播放後的一小段時間內，每一次載好影片（成品剛換成加了聲音的那一版）都從頭播
   const video = useRef<HTMLVideoElement>(null)
   const playAskedAt = useRef(0)
@@ -133,12 +136,12 @@ export function FinalCutPanel({
           <Button
             variant="primary"
             data-testid="final-cut-export"
-            disabled={busy !== undefined}
+            disabled={busy !== undefined || soundAdding}
             onClick={() => {
               act('export')
             }}
           >
-            {t('canvas.exportMp4')}
+            {soundAdding ? t('canvas.stillAddingNarrationAndMusic') : t('canvas.exportMp4')}
           </Button>
         ) : null}
         {canRejoin ? (

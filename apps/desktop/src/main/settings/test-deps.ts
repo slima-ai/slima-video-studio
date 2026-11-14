@@ -120,6 +120,7 @@ export function testSettingsDeps(
       updateFree: () => undefined,
       importFiles: () => Promise.resolve({ added: [], skipped: [] }),
       importBytes: () => Promise.resolve({ added: [], skipped: [] }),
+      soundAdding: () => false,
       runPlan: () => {
         throw new Error('測試用的畫布服務不能執行')
       },

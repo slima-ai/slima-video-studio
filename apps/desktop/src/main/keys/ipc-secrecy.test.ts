@@ -83,6 +83,7 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'canvas.remove': [{ keys: ['shot:nope'] }],
   'canvas.paste': [{ keys: ['shot:nope'] }],
   'canvas.updateOneliner': [{ key: 'node:nope', patch: { story: 'x' } }],
+  'canvas.soundAdding': [{}],
   'canvas.runPlan': [{ keys: [] }],
   'canvas.runChoices': [{}],
   'canvas.run': [{ keys: [] }],

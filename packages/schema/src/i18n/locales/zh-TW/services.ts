@@ -1,5 +1,6 @@
 export const services = {
   'services.firstFrame': '第一張畫面',
+  'services.narrationAndMusicAreStillBeing': '旁白與配樂還在加，加好之後再匯出，才會有聲音。',
   'services.video': '影片',
   'services.shotVInUse': '第 {value} 鏡・{kind} v{value2}（採用中）',
   'services.shotV': '第 {value} 鏡・{kind} v{value2}',

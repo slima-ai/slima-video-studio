@@ -91,6 +91,8 @@ export interface CanvasService {
   /** 改便條的字、群組的名字／顏色／大小；種類不對就丟白話錯誤。 */
   updateFree: (request: CanvasUpdateFree) => void
   /** 執行前的檢查：這次會跑哪些節點、預估花費、要標亮哪一串。 */
+  /** 旁白與配樂是不是還在加（接好片之後、加好之前；這段時間成品沒有聲音）。 */
+  soundAdding: () => boolean
   runPlan: (request: CanvasRunRequest) => CanvasRunPlan
   /** 「全部生成」旁邊三種做法（只補空的／重跑需要重跑的／全部重新生成）各自動幾鏡、多少錢。 */
   runChoices: (request: CanvasRunChoicesRequest) => CanvasRunChoices
@@ -188,6 +190,9 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
     },
     openFilm: () => {
       broadcast('canvas.openFilm', {})
+    },
+    soundAdding: (adding) => {
+      broadcast('canvas.soundAddingChanged', { adding })
     },
   })
   let revision = 0
@@ -570,6 +575,7 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
       broadcast('canvas.changed', { revision })
     },
 
+    soundAdding: () => runner.soundAdding(),
     runPlan: (request) => runner.plan(request),
     runChoices: (request) => runner.choices(request),
     run: (request) => runner.run(request),

@@ -298,6 +298,7 @@ export const canvas = {
   'canvas.cutThisLineCanBe': '剪掉這條線（可以復原）',
   'canvas.close2': '關閉',
   'canvas.exportMp4': '匯出 MP4',
+  'canvas.stillAddingNarrationAndMusic': '還在加旁白與配樂',
   'canvas.adds3SecondsAtThe': '片尾加 3 秒 AI 服務標註',
   'canvas.addAiServiceCreditsAt': '片尾 AI 服務標註',
   'canvas.exportedToTheEndCredits':

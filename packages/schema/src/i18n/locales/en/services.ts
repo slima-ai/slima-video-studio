@@ -1,5 +1,7 @@
 export const services = {
   'services.firstFrame': 'First frame',
+  'services.narrationAndMusicAreStillBeing':
+    'Narration and music are still being added. Export once they are in, so the file has sound.',
   'services.video': 'Video',
   'services.shotVInUse': 'Shot {value} · {kind} v{value2} (in use)',
   'services.shotV': 'Shot {value} · {kind} v{value2}',

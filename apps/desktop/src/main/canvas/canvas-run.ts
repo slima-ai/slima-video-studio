@@ -29,6 +29,8 @@ export interface CanvasRunnerDeps {
   isTrailer?: () => boolean
   /** 預告片專案「全部生成」做完：請畫面打開成品面板、從頭播一次。 */
   openFilm?: () => void
+  /** 旁白與配樂開始加（true）／加完（false）：畫面據此在加好之前停用匯出。 */
+  soundAdding?: (adding: boolean) => void
 }
 
 export interface CanvasRunner {
@@ -36,6 +38,8 @@ export interface CanvasRunner {
   /** 「全部生成」旁邊三種做法各自動幾鏡、幾步、多少錢。 */
   choices: (request: CanvasRunChoicesRequest) => CanvasRunChoices
   run: (request: CanvasRunRequest) => Promise<CanvasRunResult>
+  /** 旁白與配樂是不是還在加（接好片之後、加好之前）。 */
+  soundAdding: () => boolean
 }
 
 interface Target {
@@ -55,6 +59,12 @@ interface Target {
  */
 export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
   const { shots, notify, log, runSound, isTrailer, openFilm } = deps
+  let adding = false
+  const setAdding = (next: boolean): void => {
+    if (adding === next) return
+    adding = next
+    deps.soundAdding?.(next)
+  }
 
   const resolve = (request: CanvasRunRequest): Target => {
     const views = shots.list().shots
@@ -145,6 +155,7 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
   }
 
   return {
+    soundAdding: () => adding,
     plan(request): CanvasRunPlan {
       const target = resolve(request)
       const { items } = target
@@ -335,7 +346,12 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
             }
             const started = soundStartNotice(runSound.plan(soundWant))
             if (started) notify(started)
-            done(soundDoneNotice(await runSound.add(soundWant)))
+            // 加好之前成品是沒有聲音的：這段時間畫面不讓匯出；加完（或失敗）才放開，再通知與打開成品
+            setAdding(true)
+            const result = await runSound.add(soundWant).finally(() => {
+              setAdding(false)
+            })
+            done(soundDoneNotice(result))
           })
           .catch((error: unknown) => {
             log.warn(`Canvas join failed: ${String(error)}`)
