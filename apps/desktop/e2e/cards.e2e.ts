@@ -111,7 +111,7 @@ test.describe('字卡（真的 Electron）', () => {
       ['wide', { width: 1280, height: 720 }],
       ['tall', { width: 720, height: 1280 }],
     ] as const) {
-      for (const name of ['text', 'title', 'long', 'credits']) {
+      for (const name of ['text', 'title', 'long', 'orphan', 'credits']) {
         const file = join(out, `${name}-${tag}.png`)
         expect(existsSync(file), file).toBe(true)
         expect(pngSize(file), `${name}-${tag}`).toEqual(expected)

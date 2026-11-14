@@ -68,6 +68,11 @@ async function run(): Promise<void> {
       { kind: 'card', text: '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥' },
       ratio,
     )
+    // 23 個字：以前會被瀏覽器排成 11＋11＋1（行尾一個孤字）
+    const orphan = await service.render(
+      { kind: 'card', text: '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅' },
+      ratio,
+    )
     const again = await service.render(
       { kind: 'card', text: '他回來了', subtext: '黑藤裂谷・第一章' },
       ratio,
@@ -88,11 +93,19 @@ async function run(): Promise<void> {
       ['text', text],
       ['title', title],
       ['long', long],
+      ['orphan', orphan],
     ] as const) {
       const found = files.get(result.assetHash)
       if (found) copyFileSync(found.path, join(outDir, `${name}-${tag}.png`))
     }
-    results[tag] = { text, title, long, againCached: again.cached, againHash: again.assetHash }
+    results[tag] = {
+      text,
+      title,
+      long,
+      orphan,
+      againCached: again.cached,
+      againHash: again.assetHash,
+    }
   }
   // 字型檔不見：退回系統字型，仍然畫得出來，log 有記
   const fallback = await noFont.render({ kind: 'card', text: '他回來了' }, '16:9')

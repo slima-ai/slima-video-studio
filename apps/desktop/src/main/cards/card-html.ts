@@ -1,5 +1,7 @@
 import type { AspectRatio } from '@svs/schema'
 
+import { breakText } from './break-text'
+
 // 字卡的 HTML（純函式，不碰 Electron）：文字卡、片名卡、片尾 AI 服務字卡。
 // 畫成 PNG 的是 render-electron.ts；這裡只負責「長什麼樣子」，所以可以在一般的測試裡驗。
 // 安全：字卡文字來自使用者、文字模型或 Claude，放進 HTML 前一律跳脫；頁面有內容安全政策（不能跑腳本、不能連網），
@@ -71,6 +73,8 @@ function emWidth(text: string): number {
 }
 
 const LINE_HEIGHT = 1.3
+/** 主文字的字距（CSS 的 letter-spacing:.02em）：每個字多佔這麼多字寬，排版估計要算進去。 */
+const LETTER_SPACING_EM = 0.02
 /** 「12 個中文字以內一行」（規則 6）：用字寬估的 12 個字。 */
 const ONE_LINE_UNITS = 12.5
 const MAX_LINES = 3
@@ -91,7 +95,8 @@ export function layoutCardText(
   box: { widthPx: number; heightPx: number },
   limits: { basePx: number; minPx: number },
 ): TextLayout {
-  const units = Math.max(1, emWidth(text.replace(/\n/g, ' ')))
+  const flat = text.replace(/\n/g, ' ')
+  const units = Math.max(1, emWidth(flat) + Array.from(flat).length * LETTER_SPACING_EM)
   const lines = text.split('\n').length
   // 先試一行：12 個字以內一定一行（縮到一行放得下為止）；再長的，縮到不小於基本字級的 7 成還放得下一行才用一行
   const oneLine = Math.floor(box.widthPx / units)
@@ -110,6 +115,17 @@ export function layoutCardText(
       return { fontSizePx: Math.max(size, limits.minPx), lineCount: wrapped }
     size = Math.max(limits.minPx, size - 2)
   }
+}
+
+/**
+ * 排好版之後自己斷行：要排成兩行以上的字，由我們決定在哪裡換行（不留孤字），不交給瀏覽器。
+ * 使用者自己換過行的字照原樣；一行放得下的不加換行。
+ */
+export function wrapCardText(text: string, layout: TextLayout, widthPx: number): string {
+  const clean = text.trim()
+  if (layout.lineCount < 2 || clean.includes('\n')) return clean
+  const perLine = Math.max(1, Math.floor(widthPx / (layout.fontSizePx * (1 + LETTER_SPACING_EM))))
+  return breakText(clean, { perLine, maxLines: layout.lineCount }).join('\n')
 }
 
 /** 字卡的基本字級與下限：跟著畫面短邊。 */
@@ -172,8 +188,10 @@ export function textCardHtml(input: TextCardInput): string {
 .main{max-width:80%;font-size:${String(main.fontSizePx)}px;line-height:${String(LINE_HEIGHT)};letter-spacing:.02em;overflow-wrap:anywhere;}
 .sub{max-width:80%;margin-top:${String(Math.round(main.fontSizePx * 0.5))}px;font-size:${String(sub?.fontSizePx ?? 0)}px;line-height:${String(LINE_HEIGHT)};opacity:.75;overflow-wrap:anywhere;}`
   const body =
-    `<div class="main">${textHtml(input.text)}</div>` +
-    (sub === undefined ? '' : `<div class="sub">${textHtml(subText)}</div>`)
+    `<div class="main">${textHtml(wrapCardText(input.text, main, box.widthPx))}</div>` +
+    (sub === undefined
+      ? ''
+      : `<div class="sub">${textHtml(wrapCardText(subText, sub, width * 0.8))}</div>`)
   return page(css, body, input.fontUrl)
 }
 
@@ -239,9 +257,13 @@ export function titleCardHtml(input: TitleCardInput): string {
 .footnote{position:absolute;left:0;right:0;box-sizing:border-box;padding:0 5%;bottom:${String(Math.round(height * 0.03))}px;text-align:center;font-size:${String(footPx)}px;opacity:.6;}`
   const body =
     (hasCover ? `<div class="cover"><img src="${input.coverDataUri ?? ''}" alt=""></div>` : '') +
-    `<div class="text"><div class="title">${textHtml(input.title)}</div>` +
-    (author === undefined ? '' : `<div class="author">${textHtml(authorText)}</div>`) +
-    (end === undefined ? '' : `<div class="end">${textHtml(endText)}</div>`) +
+    `<div class="text"><div class="title">${textHtml(wrapCardText(input.title, title, textWidth))}</div>` +
+    (author === undefined
+      ? ''
+      : `<div class="author">${textHtml(wrapCardText(authorText, author, textWidth))}</div>`) +
+    (end === undefined
+      ? ''
+      : `<div class="end">${textHtml(wrapCardText(endText, end, textWidth))}</div>`) +
     `</div>` +
     (footText === '' ? '' : `<div class="footnote">${footnoteHtml(footText)}</div>`)
   return page(css, body, input.fontUrl)
