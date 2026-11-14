@@ -5,6 +5,7 @@ import { useToast } from '../../components/toast'
 import { call, errorText } from '../../lib/svs'
 import type { CanvasNode } from './canvas-model'
 import { shiftAnchor, type ConfirmAnchor } from './run-confirm'
+import { useProjectReset } from './use-project-reset'
 import { runSummary } from './run-summary'
 import { t } from '@svs/schema'
 
@@ -70,14 +71,10 @@ export function useRun(options: {
   revealRef.current = options.reveal
 
   // 換了專案（或關了專案）：上一個專案的執行與確認面板都不算了
-  useEffect(
-    () =>
-      window.svs.on('queue.reset', () => {
-        setActive(undefined)
-        setPending(undefined)
-      }),
-    [],
-  )
+  useProjectReset(() => {
+    setActive(undefined)
+    setPending(undefined)
+  })
 
   const ask = useCallback(
     (asked: CanvasRunRequest, anchor: ConfirmAnchor): void => {

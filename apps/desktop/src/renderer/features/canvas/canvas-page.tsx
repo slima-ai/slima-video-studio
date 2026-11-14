@@ -60,6 +60,7 @@ import { choicesFor, type AddChoice } from './connection-rules'
 import { nodeEntries, paneEntries, type ContextEntry } from './context-menu'
 import { ownsKeyboard } from './owns-keyboard'
 import { DELETE_TOAST_MS, FIXED_EDGE_REASON, planDelete, type DeletePlan } from './delete-plan'
+import { useProjectReset } from './use-project-reset'
 import { DetailPanel, keyOfTarget, panelTargetOf, type PanelTarget } from './detail-panel'
 import { READABLE_ZOOM, growView, openViewport, useFitAll, useFitAllAsync } from './fit-all'
 import { FLOAT_PANEL } from './floating-panel'
@@ -366,13 +367,9 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const shotsSnapshot = useShots()
   const [panel, setPanel] = useState<PanelTarget>()
   // 換了專案（或關了專案）：上一個專案的浮動面板跟著關掉（面板裡的訊息也一起清掉）
-  useEffect(
-    () =>
-      window.svs.on('queue.reset', () => {
-        setPanel(undefined)
-      }),
-    [],
-  )
+  useProjectReset(() => {
+    setPanel(undefined)
+  })
   const panelKey = panel ? keyOfTarget(panel) : undefined
   // 面板真的有內容才算開著（鏡頭被刪掉時面板會自己收起）
   const panelOpen =
