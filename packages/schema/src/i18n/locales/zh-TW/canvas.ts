@@ -593,6 +593,11 @@ export const canvas = {
   'canvas.nothingToDoHere': '現在沒有可以動的鏡頭。',
   'canvas.willGenerateEmptySteps_other': '會生成 {count} 個空著的步驟',
   'canvas.willRedoMarkedShots_other': '會重跑 {count} 個標了需要重跑的鏡頭：產生新版本，舊的保留',
+  'canvas.unconfirmedCharacters_other': '{count} 個角色',
+  'canvas.unconfirmedLocations_other': '{count} 個場景',
+  'canvas.unconfirmedBoth': '{characters}、{locations}',
+  'canvas.unconfirmedNote': '{what}還沒確認，每一鏡的長相可能不一樣。',
+  'canvas.confirmFirst': '先確認',
   'canvas.willRegenerateAllShots_other': '會重新生成 {count} 個鏡頭：產生新版本並採用，舊的保留',
   'canvas.staleShotsNotTouched_other':
     '{count} 個鏡頭標了需要重跑，這次不會動（要重跑請在那一鏡按 ▶）',

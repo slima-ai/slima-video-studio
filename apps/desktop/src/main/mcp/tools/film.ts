@@ -94,6 +94,13 @@ export async function estimateBatch(
     skippedAlreadyDone: check.skippedGenerated,
     skippedNoFirstFrame: check.skippedNoFrame,
     model: stage === 'frame' ? (check.models.image ?? null) : (check.models.video ?? null),
+    ...(check.unconfirmed
+      ? {
+          // 預告片專案：還沒鎖定的角色與場景卡，長相不會帶進提示，每一鏡各畫各的
+          unconfirmed: check.unconfirmed,
+          note: `${String(check.unconfirmed.characters)} character(s) and ${String(check.unconfirmed.locations)} place card(s) used by these pictures are not locked yet, so each shot may draw them differently. Look at them with list_characters (lock_character locks one; a draft already has a look written from the text), tell the user the place cards are confirmed on the Locations / Key visuals page, and then generate.`,
+        }
+      : {}),
   }
 }
 

@@ -94,7 +94,12 @@ function setup(
     'settings.update': () => ({}),
   })
   render(
-    <AppNavigationProvider value={{ openSettings: options.openSettings ?? (() => undefined) }}>
+    <AppNavigationProvider
+      value={{
+        openSettings: options.openSettings ?? (() => undefined),
+        openView: () => undefined,
+      }}
+    >
       <ChatProvider>
         <ChatLauncher />
         <ChatDrawer />

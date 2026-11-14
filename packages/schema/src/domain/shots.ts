@@ -200,6 +200,16 @@ export const ShotBatchRequestSchema = z.object({
 export type ShotBatchRequest = z.input<typeof ShotBatchRequestSchema>
 
 /** 批次生成之前的檢查與預估花費（整批加總）。 */
+/**
+ * 預告片專案：這次要生畫面的鏡頭裡，還沒鎖定（確認）的角色與場景卡各幾個。還沒鎖定的長相不會帶進提示，
+ * 每一鏡各畫各的，可能不一樣。一般專案、全部都鎖定了、或這次不生畫面時沒有這個欄位。
+ */
+export const UnconfirmedLooksSchema = z.object({
+  characters: z.number().int().nonnegative(),
+  locations: z.number().int().nonnegative(),
+})
+export type UnconfirmedLooks = z.infer<typeof UnconfirmedLooksSchema>
+
 export const ShotBatchCheckSchema = z.object({
   ok: z.boolean(),
   issue: z.string().optional(),
@@ -217,6 +227,7 @@ export const ShotBatchCheckSchema = z.object({
   demoMode: z.boolean(),
   /** 這次會用的圖片、影片模型名稱。 */
   models: z.object({ image: z.string().optional(), video: z.string().optional() }),
+  unconfirmed: UnconfirmedLooksSchema.optional(),
 })
 export type ShotBatchCheck = z.infer<typeof ShotBatchCheckSchema>
 

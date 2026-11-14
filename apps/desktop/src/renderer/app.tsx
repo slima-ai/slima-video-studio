@@ -84,7 +84,7 @@ export function App() {
 
   return (
     <ToastProvider>
-      <AppNavigationProvider value={{ openSettings }}>
+      <AppNavigationProvider value={{ openSettings, openView: setView }}>
         <ModelNotices onOpenSettings={openSettings} />
         <CostReconcileNotice
           onOpenRecords={() => {

@@ -236,6 +236,43 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   })
 })
 
+describe('預告片工具：estimate_cost 提醒還沒鎖定的角色與場景卡（A1c）', () => {
+  const Estimate = z.looseObject({
+    possible: z.boolean(),
+    unconfirmed: z.object({ characters: z.number(), locations: z.number() }).optional(),
+    note: z.string().optional(),
+  })
+
+  it('generate_first_frames：預告片寫完沒鎖定，回 unconfirmed 與一句說明；鎖定角色後角色數是 0；generate_videos 沒有', async () => {
+    const r = await start()
+    await r.call('create_project', { name: '預告片' })
+    await r.call('plan_trailer', { text: STORY, targetSec: 30, title: '黑藤之夜' })
+    const first = dataOf(
+      Estimate,
+      await r.call('estimate_cost', { action: 'generate_first_frames' }),
+    )
+    expect(first.unconfirmed).toEqual({ characters: 2, locations: 2 })
+    expect(first.note).toContain('lock_character')
+
+    const listed = dataOf(
+      z.looseObject({ characters: z.array(z.looseObject({ id: z.string(), name: z.string() })) }),
+      await r.call('list_characters', {}),
+    )
+    expect(listed.characters.map((c) => c.name).sort()).toEqual(['小葉', '老鐘'])
+    for (const character of listed.characters) {
+      await r.call('lock_character', { characterId: character.id })
+    }
+    const after = dataOf(
+      Estimate,
+      await r.call('estimate_cost', { action: 'generate_first_frames' }),
+    )
+    expect(after.unconfirmed).toEqual({ characters: 0, locations: 2 })
+
+    const videos = dataOf(Estimate, await r.call('estimate_cost', { action: 'generate_videos' }))
+    expect(videos.unconfirmed).toBeUndefined()
+  })
+})
+
 describe('預告片工具：金句／觀點型（idea）', () => {
   const IDEA =
     '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半。'
@@ -299,6 +336,7 @@ describe('預告片指南：角色與場景的草稿已經帶外觀（A1）', ()
       expect(step6, part).toContain(part)
     }
     expect(step6).toContain('only locked')
+    expect(step6).toContain('unconfirmed')
     // 順序：先 update_character → suggest → set_anchor → lock
     expect(step6.indexOf('update_character')).toBeLessThan(
       step6.indexOf('suggest_character_anchor'),

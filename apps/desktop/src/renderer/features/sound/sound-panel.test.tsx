@@ -77,7 +77,7 @@ describe('SoundPanel：加聲音', () => {
     installFakeSvs({ 'sound.get': () => state({ models: {} }) })
     const openSettings = vi.fn()
     render(
-      <AppNavigationProvider value={{ openSettings }}>
+      <AppNavigationProvider value={{ openSettings, openView: () => undefined }}>
         <SoundPanel />
       </AppNavigationProvider>,
     )

@@ -521,3 +521,48 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
     expect(node()?.soundAutoAddedAt).toBeUndefined()
   })
 })
+
+describe('canvas.runPlan：預告片專案還沒確認的角色與場景卡（A1c）', () => {
+  const STORY = '黑藤爬滿了斷橋。她一個人守著最後一盞燈，直到有人敲門。'
+  async function trailer() {
+    const h = createStudioHarness()
+    harnesses.push(h)
+    await h.trailer.plan({ text: STORY })
+    return h
+  }
+  const planAll = (h: Awaited<ReturnType<typeof trailer>>) =>
+    h.canvas.runPlan({ keys: [], all: true })
+
+  it('寫完腳本就全部生成：2 個角色、2 個場景卡都還沒鎖定，計畫裡帶著這兩個數', async () => {
+    const h = await trailer()
+    expect(planAll(h).unconfirmed).toEqual({ characters: 2, locations: 2 })
+  })
+
+  it('角色鎖定了只剩場景；全部鎖定後沒有這個欄位（確認視窗不出現那一行）', async () => {
+    const h = await trailer()
+    for (const c of h.characters.list()) h.characters.lock(c.id)
+    expect(planAll(h).unconfirmed).toEqual({ characters: 0, locations: 2 })
+    const handle = h.projects.current()
+    for (const card of handle?.repos.locationCards.list() ?? []) h.locations.lock(card.id)
+    expect(planAll(h).unconfirmed).toBeUndefined()
+  })
+
+  it('只算這次要生畫面的鏡頭用到的：鏡頭都已經有首幀（只做影片）就不提醒', async () => {
+    const h = await trailer()
+    // 先把所有首幀生出來，再問一次全部生成（只剩影片）
+    await h.shots.generateBatch({
+      shotIds: h.shots.list().shots.map((s) => s.id),
+      skipGenerated: true,
+      stage: 'frame',
+    })
+    await h.shots.whenIdle()
+    expect(planAll(h).unconfirmed).toBeUndefined()
+  })
+
+  it('一般專案（沒有預告片設定）：就算有草稿角色，也不提醒', async () => {
+    const h = await setup()
+    h.characters.create('阿鐵')
+    h.shots.create({})
+    expect(h.canvas.runPlan({ keys: [], all: true }).unconfirmed).toBeUndefined()
+  })
+})

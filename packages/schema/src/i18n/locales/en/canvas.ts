@@ -663,6 +663,13 @@ export const canvas = {
     'This will redo {count} shot marked “needs re-run”: a new version is made, the old one is kept',
   'canvas.willRedoMarkedShots_other':
     'This will redo {count} shots marked “needs re-run”: new versions are made, the old ones are kept',
+  'canvas.unconfirmedCharacters_one': '{count} character',
+  'canvas.unconfirmedCharacters_other': '{count} characters',
+  'canvas.unconfirmedLocations_one': '{count} location',
+  'canvas.unconfirmedLocations_other': '{count} locations',
+  'canvas.unconfirmedBoth': '{characters} and {locations}',
+  'canvas.unconfirmedNote': '{what} not confirmed yet, so each shot may look different.',
+  'canvas.confirmFirst': 'Confirm first',
   'canvas.willRegenerateAllShots_one':
     'This will regenerate {count} shot: a new version is made and used, the old one is kept',
   'canvas.willRegenerateAllShots_other':

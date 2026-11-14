@@ -28,6 +28,7 @@ import {
   type ShotAngle,
   type ShotSize,
   type ShotBatchCheck,
+  type UnconfirmedLooks,
   type ShotBatchRequest,
   type ShotBatchStage,
   type ShotBatchResult,
@@ -87,6 +88,7 @@ import { sceneKey, shotKey } from '../canvas/projection'
 import { currentFinal, cutTrimKeyOf } from './current-final'
 import { measureVideoAsset, measureVideoAssets } from './measure-videos'
 import { trimOfTake } from './trim'
+import { unconfirmedOf } from './unconfirmed'
 import { isAiCall } from '../history/ai-origin'
 import { findTools, type Broadcast, type QueueAccess } from '../runtime/project-runtime'
 import type { SettingsService } from '../settings/model-service'
@@ -206,6 +208,8 @@ export interface ShotRunPlan {
   estimateIsLowerBound: boolean
   demoMode: boolean
   models: { image?: string; video?: string }
+  /** 預告片專案：這次要生畫面的鏡頭裡還沒鎖定的角色與場景卡數。 */
+  unconfirmed?: UnconfirmedLooks
 }
 
 export interface ShotService {
@@ -1454,7 +1458,17 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       }
     }
     const { demoMode, budget, image, video, names } = modelInfo(quality)
-    const base = { entries, skippedBusy, demoMode, models: names }
+    const unconfirmed = unconfirmedOf(
+      handle,
+      entries.filter((entry) => entry.image).map((entry) => entry.shot),
+    )
+    const base = {
+      entries,
+      skippedBusy,
+      demoMode,
+      models: names,
+      ...(unconfirmed ? { unconfirmed } : {}),
+    }
     const fail = (issue: string, estimatedUsd = 0, estimateIsLowerBound = false): ShotRunPlan => ({
       ...base,
       ok: false,
@@ -1545,6 +1559,14 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     }
     const quality = request.draft === true ? 'budget' : undefined
     const { demoMode, budget, image, video, names } = modelInfo(quality)
+    // 要生畫面的（不是只做影片、也不是字卡）鏡頭用到的角色與場景卡，還沒鎖定的有幾個
+    const unconfirmed =
+      stage === 'video'
+        ? undefined
+        : unconfirmedOf(
+            handle,
+            toRun.filter((shot) => localKindOf(shot) !== 'card'),
+          )
     const base = {
       willGenerate: toRun.length,
       skippedGenerated,
@@ -1552,6 +1574,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       skippedNoFrame,
       demoMode,
       models: names,
+      ...(unconfirmed ? { unconfirmed } : {}),
     }
     const fail = (issue: string, estimatedUsd = 0, estimateIsLowerBound = false) => ({
       check: { ...base, ok: false, issue, estimatedUsd, estimateIsLowerBound },
