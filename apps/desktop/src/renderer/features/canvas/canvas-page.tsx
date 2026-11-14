@@ -357,9 +357,22 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
       const node = latestFlow.current.nodes.find((n) => n.id === first)
       return node ? revealNode(node) : undefined
     },
+    // 失敗的提示上「看第一個」
+    reveal: (key) => {
+      const node = latestFlow.current.nodes.find((n) => n.id === key)
+      if (node) void revealNode(node)
+    },
   })
   const shotsSnapshot = useShots()
   const [panel, setPanel] = useState<PanelTarget>()
+  // 換了專案（或關了專案）：上一個專案的浮動面板跟著關掉（面板裡的訊息也一起清掉）
+  useEffect(
+    () =>
+      window.svs.on('queue.reset', () => {
+        setPanel(undefined)
+      }),
+    [],
+  )
   const panelKey = panel ? keyOfTarget(panel) : undefined
   // 面板真的有內容才算開著（鏡頭被刪掉時面板會自己收起）
   const panelOpen =

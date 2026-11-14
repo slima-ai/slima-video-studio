@@ -521,3 +521,36 @@ describe('全部生成加聲音', { timeout: 60_000 }, () => {
     expect(node()?.soundAutoAddedAt).toBeUndefined()
   })
 })
+
+// 按了「停止」或有鏡頭失敗：不接片、不丟「第 N 鏡還沒有可用的影片」的錯誤
+describe('全部生成中途停止', { timeout: 60_000 }, () => {
+  it('跑完（被停止或失敗）時有鏡頭沒有影片：不接片，也沒有任何紅色的通知；有影片時照舊接片', async () => {
+    const h = createStudioHarness()
+    harnesses.push(h)
+    h.shots.create({})
+    h.shots.create({})
+    const versionBefore = h.shots.finalCut()?.version
+    // 模擬「停止」：這一輪什麼都沒做出來就結束了
+    const realRun = h.shots.run.bind(h.shots)
+    h.shots.run = () => Promise.resolve({ started: 0, failed: [] })
+    await h.canvas.run({ keys: [], all: true })
+    await h.shots.whenIdle()
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    const notices = h.events.filter((e) => e.name === 'canvas.notice')
+    expect(
+      notices.filter((e) => (e.payload as { tone: string }).tone === 'danger'),
+      JSON.stringify(notices),
+    ).toEqual([])
+    expect(h.shots.finalCut()?.version).toBe(versionBefore)
+
+    // 照常生成：有影片了，接片
+    h.shots.run = realRun
+    await h.canvas.run({ keys: [], all: true })
+    await vi.waitFor(
+      () => {
+        expect(h.shots.finalCut()?.version).toBe((versionBefore ?? 0) + 1)
+      },
+      { timeout: 30_000, interval: 50 },
+    )
+  })
+})

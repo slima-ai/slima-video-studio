@@ -52,6 +52,8 @@ export function useRun(options: {
     plan: CanvasRunPlan,
     anchor: ConfirmAnchor,
   ) => Promise<{ dx: number; dy: number } | undefined>
+  /** 失敗的提示上「看第一個」：把那一格帶進畫面（給節點鍵）。 */
+  reveal?: (key: string) => void
 }) {
   const toast = useToast()
   const [pending, setPending] = useState<RunPending>()
@@ -64,6 +66,18 @@ export function useRun(options: {
   nodesRef.current = options.nodes
   const beforeConfirm = useRef(options.beforeConfirm)
   beforeConfirm.current = options.beforeConfirm
+  const revealRef = useRef(options.reveal)
+  revealRef.current = options.reveal
+
+  // 換了專案（或關了專案）：上一個專案的執行與確認面板都不算了
+  useEffect(
+    () =>
+      window.svs.on('queue.reset', () => {
+        setActive(undefined)
+        setPending(undefined)
+      }),
+    [],
+  )
 
   const ask = useCallback(
     (asked: CanvasRunRequest, anchor: ConfirmAnchor): void => {
@@ -151,16 +165,34 @@ export function useRun(options: {
       finished.size === active.keys.length || ((started.size > 0 || finished.size > 0) && !anyBusy)
     if (over) {
       setActive(undefined)
-      const failed = active.keys.filter((key) => byId.get(key)?.data.status === 'failed').length
-      toast.show(
-        failed > 0
-          ? {
-              key: 'run',
-              tone: 'danger',
-              message: t('canvas.stepsDidnTSucceedPress', { value: String(failed) }),
-            }
-          : { key: 'run', message: t('canvas.done2', { summary: active.summary }) },
-      )
+      const failedKeys = active.keys.filter((key) => byId.get(key)?.data.status === 'failed')
+      if (failedKeys.length === 0) {
+        toast.show({ key: 'run', message: t('canvas.done2', { summary: active.summary }) })
+        return
+      }
+      // 寫出是哪幾鏡（「第 2、4、7 鏡」），再給一顆「看第一個」把那一格帶進畫面
+      const shotKeys = [...new Set(failedKeys.map((key) => /^shot:[^:]+/.exec(key)?.[0] ?? key))]
+      const numbers = shotKeys
+        .map((key) => /(\d+)/.exec(byId.get(key)?.data.title ?? '')?.[1])
+        .filter((n): n is string => n !== undefined)
+      toast.show({
+        key: 'run',
+        tone: 'danger',
+        message:
+          numbers.length > 0
+            ? t('canvas.shotsDidnTSucceed', { value: numbers.join(t('list.comma')) })
+            : t('canvas.stepsDidnTSucceedPress', { value: String(failedKeys.length) }),
+        ...(revealRef.current === undefined || failedKeys[0] === undefined
+          ? {}
+          : {
+              action: {
+                label: t('canvas.seeTheFirstOne'),
+                onAction: () => {
+                  revealRef.current?.(shotKeys[0] ?? failedKeys[0] ?? '')
+                },
+              },
+            }),
+      })
       return
     }
     if (started.size !== active.started.size || finished.size !== active.finished.size) {

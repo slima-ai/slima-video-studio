@@ -612,6 +612,8 @@ export const canvas = {
   'canvas.shotCouldnTStart': 'Shot {value} couldn’t start: {error}',
   'canvas.starting': 'Starting: {summary}',
   'canvas.stepsDidnTSucceedPress': '{value} steps didn’t succeed: press “Retry” on that cell',
+  'canvas.shotsDidnTSucceed': 'Didn’t succeed: shot {value}. Press “Retry” on that shot',
+  'canvas.seeTheFirstOne': 'Go to the first one',
   'canvas.done2': 'Done: {summary}',
   'canvas.stoppedWhatSDoneIs': 'Stopped. What’s done is kept.',
   'canvas.cell': 'Cell',
