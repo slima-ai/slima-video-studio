@@ -301,6 +301,7 @@ export type TrailerIssueCode =
   | 'title_no_action'
   | 'unverified_claim'
   | 'no_escalation'
+  | 'unverified_author'
   | 'too_many_visuals'
   | 'few_visuals'
 
@@ -535,8 +536,29 @@ export function checkTrailerScript(
     }
   })
 
-  // 觀點型：主視覺（地點）3～5 個
+  // 觀點型的「作者憑什麼」那一段（作者經歷）：比照推薦語，只能是使用者給的字（作者欄、推薦語、標語…）或文本裡明明寫著的原文
   if (settings.kind === 'idea') {
+    const bioSources = [...allowed, normalize(settings.sourceText)].filter((s) => s !== '')
+    beats.forEach((beat, index) => {
+      if (beat.segment !== 'author') return
+      const narrated = beat.beatKind === 'video' || beat.beatKind === 'still'
+      const texts = [beat.card?.text, beat.card?.subtext, narrated ? beat.dialogue : undefined]
+      const invented = texts.some((text) => {
+        const value = (text ?? '').trim()
+        if (value === '') return false
+        // 「作者：某某」「by 某某」前面的稱呼不算
+        const flat = normalize(value).replace(/^(作者|by)/, '')
+        return !bioSources.some((source) => source.includes(flat))
+      })
+      if (invented) {
+        error('unverified_author', t('trailer.ruleUnverifiedAuthor', num(index)), index)
+      }
+    })
+  }
+
+  // 觀點型：主視覺（地點）3～5 個（短片放不下那麼多：15 秒約 1 個、20 秒約 2 個）
+  if (settings.kind === 'idea') {
+    const minVisuals = Math.min(IDEA_VISUALS_MIN, Math.max(1, Math.floor(settings.targetSec / 8)))
     const visuals = new Set(
       beats.flatMap((beat) =>
         (beat.beatKind === 'video' || beat.beatKind === 'still') && (beat.location ?? '') !== ''
@@ -552,12 +574,12 @@ export function checkTrailerScript(
           max: String(IDEA_VISUALS_MAX),
         }),
       )
-    } else if (visuals.size > 0 && visuals.size < IDEA_VISUALS_MIN) {
+    } else if (visuals.size > 0 && visuals.size < minVisuals) {
       warnings.push({
         code: 'few_visuals',
         message: t('trailer.ruleFewVisuals', {
           count: String(visuals.size),
-          min: String(IDEA_VISUALS_MIN),
+          min: String(minVisuals),
         }),
       })
     }

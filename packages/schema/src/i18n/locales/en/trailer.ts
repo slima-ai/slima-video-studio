@@ -44,6 +44,8 @@ export const trailer = {
   'trailer.ruleTitleNoAction': 'No release info, so the title card will show only the book title.',
   'trailer.ruleUnverifiedClaim':
     'Shot {n} mentions a bestseller, award or blurb claim that you did not provide. Blurbs, awards and sales figures may only use text you provided; remove it if you have none.',
+  'trailer.ruleUnverifiedAuthor':
+    "Shot {n} states something about the author (a title, what they have done) that you did not provide and that the text does not say. Use only the author's name you gave and words that are in the text; with nothing, show just the name.",
   'trailer.ruleTooManyVisuals':
     'The script uses {count} main visuals (places); the most is {max}. Each one needs its own place card, so merge them into fewer and use the same name for the same picture.',
   'trailer.ruleFewVisuals':

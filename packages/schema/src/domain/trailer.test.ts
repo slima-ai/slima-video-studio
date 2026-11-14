@@ -775,7 +775,12 @@ describe('觀點型：節奏與主視覺', () => {
     )
     expect(codes(six.errors)).toContain('too_many_visuals')
     expect(six.errors.find((e) => e.code === 'too_many_visuals')?.message).toContain('5')
-    const two = checkTrailerScript(withVisuals(['a', 'b']), ideaSettings({ targetSec: 11 }), FPS)
+    // 30 秒：2 個主視覺只提醒、不擋
+    const many2 = [
+      ...Array.from({ length: 9 }, (_, i) => video(3, { location: i % 2 === 0 ? 'a' : 'b' })),
+      title(3),
+    ]
+    const two = checkTrailerScript(many2, ideaSettings({ targetSec: 30 }), FPS)
     expect(codes(two.errors)).not.toContain('too_many_visuals')
     expect(codes(two.warnings)).toContain('few_visuals')
   })
@@ -861,5 +866,78 @@ describe('觀點型：好腳本全部規則都過', () => {
     expect(r.errors).toEqual([])
     expect(r.warnings).toEqual([])
     expect(r.totalSec).toBeCloseTo(30, 9)
+  })
+})
+
+describe('觀點型：短片不提醒「主視覺少於 3 個」', () => {
+  const visuals = (n: number, sec: number): TrailerBeat[] => {
+    const each = (sec - 3) / n
+    return [
+      ...Array.from({ length: n }, (_, i) => video(each, { location: `v${String(i)}` })),
+      title(3),
+    ]
+  }
+
+  it('15 秒、1 個主視覺：不提醒；20 秒 1 個提醒、2 個不提醒；30 秒 2 個提醒；劇情型不管', () => {
+    const warn = (n: number, sec: number) =>
+      codes(checkTrailerScript(visuals(n, sec), ideaSettings({ targetSec: sec }), FPS).warnings)
+    expect(warn(1, 15)).not.toContain('few_visuals')
+    expect(warn(1, 20)).toContain('few_visuals')
+    expect(warn(2, 20)).not.toContain('few_visuals')
+    expect(warn(2, 30)).toContain('few_visuals')
+    expect(warn(3, 30)).not.toContain('few_visuals')
+  })
+})
+
+describe('觀點型：作者那一段（作者經歷）只能是使用者給的字或文本裡的原文', () => {
+  const authorBeats = (text: string, dialogue = ''): TrailerBeat[] => [
+    video(4, { location: 'a' }),
+    video(4, { location: 'b' }),
+    video(4, { location: 'c' }),
+    {
+      ...card(text, 3),
+      segment: 'author',
+      ...(dialogue ? { dialogue } : {}),
+    },
+    title(3),
+  ]
+  const run = (text: string, patch: Partial<TrailerSettings> = {}, dialogue = '') =>
+    checkTrailerScript(authorBeats(text, dialogue), ideaSettings({ targetSec: 18, ...patch }), FPS)
+
+  it('編出來的頭銜、經歷：擋（unverified_author，指到那一格）', () => {
+    const r = run('哈佛教授')
+    const issue = r.errors.find((e) => e.code === 'unverified_author')
+    expect(issue?.index).toBe(3)
+    expect(run('十年顧問經歷').errors.map((e) => e.code)).toContain('unverified_author')
+  })
+
+  it('作者欄的名字（含「作者：」「by」稱呼）、推薦語原文、文本裡逐字寫著的：過', () => {
+    expect(codes(run('某作者').errors)).not.toContain('unverified_author')
+    expect(codes(run('作者：某作者').errors)).not.toContain('unverified_author')
+    expect(codes(run('by 某作者').errors)).not.toContain('unverified_author')
+    const text = '某作者在顧問業做了二十年，寫過三本書。'
+    expect(codes(run('做了二十年', { sourceText: text }).errors)).not.toContain('unverified_author')
+    expect(codes(run('做了二十年').errors)).toContain('unverified_author')
+  })
+
+  it('旁白也一樣；其他段落的字不受這條影響', () => {
+    const r = checkTrailerScript(
+      [
+        video(4, { location: 'a' }),
+        video(4, { location: 'b', segment: 'author', dialogue: '他是業界公認的專家。' }),
+        video(4, { location: 'c' }),
+        card('先做最重要的一件', 3),
+        title(3),
+      ],
+      ideaSettings({ targetSec: 18 }),
+      FPS,
+    )
+    expect(r.errors.filter((e) => e.code === 'unverified_author').map((e) => e.index)).toEqual([1])
+  })
+
+  it('劇情型沒有「author」這一段：這條不影響', () => {
+    expect(
+      codes(checkTrailerScript(authorBeats('哈佛教授'), settings({ targetSec: 18 }), FPS).errors),
+    ).not.toContain('unverified_author')
   })
 })

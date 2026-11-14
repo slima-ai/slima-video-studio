@@ -406,17 +406,41 @@ describe('觀點型：寫腳本的提示改成說明的口吻', () => {
     expect(p).not.toContain('越到後面剪得越快')
   })
 
-  it('依序列出六段、各段約幾秒；字卡是主角：全片最多 7 張（不是 4 張）', () => {
-    const p = promptOf()
+  it('60 秒、作者與推薦語都有：依序列出六段、各段約幾秒；字卡是主角：全片最多 7 張（不是 4 張）', () => {
+    const p = promptOf({ targetSec: 60, claims: ['每個經理人都該讀——某某雜誌'] })
     for (const key of ['hook', 'claim', 'gains', 'author', 'praise', 'title']) {
       expect(p).toContain(`${key}＝`)
     }
     expect(p).toContain('hook＝鉤子')
-    expect(p).toContain('約 4.5 秒') // 30 秒的 15%
-    expect(p).toContain('約 10.5 秒') // 三個收穫 35%
+    expect(p).toContain('約 9 秒') // 60 秒的 15%
+    expect(p).toContain('約 21 秒') // 三個收穫 35%
     expect(p).toContain('全片最多 7 張')
     expect(p).not.toContain('全片最多 4 張')
     expect(p).toContain('字卡比畫面重要')
+  })
+
+  it('30 秒：作者與推薦語最多擇一（兩個都有就留推薦語）；收穫最多 2 張字卡；沒給的那一段整段不印', () => {
+    const both = promptOf({ claims: ['每個經理人都該讀——某某雜誌'] })
+    expect(both).toContain('praise＝')
+    expect(both).not.toContain('author＝')
+    expect(both).toContain('收穫（最多 2 張字卡')
+    expect(both).not.toContain('三個收穫（三張字卡')
+    // 時間按比例分給留下的各段：hook .15 / claim .2 / gains .35 / praise .08 / title .1，總和 .88
+    expect(both).toContain(
+      'hook＝鉤子（一個反直覺的問句，或讀者的痛點：一張大字卡加一個隱喻畫面；第一格仍然是畫面），約 5.11 秒',
+    )
+    const authorOnly = promptOf()
+    expect(authorOnly).toContain('author＝')
+    expect(authorOnly).not.toContain('praise＝')
+    const neither = promptOf({ author: '' })
+    expect(neither).not.toContain('author＝')
+    expect(neither).not.toContain('praise＝')
+    // 沒給的那一段不再用「整支不要有…」另外說一次（提示不打架）
+    for (const p of [both, authorOnly, neither]) {
+      expect(p).not.toContain('整支不要有 praise')
+      expect(p).not.toContain('整支不要有 author')
+      expect(p).not.toContain('還給 gains')
+    }
   })
 
   it('沒有角色：角色那一步改成 3～5 個主視覺，用場景卡（location＋places）；畫面是隱喻、不是人物劇情', () => {
@@ -429,18 +453,19 @@ describe('觀點型：寫腳本的提示改成說明的口吻', () => {
     expect(p).not.toContain('同一個角色在不同格子用同一個名字')
   })
 
-  it('沒提供推薦語：整支不要「praise」那一段，時間還給 gains；提供了：只能逐字用那些原文', () => {
+  it('推薦語：沒提供就沒有那一段；提供了：只能逐字用那些原文', () => {
     const none = promptOf()
-    expect(none).toContain('沒有提供推薦語')
+    expect(none).not.toContain('推薦語（praise')
     const given = promptOf({ claims: ['每個經理人都該讀——某某雜誌'] })
-    expect(given).not.toContain('沒有提供推薦語')
     expect(given).toContain('「每個經理人都該讀——某某雜誌」')
     expect(given).toContain('逐字')
   })
 
-  it('沒提供作者：不要「author」那一段；使用者給的書名、標語、上市資訊照劇情型的規矩帶進去', () => {
-    expect(promptOf({ author: '' })).toContain('沒有提供作者')
-    expect(promptOf()).not.toContain('沒有提供作者')
+  it('作者：沒提供就沒有那一段；有的話只用名字與文本裡逐字照抄的經歷；書名、標語、上市資訊照劇情型的規矩帶進去', () => {
+    expect(promptOf({ author: '' })).not.toContain('author 那一段')
+    const withAuthor = promptOf()
+    expect(withAuthor).toContain('author 那一段')
+    expect(withAuthor).toContain('逐字照抄')
     const p = promptOf({ tagline: '少做，才做得好', endLine: '12 月 1 日上市' })
     expect(p).toContain('標語「少做，才做得好」')
     expect(p).toContain('12 月 1 日上市')
@@ -567,7 +592,8 @@ describe('觀點型：配樂不停一拍、單一樂器平穩、片名進來時�
     })
     expect(p).toContain('畫得出來的具體')
     expect(p).toContain('不要寫抽象')
-    expect(p).toContain('1 個鉤子')
+    expect(p).toContain('最多 2 個收穫')
+    expect(p).toContain('作者與推薦語最多擇一')
     expect(p).toContain('每一句都要讀得完')
     expect(p).toContain('15 秒')
     expect(p).toContain('60 秒')
@@ -624,5 +650,58 @@ describe('A1：寫腳本時把角色的外觀一起寫出來（people）', () =>
     const p = promptOf('idea')
     expect(p).toContain('people 一律是空陣列')
     expect(p).not.toContain(PEOPLE_LOOK_INSTRUCTION)
+  })
+})
+
+describe('觀點型：作者經歷要是使用者給的字或文本裡的原文', () => {
+  const ideaSettings = TrailerSettingsSchema.parse({
+    kind: 'idea',
+    targetSec: 21,
+    title: '深度工作',
+    author: '某作者',
+  })
+  const pic = (extra: Record<string, unknown> = {}) =>
+    beat({ durationSec: 3, location: '辦公室', segment: 'gains', ...extra })
+  const withAuthorCard = (text: string) =>
+    script([
+      pic(),
+      pic({ location: '待辦清單' }),
+      pic({ location: '時鐘' }),
+      beat({
+        beatKind: 'card',
+        durationSec: 3,
+        description: '',
+        cardText: text,
+        segment: 'author',
+      }),
+      pic({ segment: 'gains' }),
+      pic({ segment: 'gains' }),
+      beat({ beatKind: 'title', durationSec: 3, description: '', segment: 'title' }),
+    ])
+
+  it('編出來的頭銜（「哈佛教授」）：第一版被退回，訊息說作者只能用名字與文本裡的原文；改成只放名字就過', async () => {
+    const { studio, requests } = studioOf([withAuthorCard('哈佛教授'), withAuthorCard('某作者')])
+    const result = await writeTrailerScript(
+      studio,
+      { ...input, settings: ideaSettings, text: '這本書說：越忙越沒進度。' },
+      ctx,
+    )
+    expect(result.retried).toBe(true)
+    expect(JSON.stringify(requests[1]?.messages.at(-1))).toContain('作者')
+    expect(result.script.beats.find((b) => b.segment === 'author')?.cardText).toBe('某作者')
+  })
+
+  it('文本裡明明寫著的（逐字）：過；「作者：某作者」前面的稱呼不算', async () => {
+    const text = '某作者在顧問業做了二十年。這本書說：越忙越沒進度。'
+    for (const card of ['做了二十年', '作者：某作者']) {
+      const { studio, requests } = studioOf([withAuthorCard(card)])
+      const result = await writeTrailerScript(
+        studio,
+        { ...input, settings: ideaSettings, text },
+        ctx,
+      )
+      expect(result.retried, card).toBe(false)
+      expect(requests).toHaveLength(1)
+    }
   })
 })

@@ -57,9 +57,9 @@ const GOLDEN: Record<string, string> = {
   '寫預告片腳本：角色外觀的要求（people）':
     '67c4c0905b7da0178d2aa6d9d867624bf367dc45eb0ca6600917c6d3e234e37e',
   '寫預告片腳本 system prompt：觀點型 30 秒、沒有推薦語、有作者':
-    '3739f991db79645578b3b29555cb7c2bb1ded3e7bce4e86262b6105cd3b53904',
+    '663d62b1bacb75ae978ce29f29cfd9c9404faf14b3d84ea653254462b627c2b4',
   '寫預告片腳本 system prompt：觀點型 60 秒、有推薦語、沒有作者、不要旁白':
-    'c8859c7cfc2cd12f2a72fd5b499b6ec8546e22bf86410d4531d5247d95108709',
+    'bb84f78b350d9555da2e1e2837937d4a2616d310b2d0269f7e78fbede35ba0ea',
   '配樂描述：觀點型（不停一拍、單一樂器、片名進來時加一層）':
     '1059fd11a119db6f5495efeebf3791492ffacfd410f68741c81d1648f1b14263',
   '寫預告片腳本：地點外觀的要求（只寫地方本身，不寫人與動作）':

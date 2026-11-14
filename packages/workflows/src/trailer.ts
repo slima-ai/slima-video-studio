@@ -65,6 +65,9 @@ const SEGMENT_NAMES: Readonly<Record<string, string>> = {
 }
 
 /** 觀點型各段的說明（key 跟劇情型的 hook 同名，但意思不一樣，所以分開放）。 */
+/** 目標秒數到這麼長才放滿六段與三個收穫；比這短，作者與推薦語最多擇一、收穫最多 2 個。 */
+export const IDEA_FULL_SIX_SEC = 45
+
 const IDEA_SEGMENT_NAMES: Readonly<Record<string, string>> = {
   hook: '鉤子（一個反直覺的問句，或讀者的痛點：一張大字卡加一個隱喻畫面；第一格仍然是畫面）',
   claim: '核心主張（「如果……呢？」這本書的那一個想法，用一句話說清楚）',
@@ -108,11 +111,28 @@ function ideaSystemPrompt(input: TrailerPromptInput): string {
   const template = TRAILER_TEMPLATES.idea
   const hasClaims = settings.claims.length > 0
   const hasAuthor = settings.author.trim() !== ''
-  const outline = template.segments
-    .map(
-      (segment) =>
-        `${segment.key}＝${IDEA_SEGMENT_NAMES[segment.key] ?? segment.key}，約 ${secText(segment.share * settings.targetSec)} 秒，${DENSITY_TEXT[segment.narrationDensity]}，字卡最多 ${String(segment.maxCards)} 張`,
-    )
+  const full = settings.targetSec >= IDEA_FULL_SIX_SEC
+  // 使用者沒給的那一段整段不印（時間按比例分給其他段）；比較短的片（30 秒）作者與推薦語最多擇一，推薦語優先
+  const optional = [
+    ...(hasAuthor ? (['author'] as const) : []),
+    ...(hasClaims ? (['praise'] as const) : []),
+  ]
+  const extras: readonly string[] = full || optional.length < 2 ? optional : ['praise']
+  const kept = template.segments.filter(
+    (segment) =>
+      (segment.key !== 'author' && segment.key !== 'praise') || extras.includes(segment.key),
+  )
+  const keptShare = kept.reduce((sum, segment) => sum + segment.share, 0)
+  const gainCards = full ? 3 : 2
+  const outline = kept
+    .map((segment) => {
+      const name =
+        segment.key === 'gains' && !full
+          ? `收穫（最多 2 張字卡，各配一個隱喻畫面，不是人物劇情；一張字卡講一個收穫）`
+          : (IDEA_SEGMENT_NAMES[segment.key] ?? segment.key)
+      const cards = segment.key === 'gains' ? gainCards : segment.maxCards
+      return `${segment.key}＝${name}，約 ${secText((segment.share / keptShare) * settings.targetSec)} 秒，${DENSITY_TEXT[segment.narrationDensity]}，字卡最多 ${String(cards)} 張`
+    })
     .join('；')
   const given = [
     settings.title ? `書名「${settings.title}」（title 欄位照這個寫）` : '',
@@ -126,12 +146,12 @@ function ideaSystemPrompt(input: TrailerPromptInput): string {
     '觀點型預告片的目的是讓人想讀這本書：用說明的口吻講清楚這本書的那一個想法，和它帶給讀者的三個收穫；不要照順序摘要整本書，也沒有劇情與角色。' +
     `格子種類 beatKind 只有四種：video（會動的畫面）、still（一張靜態畫面慢慢推近或拉遠）、card（只有字的字卡）、title（片名卡，最後一格，只放書名與行動，不用寫其他欄位）。` +
     `依序分成這幾段：${outline}。每一格的 segment 填段落代號。字卡比畫面重要：每個重點都用一張字卡寫出來，畫面只負責配上一個隱喻。` +
-    (hasClaims
+    (extras.includes('praise')
       ? `推薦語（praise 那一段）：字卡與旁白只能逐字使用使用者提供的這些原文：${settings.claims.map((c) => `「${c}」`).join('、')}，不要改寫、不要自己加。`
-      : '使用者沒有提供推薦語：整支不要有 praise 那一段（不要寫任何推薦語、獎項、銷量或名人背書），把這一段的時間還給 gains。') +
-    (hasAuthor
-      ? '作者憑什麼（author 那一段）：只用使用者提供的作者名字，以及文本裡明明寫著的作者經歷；文本沒寫就只放名字，不要編造頭銜或經歷。'
-      : '使用者沒有提供作者：整支不要有 author 那一段，把這一段的時間還給 gains。') +
+      : '') +
+    (extras.includes('author')
+      ? '作者憑什麼（author 那一段）：只用使用者提供的作者名字，以及文本裡明明寫著的作者經歷（逐字照抄）；文本沒寫就只放名字，不要編造頭銜或經歷，也不要改寫。'
+      : '') +
     `目標總長 ${secText(settings.targetSec)} 秒：所有格子的 durationSec 加起來必須剛好等於 ${secText(settings.targetSec)}，每格秒數是 1/${String(LOCAL_BEAT_FPS)} 秒的整數倍（例如 2.5、0.75）。` +
     `第一格必須是畫面（video 或 still），不能是字卡，最長 ${String(FIRST_BEAT_MAX_SEC)} 秒。節奏平穩，不必越剪越快；最後一格是片名卡，至少 ${String(TITLE_MIN_SEC)} 秒。` +
     `字卡 card：cardText 最多 ${String(CARD_MAX_CJK)} 個中文字（英文最多 ${String(CARD_MAX_WORDS)} 個單字），cardSubtext 可以留空；停留秒數至少 ${String(CARD_BASE_SEC)} 加上每個字 ${String(CARD_SEC_PER_UNIT)} 秒；字卡是這一型的主角，全片最多 ${String(IDEA_CARD_MAX_COUNT)} 張（片名卡不算）。` +
@@ -141,7 +161,7 @@ function ideaSystemPrompt(input: TrailerPromptInput): string {
     '推薦語、獎項、銷量、名人背書只能用使用者提供的原文；沒提供就不要寫，也不要暗示。' +
     '描述畫面（description）寫一個隱喻畫面（例如「凌晨還亮著燈的辦公室」「一張被劃掉的待辦清單」），優先用物件、環境、剪影，不是人物劇情；一格只做一件事，不要寫招牌、字幕、標題這類畫面裡的文字；所有的字都用字卡。' +
     `${SIZE_HINTS}。${ANGLE_HINTS}。cameraMove 只能是 null（固定）或下列其中一個：${CAMERA_MOVES.map((c) => `${c.id}（${c.label}）`).join('、')}（still 格的運鏡決定推近、拉遠或搖鏡）。` +
-    `長度與句數：30 秒＝1 個鉤子＋3 句＋1 句收穫＋片名；60 秒最多 5 句；15 秒＝1 句＋片名。每一句都要讀得完（字卡的停留秒數夠長），句與句之間留一點只有音樂的空檔，不要塞滿。` +
+    `長度與句數：15 秒＝1 句＋片名；30 秒＝鉤子＋主張＋最多 2 個收穫＋片名，作者與推薦語最多擇一；60 秒才放滿六段，最多 5 句。每一句都要讀得完（字卡的停留秒數夠長），句與句之間留一點只有音樂的空檔，不要塞滿。` +
     `這一型沒有角色：每一格的 characters 一律是空陣列，people 一律是空陣列。角色那一步改成 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個主視覺：location 欄位寫這一格用的主視覺名字（短，例如「深夜辦公室」「待辦清單」），整支用 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個，同一個畫面每次用同一個名字，同一個主視覺可以給好幾格用（一次推近、一次平移）；字卡與片名卡留空。` +
     PLACE_LOOK_INSTRUCTION +
     'look 要寫畫得出來的具體地方與物件（例如「一張被劃掉大半的待辦清單」「凌晨還亮著一盞燈的辦公桌」），不要寫抽象的詞（例如「成功」「焦慮」「效率」），因為抽象的詞畫不出來。' +
@@ -239,11 +259,19 @@ export function toCheckBeat(beat: TrailerScriptBeat): TrailerBeat {
 
 const FPS = LOCAL_BEAT_FPS
 
-const checkScript = (script: TrailerScript, settings: TrailerSettings): TrailerCheckResult =>
+const checkScript = (
+  script: TrailerScript,
+  settings: TrailerSettings,
+  text: string,
+): TrailerCheckResult =>
   checkTrailerScript(
     script.beats.map(toCheckBeat),
-    // 使用者沒給書名時，書名取 AI 從文本取的
-    { ...settings, title: settings.title === '' ? script.title.trim() : settings.title },
+    // 使用者沒給書名時，書名取 AI 從文本取的；文本也交給檢查器（觀點型的作者經歷要是文本裡的原文）
+    {
+      ...settings,
+      title: settings.title === '' ? script.title.trim() : settings.title,
+      sourceText: text,
+    },
     FPS,
   )
 
@@ -432,7 +460,7 @@ export async function writeTrailerScript(
   let script = ensureTagline(first.data, input.settings)
   let provider = first.provider
   let jobId = first.jobId
-  let check = checkScript(script, input.settings)
+  let check = checkScript(script, input.settings, input.text)
   let retried = false
   if (check.errors.length > 0) {
     retried = true
@@ -457,14 +485,14 @@ export async function writeTrailerScript(
     script = ensureTagline(second.data, input.settings)
     provider = second.provider
     jobId = second.jobId
-    check = checkScript(script, input.settings)
+    check = checkScript(script, input.settings, input.text)
   }
   let fixes: string[] = []
   if (check.errors.length > 0) {
     const repaired = repairScript(script, input.settings)
     script = repaired.script
     fixes = repaired.fixes
-    check = checkScript(script, input.settings)
+    check = checkScript(script, input.settings, input.text)
   }
   if (check.errors.length > 0) {
     throw new AppError({
