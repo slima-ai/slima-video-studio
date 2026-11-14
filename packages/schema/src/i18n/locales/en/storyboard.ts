@@ -94,4 +94,18 @@ export const storyboard = {
   'storyboard.beatKind': 'Kind',
   'storyboard.beatKindTip':
     'Whether this shot is a moving video, a still picture or a text card. Open the shot panel to change it.',
+  'storyboard.start': 'Time',
+  'storyboard.segment': 'Section',
+  'storyboard.pictureOrText': 'Picture or text',
+  'storyboard.moreColumns': 'More columns',
+  'storyboard.fewerColumns': 'Hide extra columns',
+  'storyboard.titleCardRow': 'Title card',
+  'storyboard.segment.hook': 'Hook',
+  'storyboard.segment.world': 'World',
+  'storyboard.segment.turn': 'Turn',
+  'storyboard.segment.escalate': 'Escalate',
+  'storyboard.segment.suspense': 'Suspense',
+  'storyboard.segment.montage': 'Montage',
+  'storyboard.segment.title': 'Title',
+  'storyboard.narration': 'Narration',
 } as const

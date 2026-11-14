@@ -32,9 +32,11 @@ import {
   secLabel,
   t,
   getLocale,
+  msg,
+  type MessageRef,
 } from '@svs/schema'
 import { GripVertical } from 'lucide-react'
-import { createContext, useContext, useMemo, type HTMLAttributes } from 'react'
+import { createContext, useContext, useMemo, useState, type HTMLAttributes } from 'react'
 
 import { fmtSec1 } from '../shots/trim-math'
 import { SelectCell, TextCell } from './cells'
@@ -57,6 +59,8 @@ const ZH_COLUMN_WIDTHS: Record<string, number> = {
   handle: 36,
   select: 40,
   number: 64,
+  start: 80,
+  segment: 90,
   scene: 220,
   description: 280,
   size: 104,
@@ -74,6 +78,57 @@ const ZH_COLUMN_WIDTHS: Record<string, number> = {
   status: 96,
 }
 /** 英文的景別、角度、運鏡名稱比中文長（Extreme close-up、Over the shoulder）：這幾欄寬一點；繁中維持原樣。 */
+/** 預告片專案的分鏡表預設只看這幾欄；其餘（場、景別、角度、運鏡、角色…）收進「更多欄位」。 */
+const TRAILER_COLUMNS: readonly string[] = [
+  'handle',
+  'select',
+  'number',
+  'start',
+  'segment',
+  'beat',
+  'description',
+  'dialogue',
+  'duration',
+]
+
+const SEGMENT_NAMES: Record<string, MessageRef> = {
+  hook: msg('storyboard.segment.hook'),
+  world: msg('storyboard.segment.world'),
+  turn: msg('storyboard.segment.turn'),
+  escalate: msg('storyboard.segment.escalate'),
+  suspense: msg('storyboard.segment.suspense'),
+  montage: msg('storyboard.segment.montage'),
+  title: msg('storyboard.segment.title'),
+}
+
+/** 段落的顯示名；不認得的代號原樣顯示，沒有段落留空。 */
+export const segmentName = (segment: string | undefined): string => {
+  if (segment === undefined) return ''
+  const known = SEGMENT_NAMES[segment]
+  return known ? t(known) : segment
+}
+
+/** 這一格從影片的第幾秒開始（前面各格秒數的和）：「0:08.5」。 */
+export function startClock(sec: number): string {
+  const whole = Math.floor(sec / 60)
+  return `${String(whole)}:${(sec - whole * 60).toFixed(1).padStart(4, '0')}`
+}
+
+/** 哪些欄位現在要顯示：一般專案跟以前一樣；預告片專案預設只看六欄，按「更多欄位」才全部。 */
+export function visibleColumns(
+  ids: readonly string[],
+  options: { trailer: boolean; showMore: boolean; showBeat: boolean },
+): Record<string, boolean> {
+  return Object.fromEntries(
+    ids.map((id) => {
+      if (!options.trailer) {
+        return [id, id !== 'start' && id !== 'segment' && (id !== 'beat' || options.showBeat)]
+      }
+      return [id, options.showMore || TRAILER_COLUMNS.includes(id)]
+    }),
+  )
+}
+
 const columnWidths = (): Record<string, number> =>
   getLocale() === 'zh-TW'
     ? ZH_COLUMN_WIDTHS
@@ -110,6 +165,8 @@ export interface StoryboardTableProps {
   onSelect: (next: RowSelectionState) => void
   onEdit: (shotId: string, edit: ShotEdit) => void
   onReorder: (orderedIds: string[]) => void
+  /** 預告片專案：預設欄位換成時間、段落、種類、畫面或字、旁白、秒數。 */
+  trailer?: boolean
 }
 
 function statusText(shot: ShotView): string {
@@ -146,7 +203,9 @@ export function StoryboardTable({
   onSelect,
   onEdit,
   onReorder,
+  trailer = false,
 }: StoryboardTableProps) {
+  const [showMore, setShowMore] = useState(false)
   const sceneOptions = useMemo(
     () => [
       { value: NONE, label: t('storyboard.notInAnyScene') },
@@ -176,6 +235,17 @@ export function StoryboardTable({
     [],
   )
 
+  // 每一格從第幾秒開始（依表裡的順序）
+  const starts = useMemo(() => {
+    let at = 0
+    const result = new Map<string, number>()
+    for (const shot of shots) {
+      result.set(shot.id, at)
+      at += shot.durationSec
+    }
+    return result
+  }, [shots])
+
   const columns = useMemo<ColumnDef<ShotView>[]>(
     () => [
       {
@@ -204,6 +274,33 @@ export function StoryboardTable({
         ),
       },
       {
+        // 唯讀：這一格從影片的第幾秒開始（預告片專案才顯示）
+        id: 'start',
+        header: t('storyboard.start'),
+        cell: ({ row }) => (
+          <span
+            className="block truncate px-2 text-sm tabular-nums text-fg-muted"
+            data-testid="shot-start"
+          >
+            {startClock(starts.get(row.original.id) ?? 0)}
+          </span>
+        ),
+      },
+      {
+        // 唯讀：這一格屬於預告片的哪一段（預告片專案才顯示；沒有段落留空）
+        id: 'segment',
+        header: t('storyboard.segment'),
+        cell: ({ row }) => (
+          <span
+            className="block truncate px-2 text-sm text-fg-muted"
+            data-testid="shot-segment"
+            data-segment={row.original.segment ?? ''}
+          >
+            {segmentName(row.original.segment)}
+          </span>
+        ),
+      },
+      {
         id: 'scene',
         header: t('storyboard.scene'),
         cell: ({ row }) => (
@@ -220,17 +317,29 @@ export function StoryboardTable({
       },
       {
         id: 'description',
-        header: t('storyboard.pictureDescription'),
-        cell: ({ row }) => (
-          <TextCell
-            column="description"
-            label={t('storyboard.pictureDescription')}
-            value={row.original.description}
-            onCommit={(value) => {
-              if (value.trim() !== '') onEdit(row.original.id, { description: value })
-            }}
-          />
-        ),
+        header: trailer ? t('storyboard.pictureOrText') : t('storyboard.pictureDescription'),
+        cell: ({ row }) =>
+          trailer && (row.original.beatKind === 'card' || row.original.beatKind === 'title') ? (
+            // 字卡寫字卡上的字、片名卡寫「片名卡」（要改請打開鏡頭面板或預告片頁）；不是畫面描述
+            <span
+              className="block truncate border border-transparent px-2 py-1 text-sm"
+              data-testid="shot-card-text"
+              title={row.original.card?.text}
+            >
+              {row.original.beatKind === 'title'
+                ? t('storyboard.titleCardRow')
+                : (row.original.card?.text ?? '')}
+            </span>
+          ) : (
+            <TextCell
+              column="description"
+              label={t('storyboard.pictureDescription')}
+              value={row.original.description}
+              onCommit={(value) => {
+                if (value.trim() !== '') onEdit(row.original.id, { description: value })
+              }}
+            />
+          ),
       },
       {
         id: 'size',
@@ -346,7 +455,7 @@ export function StoryboardTable({
       },
       {
         id: 'dialogue',
-        header: t('storyboard.lines'),
+        header: trailer ? t('storyboard.narration') : t('storyboard.lines'),
         cell: ({ row }) => (
           <TextCell
             column="dialogue"
@@ -431,20 +540,33 @@ export function StoryboardTable({
         ),
       },
     ],
-    [sceneOptions, locationOptions, sizeChoices, angleChoices, cameraOptions, onEdit],
+    [
+      sceneOptions,
+      locationOptions,
+      sizeChoices,
+      angleChoices,
+      cameraOptions,
+      onEdit,
+      starts,
+      trailer,
+    ],
   )
 
   // 「種類」欄只有專案裡有不動的畫面或字卡時才出現：一般專案的分鏡表跟以前一樣
   const showBeat = shots.some((shot) => shot.beatKind !== undefined && shot.beatKind !== 'video')
+  const visibility = visibleColumns(
+    columns.map((column) => column.id ?? ''),
+    { trailer, showMore, showBeat },
+  )
   const widths = Object.fromEntries(
-    Object.entries(columnWidths()).filter(([id]) => id !== 'beat' || showBeat),
+    Object.entries(columnWidths()).filter(([id]) => visibility[id] !== false),
   )
   const table = useReactTable({
     data: shots,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (shot) => shot.id,
-    state: { rowSelection: selected, columnVisibility: { beat: showBeat } },
+    state: { rowSelection: selected, columnVisibility: visibility },
     onRowSelectionChange: (updater) => {
       onSelect(typeof updater === 'function' ? updater(selected) : updater)
     },
@@ -466,43 +588,60 @@ export function StoryboardTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-surface-raised shadow-card">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <table
-          style={{ width: tableWidth(widths) }}
-          className="table-fixed border-collapse text-left"
-          data-testid="storyboard-table"
-        >
-          <thead className="border-b border-border text-xs text-fg-muted">
-            {table.getHeaderGroups().map((group) => (
-              <tr key={group.id}>
-                {group.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    style={{ width: widths[header.column.id] }}
-                    className="whitespace-nowrap px-2 py-2 font-medium"
-                  >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-              {table.getRowModel().rows.map((row) => (
-                <SortableRow key={row.id} shot={row.original}>
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-1 py-1">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
+    <>
+      {trailer ? (
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            data-testid="storyboard-more-columns"
+            aria-pressed={showMore}
+            className="rounded-lg border border-border bg-surface-raised px-2.5 py-1 text-xs hover:bg-accent/10"
+            onClick={() => {
+              setShowMore((on) => !on)
+            }}
+          >
+            {showMore ? t('storyboard.fewerColumns') : t('storyboard.moreColumns')}
+          </button>
+        </div>
+      ) : null}
+      <div className="overflow-x-auto rounded-lg border border-border bg-surface-raised shadow-card">
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <table
+            style={{ width: tableWidth(widths) }}
+            className="table-fixed border-collapse text-left"
+            data-testid="storyboard-table"
+          >
+            <thead className="border-b border-border text-xs text-fg-muted">
+              {table.getHeaderGroups().map((group) => (
+                <tr key={group.id}>
+                  {group.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      style={{ width: widths[header.column.id] }}
+                      className="whitespace-nowrap px-2 py-2 font-medium"
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
                   ))}
-                </SortableRow>
+                </tr>
               ))}
-            </SortableContext>
-          </tbody>
-        </table>
-      </DndContext>
-    </div>
+            </thead>
+            <tbody>
+              <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                {table.getRowModel().rows.map((row) => (
+                  <SortableRow key={row.id} shot={row.original}>
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-1 py-1">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </SortableRow>
+                ))}
+              </SortableContext>
+            </tbody>
+          </table>
+        </DndContext>
+      </div>
+    </>
   )
 }
