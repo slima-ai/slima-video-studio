@@ -1,4 +1,4 @@
-import type { TrailerKind, TrailerPlanCheck } from '@svs/schema'
+import { TEASER_MAX_SEC, type TrailerKind, type TrailerPlanCheck } from '@svs/schema'
 import { Clapperboard } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -17,7 +17,7 @@ export const TRAILER_LENGTHS = [15, 30, 60, 90] as const
 
 /** 懸念短版是給社群看的 15～30 秒；選它的時候長度只留這兩個。劇情型四個都有。 */
 export const lengthsFor = (kind: TrailerKind): readonly number[] =>
-  kind === 'teaser' ? TRAILER_LENGTHS.filter((n) => n <= 30) : TRAILER_LENGTHS
+  kind === 'teaser' ? TRAILER_LENGTHS.filter((n) => n <= TEASER_MAX_SEC) : TRAILER_LENGTHS
 
 /** 估價要等使用者停手這麼久才問（打字時不連續呼叫）。 */
 const CHECK_DEBOUNCE_MS = 400

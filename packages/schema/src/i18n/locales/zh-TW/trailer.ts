@@ -98,4 +98,5 @@ export const trailer = {
   'trailer.panel.cancel': '先不要',
   'trailer.panel.rewriteConfirm': '確定重寫',
   'trailer.panel.replaceWarn': '{generated} 格已生成的畫面會被取代，可以復原',
+  'trailer.teaserTooLong': '懸念短版最長 {max} 秒。想做更長的，請選劇情型。',
 } as const

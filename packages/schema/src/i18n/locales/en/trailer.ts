@@ -119,4 +119,6 @@ export const trailer = {
   'trailer.panel.rewriteConfirm': 'Rewrite it',
   'trailer.panel.replaceWarn':
     '{generated} generated pictures will be replaced. You can undo this.',
+  'trailer.teaserTooLong':
+    'A teaser can be at most {max} seconds. For a longer one, choose the story type.',
 } as const

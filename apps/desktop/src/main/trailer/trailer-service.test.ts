@@ -726,3 +726,38 @@ describe('trailer.update／status', () => {
     expect(h.trailer.status()).toMatchObject({ exists: false, beatCount: 0, matches: false })
   })
 })
+
+describe('懸念短版的長度：後端也擋（跟畫面的選單一致）', () => {
+  it('寫腳本：懸念短版超過 30 秒，白話錯誤，文字模型一次都沒呼叫', async () => {
+    let called = 0
+    const h = setup({
+      mockLlm: () => {
+        called++
+        return undefined
+      },
+    })
+    await expect(
+      h.trailer.plan({ text: STORY, kind: 'teaser', targetSec: 60 }),
+    ).rejects.toMatchObject({
+      userMessage: expect.stringContaining('懸念短版最長 30 秒') as unknown,
+    })
+    expect(called).toBe(0)
+    // 15、30 秒可以
+    await expect(
+      h.trailer.plan({ text: STORY, kind: 'teaser', targetSec: 15 }),
+    ).resolves.toBeDefined()
+  })
+
+  it('改設定：把懸念短版改成 60 秒、或把 60 秒的專案改成懸念短版，都擋；劇情型 60 秒不受影響；舊的 60 秒懸念短版改書名照常', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY, targetSec: 60 })
+    expect(() => h.trailer.update({ patch: { kind: 'teaser' } })).toThrow(/懸念短版最長 30 秒/)
+    expect(h.trailer.status().settings.kind).toBe('story')
+    h.trailer.update({ patch: { targetSec: 30 }, refit: true })
+    h.trailer.update({ patch: { kind: 'teaser' } })
+    expect(() => h.trailer.update({ patch: { targetSec: 60 } })).toThrow(/懸念短版最長 30 秒/)
+    // 直接寫進專案的舊資料（60 秒的懸念短版）：只改書名不被擋
+    h.projects.current()?.repos.trailer.update({ targetSec: 60 })
+    expect(h.trailer.update({ patch: { title: '新書名' } }).settings.title).toBe('新書名')
+  })
+})

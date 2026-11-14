@@ -226,6 +226,8 @@ export const TITLE_MIN_SEC = 3
 /** 規則 3：最後三分之一的平均格長要不超過前三分之一的幾成（只提醒）；至少幾格才比。 */
 export const ESCALATION_RATIO = 0.6
 export const ESCALATION_MIN_BEATS = 6
+/** 懸念短版是給社群看的：目標最長幾秒（畫面只列 15、30 秒；後端也擋超過的，Claude 透過 MCP 也一樣）。 */
+export const TEASER_MAX_SEC = 30
 /** 一般格子（影片、靜態）調長度時的最短秒數。 */
 export const MIN_BEAT_SEC = 0.25
 
