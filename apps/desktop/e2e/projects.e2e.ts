@@ -50,7 +50,8 @@ test.describe('專案頁', () => {
     // 做一點事，專案就建好了；到別的頁，這一列還在
     await generateAndOpenCanvas(page)
     await expect(page.getByTestId('save-status')).toHaveText(/^已自動儲存・\d{2}:\d{2}$/)
-    await expect(page.getByTestId('spent')).toHaveText(/^已花 US\$\d+\.\d{2}$/)
+    // 示範模式不花錢，沒有「已花 US$0.00」
+    await expect(page.getByTestId('spent')).toHaveCount(0)
     await page.getByRole('button', { name: '設定', exact: true }).click()
     await expect(page.getByTestId('project-bar')).toBeVisible()
     await expect(page.getByTestId('save-status')).toBeVisible()

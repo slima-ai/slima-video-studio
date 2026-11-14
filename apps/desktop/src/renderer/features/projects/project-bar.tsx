@@ -315,7 +315,8 @@ export function ProjectBar({ onNavigate, demoMode, hasKey }: ProjectBarProps) {
         </button>
       )}
 
-      {hasProject ? (
+      {/* 示範模式不花錢：還沒花過就不顯示「已花 US$0.00」，留「示範模式」那顆就好（以前花過真錢的專案照舊顯示） */}
+      {hasProject && !(demoMode && status.spentUsd === 0) ? (
         <span
           data-testid="spent"
           title={
