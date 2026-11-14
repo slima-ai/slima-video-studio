@@ -587,6 +587,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(shot.inCut ? {} : { inCut: false }),
       ...(shot.beatKind === 'video' ? {} : { beatKind: shot.beatKind }),
       ...(shot.card === undefined ? {} : { card: shot.card }),
+      ...(shot.segment === undefined ? {} : { segment: shot.segment }),
       ...(overMax ? { lengthOverMax: overMax } : {}),
       ...(filmSeconds === undefined ? {} : { filmSeconds }),
       autoPrompt: auto,
@@ -1532,14 +1533,17 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const hasVideo = (shot: Shot): boolean => shots.listTakes(shot.id, 'video').length > 0
     let skippedBusy = 0
     let skippedGenerated = 0
+    let skippedNoPicture = 0
     let skippedNoFrame = 0
     const toRun: Shot[] = []
     for (const shot of picked) {
       if (s.regens.has(shot.id)) skippedBusy++
-      else if (request.skipGenerated && (stage === 'frame' ? hasFrame(shot) : hasVideo(shot)))
+      // 字卡沒有首幀圖要生：只生首幀這一步對它沒事可做（不是「已經生成過」，另外記一個數字）
+      else if (stage === 'frame' && localKindOf(shot) === 'card') {
         skippedGenerated++
-      // 字卡沒有首幀圖要生：只生首幀這一步對它沒事可做
-      else if (stage === 'frame' && localKindOf(shot) === 'card') skippedGenerated++
+        skippedNoPicture++
+      } else if (request.skipGenerated && (stage === 'frame' ? hasFrame(shot) : hasVideo(shot)))
+        skippedGenerated++
       else if (stage === 'video' && !hasFrame(shot)) skippedNoFrame++
       else toRun.push(shot)
     }
@@ -1548,6 +1552,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const base = {
       willGenerate: toRun.length,
       skippedGenerated,
+      skippedNoPicture,
       skippedBusy,
       skippedNoFrame,
       demoMode,
@@ -2296,6 +2301,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         started,
         ...(staleFrameShots.length > 0 ? { staleFrameShots } : {}),
         skippedGenerated: check.skippedGenerated,
+        skippedNoPicture: check.skippedNoPicture,
         skippedBusy: check.skippedBusy,
         failed,
       }

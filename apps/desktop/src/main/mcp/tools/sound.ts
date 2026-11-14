@@ -1,4 +1,4 @@
-import type { SoundClip, SoundPlanRequest } from '@svs/schema'
+import type { SoundClip, SoundPlanRequest, SoundState } from '@svs/schema'
 import { z } from 'zod'
 
 import { McpToolError } from '../bridge'
@@ -155,13 +155,52 @@ export function registerSoundTools(ctx: ToolContext): void {
     },
   })
 
+  /** 念一格的旁白（預估、預留、生成）。 */
+  const narrateOne = async (
+    state: Pick<SoundState, 'shots'>,
+    shotId: string,
+    text: string | undefined,
+    voiceId: string | undefined,
+    maxCostUsd: number | undefined,
+  ) => {
+    const shot = state.shots.find((s) => s.shotId === shotId)
+    if (!shot)
+      throw new McpToolError(
+        'That shot was not found. Call list_shots to see which shots exist.',
+        'shot_not_found',
+      )
+    // 預估是照台詞算的；給了更長的 text 就照比例放大，寧可多預留
+    const scale =
+      text === undefined ? 1 : Math.max(1, text.length / Math.max(shot.dialogue.length, 1))
+    const spending = await planAndReserve(
+      ctx,
+      'Generate narration',
+      { narration: { shotIds: [shotId] } },
+      (items) => items.find((i) => i.kind === 'narration' && i.shotId === shotId)?.estimatedUsd,
+      maxCostUsd,
+      scale,
+      // 太長會改短重念一次：最壞要念兩次（預留與 maxCostUsd 都照這個算）
+      2,
+    )
+    const { clip, shortened } = await ctx.caller.call('sound.generateNarration', {
+      shotId,
+      ...(text === undefined ? {} : { text }),
+      ...(voiceId === undefined ? {} : { voiceId }),
+    })
+    return { clip: clipView(clip), ...(shortened ? { shortened } : {}), spending }
+  }
+
   defineTool(ctx, {
     name: 'generate_narration',
-    title: 'Make the narration of one shot',
+    title: 'Make the narration of one shot, or of every shot that needs it',
     description:
-      "Speak one shot's dialogue as narration (write the line first with update_shot dialogue; or pass text to say something else). voiceId must be one of the voices listed by list_models for the narration model (default: the one chosen in Settings). Makes a NEW version each time (older ones are kept; adopt_sound_clip switches). Calls the speech model: counts against the spending allowance (plan_sound first); free in demo mode. Narration longer than the shot is shortened once by the text model and voiced again (the shot's dialogue becomes the shorter line; the result's shortened field says so; this can cost up to twice the narration estimate plus a small text call); if it is still too long it shows up as a warning in get_sound.",
+      "Speak a shot's dialogue as narration (write the line first with update_shot dialogue; or pass text to say something else). Without shotId: every shot that has dialogue and no narration yet is voiced, one after the other, like the app's own button (text cannot be given then); the reply lists each one. voiceId must be one of the voices listed by list_models for the narration model (default: the one chosen in Settings). Makes a NEW version each time (older ones are kept; adopt_sound_clip switches). Calls the speech model: counts against the spending allowance (plan_sound first); free in demo mode; maxCostUsd applies to each shot. Narration longer than the shot is shortened once by the text model and voiced again (the shot's dialogue becomes the shorter line; the result's shortened field says so; this can cost up to twice the narration estimate plus a small text call); if it is still too long it shows up as a warning in get_sound.",
     input: {
-      shotId: z.string().min(1),
+      shotId: z
+        .string()
+        .min(1)
+        .optional()
+        .describe('One shot; leave out to voice every shot that has dialogue and no narration'),
       text: z.string().min(1).max(5000).optional(),
       voiceId: z.string().min(1).optional(),
       maxCostUsd: maxCostInput,
@@ -169,31 +208,30 @@ export function registerSoundTools(ctx: ToolContext): void {
     hints: { readOnly: false },
     run: async ({ shotId, text, voiceId, maxCostUsd }) => {
       const state = await ctx.caller.call('sound.get', {})
-      const shot = state.shots.find((s) => s.shotId === shotId)
-      if (!shot)
+      if (shotId !== undefined) {
+        return narrateOne(state, shotId, text, voiceId, maxCostUsd)
+      }
+      if (text !== undefined) {
         throw new McpToolError(
-          'That shot was not found. Call list_shots to see which shots exist.',
-          'shot_not_found',
+          'text needs a shotId: without shotId every shot is read from its own dialogue.',
+          'text_needs_shot',
         )
-      // 預估是照台詞算的；給了更長的 text 就照比例放大，寧可多預留
-      const scale =
-        text === undefined ? 1 : Math.max(1, text.length / Math.max(shot.dialogue.length, 1))
-      const spending = await planAndReserve(
-        ctx,
-        'Generate narration',
-        { narration: { shotIds: [shotId] } },
-        (items) => items.find((i) => i.kind === 'narration' && i.shotId === shotId)?.estimatedUsd,
-        maxCostUsd,
-        scale,
-        // 太長會改短重念一次：最壞要念兩次（預留與 maxCostUsd 都照這個算）
-        2,
+      }
+      const pending = state.shots.filter(
+        (s) => s.dialogue.trim() !== '' && s.narration === undefined,
       )
-      const { clip, shortened } = await ctx.caller.call('sound.generateNarration', {
-        shotId,
-        ...(text === undefined ? {} : { text }),
-        ...(voiceId === undefined ? {} : { voiceId }),
-      })
-      return { clip: clipView(clip), ...(shortened ? { shortened } : {}), spending }
+      if (pending.length === 0) {
+        return {
+          made: 0,
+          note: 'No shot needs narration: every shot with dialogue already has one (pass shotId to make a new version of one shot).',
+        }
+      }
+      const narrations = []
+      for (const shot of pending) {
+        const done = await narrateOne(state, shot.shotId, undefined, voiceId, maxCostUsd)
+        narrations.push({ shot: shot.number, shotId: shot.shotId, ...done })
+      }
+      return { made: narrations.length, narrations }
     },
   })
 

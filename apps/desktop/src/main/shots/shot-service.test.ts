@@ -1061,7 +1061,13 @@ describe('shots.batchCheck / generateBatch', { timeout: 30_000 }, () => {
       shotIds: all.map((s) => s.id),
       skipGenerated: true,
     })
-    expect(result).toEqual({ started: 2, skippedGenerated: 3, skippedBusy: 0, failed: [] })
+    expect(result).toEqual({
+      started: 2,
+      skippedGenerated: 3,
+      skippedNoPicture: 0,
+      skippedBusy: 0,
+      failed: [],
+    })
     for (const shot of all.slice(3)) await idle(shot.id)
 
     const after = shots.list().shots

@@ -21,7 +21,10 @@ const Beat = z.looseObject({
   number: z.number(),
   beatKind: z.enum(['video', 'still', 'card', 'title']),
   durationSec: z.number(),
-  card: z.object({ text: z.string(), subtext: z.string() }).nullable(),
+  card: z.object({ text: z.string(), subtext: z.string() }).optional(),
+  segment: z.string().optional(),
+  startSec: z.number().optional(),
+  location: z.string().optional(),
 })
 const Trailer = z.looseObject({
   exists: z.boolean(),
@@ -35,13 +38,21 @@ const Trailer = z.looseObject({
   errors: z.array(z.looseObject({ code: z.string() })),
   next: z.string().optional(),
 })
-const Planned = Trailer.extend({
+/** plan_trailer 只回摘要（沒有每一格）；每一格看 get_trailer。 */
+const PlannedSummary = Trailer.omit({ beats: true }).extend({
   wroteAgain: z.boolean(),
   fixedByTheApp: z.array(z.string()),
   spending: z.looseObject({ estimatedUsd: z.number(), reservedUsd: z.number() }),
 })
 const Waited = z.looseObject({ finished: z.boolean() })
 const Sound = z.looseObject({ totalSec: z.number() })
+
+/** 寫腳本，再把每一格讀回來（plan_trailer 只回摘要）。 */
+async function planAndRead(r: Running, input: Record<string, unknown>) {
+  const summary = dataOf(PlannedSummary, await r.call('plan_trailer', input))
+  const read = dataOf(Trailer, await r.call('get_trailer'))
+  return { ...summary, beats: read.beats }
+}
 
 async function start(options: Parameters<typeof startRealMcp>[0] = {}): Promise<Running> {
   const r = await startRealMcp(options)
@@ -63,10 +74,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   it('寫腳本 → 看 → 改一格秒數會回「差幾秒」→ 重排後又等於目標 → 生成、接片、get_sound 的 totalSec 等於目標', async () => {
     const r = await start()
     await r.call('create_project', { name: '預告片' })
-    const planned = dataOf(
-      Planned,
-      await r.call('plan_trailer', { text: STORY, targetSec: 30, title: '黑藤之夜' }),
-    )
+    const planned = await planAndRead(r, { text: STORY, targetSec: 30, title: '黑藤之夜' })
     // 示範模式不花錢也不預留
     expect(planned.spending.reservedUsd).toBe(0)
     expect(planned.exists).toBe(true)
@@ -116,7 +124,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   it('add_card：字卡加在指定格後面（種類 card、停留時間照字數）、總長變長、復原就回來；不是預告片的格子被擋下', async () => {
     const r = await start()
     await r.call('create_project', { name: '預告片' })
-    const before = dataOf(Planned, await r.call('plan_trailer', { text: STORY }))
+    const before = await planAndRead(r, { text: STORY })
     const after = before.beats[1]
     if (!after) throw new Error('格子不夠')
 
@@ -150,7 +158,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   it('set_shot_motion：影片格 ⇄ 靜態格；字卡與片名卡沒有動作，被擋下並說明', async () => {
     const r = await start()
     await r.call('create_project', { name: '預告片' })
-    const planned = dataOf(Planned, await r.call('plan_trailer', { text: STORY }))
+    const planned = await planAndRead(r, { text: STORY })
     const video = planned.beats.find((b) => b.beatKind === 'video')
     const title = planned.beats.find((b) => b.beatKind === 'title')
     if (!video || !title) throw new Error('缺格子')
@@ -198,7 +206,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   it('重寫腳本：已經生成過畫面的要明確同意（replaceGenerated）；同意之後整份換掉', async () => {
     const r = await start()
     await r.call('create_project', { name: '預告片' })
-    const first = dataOf(Planned, await r.call('plan_trailer', { text: STORY }))
+    const first = await planAndRead(r, { text: STORY })
     const video = first.beats.find((b) => b.beatKind === 'video')
     await r.call('generate_first_frames', { shotIds: [video?.id ?? ''] })
     await waitDone(r)
@@ -211,10 +219,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
       first.beats.map((b) => b.id),
     )
 
-    const again = dataOf(
-      Planned,
-      await r.call('plan_trailer', { text: STORY, replaceGenerated: true }),
-    )
+    const again = await planAndRead(r, { text: STORY, replaceGenerated: true })
     expect(again.beats.map((b) => b.id)).not.toContain(video?.id)
     expect(again.matches).toBe(true)
   })

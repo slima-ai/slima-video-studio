@@ -91,7 +91,9 @@ export async function estimateBatch(
     allowance,
     fits: check.demoMode || wouldReserveUsd <= allowance.remainingUsd,
     shotCount: check.ok ? shots.length - check.skippedGenerated - check.skippedNoFrame : 0,
-    skippedAlreadyDone: check.skippedGenerated,
+    skippedAlreadyDone: check.skippedGenerated - (check.skippedNoPicture ?? 0),
+    // 字卡與片名卡只有文字，不需要畫面：不是「已經做好」
+    ...((check.skippedNoPicture ?? 0) > 0 ? { noPictureNeeded: check.skippedNoPicture } : {}),
     skippedNoFirstFrame: check.skippedNoFrame,
     model: stage === 'frame' ? (check.models.image ?? null) : (check.models.video ?? null),
   }
@@ -113,7 +115,8 @@ async function startBatch(
   const result = await ctx.caller.call('shots.generateBatch', request)
   return {
     started: result.started,
-    skippedAlreadyDone: result.skippedGenerated,
+    skippedAlreadyDone: result.skippedGenerated - (result.skippedNoPicture ?? 0),
+    ...((result.skippedNoPicture ?? 0) > 0 ? { noPictureNeeded: result.skippedNoPicture } : {}),
     skippedNoFirstFrame: check.skippedNoFrame,
     skippedBusy: result.skippedBusy,
     ...(result.staleFrameShots === undefined

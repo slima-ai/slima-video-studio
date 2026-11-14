@@ -69,11 +69,24 @@ const settingsInput = {
 const defined = <T extends object>(value: T): Partial<T> =>
   Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>
 
-/** 一格的樣子（trailer 場裡的鏡頭）：種類與字卡要看得到，shotSummary 只在不是影片時才帶。 */
-const beatView = (shot: ShotView) => ({
-  ...shotSummary(shot),
+/** 空的欄位不回（空字串、null、空陣列、false）：一格有幾十個欄位，大半是空的，Claude 不用讀一串空欄位。 */
+const compact = <T extends object>(value: T): Partial<T> =>
+  Object.fromEntries(
+    Object.entries(value).filter(
+      ([, v]) => !(v === '' || v === null || v === false || (Array.isArray(v) && v.length === 0)),
+    ),
+  ) as Partial<T>
+
+/**
+ * 一格的樣子（trailer 場裡的鏡頭）：種類與字卡要看得到，還有它屬於哪一段（segment）、在成品裡幾秒開始（startSec）、發生在哪個地點。
+ * shotSummary 只在不是影片時才帶種類；空的欄位不回。
+ */
+const beatView = (shot: ShotView, extra: { startSec?: number; location?: string } = {}) => ({
+  ...compact(shotSummary(shot)),
   beatKind: shot.beatKind ?? 'video',
-  card: shot.card ?? null,
+  ...(shot.segment === undefined ? {} : { segment: shot.segment }),
+  ...(extra.startSec === undefined ? {} : { startSec: extra.startSec }),
+  ...(extra.location === undefined ? {} : { location: extra.location }),
   // 影片格比影片模型一支影片的上限還長：影片只會有上限那麼長，要縮短格長或用靜態畫面
   ...(shot.lengthOverMax === undefined ? {} : { lengthOverMax: shot.lengthOverMax }),
 })
@@ -86,7 +99,20 @@ async function describeTrailer(ctx: ToolContext) {
   const status = await ctx.caller.call('trailer.status', {})
   const sceneId = status.settings.sceneId
   const { shots } = sceneId === undefined ? { shots: [] } : await ctx.caller.call('shots.list', {})
-  const beats = shots.filter((s) => s.sceneId === sceneId).map(beatView)
+  const inScene = shots.filter((s) => s.sceneId === sceneId)
+  // 地點名字（大綱裡的）；成品裡每一格幾秒開始＝前面各格格長的累加（格長就是它在成品裡的長度）
+  const outline =
+    inScene.some((s) => s.locationId !== undefined) && sceneId !== undefined
+      ? await ctx.caller.call('outline.get', {})
+      : undefined
+  const locationName = new Map((outline?.locations ?? []).map((l) => [l.id, l.name]))
+  let at = 0
+  const beats = inScene.map((shot) => {
+    const startSec = Math.round(at * 1000) / 1000
+    at += shot.durationSec
+    const location = shot.locationId === undefined ? undefined : locationName.get(shot.locationId)
+    return beatView(shot, { startSec, ...(location === undefined ? {} : { location }) })
+  })
   const differenceSec = secDiff(status)
   return {
     exists: status.exists,
@@ -135,7 +161,7 @@ export function registerTrailerTools(ctx: ToolContext): void {
     name: 'plan_trailer',
     title: 'Write a trailer script',
     description:
-      'Read a book text or story (up to 60,000 characters) and write a trailer script: a trailer scene with one shot per beat (moving picture, still picture, text card or title card), each with seconds, picture, narration; the shots add up to targetSec. Draft characters and place notes are created too. Read load_guide("trailer") first. Calls a text model, so it counts against the spending allowance (estimate_cost action plan_trailer first); free in demo mode. REPLACES the trailer script that is already in the project (other shots stay); if some of its shots already have pictures or videos you must pass replaceGenerated=true. If no project is open, it creates one named after the title and that project is then the one the user sees: say so first. The whole step can be undone with undo. Returns the same view as get_trailer, plus the cost and whether the script was written again or fixed by the app.',
+      'Read a book text or story (up to 60,000 characters) and write a trailer script: a trailer scene with one shot per beat (moving picture, still picture, text card or title card), each with seconds, picture, narration; the shots add up to targetSec. Draft characters and place notes are created too. Read load_guide("trailer") first. Calls a text model, so it counts against the spending allowance (estimate_cost action plan_trailer first); free in demo mode. REPLACES the trailer script that is already in the project (other shots stay); if some of its shots already have pictures or videos you must pass replaceGenerated=true. If no project is open, it creates one named after the title and that project is then the one the user sees: say so first. The whole step can be undone with undo. Returns a SUMMARY only (length against the target, beatCount, the errors and warnings from the checker, the cost, whether the script was written again or fixed by the app): call get_trailer to read every shot.',
     input: {
       text: z.string().trim().min(1).max(60_000).describe('The book text or story'),
       ...settingsInput,
@@ -163,11 +189,18 @@ export function registerTrailerTools(ctx: ToolContext): void {
       }
       const reserved = reserveSpending(ctx, 'Write the trailer script', check.estimatedUsd)
       const result = await ctx.caller.call('trailer.plan', { text, ...defined(settings) })
+      // 只回摘要：整份腳本留給 get_trailer（同一份不用讀兩次）
+      const described = await describeTrailer(ctx)
+      const { next } = described
+      const summary = Object.fromEntries(
+        Object.entries(described).filter(([key]) => key !== 'beats' && key !== 'next'),
+      )
       return {
-        ...(await describeTrailer(ctx)),
+        ...summary,
         wroteAgain: result.retried,
         fixedByTheApp: result.fixes,
         spending: { estimatedUsd: check.estimatedUsd, ...reserved },
+        next: `Call get_trailer to read every shot (kind, segment, seconds, picture, narration, cards).${next === undefined ? '' : ` ${next}`}`,
       }
     },
   })
