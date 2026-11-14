@@ -102,7 +102,15 @@ async function useTool(name, input) {
     message: {
       role: 'user',
       content: [
-        { type: 'tool_result', tool_use_id: id, is_error: result.isError, content: result.content },
+        {
+          type: 'tool_result',
+          tool_use_id: id,
+          is_error: result.isError,
+          // 圖片內容太大、對話面板也用不到：換成一句佔位（步驟的打勾／打叉看的是 is_error）
+          content: result.content.map((c) =>
+            c.type === 'image' ? { type: 'text', text: '[圖片]' } : c,
+          ),
+        },
       ],
     },
   })
@@ -125,6 +133,92 @@ const finish = (text) =>
     session_id: sessionId,
     total_cost_usd: 0.01,
   })
+
+/** 工具回的 JSON（第一段文字）。 */
+const dataOf = (result) => {
+  const text = result.content.find((c) => c.type === 'text')?.text ?? 'null'
+  try {
+    return JSON.parse(text)
+  } catch {
+    return undefined
+  }
+}
+/** 做一個工具，回傳資料；工具回錯就丟例外（對話那一輪以錯誤收尾，e2e 看得到哪一步壞了）。 */
+async function must(name, input) {
+  const result = await useTool(name, input)
+  if (result.isError) {
+    throw new Error(`${name}：${result.content.map((c) => c.text ?? '').join(' ')}`)
+  }
+  return dataOf(result)
+}
+/** 等到沒有東西在生成（每次最多等 45 秒，沒好就再等；最多十幾輪）。 */
+async function waitForGeneration() {
+  for (let i = 0; i < 20; i++) {
+    const waited = await must('wait_for_generation', { maxSeconds: 30 })
+    if (waited?.finished === true) return
+  }
+  throw new Error('生成一直沒結束')
+}
+
+/** 從零做一支預告片到匯出：照 trailer 指南的順序，全程用 App 的 MCP（示範模式，不花錢）。 */
+const TRAILER_STORY =
+  '黑藤爬滿了斷橋。她一個人守著最後一盞燈，直到有人敲門。門外的人說，他來自河的另一邊。'
+async function trailerFromScratch() {
+  await must('get_capabilities', {})
+  await must('load_guide', { topic: 'trailer' })
+  await must('create_project', { name: '斷橋預告片' })
+  await must('estimate_cost', { action: 'plan_trailer', story: TRAILER_STORY })
+  await must('plan_trailer', { text: TRAILER_STORY, targetSec: 30, title: '斷橋' })
+  const trailer = await must('get_trailer', {})
+  // 角色：腳本寫出來的草稿角色各生概念圖、挑第一張、鎖定
+  const { characters } = await must('list_characters', {})
+  for (const character of characters) {
+    // 腳本建的草稿角色只有名字：先寫長相與服裝，再請 App 的 AI 整理成固定外觀描述（鎖定要有這一句）
+    await must('update_character', {
+      characterId: character.id,
+      appearance: '清瘦、眼神警覺，黑色短髮',
+      outfit: '洗白的深色舊外套',
+    })
+    const anchor = await must('suggest_character_anchor', { characterId: character.id })
+    await must('set_character_anchor', { characterId: character.id, text: anchor.suggestion })
+    await must('generate_character_images', { characterId: character.id })
+    await waitForGeneration()
+    const viewed = await must('view_character_images', {
+      characterId: character.id,
+      maxImages: 1,
+    })
+    await must('pick_character_image', {
+      characterId: character.id,
+      conceptId: viewed.imagesInOrder[0].conceptId,
+    })
+    await must('lock_character', { characterId: character.id })
+  }
+  // 畫面 → 影片（字卡、靜態與片名卡 App 自己做）
+  await must('generate_first_frames', {})
+  await waitForGeneration()
+  await must('generate_videos', {})
+  await waitForGeneration()
+  // 聲音：有台詞的格子念旁白，配樂，接片，混音
+  await must('plan_sound', { music: true })
+  const before = await must('get_sound', {})
+  for (const shot of before.shots.filter((s) => s.dialogue)) {
+    await must('generate_narration', { shotId: shot.shotId })
+  }
+  await must('generate_music', {})
+  await waitForGeneration()
+  const assembled = await must('assemble_film', {})
+  await must('mix_sound', {})
+  await must('analyze_sound', {})
+  const exported = await must('export_film', {})
+  const after = await must('get_trailer', {})
+  const sound = await must('get_sound', {})
+  const reply = [
+    `預告片做完了，匯出 ${exported.fileName}。`,
+    `長度：腳本 ${after.scriptSec} 秒、成品 ${after.filmSec ?? assembled.totalSeconds} 秒、聲音 ${sound.totalSec} 秒（目標 ${trailer.targetSec} 秒）。`,
+  ].join('')
+  say(reply)
+  finish(reply)
+}
 
 let interruptWaiter
 readline.createInterface({ input: process.stdin }).on('line', async (line) => {
@@ -218,6 +312,20 @@ readline.createInterface({ input: process.stdin }).on('line', async (line) => {
     const reply = '建了三個鏡頭，又全部清掉了。'
     say(reply)
     finish(reply)
+    return
+  }
+  if (text.includes('從零做預告片')) {
+    try {
+      await trailerFromScratch()
+    } catch (error) {
+      out({
+        type: 'result',
+        subtype: 'error_during_execution',
+        is_error: true,
+        result: error instanceof Error ? error.message : String(error),
+        session_id: sessionId,
+      })
+    }
     return
   }
   if (text.includes('壞掉')) process.exit(1)

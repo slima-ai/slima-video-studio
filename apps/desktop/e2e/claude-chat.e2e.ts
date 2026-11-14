@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
-import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -537,5 +538,73 @@ test.describe('Claude 對話：檢查拖很久', () => {
     } finally {
       rmSync(GATE_FILE, { force: true })
     }
+  })
+})
+
+/** 匯出檔有幾格（用 ffprobe 數，不是看影片長度）。 */
+function exportedFrames(userDataDir: string): number {
+  const projects = join(userDataDir, 'projects')
+  const dir = readdirSync(projects).find((name) => existsSync(join(projects, name, 'exports')))
+  if (!dir) throw new Error('找不到匯出資料夾')
+  const exports = join(projects, dir, 'exports')
+  const file = readdirSync(exports).find((name) => name.endsWith('.mp4'))
+  if (!file) throw new Error('找不到匯出的 mp4')
+  const out = execFileSync('ffprobe', [
+    '-v',
+    'error',
+    '-count_frames',
+    '-select_streams',
+    'v:0',
+    '-show_entries',
+    'stream=nb_read_frames',
+    '-of',
+    'csv=p=0',
+    join(exports, file),
+  ])
+  return Number(String(out).trim())
+}
+
+test.describe('Claude 對話：從零做預告片到匯出（假的 claude 走真的 MCP，示範模式不花錢）', () => {
+  test.describe.configure({ timeout: 300_000 })
+
+  test('一句話：建專案 → 寫腳本 → 角色鎖定 → 生成 → 配音配樂 → 接片混音 → 匯出；每一步打勾、沒有錯誤，畫布與成品都是 30 秒', async ({
+    page,
+    userDataDir,
+  }) => {
+    await useFreeMcpPort(page)
+    await openChat(page)
+    const input = page.getByTestId('chat-input')
+    await input.fill('幫我從零做預告片：黑藤爬滿了斷橋。')
+    await input.press('Enter')
+
+    // 整條路走完：最後一句回報在「做完」的訊息裡
+    const reply = page.getByTestId('chat-message-assistant').last()
+    // 先等到不再是「進行中」（壞了就馬上停，不要乾等到逾時），再要求是「做完」
+    await expect(reply).toHaveAttribute('data-state', /^(done|error)$/, { timeout: 240_000 })
+    await expect(reply, await reply.innerText()).toHaveAttribute('data-state', 'done')
+    await expect(reply).toContainText('預告片做完了')
+    await expect(reply).toContainText('目標 30 秒')
+
+    // 每一步都打了勾，沒有一步失敗；步驟照指南的順序出現
+    const steps = reply.getByTestId('chat-step')
+    await expect(reply.locator('[data-testid="chat-step"][data-status="error"]')).toHaveCount(0)
+    await expect(reply.locator('[data-testid="chat-step"][data-status="running"]')).toHaveCount(0)
+    const labels = await steps.allTextContents()
+    const order = ['建立專案', '寫預告片腳本', '鎖定角色', '接成成品', '混音', '匯出 MP4']
+    let from = 0
+    for (const label of order) {
+      const at = labels.findIndex((text, i) => i >= from && text.includes(label))
+      expect(at, `步驟「${label}」要在前一步之後：${labels.join('、')}`).toBeGreaterThanOrEqual(0)
+      from = at + 1
+    }
+    await expect(page.getByTestId('chat-error')).toHaveCount(0)
+
+    // 畫布同步：專案是 Claude 建的，預告片標籤 30／30
+    await expect(page.getByTestId('project-name')).toHaveText('斷橋預告片')
+    await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 30／30 秒')
+    await expect(page.getByTestId('trailer-badge')).toHaveAttribute('data-matches', 'true')
+
+    // 匯出檔：24 fps × 30 秒 ＝ 720 格（標註併進片名卡，長度不變），誤差一格內
+    expect(Math.abs(exportedFrames(userDataDir) - 720)).toBeLessThanOrEqual(1)
   })
 })
