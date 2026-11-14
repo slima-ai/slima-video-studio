@@ -1,7 +1,6 @@
 export const onboarding = {
   'onboarding.welcome': 'Welcome to Slima Video Studio',
-  'onboarding.intro':
-    'Turn a story into a short AI film. Slima splits it into scenes, makes the pictures and videos, and joins them into one film.',
+  'onboarding.intro': 'Turn a book into a trailer.',
   'onboarding.question': 'How would you like to start?',
   'onboarding.demo.title': 'Try it out first',
   'onboarding.demo.body':
