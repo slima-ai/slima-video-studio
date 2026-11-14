@@ -107,6 +107,34 @@ test.describe('預告片整頁：導覽、落點、腳本條、播放器（示�
     await expect(page.getByTestId('trailer-page-length')).toHaveText('30／30 秒')
   })
 
+  test('右鍵：在後面加一張字卡（格數多一格，選到新的那一格）、改成不動、刪掉；復原', async ({
+    page,
+  }, testInfo) => {
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await page.getByTestId('trailer-text').fill(STORY)
+    await page.getByTestId('trailer-go').click()
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
+    const cells = page.locator('[data-testid^="strip-cell-"]')
+    const count = await cells.count()
+
+    await page.getByTestId('strip-cell-1').click({ button: 'right' })
+    await shoot(page, testInfo, 'b1-05-context-menu.png')
+    await page.getByRole('menuitem', { name: '在後面加一張字卡' }).click()
+    await expect(cells).toHaveCount(count + 1)
+    await expect(page.getByTestId('strip-cell-2')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('beat-card-text')).toHaveValue('新字卡')
+
+    await page.getByTestId('strip-cell-0').click({ button: 'right' })
+    await page.getByRole('menuitem', { name: '不動' }).click()
+    await expect(page.getByTestId('strip-cell-0')).toHaveAttribute('data-kind', 'still')
+
+    await page.getByTestId('strip-cell-2').click({ button: 'right' })
+    await page.getByRole('menuitem', { name: '刪掉這一格' }).click()
+    await expect(cells).toHaveCount(count)
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(cells).toHaveCount(count + 1)
+  })
+
   test('一般專案（沒有預告片設定）：導覽沒有「預告片」這一項，落點是畫布', async ({ page }) => {
     await page.getByRole('button', { name: '畫布', exact: true }).click()
     await expect(page.getByTestId('trailer-start')).toBeVisible()

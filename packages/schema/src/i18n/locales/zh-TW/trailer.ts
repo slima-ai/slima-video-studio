@@ -130,4 +130,9 @@ export const trailer = {
   'trailer.edit.countChars': '{n}／{max} 字',
   'trailer.edit.countWords': '{n}／{max} 個單字',
   'trailer.edit.titleNote': '片名卡的字在右邊的設定改。',
+  'trailer.menu.addCard': '在後面加一張字卡',
+  'trailer.menu.remove': '刪掉這一格',
+  'trailer.menu.cardNeedsText': '這一格還沒有字卡的字：選這一格，在下面按「字卡」再填字',
+  'trailer.menu.titleCannotRemove': '片名卡不能刪',
+  'trailer.menu.newCardText': '新字卡',
 } as const

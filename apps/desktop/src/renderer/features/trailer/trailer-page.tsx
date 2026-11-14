@@ -3,12 +3,15 @@ import { t } from '@svs/schema'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 
 import { cn } from '../../lib/cn'
+import { errorText } from '../../lib/svs'
 import { call } from '../../lib/svs'
 import { trailerBadgeLength, TrailerBadge } from '../canvas/trailer-badge'
 import { TrailerStartCard } from '../canvas/trailer-start'
 import { ChatLauncher } from '../chat/chat-launcher'
 import { useShots } from '../shots/use-shots'
+import { ContextMenu } from '../canvas/menus'
 import { BeatEditor } from './beat-editor'
+import { beatMenuEntries } from './beat-menu'
 import { ScriptStrip } from './script-strip'
 import { beatIndexAt, cellStarts, FALLBACK_WIDTH_PX } from './strip-math'
 import { TrailerPlayer } from './trailer-player'
@@ -82,6 +85,16 @@ export function TrailerPage({ status }: { status: TrailerStatus }) {
   const [pageRef, pageWidth] = useWidth<HTMLDivElement>()
   const [stripRef, stripWidth] = useWidth<HTMLDivElement>()
   const wide = pageWidth === 0 || pageWidth >= WIDE_PX
+  const [menu, setMenu] = useState<{ beat: ShotView; at: { x: number; y: number } }>()
+  const [menuError, setMenuError] = useState<string>()
+  const afterMenu = <T,>(work: Promise<T>, then?: (result: T) => void): void => {
+    setMenuError(undefined)
+    work
+      .then((result) => then?.(result))
+      .catch((e: unknown) => {
+        setMenuError(errorText(e))
+      })
+  }
 
   const select = useCallback(
     (id: string): void => {
@@ -179,7 +192,15 @@ export function TrailerPage({ status }: { status: TrailerStatus }) {
                 availablePx={(stripWidth || FALLBACK_WIDTH_PX) - 40}
                 playheadSec={finalVideoHash ? playhead : undefined}
                 musicOn={status.settings.music}
+                onMenu={(beat, at) => {
+                  setMenu({ beat, at })
+                }}
               />
+              {menuError === undefined ? null : (
+                <p role="alert" data-testid="strip-menu-error" className="mt-1 text-xs text-danger">
+                  {menuError}
+                </p>
+              )}
             </div>
             {selected ? <BeatEditor key={selected.id} beat={selected} status={status} /> : null}
           </div>
@@ -191,6 +212,33 @@ export function TrailerPage({ status }: { status: TrailerStatus }) {
           </aside>
         </div>
       )}
+      {menu ? (
+        <ContextMenu
+          at={menu.at}
+          onClose={() => {
+            setMenu(undefined)
+          }}
+          entries={beatMenuEntries(menu.beat, {
+            setKind: (kind) => {
+              afterMenu(call('shots.update', { shotId: menu.beat.id, patch: { beatKind: kind } }))
+            },
+            addCardAfter: () => {
+              afterMenu(
+                call('trailer.addCard', {
+                  afterShotId: menu.beat.id,
+                  text: t('trailer.menu.newCardText'),
+                }),
+                (added) => {
+                  select(added.id)
+                },
+              )
+            },
+            remove: () => {
+              afterMenu(call('shots.delete', { shotIds: [menu.beat.id] }))
+            },
+          })}
+        />
+      ) : null}
     </div>
   )
 }

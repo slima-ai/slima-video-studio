@@ -152,4 +152,10 @@ export const trailer = {
   'trailer.edit.countChars': '{n}/{max} characters',
   'trailer.edit.countWords': '{n}/{max} words',
   'trailer.edit.titleNote': 'The title card text is changed in Settings on the right.',
+  'trailer.menu.addCard': 'Add a text card after this',
+  'trailer.menu.remove': 'Delete this beat',
+  'trailer.menu.cardNeedsText':
+    'This beat has no card text yet: select it, press Text card below and type the words',
+  'trailer.menu.titleCannotRemove': 'The title card cannot be deleted',
+  'trailer.menu.newCardText': 'New card',
 } as const

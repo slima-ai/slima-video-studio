@@ -75,6 +75,7 @@ export function ScriptStrip({
   availablePx,
   playheadSec,
   musicOn,
+  onMenu,
 }: {
   beats: readonly ShotView[]
   selectedId: string | undefined
@@ -83,6 +84,8 @@ export function ScriptStrip({
   availablePx: number
   playheadSec: number | undefined
   musicOn: boolean
+  /** 在格子上按右鍵。 */
+  onMenu?: (beat: ShotView, at: { x: number; y: number }) => void
 }) {
   const total = totalSecOf(beats)
   const width = stripWidth(total, availablePx)
@@ -127,6 +130,7 @@ export function ScriptStrip({
                 widthPx={cellWidthPx(beat, total, width)}
                 selected={beat.id === selectedId}
                 onSelect={onSelect}
+                onMenu={onMenu}
               />
             ))}
           </div>
@@ -165,12 +169,14 @@ function Cell({
   widthPx,
   selected,
   onSelect,
+  onMenu,
 }: {
   beat: ShotView
   index: number
   widthPx: number
   selected: boolean
   onSelect: (id: string) => void
+  onMenu: ((beat: ShotView, at: { x: number; y: number }) => void) | undefined
 }) {
   const kind = kindOf(beat)
   const { icon: Icon } = KIND[kind]
@@ -203,6 +209,12 @@ function Cell({
       title={note === '' ? label : `${label}\n${note}`}
       onClick={() => {
         onSelect(beat.id)
+      }}
+      onContextMenu={(event) => {
+        if (!onMenu) return
+        event.preventDefault()
+        onSelect(beat.id)
+        onMenu(beat, { x: event.clientX, y: event.clientY })
       }}
       className={cn(
         'relative flex h-12 min-w-0 items-center justify-center gap-1 overflow-hidden rounded-sm bg-cover bg-center px-0.5 text-[11px] text-fg',

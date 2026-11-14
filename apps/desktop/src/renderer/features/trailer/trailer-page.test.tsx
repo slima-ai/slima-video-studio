@@ -1,8 +1,8 @@
 import type { ShotView, TrailerStatus } from '@svs/schema'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { installFakeSvs } from '../../test/fake-svs'
+import { appError, installFakeSvs } from '../../test/fake-svs'
 import { ChatProvider } from '../chat/chat-context'
 import { beat, take } from './shots.fixture'
 import { trailerBeats, TrailerPage } from './trailer-page'
@@ -186,5 +186,49 @@ describe('TrailerPage：預告片整頁', () => {
     expect(screen.getByTestId<HTMLInputElement>('beat-card-text').value).toBe('有些光')
     expect(screen.queryByTestId('beat-description')).toBeNull()
     expect(screen.queryByTestId('beat-narration')).toBeNull()
+  })
+
+  it('在格子上按右鍵：選單的動作各打對的通道；加字卡之後選到新的那一格', async () => {
+    const update = vi.fn(() => beat(1))
+    const addCard = vi.fn(() => inScene(9, { beatKind: 'card' }))
+    const remove = vi.fn(() => ({ shots: [] }))
+    installFakeSvs({
+      'shots.list': () => ({ shots: [inScene(1), inScene(2)] }),
+      'shots.update': update,
+      'trailer.addCard': addCard,
+      'shots.delete': remove,
+    })
+    render(<TrailerPage status={status()} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('strip-cell-1')).toBeTruthy()
+    })
+    const open = (): void => {
+      fireEvent.contextMenu(screen.getByTestId('strip-cell-1'))
+    }
+    open()
+    fireEvent.click(screen.getByRole('menuitem', { name: /不動/ }))
+    expect(update).toHaveBeenCalledWith({ shotId: 's2', patch: { beatKind: 'still' } })
+    open()
+    fireEvent.click(screen.getByRole('menuitem', { name: /在後面加一張字卡/ }))
+    expect(addCard).toHaveBeenCalledWith({ afterShotId: 's2', text: '新字卡' })
+    open()
+    fireEvent.click(screen.getByRole('menuitem', { name: /刪掉這一格/ }))
+    expect(remove).toHaveBeenCalledWith({ shotIds: ['s2'] })
+  })
+
+  it('選單的動作失敗：那句白話寫在腳本條下面', async () => {
+    installFakeSvs({
+      'shots.list': () => ({ shots: [inScene(1), inScene(2)] }),
+      'shots.delete': () => {
+        throw appError('刪不掉。')
+      },
+    })
+    render(<TrailerPage status={status()} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('strip-cell-1')).toBeTruthy()
+    })
+    fireEvent.contextMenu(screen.getByTestId('strip-cell-1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /刪掉這一格/ }))
+    expect((await screen.findByTestId('strip-menu-error')).textContent).toBe('刪不掉。')
   })
 })
