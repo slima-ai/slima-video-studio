@@ -1,5 +1,6 @@
 import { demoTrailerScript } from '@svs/providers'
 import {
+  beatMinFrames,
   checkTrailerScript,
   TrailerScriptSchema,
   TrailerSettingsSchema,
@@ -728,5 +729,86 @@ describe('trailer.update／status', () => {
     const h = setup()
     h.shots.create({})
     expect(h.trailer.status()).toMatchObject({ exists: false, beatCount: 0, matches: false })
+  })
+})
+
+describe('trailer.setBeatSeconds：改一格的秒數，其他格讓時間，總長不變', () => {
+  it('這一格變成指定的秒數，其餘重排，加總仍是 30；一步復原回到原樣', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    const before = shotsOf(h).map((s) => [s.id, s.durationSec] as const)
+    const pick = shotsOf(h).find((s) => s.number === 2)
+    if (!pick) throw new Error('沒有第 2 格')
+    const wanted = Math.round((pick.durationSec + 0.5) * 24) / 24
+    const status = h.trailer.setBeatSeconds({ shotId: pick.id, durationSec: wanted })
+    expect(status.scriptSec).toBeCloseTo(30, 6)
+    expect(status.matches).toBe(true)
+    const after = shotsOf(h)
+    expect(after.find((s) => s.id === pick.id)?.durationSec).toBeCloseTo(wanted, 6)
+    expect(after.reduce((sum, s) => sum + s.durationSec, 0)).toBeCloseTo(30, 6)
+    h.history.undo()
+    expect(shotsOf(h).map((s) => [s.id, s.durationSec])).toEqual(before.map((b) => [...b]))
+  })
+
+  it('其他格已經是最短：白話錯誤，什麼都不改', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    // 目標縮到「每一格的最短秒數加起來再多一秒」：每一格都壓到差不多最短，這時把第 2 格拉長，其他格就放不下了
+    const minSec =
+      shotsOf(h).reduce(
+        (sum, s) =>
+          sum +
+          beatMinFrames(
+            { beatKind: s.beatKind ?? 'video', ...(s.card ? { card: s.card } : {}) },
+            24,
+          ),
+        0,
+      ) / 24
+    const target = Math.ceil(minSec) + 1
+    h.trailer.update({ patch: { targetSec: target }, refit: true })
+    const before = shotsOf(h).map((s) => s.durationSec)
+    const pick = shotsOf(h).find((s) => s.number === 2)
+    if (!pick) throw new Error('沒有第 2 格')
+    expect(() =>
+      h.trailer.setBeatSeconds({ shotId: pick.id, durationSec: Math.min(15, target - 1) }),
+    ).toThrow(/已經是最短了，這一格最多只能到 [\d.]+ 秒/)
+    expect(shotsOf(h).map((s) => s.durationSec)).toEqual(before)
+  })
+
+  it('第一格最長 4 秒；不在腳本裡的格子、還沒有腳本，都是白話錯誤', async () => {
+    const h = setup()
+    h.shots.create({})
+    expect(() => h.trailer.setBeatSeconds({ shotId: 'x', durationSec: 2 })).toThrow(
+      /還沒有預告片腳本/,
+    )
+    await h.trailer.plan({ text: STORY })
+    const first = shotsOf(h).find((s) => s.number === 1)
+    if (!first) throw new Error('沒有第 1 格')
+    expect(() => h.trailer.setBeatSeconds({ shotId: first.id, durationSec: 5 })).toThrow(
+      /第一格最長 4 秒/,
+    )
+    expect(() => h.trailer.setBeatSeconds({ shotId: 'nope', durationSec: 2 })).toThrow(
+      /不在預告片腳本裡/,
+    )
+  })
+
+  it('改長到讓第一格被擠超過 4 秒時，第一格固定在 4 秒，其餘照排', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    const shots = shotsOf(h)
+    const last = shots.at(-2)
+    if (!last) throw new Error('沒有倒數第 2 格')
+    h.trailer.setBeatSeconds({ shotId: last.id, durationSec: Math.max(0.25, last.durationSec - 1) })
+    expect(shotsOf(h).find((s) => s.number === 1)?.durationSec ?? 99).toBeLessThanOrEqual(4 + 1e-9)
+    expect(h.trailer.status().matches).toBe(true)
+  })
+
+  it('shots.update 可以改段落；空字串清掉；畫面看到的格子跟著變', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    const second = shotsOf(h).find((s) => s.number === 2)
+    if (!second) throw new Error('沒有第 2 格')
+    expect(h.shots.update(second.id, { segment: 'turn' }).segment).toBe('turn')
+    expect(h.shots.update(second.id, { segment: '' }).segment).toBeUndefined()
   })
 })

@@ -26,6 +26,7 @@ import {
 import { AspectRatioSchema, ContentHashSchema, IdSchema } from './domain/common'
 import {
   TrailerAddCardRequestSchema,
+  TrailerSetBeatSecondsRequestSchema,
   TrailerPlanCheckSchema,
   TrailerPlanRequestSchema,
   TrailerPlanResultSchema,
@@ -875,6 +876,14 @@ export const ipcContract = {
   'trailer.addCard': {
     request: TrailerAddCardRequestSchema,
     response: ShotViewSchema,
+  },
+  /**
+   * 把腳本的某一格定成指定的秒數（對齊 1/24 秒），其餘的格子重排成「目標 − 這一格」，總長不變。
+   * 其他格已經是最短、排不下時不改任何東西並回一句白話。整個動作是一步復原。
+   */
+  'trailer.setBeatSeconds': {
+    request: TrailerSetBeatSecondsRequestSchema,
+    response: TrailerStatusSchema,
   },
   /** 預告片現在的樣子：目標、腳本加總、檢查結果。 */
   'trailer.status': {

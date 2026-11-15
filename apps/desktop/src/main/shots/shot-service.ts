@@ -1868,6 +1868,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         ...(edit.beatKind === undefined ? {} : { beatKind: edit.beatKind }),
         // null＝清掉字卡
         ...(edit.card === undefined ? {} : { card: edit.card ?? undefined }),
+        ...(edit.segment === undefined ? {} : { segment: text(edit.segment) }),
       })
       changed(s)
       return view(s, updated)

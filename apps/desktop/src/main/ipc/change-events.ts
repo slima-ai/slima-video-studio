@@ -36,6 +36,7 @@ export const CHANGE_EVENTS: Partial<Record<IpcChannel, readonly DataEvent[]>> = 
   'trailer.plan': ALL,
   'trailer.update': ['outline.changed'],
   'trailer.addCard': ['outline.changed'],
+  'trailer.setBeatSeconds': ['outline.changed'],
   'shots.assignScene': ALL,
   'canvas.add': ALL,
   'canvas.remove': ALL,

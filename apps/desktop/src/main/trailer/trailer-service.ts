@@ -12,7 +12,9 @@ import {
   TrailerSettingsSchema,
   checkTrailerScript,
   defaultTrailerGuide,
+  fitAround,
   fitToTarget,
+  FIRST_BEAT_MAX_SEC,
   LENGTH_TOLERANCE_SEC,
   cardNameOf,
   t,
@@ -27,6 +29,8 @@ import {
   type TrailerStatus,
   type TrailerUpdateRequest,
   TrailerAddCardRequestSchema,
+  TrailerSetBeatSecondsRequestSchema,
+  type TrailerSetBeatSecondsRequest,
   TrailerPlanRequestSchema,
   TrailerSettingsPatchSchema,
 } from '@svs/schema'
@@ -68,6 +72,7 @@ export interface TrailerService {
   plan: (request: TrailerPlanRequest) => Promise<TrailerPlanResult>
   update: (request: TrailerUpdateRequest) => TrailerStatus
   addCard: (request: TrailerAddCardRequest) => ShotView
+  setBeatSeconds: (request: TrailerSetBeatSecondsRequest) => TrailerStatus
   status: () => TrailerStatus
 }
 
@@ -442,6 +447,46 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
       })
       broadcast('trailer.changed', {})
       return added
+    },
+
+    setBeatSeconds(request) {
+      const handle = need()
+      const { shotId, durationSec } = TrailerSetBeatSecondsRequestSchema.parse(request)
+      const stored = handle.repos.trailer.get()
+      const list = scriptShots(handle, stored)
+      if (stored === undefined || list.length === 0) throw invalid(t('trailer.noScript'))
+      const index = list.findIndex((shot) => shot.id === shotId)
+      if (index < 0) throw invalid(t('trailer.beatNotInScript'))
+      const input = list.map((shot) => ({
+        beatKind: shot.beatKind,
+        durationSec: shot.durationSec,
+        ...(shot.beatKind === 'card' && shot.card ? { card: shot.card } : {}),
+      }))
+      const pins = new Map([[index, durationSec]])
+      let fit = fitAround(input, pins, stored.targetSec, FPS)
+      // 第一格最長 4 秒：這一格不是第一格、但重排後第一格超過了，就把第一格也固定在 4 秒再排一次
+      if (index === 0 && durationSec > FIRST_BEAT_MAX_SEC) {
+        throw invalid(t('trailer.firstBeatTooLong', { max: String(FIRST_BEAT_MAX_SEC) }))
+      }
+      if (fit.ok && index !== 0 && (fit.durations[0] ?? 0) > FIRST_BEAT_MAX_SEC + 1e-9) {
+        fit = fitAround(input, new Map([...pins, [0, FIRST_BEAT_MAX_SEC]]), stored.targetSec, FPS)
+      }
+      if (!fit.ok) {
+        throw invalid(
+          t('trailer.beatSecondsImpossible', {
+            max: String(Math.floor((fit.maxSec ?? 0) * 100) / 100),
+          }),
+        )
+      }
+      // 只動秒數真的變了的格子；整個動作是一步復原
+      record(t('history.setTrailerBeatSeconds'), () => {
+        list.forEach((shot, i) => {
+          const sec = fit.durations[i] ?? shot.durationSec
+          if (Math.abs(sec - shot.durationSec) > 1e-9) shots.update(shot.id, { durationSec: sec })
+        })
+      })
+      broadcast('trailer.changed', {})
+      return statusOf(handle)
     },
 
     update(request) {
