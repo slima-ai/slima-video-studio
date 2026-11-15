@@ -1,4 +1,4 @@
-import type { TrailerKind, TrailerPlanCheck } from '@svs/schema'
+import { TEASER_MAX_SEC, type TrailerKind, type TrailerPlanCheck } from '@svs/schema'
 import { Clapperboard } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -27,6 +27,10 @@ export function clipTrailerText(text: string): string {
   return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut
 }
 
+/** 懸念短版是給社群看的 15～30 秒；選它的時候長度只留這兩個。劇情型四個都有。 */
+export const lengthsFor = (kind: TrailerKind): readonly number[] =>
+  kind === 'teaser' ? TRAILER_LENGTHS.filter((n) => n <= TEASER_MAX_SEC) : TRAILER_LENGTHS
+
 /** 估價要等使用者停手這麼久才問（打字時不連續呼叫）。 */
 const CHECK_DEBOUNCE_MS = 400
 
@@ -41,7 +45,20 @@ export function trailerGoLabel(check: TrailerPlanCheck | undefined): string {
  * 空白畫布的第 4 個起點：貼書的文字，選長度與類型，先產生腳本（只用文字模型，不生成圖片和影片）。
  * 腳本被檢查器擋下時，那則錯誤直接寫在卡片上（不只是一閃而過的提示）。
  */
-export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
+export function TrailerStartCard({
+  onDone,
+  wide = false,
+  beforePlan,
+  restore,
+}: {
+  onDone?: () => void
+  /** 首頁的大卡：撐滿寬度、文字框高一點（畫布上的是 264 px 的小卡）。 */
+  wide?: boolean
+  /** 寫腳本之前先做的事（首頁：先關掉開著的專案，腳本寫進新專案，不寫進舊的）。失敗就不寫。 */
+  beforePlan?: () => Promise<void>
+  /** 寫腳本前關掉了別的專案、寫失敗時：卡片上多一顆「重新打開《舊專案名》」，作者回得去原本的地方。 */
+  restore?: { name: string; reopen: () => Promise<void> }
+}) {
   const [text, setText] = useState('')
   const [title, setTitle] = useState('')
   const [length, setLength] = useState<number>(30)
@@ -82,12 +99,17 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
     busyRef.current = true
     setBusy(true)
     setError(undefined)
-    call('trailer.plan', {
-      text: clipTrailerText(text.trim()),
-      targetSec: length,
-      kind,
-      ...(title.trim() === '' ? {} : { title: title.trim() }),
-    })
+    ;(beforePlan?.() ?? Promise.resolve())
+      .then(() =>
+        call('trailer.plan', {
+          text: clipTrailerText(text.trim()),
+          targetSec: length,
+          kind,
+          ...(title.trim() === '' ? {} : { title: title.trim() }),
+        }),
+      )
+      // 沒有專案時選的橫式／直式，專案是寫腳本時才建的，建好之後才套得上去
+      .then(() => ratio.commit().catch(() => undefined))
       .then(() => {
         onDone?.()
       })
@@ -103,7 +125,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
   return (
     <section
       data-testid="trailer-start"
-      className="pointer-events-auto flex w-[264px] flex-col gap-2.5 rounded-2xl border border-border bg-surface-raised p-5 shadow-panel"
+      className={`pointer-events-auto flex flex-col gap-2.5 rounded-2xl border border-border bg-surface-raised p-5 shadow-panel ${wide ? 'w-full' : 'w-[264px]'}`}
     >
       <h3 className="flex items-center gap-2 text-base font-semibold">
         <Clapperboard className="size-4 text-accent" aria-hidden />
@@ -111,7 +133,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
       </h3>
       <textarea
         data-testid="trailer-text"
-        rows={3}
+        rows={wide ? 6 : 3}
         value={text}
         disabled={busy}
         placeholder={t('trailer.start.textPlaceholder')}
@@ -156,7 +178,7 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
             label={t('trailer.start.length')}
             value={String(length)}
             disabled={busy}
-            options={TRAILER_LENGTHS.map((n) => ({
+            options={lengthsFor(kind).map((n) => ({
               value: String(n),
               label: t('trailer.lengthSec', { n }),
             }))}
@@ -180,7 +202,10 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
               { value: 'idea', label: t('trailer.kindIdea') },
             ]}
             onChange={(value) => {
-              setKind(value === 'teaser' || value === 'idea' ? value : 'story')
+              const next = value === 'teaser' || value === 'idea' ? value : 'story'
+              setKind(next)
+              // 60、90 秒不能用在懸念短版：已經選了就改回 30 秒
+              if (!lengthsFor(next).includes(length)) setLength(30)
             }}
           />
         </div>
@@ -222,6 +247,21 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
         >
           <p className="font-semibold">{t('trailer.start.failed')}</p>
           <p className="mt-1 whitespace-pre-wrap">{error}</p>
+          {restore ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-2"
+              data-testid="trailer-reopen"
+              onClick={() => {
+                restore.reopen().catch((e: unknown) => {
+                  setError(errorText(e))
+                })
+              }}
+            >
+              {t('trailer.start.reopen', { name: restore.name })}
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </section>

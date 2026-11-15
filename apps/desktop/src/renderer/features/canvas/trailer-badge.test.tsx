@@ -1,9 +1,9 @@
-import type { TrailerStatus } from '@svs/schema'
+import { t, type TrailerStatus } from '@svs/schema'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { installFakeSvs } from '../../test/fake-svs'
-import { choose } from '../../test/select'
+import { appError, installFakeSvs } from '../../test/fake-svs'
+import { choose, optionLabels } from '../../test/select'
 import { TrailerBadge, trailerBadgeText } from './trailer-badge'
 
 afterEach(cleanup)
@@ -101,6 +101,23 @@ describe('TrailerBadge：頂列的預告片標籤', () => {
     await waitFor(() => {
       expect(update).toHaveBeenLastCalledWith({ patch: { title: '斷橋之夜' } })
     })
+  })
+
+  it('改短長度、每一格的最短秒數加起來放不下：改存新的目標秒數（不重排），面板說放不下；之後可以照新長度重寫', async () => {
+    const update = vi.fn((payload: { refit?: boolean }) => {
+      if (payload.refit === true) throw appError(t('trailer.refitImpossible'))
+      return status()
+    })
+    installFakeSvs({ 'trailer.check': () => CHECK, 'trailer.update': update })
+    render(<TrailerBadge status={status()} />)
+    fireEvent.click(screen.getByTestId('trailer-badge'))
+    choose('trailer-panel-length', '15')
+    await waitFor(() => {
+      expect(update).toHaveBeenCalledTimes(2)
+    })
+    expect(update.mock.calls[0]?.[0]).toEqual({ patch: { targetSec: 15 }, refit: true })
+    expect(update.mock.calls[1]?.[0]).toEqual({ patch: { targetSec: 15 } })
+    expect((await screen.findByTestId('trailer-panel-error')).textContent).toContain('放不下')
   })
 
   it('檢查器的警告與錯誤列在面板裡', () => {
@@ -201,5 +218,16 @@ describe('TrailerBadge：頂列的預告片標籤', () => {
     expect(screen.getByTestId('trailer-panel-aspect-portrait').getAttribute('aria-checked')).toBe(
       'true',
     )
+  })
+
+  it('懸念短版的設定面板只列 15、30 秒；已經是 60 秒的（Claude 設的）照原樣多列一個', () => {
+    installFakeSvs({ 'trailer.check': () => CHECK })
+    const first = render(<TrailerBadge status={status({}, { kind: 'teaser' })} />)
+    fireEvent.click(screen.getByTestId('trailer-badge'))
+    expect(optionLabels('trailer-panel-length')).toEqual(['15 秒', '30 秒'])
+    first.unmount()
+    render(<TrailerBadge status={status({ targetSec: 60 }, { kind: 'teaser', targetSec: 60 })} />)
+    fireEvent.click(screen.getByTestId('trailer-badge'))
+    expect(optionLabels('trailer-panel-length')).toEqual(['15 秒', '30 秒', '60 秒'])
   })
 })

@@ -15,6 +15,7 @@ import {
   fitAround,
   fitToTarget,
   FIRST_BEAT_MAX_SEC,
+  TEASER_MAX_SEC,
   LENGTH_TOLERANCE_SEC,
   cardNameOf,
   t,
@@ -84,6 +85,13 @@ const FPS = 24
 
 const invalid = (userMessage: string): AppError =>
   new AppError({ code: 'invalid_request', userMessage })
+
+/** 懸念短版的目標不能超過 30 秒（畫面只列 15、30 秒，這裡讓 Claude 與其他呼叫的人也一樣）。 */
+const checkTeaserLength = (settings: { kind: string; targetSec: number }): void => {
+  if (settings.kind === 'teaser' && settings.targetSec > TEASER_MAX_SEC) {
+    throw invalid(t('trailer.teaserTooLong', { max: String(TEASER_MAX_SEC) }))
+  }
+}
 
 const toStyle = (id: string | undefined) => QUICK_STYLE_IDS.find((s) => s === id) ?? 'realistic'
 
@@ -298,6 +306,8 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
     const given = patchOf(parsed)
     const base = handle.repos.trailer.get() ?? TrailerSettingsSchema.parse({})
     const merged = TrailerSettingsSchema.parse({ ...base, ...given })
+    // 要花錢的文字模型呼叫之前先擋
+    if (given.kind !== undefined || given.targetSec !== undefined) checkTeaserLength(merged)
     // 每次文字模型呼叫回來的金額都先記下來（寫腳本中途失敗，錢也已經花了）
     const metered = meteredStudio(
       createStudioServices({ queue, handle, tools: tool, models }),
@@ -453,7 +463,17 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
       // 這次真的花了錢的呼叫（不管最後成不成功都要記帳：被檢查器擋下、回亂碼、重寫那一次也一樣）
       const spent: SpentCall[] = []
       try {
-        return await planOnto(handle, parsed, spent)
+        const result = await planOnto(handle, parsed, spent)
+        // 這次自己建的專案、使用者沒填書名：專案名改成腳本的片名（資料夾名字不變）
+        const title = result.settings.title.trim()
+        if (created && (parsed.title ?? '').trim() === '' && title !== '') {
+          try {
+            projects.rename(title.slice(0, 60))
+          } catch {
+            // 改名失敗不影響腳本
+          }
+        }
+        return result
       } catch (error) {
         const removed = created && discardNewProject(handle)
         settleSpent(handle, spent, removed)
@@ -531,6 +551,8 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
       const { patch, refit } = request
       const before = handle.repos.trailer.get()
       const next = TrailerSettingsSchema.parse({ ...(before ?? {}), ...stripUndefined(patch) })
+      // 只在這次改了類型或長度時擋；舊專案已經是 60 秒的懸念短版，改書名之類不受影響
+      if (patch.kind !== undefined || patch.targetSec !== undefined) checkTeaserLength(next)
       let durations: { id: string; sec: number }[] = []
       if (refit === true) {
         const list = scriptShots(handle, before)
