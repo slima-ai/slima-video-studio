@@ -17,12 +17,18 @@ async function shoot(page: Page, testInfo: TestInfo, name: string): Promise<void
   }
 }
 
+const statusOf = async (page: Page) => {
+  const result = await page.evaluate(() => window.svs.invoke('trailer.status', {}))
+  if (!result.ok) throw new Error(result.error.userMessage)
+  return result.data
+}
+
 const nav = (page: Page) => page.getByTestId('layout-nav').getByRole('button')
 
 test.describe('預告片整頁：導覽、落點、腳本條、播放器（示範模式，不花錢）', () => {
   test.describe.configure({ timeout: 120_000 })
 
-  test('寫完腳本落在「預告片」頁（標題列、播放器、設定）；導覽最前面是「預告片」；到畫布再回來', async ({
+  test('寫完腳本落在「預告片」頁；腳本條的格數等於腳本的格數；點一格、方向鍵換格；導覽最前面是「預告片」', async ({
     page,
   }, testInfo) => {
     await page.getByRole('button', { name: '畫布', exact: true }).click()
@@ -34,17 +40,100 @@ test.describe('預告片整頁：導覽、落點、腳本條、播放器（示�
     await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('trailer-page-title')).toHaveText('斷橋')
     await expect(page.getByTestId('trailer-page-length')).toHaveText('30／30 秒')
-    await expect(page.getByTestId('trailer-player')).toHaveAttribute('data-source', 'beat')
+    const status = await statusOf(page)
+    await expect(page.locator('[data-testid^="strip-cell-"]')).toHaveCount(status.beatCount)
+    await expect(page.getByTestId('strip-segment').first()).toBeVisible()
     await expect(page.getByTestId('trailer-panel-title')).toHaveValue('斷橋')
     await expect(nav(page).first()).toHaveAttribute('aria-label', '預告片')
     await expect(nav(page).first()).toHaveAttribute('aria-current', 'page')
     await shoot(page, testInfo, 'b1-01-script-written-trailer-page.png')
 
-    // 2. 到畫布、再回預告片頁：兩邊都在，畫布上的標籤還在
+    // 2. 點第 2 格：選到、播放器換成那一格（還沒生成，顯示那一格的畫面描述）；← → 換格
+    await page.getByTestId('strip-cell-1').click()
+    await expect(page.getByTestId('strip-cell-1')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('trailer-player')).toHaveAttribute('data-source', 'beat')
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByTestId('strip-cell-2')).toHaveAttribute('aria-pressed', 'true')
+    await page.keyboard.press('ArrowLeft')
+    await expect(page.getByTestId('strip-cell-1')).toHaveAttribute('aria-pressed', 'true')
+    await shoot(page, testInfo, 'b1-02-beat-selected.png')
+
+    // 預告片頁也有 Claude 的入口，按了抽屜滑出來
+    await page.getByTestId('chat-launcher').click()
+    await expect(page.getByTestId('chat-drawer')).toHaveAttribute('data-open', 'true')
+    await page.getByTestId('chat-launcher').click()
+
+    // 3. 到畫布、再回預告片頁：兩邊都在，畫布上的標籤還在
     await page.getByRole('button', { name: '畫布', exact: true }).click()
     await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 30／30 秒')
     await nav(page).first().click()
     await expect(page.getByTestId('trailer-page')).toBeVisible()
+  })
+
+  test('點一格在下面改：[＋] 加 0.25 秒、標題列仍是 30／30 秒；字卡的編輯區沒有影片的欄位；復原', async ({
+    page,
+  }, testInfo) => {
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await page.getByTestId('trailer-text').fill(STORY)
+    await page.getByTestId('trailer-go').click()
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
+
+    // 第一個影片格（示範腳本的第 2 格是不動的畫面，沒有「動作」欄）：描述、動作、旁白、秒數
+    const videoCell = page.locator('[data-testid^="strip-cell-"][data-kind="video"]').first()
+    await videoCell.click()
+    await expect(page.getByTestId('beat-editor')).toBeVisible()
+    await expect(page.getByTestId('beat-description')).toBeVisible()
+    await expect(page.getByTestId('beat-action')).toBeVisible()
+    const before = Number(await page.getByTestId('beat-seconds-input').inputValue())
+    await page.getByTestId('beat-seconds-plus').click()
+    await expect
+      .poll(async () => Number(await page.getByTestId('beat-seconds-input').inputValue()))
+      .toBeCloseTo(before + 0.25, 1)
+    await expect(page.getByTestId('trailer-page-length')).toHaveText('30／30 秒')
+    await shoot(page, testInfo, 'b1-03-beat-seconds-plus.png')
+
+    // 字卡格：只有字、小字、秒數，沒有入點出點、原聲、旁白
+    const cardCell = page.locator('[data-testid^="strip-cell-"][data-kind="card"]').first()
+    await cardCell.click()
+    await expect(page.getByTestId('beat-card-text')).toBeVisible()
+    await expect(page.getByTestId('beat-editor')).not.toContainText(/入點|出點|原聲|旁白|再花一次/)
+    await shoot(page, testInfo, 'b1-04-card-editor.png')
+
+    // 復原：回到加之前的秒數，總長一直是 30
+    await page.keyboard.press('ControlOrMeta+z')
+    await videoCell.click()
+    await expect
+      .poll(async () => Number(await page.getByTestId('beat-seconds-input').inputValue()))
+      .toBeCloseTo(before, 1)
+    await expect(page.getByTestId('trailer-page-length')).toHaveText('30／30 秒')
+  })
+
+  test('右鍵：在後面加一張字卡（格數多一格，選到新的那一格）、改成不動、刪掉；復原', async ({
+    page,
+  }, testInfo) => {
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await page.getByTestId('trailer-text').fill(STORY)
+    await page.getByTestId('trailer-go').click()
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
+    const cells = page.locator('[data-testid^="strip-cell-"]')
+    const count = await cells.count()
+
+    await page.getByTestId('strip-cell-1').click({ button: 'right' })
+    await shoot(page, testInfo, 'b1-05-context-menu.png')
+    await page.getByRole('menuitem', { name: '在後面加一張字卡' }).click()
+    await expect(cells).toHaveCount(count + 1)
+    await expect(page.getByTestId('strip-cell-2')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('beat-card-text')).toHaveValue('新字卡')
+
+    await page.getByTestId('strip-cell-0').click({ button: 'right' })
+    await page.getByRole('menuitem', { name: '不動' }).click()
+    await expect(page.getByTestId('strip-cell-0')).toHaveAttribute('data-kind', 'still')
+
+    await page.getByTestId('strip-cell-2').click({ button: 'right' })
+    await page.getByRole('menuitem', { name: '刪掉這一格' }).click()
+    await expect(cells).toHaveCount(count)
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(cells).toHaveCount(count + 1)
   })
 
   test('一般專案（沒有預告片設定）：導覽沒有「預告片」這一項，落點是畫布', async ({ page }) => {

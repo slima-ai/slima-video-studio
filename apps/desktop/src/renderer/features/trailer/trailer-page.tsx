@@ -1,12 +1,19 @@
 import type { ProjectInfo, ShotView, TrailerStatus } from '@svs/schema'
 import { t } from '@svs/schema'
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 
 import { cn } from '../../lib/cn'
+import { errorText } from '../../lib/svs'
 import { call } from '../../lib/svs'
 import { trailerBadgeLength, TrailerBadge } from '../canvas/trailer-badge'
 import { TrailerStartCard } from '../canvas/trailer-start'
+import { ChatLauncher } from '../chat/chat-launcher'
 import { useShots } from '../shots/use-shots'
+import { ContextMenu } from '../canvas/menus'
+import { BeatEditor } from './beat-editor'
+import { beatMenuEntries } from './beat-menu'
+import { ScriptStrip } from './script-strip'
+import { beatIndexAt, cellStarts, FALLBACK_WIDTH_PX } from './strip-math'
 import { TrailerPlayer } from './trailer-player'
 
 /** 內容區窄於這麼多（px）時，右邊的設定欄移到播放器下面。 */
@@ -48,6 +55,11 @@ function useProject(): ProjectInfo | undefined {
   return info
 }
 
+/** 按鍵是不是輸入框的（打字時不當成換格或播放）。 */
+const typingIn = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable || target.matches('input, textarea, select'))
+
 /** 預告片這一場的格子：只取預告片的場、要放進成品的，依鏡號排。 */
 export function trailerBeats(shots: readonly ShotView[], sceneId: string | undefined): ShotView[] {
   return shots
@@ -56,8 +68,8 @@ export function trailerBeats(shots: readonly ShotView[], sceneId: string | undef
 }
 
 /**
- * 「預告片」整頁：上面標題列，左邊播放器，右邊設定（共用畫布上那顆標籤的面板）。
- * 腳本還是空的就放「做預告片」那張卡。
+ * 「預告片」整頁：上面標題列，左邊播放器與腳本條，右邊設定（共用畫布上那顆標籤的面板）。
+ * 這一版只看、可選格；點一格改內容在下一個 PR。腳本還是空的就放「做預告片」那張卡。
  */
 export function TrailerPage({ status }: { status: TrailerStatus }) {
   const { shots, finalVideoHash } = useShots()
@@ -66,11 +78,76 @@ export function TrailerPage({ status }: { status: TrailerStatus }) {
     () => trailerBeats(shots, status.settings.sceneId),
     [shots, status.settings.sceneId],
   )
+  const [pickedId, setPickedId] = useState<string>()
+  const selected = beats.find((beat) => beat.id === pickedId) ?? beats[0]
+  const [playhead, setPlayhead] = useState<number>()
   const video = useRef<HTMLVideoElement>(null)
   const [pageRef, pageWidth] = useWidth<HTMLDivElement>()
+  const [stripRef, stripWidth] = useWidth<HTMLDivElement>()
   const wide = pageWidth === 0 || pageWidth >= WIDE_PX
+  const [menu, setMenu] = useState<{ beat: ShotView; at: { x: number; y: number } }>()
+  const [menuError, setMenuError] = useState<string>()
+  const afterMenu = <T,>(work: Promise<T>, then?: (result: T) => void): void => {
+    setMenuError(undefined)
+    work
+      .then((result) => then?.(result))
+      .catch((e: unknown) => {
+        setMenuError(errorText(e))
+      })
+  }
 
-  const name = status.settings.title.trim() || project?.name || ''
+  const select = useCallback(
+    (id: string): void => {
+      setPickedId(id)
+      const index = beats.findIndex((beat) => beat.id === id)
+      const player = video.current
+      // 有成品：跳到那一格的開頭
+      if (player && index >= 0) player.currentTime = cellStarts(beats)[index] ?? 0
+    },
+    [beats],
+  )
+
+  // ← → 換格、空白鍵播放或暫停（打字、按鈕與影片自己的按鍵不搶）
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.ctrlKey || event.altKey || typingIn(event.target)) return
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (event.key === ' ') {
+        if (target?.matches('button, video, [role="menuitem"]')) return
+        const player = video.current
+        if (!player) return
+        event.preventDefault()
+        if (player.paused) void player.play().catch(() => undefined)
+        else player.pause()
+        return
+      }
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+      if (target?.matches('video')) return
+      const at = selected ? beats.findIndex((beat) => beat.id === selected.id) : -1
+      const next = beats[at + (event.key === 'ArrowRight' ? 1 : -1)]
+      if (!next) return
+      event.preventDefault()
+      select(next.id)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [beats, selected, select])
+
+  // 成品播放中，選取跟著播放線走
+  const onTime = useCallback(
+    (sec: number): void => {
+      setPlayhead(sec)
+      const index = beatIndexAt(beats, sec)
+      const beat = beats[index]
+      if (beat) setPickedId(beat.id)
+    },
+    [beats],
+  )
+
+  const typedTitle = status.settings.title.trim()
+  const name = typedTitle !== '' ? typedTitle : (project?.name ?? '')
   const kind = status.settings.kind === 'teaser' ? t('trailer.kindTeaser') : t('trailer.kindStory')
 
   return (
@@ -89,6 +166,9 @@ export function TrailerPage({ status }: { status: TrailerStatus }) {
         >
           {trailerBadgeLength(status)}
         </span>
+        {/* 使用者在這一頁待最久：讓 Claude 幫忙的入口也在這裡（抽屜在 App 層，兩頁共用同一場對話） */}
+        <span className="flex-1" />
+        <ChatLauncher />
       </header>
       {beats.length === 0 ? (
         <div data-testid="trailer-page-empty" className="flex justify-center py-8">
@@ -99,11 +179,31 @@ export function TrailerPage({ status }: { status: TrailerStatus }) {
           <div className="flex min-w-0 flex-1 flex-col gap-4">
             <TrailerPlayer
               finalHash={finalVideoHash}
-              beat={beats[0]}
+              beat={selected}
               portrait={project?.aspectRatio === '9:16'}
               title={name}
               videoRef={video}
+              onTime={onTime}
             />
+            <div ref={stripRef}>
+              <ScriptStrip
+                beats={beats}
+                selectedId={selected?.id}
+                onSelect={select}
+                availablePx={(stripWidth || FALLBACK_WIDTH_PX) - 40}
+                playheadSec={finalVideoHash ? playhead : undefined}
+                musicOn={status.settings.music}
+                onMenu={(beat, at) => {
+                  setMenu({ beat, at })
+                }}
+              />
+              {menuError === undefined ? null : (
+                <p role="alert" data-testid="strip-menu-error" className="mt-1 text-xs text-danger">
+                  {menuError}
+                </p>
+              )}
+            </div>
+            {selected ? <BeatEditor key={selected.id} beat={selected} status={status} /> : null}
           </div>
           <aside
             data-testid="trailer-page-settings"
@@ -113,6 +213,33 @@ export function TrailerPage({ status }: { status: TrailerStatus }) {
           </aside>
         </div>
       )}
+      {menu ? (
+        <ContextMenu
+          at={menu.at}
+          onClose={() => {
+            setMenu(undefined)
+          }}
+          entries={beatMenuEntries(menu.beat, {
+            setKind: (kind) => {
+              afterMenu(call('shots.update', { shotId: menu.beat.id, patch: { beatKind: kind } }))
+            },
+            addCardAfter: () => {
+              afterMenu(
+                call('trailer.addCard', {
+                  afterShotId: menu.beat.id,
+                  text: t('trailer.menu.newCardText'),
+                }),
+                (added) => {
+                  select(added.id)
+                },
+              )
+            },
+            remove: () => {
+              afterMenu(call('shots.delete', { shotIds: [menu.beat.id] }))
+            },
+          })}
+        />
+      ) : null}
     </div>
   )
 }
