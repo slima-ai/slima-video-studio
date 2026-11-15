@@ -283,19 +283,13 @@ export class LocationCardsRepository {
 
   // ── 鎖定 ──
 
-  /** 鎖定：要有固定描述和主圖。鎖定後鏡頭才會帶入。 */
+  /** 鎖定：要有固定描述；主圖不強制（跟角色卡同一套規則）。鎖定後鏡頭才會帶入：有主圖的連圖一起帶，沒有就只帶文字。 */
   lock(locationId: string): LocationCardView {
     const card = this.need(locationId)
     if (card.anchorText.trim() === '') {
       throw new AppError({
         code: 'invalid_request',
         userMessage: t('errors.writeDownWhatThisLocation'),
-      })
-    }
-    if (!card.mainAssetHash) {
-      throw new AppError({
-        code: 'invalid_request',
-        userMessage: t('errors.pickAMainLocationPicture'),
       })
     }
     this.db.update(locations).set({ status: 'locked' }).where(eq(locations.id, locationId)).run()

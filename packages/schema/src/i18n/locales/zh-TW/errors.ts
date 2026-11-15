@@ -24,7 +24,6 @@ export const errors = {
   'errors.couldnTFindThatLocation': '找不到這個場景卡。',
   'errors.thisLocationCardIsLocked': '這張場景卡已經鎖定，要先解除鎖定才能修改。',
   'errors.writeDownWhatThisLocation': '請先寫下這個場景固定的樣子。',
-  'errors.pickAMainLocationPicture': '請先挑一張主場景圖。',
   'errors.couldnTFind': '找不到{what}（{id}）。',
   'errors.thatAct': '這一幕',
   'errors.thatLocation': '這個地點',

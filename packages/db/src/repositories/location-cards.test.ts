@@ -68,11 +68,24 @@ describe('LocationCardsRepository', () => {
     expect(locationCards.get(place.id)).toMatchObject({ mainAssetHash: H2, angles: {} })
   })
 
-  it('鎖定要有固定描述和主圖；鎖定後不能再改，解除鎖定才能改', () => {
+  it('只有文字也能鎖定：要有固定描述，主圖不強制（跟角色卡同一套規則）；沒有描述還是不能鎖', () => {
     const { locationCards, place } = setup()
     expect(() => locationCards.lock(place.id)).toThrow(/固定的樣子/)
+    locationCards.setAnchor(place.id, '   ')
+    expect(() => locationCards.lock(place.id)).toThrow(/固定的樣子/)
     locationCards.setAnchor(place.id, '  潮濕的磚牆倉庫  ')
-    expect(() => locationCards.lock(place.id)).toThrow(/主場景圖/)
+    const locked = locationCards.lock(place.id)
+    expect(locked).toMatchObject({ status: 'locked', anchorText: '潮濕的磚牆倉庫' })
+    expect(locked.mainAssetHash).toBeUndefined()
+    // 鎖了就會被鏡頭帶入（listLocked）：沒有主圖，只帶文字
+    expect(locationCards.listLocked().map((c) => c.id)).toEqual([place.id])
+    expect(() => locationCards.setAnchor(place.id, 'x')).toThrow(/已經鎖定/)
+    expect(locationCards.unlock(place.id).status).toBe('draft')
+  })
+
+  it('有主圖的照舊：鎖定後不能再改，解除鎖定才能改', () => {
+    const { locationCards, place } = setup()
+    locationCards.setAnchor(place.id, '  潮濕的磚牆倉庫  ')
     const concept = locationCards.addConcept({
       locationId: place.id,
       round: 1,

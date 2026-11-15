@@ -126,12 +126,19 @@ describe('LocationService（示範模式）', () => {
     expect(h.locations.pickMain(id, another.id).angles).toEqual({})
   })
 
-  it('鎖定要有描述和主圖；鎖定後不能改、不能重新生成；解除鎖定後可以', async () => {
+  it('只有文字也能鎖定（不用先花錢生圖挑主圖）；沒有描述不能鎖', () => {
     const h = setup()
     const id = addPlace(h)
     expect(() => h.locations.lock(id)).toThrow('固定的樣子')
     h.locations.setAnchor(id, '磚牆倉庫')
-    expect(() => h.locations.lock(id)).toThrow('主場景圖')
+    expect(h.locations.lock(id).status).toBe('locked')
+    expect(h.locations.unlock(id).status).toBe('draft')
+  })
+
+  it('鎖定後不能改、不能重新生成；解除鎖定後可以（有主圖的）', async () => {
+    const h = setup()
+    const id = addPlace(h)
+    h.locations.setAnchor(id, '磚牆倉庫')
     h.locations.generate(id, 'concepts')
     await finish(h, id, (state) => {
       expect(state.concepts).toHaveLength(4)

@@ -169,13 +169,13 @@ export function LocationCard({ card, onChanged, onReload }: CardProps) {
                 size="sm"
                 variant="primary"
                 data-testid="location-lock"
-                disabled={text.trim() === '' || !card.mainAssetHash || generating !== undefined}
+                disabled={text.trim() === '' || generating !== undefined}
                 onClick={() => void lock()}
               >
                 <Lock className="size-4" />
                 {t('chat.lock')}
               </Button>
-              {text.trim() === '' || !card.mainAssetHash ? (
+              {text.trim() === '' ? (
                 <span className="text-xs text-fg-muted" data-testid="location-lock-hint">
                   {t('chat.writeADescriptionAndPick')}
                 </span>

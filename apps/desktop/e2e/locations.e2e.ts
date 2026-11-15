@@ -43,6 +43,28 @@ test.describe('場景卡', () => {
     }
   })
 
+  test('只有文字也能鎖定：不生圖、不挑主圖，寫了描述就能鎖；鏡頭帶入的是文字', async ({ page }) => {
+    await page.getByRole('button', { name: '場景卡' }).click()
+    await page.getByTestId('location-new-name').fill('舊倉庫')
+    await page.getByTestId('location-add').click()
+    await expect(page.getByTestId('location-lock')).toBeDisabled()
+    await expect(page.getByTestId('location-lock-hint')).toContainText('描述')
+    await page.getByTestId('location-anchor').fill('潮濕的磚牆倉庫，天窗透進冷光')
+    await expect(page.getByTestId('location-lock')).toBeEnabled()
+    await expect(page.getByTestId('location-lock-hint')).toHaveCount(0)
+    await expect(page.getByTestId('location-main').getByRole('img')).toHaveCount(0)
+
+    await page.getByTestId('location-lock').click()
+    await expect(page.getByTestId('location-status')).toContainText('已鎖定')
+
+    await page.getByRole('button', { name: '分鏡表' }).click()
+    await page.getByTestId('storyboard-add').click()
+    await page.getByTestId('cell-location').selectOption({ label: '舊倉庫' })
+    await expect
+      .poll(() => autoPrompts(page))
+      .toEqual([expect.stringContaining('場景（舊倉庫）——潮濕的磚牆倉庫，天窗透進冷光')])
+  })
+
   test('概念圖 → 挑主圖 → 另外兩個角度 → 鎖定；鎖定後鏡頭自動帶入場景，解除鎖定就不帶', async ({
     page,
   }) => {

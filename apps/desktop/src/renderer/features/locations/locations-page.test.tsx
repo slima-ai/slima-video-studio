@@ -114,7 +114,7 @@ describe('LocationsPage', () => {
     expect(await screen.findByTestId('location-card')).toBeTruthy()
   })
 
-  it('草稿：沒有描述和主圖不能鎖定並說明；寫了描述按「存下描述」', async () => {
+  it('草稿：沒有描述不能鎖定並說明（說明只提描述，不要求主圖）；寫了描述，沒有主圖也能鎖定', async () => {
     const svs = installFakeSvs({
       'locations.list': () => ({ locations: [card()] }),
       'locations.setAnchor': (p: { text: string }) => card({ anchorText: p.text }),
@@ -122,12 +122,17 @@ describe('LocationsPage', () => {
     render(<LocationsPage />)
     const lock = await screen.findByTestId('location-lock')
     expect(lock.hasAttribute('disabled')).toBe(true)
-    expect(screen.getByTestId('location-lock-hint').textContent).toContain('描述')
+    const hint = screen.getByTestId('location-lock-hint')
+    expect(hint.textContent).toContain('描述')
+    expect(hint.textContent).not.toContain('主場景圖')
     expect(screen.getByTestId('location-status').textContent).toContain('草稿')
 
     fireEvent.click(screen.getByTestId('location-anchor-fill'))
     expect(screen.getByTestId<HTMLTextAreaElement>('location-anchor').value).toBe('堆滿木箱')
     fireEvent.change(screen.getByTestId('location-anchor'), { target: { value: '磚牆倉庫' } })
+    // 寫了描述就能鎖定，沒有主圖也一樣；說明不再出現
+    expect(screen.getByTestId('location-lock').hasAttribute('disabled')).toBe(false)
+    expect(screen.queryByTestId('location-lock-hint')).toBeNull()
     fireEvent.click(screen.getByTestId('location-anchor-save'))
     await waitFor(() => {
       expect(svs.payloadsOf('locations.setAnchor')).toEqual([
