@@ -85,6 +85,18 @@ describe('layoutCardText：幾個字、多大、幾行', () => {
     }
   })
 
+  it('字距 .02em 也算進寬度：一行的字加字距不超過框寬（不會因為字距多出來而在行尾掉一個字）', () => {
+    for (const size of sizes) {
+      const text = '一二三四五六七八九十甲乙'
+      const layout = layoutCardText(text, box(size), base(size))
+      expect(layout.lineCount).toBe(1)
+      const width = layout.fontSizePx * Array.from(text).length * 1.02
+      expect(width, `${String(size.width)}x${String(size.height)}`).toBeLessThanOrEqual(
+        box(size).widthPx,
+      )
+    }
+  })
+
   it('越長字越小（不會變大）', () => {
     const size = sizes[0]
     if (!size) throw new Error('no size')
@@ -127,6 +139,27 @@ describe('textCardHtml：文字卡', () => {
     expect(html).toContain('😀')
     expect(html).toContain('&#38; &#39;第一章&#39;')
     expect(html).toContain('background:#000')
+  })
+
+  it('換行時不留孤字：23 個字會排成三行，每一行都不少於 3 個字（不是 11＋11＋1）', () => {
+    const text = '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅'
+    const html = textCardHtml({ text, width: 1280, height: 720 })
+    const main = /<div class="main">(.*?)<\/div>/.exec(html)?.[1] ?? ''
+    const lines = main.split('<br>')
+    expect(lines).toHaveLength(3)
+    for (const line of lines) expect(Array.from(line).length).toBeGreaterThanOrEqual(3)
+    expect(lines.join('')).toBe(text)
+  })
+
+  it('自己換過行的字照原樣；一行放得下的不加換行；副文字太長也不留孤字', () => {
+    const own = textCardHtml({ text: '他回來了\n帶著光', width: 1280, height: 720 })
+    expect(own).toContain('<div class="main">他回來了<br>帶著光</div>')
+    const short = textCardHtml({ text: '他回來了', width: 1280, height: 720 })
+    expect(short).toContain('<div class="main">他回來了</div>')
+    const sub = '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午'
+    const html = textCardHtml({ text: '他回來了', subtext: sub, width: 720, height: 1280 })
+    const subLines = (/<div class="sub">(.*?)<\/div>/.exec(html)?.[1] ?? '').split('<br>')
+    for (const line of subLines) expect(Array.from(line).length).toBeGreaterThanOrEqual(3)
   })
 
   it('有內容安全政策：不能載入腳本、不能連網；沒有字型網址就沒有 @font-face', () => {
@@ -189,6 +222,19 @@ describe('titleCardHtml：片名卡', () => {
     expect(() => titleCardHtml({ ...base, coverDataUri: 'https://evil.example/c.png' })).toThrow()
     expect(() => titleCardHtml({ ...base, coverDataUri: 'data:text/html;base64,AAAA' })).toThrow()
     expect(() => titleCardHtml({ ...base, coverDataUri: 'data:image/png;base64,AA"AA' })).toThrow()
+  })
+
+  it('書名、作者太長要換行時也不留孤字（直式）', () => {
+    const long = '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸'
+    const html = titleCardHtml({ title: long, author: long, width: 720, height: 1280 })
+    for (const cls of ['title', 'author']) {
+      const lines = (new RegExp(`<div class="${cls}">(.*?)</div>`).exec(html)?.[1] ?? '').split(
+        '<br>',
+      )
+      if (cls === 'title') expect(lines.length).toBeGreaterThanOrEqual(2)
+      for (const line of lines) expect(Array.from(line).length, cls).toBeGreaterThanOrEqual(3)
+      expect(lines.join(''), cls).toBe(long)
+    }
   })
 
   it('最底下一行小字（給匯出的 AI 服務標註）：有給才有', () => {
