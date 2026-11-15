@@ -2,8 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { appError, installFakeSvs } from '../../test/fake-svs'
-import { choose } from '../../test/select'
-import { TrailerStartCard } from './trailer-start'
+import { choose, optionLabels } from '../../test/select'
+import { TRAILER_TEXT_MAX, TrailerStartCard, clipTrailerText } from './trailer-start'
 
 afterEach(cleanup)
 
@@ -94,7 +94,8 @@ describe('TrailerStartCard：做預告片', () => {
       kind: 'story',
     })
 
-    choose('trailer-length', '60')
+    // 懸念短版最長 30 秒：選 15 秒再改成懸念短版，長度維持 15
+    choose('trailer-length', '15')
     choose('trailer-kind', 'teaser')
     fireEvent.change(screen.getByTestId('trailer-title'), { target: { value: ' 斷橋 ' } })
     fireEvent.click(screen.getByTestId('trailer-go'))
@@ -103,7 +104,7 @@ describe('TrailerStartCard：做預告片', () => {
     })
     expect(plan).toHaveBeenLastCalledWith({
       text: '一座斷橋，一個老人。',
-      targetSec: 60,
+      targetSec: 15,
       kind: 'teaser',
       title: '斷橋',
     })
@@ -170,6 +171,30 @@ describe('TrailerStartCard：做預告片', () => {
     })
     fireEvent.click(screen.getByTestId('trailer-go'))
     expect((await screen.findByTestId('trailer-error')).textContent).toContain('縮短一點再試')
+  })
+
+  it('懸念短版只能選 15、30 秒；已經選了 60 秒再改成懸念短版，長度回到 30 秒；改回劇情型四個都有', async () => {
+    const plan = vi.fn(() => RESULT)
+    installFakeSvs({ 'trailer.check': () => CHECK_DEMO, 'trailer.plan': plan })
+    render(<TrailerStartCard />)
+    expect(optionLabels('trailer-length')).toEqual(['15 秒', '30 秒', '60 秒', '90 秒'])
+    choose('trailer-length', '60')
+    choose('trailer-kind', 'teaser')
+    expect(screen.getByTestId('trailer-length').textContent).toContain('30 秒')
+    expect(optionLabels('trailer-length')).toEqual(['15 秒', '30 秒'])
+    choose('trailer-kind', 'story')
+    expect(optionLabels('trailer-length')).toEqual(['15 秒', '30 秒', '60 秒', '90 秒'])
+    // 送出的請求：改成懸念短版之後長度是 30
+    choose('trailer-length', '90')
+    choose('trailer-kind', 'teaser')
+    fill('一座斷橋。')
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+    fireEvent.click(screen.getByTestId('trailer-go'))
+    await waitFor(() => {
+      expect(plan).toHaveBeenCalledWith({ text: '一座斷橋。', targetSec: 30, kind: 'teaser' })
+    })
   })
 })
 
@@ -279,5 +304,128 @@ describe('TrailerStartCard：橫式｜直式', () => {
     await waitFor(() => {
       expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
     })
+  })
+})
+
+describe('TrailerStartCard：貼的文字超過 60,000 字', () => {
+  it('有字就在輸入框下面寫字數；沒貼字不寫；沒超過就沒有「只會用前 …」', () => {
+    installFakeSvs({ 'trailer.check': () => CHECK_DEMO })
+    render(<TrailerStartCard />)
+    expect(screen.queryByTestId('trailer-count')).toBeNull()
+    fill('黑藤爬滿了斷橋。')
+    expect(screen.getByTestId('trailer-count').textContent).toBe('8／60,000 字')
+    fill('甲'.repeat(60_000))
+    expect(screen.getByTestId('trailer-count').textContent).toBe('60,000／60,000 字')
+  })
+
+  it('超過：不默默截掉，字數照實寫、加一句「只會用前 60,000 字。」；估價與寫腳本只送前 60,000 字', async () => {
+    const check = vi.fn(() => CHECK_DEMO)
+    const plan = vi.fn(() => RESULT)
+    installFakeSvs({ 'trailer.check': check, 'trailer.plan': plan })
+    render(<TrailerStartCard />)
+    const long = `${'甲'.repeat(60_000)}${'乙'.repeat(2_310)}`
+    fill(long)
+    expect(screen.getByTestId<HTMLTextAreaElement>('trailer-text').value).toHaveLength(62_310)
+    expect(screen.getByTestId('trailer-count').textContent).toBe(
+      '62,310／60,000 字只會用前 60,000 字。',
+    )
+    fireEvent.click(screen.getByTestId('trailer-go'))
+    await waitFor(() => {
+      expect(plan).toHaveBeenCalledTimes(1)
+    })
+    const sent = (plan.mock.calls[0] as unknown as [{ text: string }])[0].text
+    expect(sent).toHaveLength(TRAILER_TEXT_MAX)
+    expect(sent).toBe('甲'.repeat(60_000))
+  })
+
+  it('clipTrailerText：不到上限原樣；超過就切到上限，不把表情符號從中間切開', () => {
+    expect(clipTrailerText('abc')).toBe('abc')
+    const edge = `${'甲'.repeat(TRAILER_TEXT_MAX - 1)}😀後面`
+    const clipped = clipTrailerText(edge)
+    expect(clipped).toBe('甲'.repeat(TRAILER_TEXT_MAX - 1))
+  })
+
+  it('英文：「62,310 / 60,000 characters」與「Only the first 60,000 characters will be used.」', async () => {
+    const { setLocale, DEFAULT_LOCALE } = await import('@svs/schema')
+    installFakeSvs({ 'trailer.check': () => CHECK_DEMO })
+    setLocale('en')
+    try {
+      render(<TrailerStartCard />)
+      fill('a'.repeat(62_310))
+      expect(screen.getByTestId('trailer-count').textContent).toBe(
+        '62,310 / 60,000 charactersOnly the first 60,000 characters will be used.',
+      )
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
+  })
+})
+
+describe('TrailerStartCard：還沒有專案時的橫式｜直式', () => {
+  const checked = (key: 'landscape' | 'portrait'): string | null =>
+    screen.getByTestId(`trailer-aspect-${key}`).getAttribute('aria-checked')
+
+  it('預設亮橫式；點「直式」先不碰專案（沒有專案），寫好腳本、專案建好才套上 9:16', async () => {
+    const order: string[] = []
+    const configure = vi.fn((payload: { aspectRatio?: string }) => {
+      order.push('configure')
+      return { styleId: 'realistic', aspectRatio: payload.aspectRatio ?? '16:9' }
+    })
+    const plan = vi.fn(() => {
+      order.push('plan')
+      return RESULT
+    })
+    installFakeSvs({
+      'project.current': () => null,
+      'project.configure': configure,
+      'trailer.check': () => CHECK_DEMO,
+      'trailer.plan': plan,
+    })
+    const onDone = vi.fn()
+    render(<TrailerStartCard onDone={onDone} />)
+    await waitFor(() => {
+      expect(checked('landscape')).toBe('true')
+    })
+
+    fireEvent.click(screen.getByTestId('trailer-aspect-portrait'))
+    expect(checked('portrait')).toBe('true')
+    expect(checked('landscape')).toBe('false')
+    expect(configure).not.toHaveBeenCalled()
+
+    fill('一座斷橋，一個老人。')
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+    fireEvent.click(screen.getByTestId('trailer-go'))
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalled()
+    })
+    expect(configure).toHaveBeenCalledTimes(1)
+    expect(configure).toHaveBeenCalledWith({ aspectRatio: '9:16' })
+    expect(order).toEqual(['plan', 'configure'])
+  })
+
+  it('沒選過就寫腳本：不去改專案的比例', async () => {
+    const configure = vi.fn(() => ({ styleId: 'realistic', aspectRatio: '16:9' }))
+    installFakeSvs({
+      'project.current': () => null,
+      'project.configure': configure,
+      'trailer.check': () => CHECK_DEMO,
+      'trailer.plan': () => RESULT,
+    })
+    const onDone = vi.fn()
+    render(<TrailerStartCard onDone={onDone} />)
+    await waitFor(() => {
+      expect(checked('landscape')).toBe('true')
+    })
+    fill('一座斷橋，一個老人。')
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+    fireEvent.click(screen.getByTestId('trailer-go'))
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalled()
+    })
+    expect(configure).not.toHaveBeenCalled()
   })
 })
