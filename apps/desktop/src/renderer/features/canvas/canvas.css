@@ -614,3 +614,14 @@
   stroke: var(--accent);
   stroke-width: 1.5px;
 }
+
+/* 直式專案：縮圖的框還是橫的（卡片高度是固定的），但整張圖放進框裡、不裁成橫條；左右留黑 */
+[data-aspect='9:16'] .svs-thumb {
+  background-size: contain !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-color: #000 !important;
+}
+[data-aspect='9:16'] .svs-thumb-video {
+  object-fit: contain;
+}

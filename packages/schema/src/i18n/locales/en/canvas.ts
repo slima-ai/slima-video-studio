@@ -687,4 +687,12 @@ export const canvas = {
     '{count} of these shots has a first frame drawn from an older description: only its video is made this time, and the first frame is used as it is',
   'canvas.staleFramesUsedAsIs_other':
     '{count} of these shots have a first frame drawn from an older description: only their videos are made this time, and the first frames are used as they are',
+  'canvas.segment.hook': 'Hook',
+  'canvas.segment.world': 'World',
+  'canvas.segment.turn': 'Turn',
+  'canvas.segment.escalate': 'Escalate',
+  'canvas.segment.suspense': 'Suspense',
+  'canvas.segment.montage': 'Montage',
+  'canvas.segment.title': 'Title',
+  'canvas.beatTitle': '{segment} {value}',
 } as const

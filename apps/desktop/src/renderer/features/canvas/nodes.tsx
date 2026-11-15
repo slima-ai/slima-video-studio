@@ -480,7 +480,7 @@ function Thumb({ id, data, ghost }: { id: string; data: CanvasNodeData; ghost: b
     return (
       <div
         className={cn(
-          'lod-mid relative aspect-video w-full shrink-0 overflow-hidden rounded-md',
+          'svs-thumb lod-mid relative aspect-video w-full shrink-0 overflow-hidden rounded-md',
           media === undefined && 'svs-skeleton',
         )}
         style={data.thumb ? { background: data.thumb } : undefined}
@@ -491,7 +491,7 @@ function Thumb({ id, data, ghost }: { id: string; data: CanvasNodeData; ghost: b
             muted
             playsInline
             preload="metadata"
-            className="size-full bg-black object-cover opacity-60"
+            className="svs-thumb-video size-full bg-black object-cover opacity-60"
           />
         ) : null}
         <Working data={data} />
@@ -528,7 +528,7 @@ function Thumb({ id, data, ghost }: { id: string; data: CanvasNodeData; ghost: b
           playsInline
           preload="metadata"
           aria-label={t('canvas.previewOf', { title: data.title })}
-          className="size-full rounded-md bg-black object-cover"
+          className="svs-thumb-video size-full rounded-md bg-black object-cover"
         />
         {data.trim ? <TrimBadge id={id} trim={data.trim} /> : null}
       </div>
@@ -546,14 +546,14 @@ function Thumb({ id, data, ghost }: { id: string; data: CanvasNodeData; ghost: b
       <div className="lod-mid flex w-full shrink-0 gap-1" data-testid="frame-pair">
         <div
           data-testid="first-frame-thumb"
-          className="relative aspect-video min-w-0 flex-1 rounded-md bg-surface-overlay"
+          className="svs-thumb relative aspect-video min-w-0 flex-1 rounded-md bg-surface-overlay"
           style={{ background: data.thumb }}
         >
           {tag(t('endFrame.card.first'))}
         </div>
         <div
           data-testid="end-frame-thumb"
-          className="relative aspect-video min-w-0 flex-1 rounded-md bg-surface-overlay"
+          className="svs-thumb relative aspect-video min-w-0 flex-1 rounded-md bg-surface-overlay"
           style={{ background: data.endThumb }}
         >
           {tag(t('endFrame.card.end'))}
@@ -563,7 +563,7 @@ function Thumb({ id, data, ghost }: { id: string; data: CanvasNodeData; ghost: b
   }
   return (
     <div
-      className="lod-mid aspect-video w-full shrink-0 rounded-md bg-surface-overlay"
+      className="svs-thumb lod-mid aspect-video w-full shrink-0 rounded-md bg-surface-overlay"
       style={{ background: data.thumb }}
     />
   )
@@ -1245,7 +1245,12 @@ function FinalPreview({ data }: { data: CanvasNodeData }) {
   const [playing, setPlaying] = useState(false)
   const video = useRef<HTMLVideoElement>(null)
   if (!data.videoSrc) {
-    return <div className="aspect-video w-full rounded-md" style={{ background: data.thumb }} />
+    return (
+      <div
+        className="svs-thumb aspect-video w-full rounded-md"
+        style={{ background: data.thumb }}
+      />
+    )
   }
   return (
     <div className="relative">
@@ -1257,7 +1262,7 @@ function FinalPreview({ data }: { data: CanvasNodeData }) {
         preload="metadata"
         controls={playing}
         aria-label={t('canvas.film')}
-        className="nodrag nowheel aspect-video w-full rounded-md bg-black object-cover"
+        className="svs-thumb-video nodrag nowheel aspect-video w-full rounded-md bg-black object-cover"
         onEnded={() => {
           setPlaying(false)
         }}

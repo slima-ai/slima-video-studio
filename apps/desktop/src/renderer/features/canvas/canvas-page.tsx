@@ -189,6 +189,19 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
   const history = useHistory()
   const { openTrailer } = useAppNavigation()
   const containerRef = useRef<HTMLDivElement>(null)
+  // 專案的畫面比例（直式專案的縮圖整張放進框裡，不裁成橫條）：每次畫布重讀時順便問一次
+  const [aspect, setAspect] = useState<string>()
+  useEffect(() => {
+    let alive = true
+    call('project.current', {})
+      .then((info) => {
+        if (alive) setAspect(info?.aspectRatio)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [graph])
 
   // 一開始的視角只決定一次：上次的視角（縮到看不清楚的不算，卡片只剩色塊）；
   // 沒存過且已經有節點，就等畫布準備好（onInit）再決定：放得進畫面就全部顯示，
@@ -1878,6 +1891,7 @@ function Canvas({ graph, onChanged, onRefresh, expanded, onExpanded }: CanvasPro
             <div
               ref={containerRef}
               data-testid="canvas-root"
+              data-aspect={aspect}
               data-lod={lod}
               data-alt={drag.alt}
               data-growing={grow.running !== undefined || grow.finishing}
