@@ -12,6 +12,7 @@ import {
   MUSIC_END_FADE_SEC,
   MUSIC_EXTRA_SEC,
   musicSpansOf,
+  moveShortToStill,
   musicStyleHint,
   repairScript,
   toCheckBeat,
@@ -156,6 +157,23 @@ describe('writeTrailerScript', () => {
     expect((result.script.beats[0]?.dialogue ?? '').length).toBeLessThanOrEqual(16)
   })
 
+  it('會動的格只有 1 秒（比 1.5 秒短）：程式自動改成不動的畫面，寫在 fixes；其他格與總長不變', async () => {
+    const short = script([
+      beat({ durationSec: 3 }),
+      beat({ durationSec: 1 }),
+      beat({ beatKind: 'card', durationSec: 3, description: '', cardText: '有些光' }),
+      beat({ beatKind: 'title', durationSec: 3, description: '' }),
+    ])
+    const { studio, requests } = studioOf([short])
+    const result = await writeTrailerScript(studio, input, ctx)
+    expect(requests).toHaveLength(1)
+    expect(result.script.beats.map((b) => b.beatKind)).toEqual(['video', 'still', 'card', 'title'])
+    expect(result.script.beats.map((b) => b.durationSec)).toEqual([3, 1, 3, 3])
+    expect(result.fixes).toHaveLength(1)
+    expect(result.fixes[0]).toContain('2')
+    expect(result.check.warnings.map((w) => w.code)).not.toContain('moving_beat_too_short')
+  })
+
   it('第一格是字卡：程式修不了，丟白話錯誤（不回傳任何腳本）', async () => {
     const bad = good()
     bad.beats[0] = beat({ beatKind: 'card', durationSec: 4, description: '', cardText: '開場' })
@@ -198,6 +216,33 @@ describe('writeTrailerScript', () => {
       }),
     }
     await expect(writeTrailerScript(studioOf([good()]).studio, long, ctx)).rejects.toThrow()
+  })
+})
+
+describe('moveShortToStill：太短的會動格改成不動', () => {
+  it('短於 1.5 秒的會動格改成不動（照成品的整數格算）；剛好 1.5 秒、不動格、字卡、片名卡都不動；每改一格寫一句', () => {
+    const before = script([
+      beat({ durationSec: 1.45 }),
+      beat({ durationSec: 1.5 }),
+      beat({ beatKind: 'still', durationSec: 1 }),
+      beat({ durationSec: 0.75 }),
+      beat({ beatKind: 'card', durationSec: 1, description: '', cardText: '字' }),
+      beat({ beatKind: 'title', durationSec: 3, description: '' }),
+    ])
+    const { script: out, fixes } = moveShortToStill(before)
+    expect(out.beats.map((b) => b.beatKind)).toEqual([
+      'still',
+      'video',
+      'still',
+      'still',
+      'card',
+      'title',
+    ])
+    expect(fixes).toHaveLength(2)
+    expect(fixes[0]).toContain('1')
+    expect(fixes[1]).toContain('4')
+    // 沒有要改的：原樣回傳
+    expect(moveShortToStill(good())).toEqual({ script: good(), fixes: [] })
   })
 })
 

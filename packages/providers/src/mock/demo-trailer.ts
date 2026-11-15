@@ -6,6 +6,7 @@ import {
   NARRATION_MAX_CJK_PER_SEC,
   NARRATION_MAX_WORDS_PER_SEC,
   fitToTarget,
+  MIN_MOVING_BEAT_SEC,
   t,
   textUnits,
   type LlmRequest,
@@ -197,7 +198,9 @@ export function demoTrailerScript(request: LlmRequest): unknown {
       beat.clause === '' || textUnits(beat.clause) === 0 ? '' : cut(beat.clause, Math.min(max, 12))
     return {
       segment: beat.segment,
-      beatKind: beat.beatKind,
+      // 會動的格被排到比 1.5 秒短：做不出像樣的影片，示範腳本自己就寫成不動的畫面
+      beatKind:
+        beat.beatKind === 'video' && sec < MIN_MOVING_BEAT_SEC - 1e-9 ? 'still' : beat.beatKind,
       durationSec: sec,
       description: beat.description,
       action: '',

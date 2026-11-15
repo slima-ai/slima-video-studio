@@ -226,8 +226,10 @@ export const TITLE_MIN_SEC = 3
 /** 規則 3：最後三分之一的平均格長要不超過前三分之一的幾成（只提醒）；至少幾格才比。 */
 export const ESCALATION_RATIO = 0.6
 export const ESCALATION_MIN_BEATS = 6
-/** 一般格子（影片、靜態）調長度時的最短秒數。 */
-export const MIN_BEAT_SEC = 0.25
+/** 畫面格（影片、靜態）的最短秒數：再短看不清楚。 */
+export const MIN_BEAT_SEC = 0.75
+/** 會動的格子最短幾秒：再短就只是影片的一個開頭，付一整段影片的錢用不到；比這短的改成不動的畫面。 */
+export const MIN_MOVING_BEAT_SEC = 1.5
 
 const EPS = 1e-9
 const HAN = /\p{Script=Han}/u
@@ -261,6 +263,8 @@ export type TrailerIssueCode =
   | 'length'
   | 'first_beat_not_picture'
   | 'first_beat_too_long'
+  | 'beat_too_short'
+  | 'moving_beat_too_short'
   | 'narration_too_dense'
   | 'narration_share'
   | 'narration_one_sentence'
@@ -375,6 +379,33 @@ export function checkTrailerScript(
       )
     }
   }
+
+  // 格子最短：畫面格至少 0.75 秒（錯，要退回）；會動的至少 1.5 秒（只提醒，建議改成不動）
+  beats.forEach((beat, index) => {
+    if (beat.beatKind !== 'video' && beat.beatKind !== 'still') return
+    const sec = secs[index] ?? 0
+    if (sec < MIN_BEAT_SEC - EPS) {
+      error(
+        'beat_too_short',
+        t('trailer.ruleBeatTooShort', {
+          ...num(index),
+          sec: sec.toFixed(2),
+          min: String(MIN_BEAT_SEC),
+        }),
+        index,
+      )
+    } else if (beat.beatKind === 'video' && sec < MIN_MOVING_BEAT_SEC - EPS) {
+      warnings.push({
+        code: 'moving_beat_too_short',
+        index,
+        message: t('trailer.warnMovingTooShort', {
+          ...num(index),
+          sec: sec.toFixed(2),
+          min: String(MIN_MOVING_BEAT_SEC),
+        }),
+      })
+    }
+  })
 
   // 規則 4：旁白密度（只有影片、靜態格有旁白）
   let narratedSec = 0
@@ -529,7 +560,7 @@ export function checkTrailerScript(
 
 // ---- fitToTarget ----
 
-/** 一格調長度時最少要幾格（frame）：字卡照停留秒數、片名卡 3 秒、其他 0.25 秒。 */
+/** 一格調長度時最少要幾格（frame）：字卡照停留秒數、片名卡 3 秒、其他（影片、靜態）0.75 秒。 */
 export function beatMinFrames(beat: Pick<TrailerBeat, 'beatKind' | 'card'>, fps: number): number {
   if (beat.beatKind === 'title') return Math.ceil(TITLE_MIN_SEC * fps - EPS)
   if (beat.beatKind === 'card') {

@@ -7,6 +7,7 @@ import {
   CARD_MAX_WORDS,
   CARD_SEC_PER_UNIT,
   FIRST_BEAT_MAX_SEC,
+  MIN_MOVING_BEAT_SEC,
   NARRATION_MAX_CJK_PER_SEC,
   NARRATION_MAX_SHARE,
   NARRATION_MAX_WORDS_PER_SEC,
@@ -288,6 +289,28 @@ export function repairScript(
   return { script: { ...script, beats }, fixes }
 }
 
+/**
+ * 會動的格比 1.5 秒短：做不出像樣的一段影片（付一整段影片的錢只用到一個開頭），改成不動的畫面。
+ * 秒數照成品的整數格算（跟檢查器一致）；秒數與其他格都不動。
+ */
+export function moveShortToStill(script: TrailerScript): {
+  script: TrailerScript
+  fixes: string[]
+} {
+  const fixes: string[] = []
+  const beats = script.beats.map((beat, i) => {
+    if (
+      beat.beatKind !== 'video' ||
+      snapToFrame(beat.durationSec, FPS) >= MIN_MOVING_BEAT_SEC - 1e-9
+    ) {
+      return beat
+    }
+    fixes.push(t('trailer.fixMovingToStill', { n: String(i + 1) }))
+    return { ...beat, beatKind: 'still' as const }
+  })
+  return fixes.length === 0 ? { script, fixes } : { script: { ...script, beats }, fixes }
+}
+
 export interface WrittenTrailer {
   /** 通過檢查的腳本（加總＝目標）。 */
   script: TrailerScript
@@ -383,6 +406,13 @@ export async function writeTrailerScript(
       retryable: true,
       userMessage: t('trailer.scriptRejected', { problems: problemsText(check) }),
     })
+  }
+  // 最後一步：太短的會動格改成不動（不影響秒數，所以不用再排一次；改完重新檢查，提醒就沒了）
+  const stilled = moveShortToStill(script)
+  if (stilled.fixes.length > 0) {
+    script = stilled.script
+    fixes = [...fixes, ...stilled.fixes]
+    check = checkScript(script, input.settings)
   }
   return { script, check, retried, fixes, costUsd: cost, provider, jobId }
 }

@@ -33,6 +33,9 @@ export const trailer = {
   'trailer.ruleTitleNoAction': '沒填上市資訊，片名卡只會有書名。',
   'trailer.ruleUnverifiedClaim':
     '第 {n} 格提到了暢銷、獎項、推薦語之類的說法，但這不是你提供的。推薦語、獎項、銷量只能用你自己提供的原文；沒有就拿掉。',
+  'trailer.ruleBeatTooShort': '第 {n} 格只有 {sec} 秒，畫面格至少要 {min} 秒才看得清楚。',
+  'trailer.warnMovingTooShort':
+    '第 {n} 格是會動的，只有 {sec} 秒；會動的格子至少 {min} 秒才值得做成影片，建議改成不動的畫面。',
   'trailer.ruleNoEscalation': '後段沒有比前段短（平均 {last} 秒對 {first} 秒）。',
   'trailer.beatVideo': '會動',
   'trailer.beatStill': '不動',
@@ -55,6 +58,7 @@ export const trailer = {
   'trailer.fixCardCut': '第 {n} 格的字卡太長，已截短。',
   'trailer.fixNarrationRemoved': '第 {n} 格的旁白拿掉了（這一支不要旁白，或這一格不是畫面）。',
   'trailer.fixNarrationCut': '第 {n} 格的旁白太長，已截短成一句。',
+  'trailer.fixMovingToStill': '第 {n} 格是會動的但太短，已改成不動的畫面。',
   'trailer.fixFirstShortened': '第一格縮短到 4 秒。',
   'trailer.fixLengthFitted': '各格秒數已調整，加總剛好是 {target} 秒。',
   'trailer.scriptRejected': '寫出來的腳本沒有通過檢查，專案沒有被改。{problems} 請再試一次。',
@@ -63,7 +67,7 @@ export const trailer = {
   'trailer.noScript': '還沒有預告片腳本。請先寫腳本。',
   'trailer.cardNotInScript': '這一格不在預告片腳本裡。請用預告片裡的格子。',
   'trailer.refitImpossible':
-    '目標太短：字卡與片名卡的最短停留秒數加起來就超過了，放不下。請把目標拉長，或拿掉幾張字卡。',
+    '目標太短：每一格的最短停留（畫面 0.75 秒，字卡與片名卡照字數）加起來就超過了，放不下。請照新的長度重寫腳本，或把目標拉長。',
   'trailer.noTextModel': '現在沒有可用的文字模型，沒辦法寫腳本。請到設定選一個文字模型。',
   'trailer.kindStory': '劇情',
   'trailer.kindTeaser': '懸念短版',

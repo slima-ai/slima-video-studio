@@ -162,25 +162,19 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     expect(Math.abs(exportedFrames(userDataDir) - 720)).toBeLessThanOrEqual(1)
     await page.keyboard.press('Escape')
 
-    // 6. 改成 15 秒：自動重排，標籤變 15／15（13 格塞進 15 秒，檢查器會說好幾句旁白念不完；面板不能把畫面頂歪）
+    // 6. 改成 15 秒：這份 14 格的腳本，每格至少 0.75 秒、字卡與片名卡也有最短停留，加起來塞不進 15 秒——
+    // 面板說放不下、只存新的目標（不重排）；標籤變 30／15，接著可以照新長度重寫（面板不能把畫面頂歪）
     const barTop = (await page.getByTestId('canvas-topbar').boundingBox())?.y
     await page.getByTestId('trailer-badge').click()
     await pick(page, 'trailer-panel-length', '15')
-    await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 15／15 秒')
-    expect((await statusOf(page)).matches).toBe(true)
-    // 好幾格旁白念不完：面板不列、也沒有第二顆重寫鈕；那幾格在畫布上標「旁白太長」
-    const badges = (await statusOf(page)).errors.filter((e) => e.code === 'narration_too_dense')
-    expect(badges.length).toBeGreaterThan(1)
-    // 畫布節點上對到的格子數（畫面外的卡不一定畫出來，所以看節點資料）
-    const marked = (await canvasNodes(page)).filter(
-      (n) => (n.data as { narrationTooLong?: boolean }).narrationTooLong === true,
-    )
-    expect(marked).toHaveLength(badges.length)
-    await expect(page.getByTestId('trailer-narration-summary')).toHaveCount(0)
-    await expect(page.getByTestId('trailer-narration-rewrite')).toHaveCount(0)
-    await expect(page.getByTestId('trailer-panel')).not.toContainText('這一格只有')
+    await expect(page.getByTestId('trailer-panel-error')).toContainText('放不下')
+    await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 30／15 秒')
+    const tooLong = await statusOf(page)
+    expect(tooLong.matches).toBe(false)
+    expect(tooLong.targetSec).toBe(15)
+    expect(tooLong.scriptSec).toBeCloseTo(30, 6)
     await expect(page.getByTestId('trailer-rewrite')).toBeEnabled()
-    await shoot(page, testInfo, '05b-narration-overflow.png')
+    await shoot(page, testInfo, '05b-length-too-short.png')
     expect((await page.getByTestId('canvas-topbar').boundingBox())?.y).toBe(barTop)
 
     // 7. 用存著的原文重寫（示範模式不花錢）：已有生成過的格子，先確認；寫完還是 15／15

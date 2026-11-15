@@ -184,7 +184,8 @@ describe('trailer.status：跟寫腳本當下用同一套節奏檢查（段落�
   const suspenseScript = () => {
     const pic = (segment: string, durationSec: number, i: number) => ({
       segment,
-      beatKind: i % 2 === 0 ? 'video' : 'still',
+      // 會動的格至少 1.5 秒（更短的是不動的畫面）
+      beatKind: i % 2 === 0 && durationSec >= 1.5 ? 'video' : 'still',
       durationSec,
       description: `畫面 ${String(i)}`,
       action: '',
@@ -207,8 +208,8 @@ describe('trailer.status：跟寫腳本當下用同一套節奏檢查（段落�
       ['escalate', 1.2],
       ['escalate', 1],
       ['escalate', 0.8],
-      ['escalate', 0.6],
-      ['suspense', 5],
+      ['escalate', 0.75],
+      ['suspense', 4.85],
     ]
     const beats: Record<string, unknown>[] = lengths.map(([segment, sec], i) =>
       pic(segment, sec, i),
@@ -703,6 +704,28 @@ describe('trailer.update／status', () => {
     const back = h.trailer.status()
     expect(back.targetSec).toBe(30)
     expect(back.scriptSec).toBeCloseTo(30, 6)
+  })
+
+  it('照新長度重排之後，被壓到比 1.5 秒短的會動格自動改成不動；復原連種類一起回來', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY, targetSec: 60 })
+    // 會動的格子存的是沒有種類（空值），這裡統一寫成 video
+    const kinds = () =>
+      h.shots.list().shots.map((s) => [s.beatKind ?? 'video', s.durationSec] as const)
+    const before = kinds()
+    h.trailer.update({ patch: { targetSec: 20 }, refit: true })
+    const after = kinds()
+    // 沒有任何一格是「會動、卻短於 1.5 秒」
+    expect(after.filter(([kind, sec]) => kind === 'video' && sec < 1.5 - 1e-9)).toEqual([])
+    // 而且真的有格子被壓得很短（改成了不動），不是剛好沒碰到
+    expect(after.some(([kind, sec]) => kind === 'still' && sec < 1.5)).toBe(true)
+    // 每一格至少 0.75 秒
+    expect(after.every(([, sec]) => sec >= 0.75 - 1e-9)).toBe(true)
+    h.history.undo()
+    // 復原：回到重排之前（60 秒那一版沒有被壓短的會動格）
+    expect(kinds().filter(([, sec]) => sec < 1.5)).toEqual(before.filter(([, sec]) => sec < 1.5))
+    expect(kinds()).toEqual(before)
+    expect(h.trailer.status().targetSec).toBe(60)
   })
 
   it('目標短到字卡與片名卡的最短秒數都放不下：白話錯誤，什麼都不改', async () => {

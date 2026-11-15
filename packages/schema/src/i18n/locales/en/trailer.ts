@@ -44,6 +44,10 @@ export const trailer = {
   'trailer.ruleTitleNoAction': 'No release info, so the title card will show only the book title.',
   'trailer.ruleUnverifiedClaim':
     'Shot {n} mentions a bestseller, award or blurb claim that you did not provide. Blurbs, awards and sales figures may only use text you provided; remove it if you have none.',
+  'trailer.ruleBeatTooShort':
+    'Shot {n} is only {sec} seconds long; a picture shot must be at least {min} seconds so it can be seen.',
+  'trailer.warnMovingTooShort':
+    'Shot {n} is a moving shot of only {sec} seconds; a moving shot should be at least {min} seconds. Consider making it a still picture.',
   'trailer.ruleNoEscalation':
     'The last third isn’t shorter than the first (average {last} seconds against {first} seconds).',
   'trailer.beatVideo': 'Moving',
@@ -71,6 +75,8 @@ export const trailer = {
     'The narration in shot {n} was removed (this trailer has no narration, or the shot is not a picture).',
   'trailer.fixNarrationCut':
     'The narration in shot {n} was too long and has been cut to one sentence.',
+  'trailer.fixMovingToStill':
+    'Shot {n} was a moving shot but too short, so it was changed to a still picture.',
   'trailer.fixFirstShortened': 'The first shot was shortened to 4 seconds.',
   'trailer.fixLengthFitted':
     'The shot lengths were adjusted so they add up to exactly {target} seconds.',
@@ -82,7 +88,7 @@ export const trailer = {
   'trailer.cardNotInScript':
     'That shot is not part of the trailer script. Use a shot of the trailer.',
   'trailer.refitImpossible':
-    'The target is too short: the minimum time for the text cards and the title card already adds up to more than that. Make the target longer, or remove some text cards.',
+    'The target is too short: the minimum time of every shot (0.75 seconds for a picture, more for text cards and the title card) already adds up to more than that. Write the script again for the new length, or make the target longer.',
   'trailer.noTextModel':
     'There is no text model available, so a script cannot be written. Pick a text model in Settings.',
   'trailer.kindStory': 'Story',

@@ -9,6 +9,8 @@ import {
   DEFAULT_TRAILER_GUIDE,
   DEFAULT_TRAILER_GUIDE_EN,
   DEFAULT_TRAILER_SETTINGS,
+  MIN_BEAT_SEC,
+  MIN_MOVING_BEAT_SEC,
   TITLE_MIN_SEC,
   TRAILER_TEMPLATES,
   TrailerSettingsPatchSchema,
@@ -53,12 +55,12 @@ function goodScript(): TrailerBeat[] {
     video(3.5, { dialogue: '黑藤爬滿了斷橋。' }),
     card('他回來了', 2),
     video(3),
-    video(3),
+    video(2.5),
     video(2.5),
     card('這一次', 2),
     video(2),
     video(2),
-    video(1),
+    video(1.5),
     title(5),
   ]
 }
@@ -455,6 +457,77 @@ describe('checkTrailerScript：規則 7 片名卡', () => {
     const noLine = checkTrailerScript(goodScript(), settings({ endLine: '' }), FPS)
     expect(codes(noLine.errors)).not.toContain('title_missing_name')
     expect(codes(noLine.warnings)).toContain('title_no_action')
+  })
+})
+
+describe('checkTrailerScript：格子最短（D3）', () => {
+  /** 在 goodScript 最後一格畫面前面多塞一格，再把前面某一格縮短補回去，讓總長仍是 30 秒。 */
+  const withBeat = (extra: TrailerBeat, takeFrom: number): TrailerBeat[] => {
+    const beats = goodScript()
+    const donor = beats[takeFrom]
+    if (!donor) throw new Error('no donor')
+    beats[takeFrom] = { ...donor, durationSec: donor.durationSec - extra.durationSec }
+    beats.splice(9, 0, extra)
+    return beats
+  }
+
+  it('常數：任何一格至少 0.75 秒，會動的至少 1.5 秒', () => {
+    expect(MIN_BEAT_SEC).toBe(0.75)
+    expect(MIN_MOVING_BEAT_SEC).toBe(1.5)
+    expect(beatMinFrames({ beatKind: 'video' }, FPS)).toBe(18)
+    expect(beatMinFrames({ beatKind: 'still' }, FPS)).toBe(18)
+  })
+
+  it('畫面格短於 0.75 秒：擋下（error beat_too_short，指出是哪一格）；剛好 0.75 秒通過', () => {
+    const short = withBeat({ beatKind: 'still', durationSec: 0.5 }, 3)
+    const result = checkTrailerScript(short, settings(), FPS)
+    expect(result.errors.filter((e) => e.code === 'beat_too_short').map((e) => e.index)).toEqual([
+      9,
+    ])
+    const ok = withBeat({ beatKind: 'still', durationSec: 0.75 }, 3)
+    expect(codes(checkTrailerScript(ok, settings(), FPS).errors)).toEqual([])
+    const movingShort = withBeat({ beatKind: 'video', durationSec: 0.5 }, 3)
+    expect(codes(checkTrailerScript(movingShort, settings(), FPS).errors)).toContain(
+      'beat_too_short',
+    )
+  })
+
+  it('會動的格短於 1.5 秒：只提醒（warning moving_beat_too_short）；不動的、字卡、片名卡不提醒；1.5 秒整不提醒', () => {
+    const moving = withBeat({ beatKind: 'video', durationSec: 1 }, 3)
+    const result = checkTrailerScript(moving, settings(), FPS)
+    expect(result.errors).toEqual([])
+    expect(
+      result.warnings.filter((w) => w.code === 'moving_beat_too_short').map((w) => w.index),
+    ).toEqual([9])
+    const still = withBeat({ beatKind: 'still', durationSec: 1 }, 3)
+    expect(codes(checkTrailerScript(still, settings(), FPS).warnings)).not.toContain(
+      'moving_beat_too_short',
+    )
+    const exact = withBeat({ beatKind: 'video', durationSec: 1.5 }, 3)
+    expect(codes(checkTrailerScript(exact, settings(), FPS).warnings)).not.toContain(
+      'moving_beat_too_short',
+    )
+  })
+
+  it('訊息是白話，寫出第幾格與最短秒數', () => {
+    const short = withBeat({ beatKind: 'still', durationSec: 0.5 }, 3)
+    const message = checkTrailerScript(short, settings(), FPS).errors.find(
+      (e) => e.code === 'beat_too_short',
+    )?.message
+    expect(message).toContain('10')
+    expect(message).toContain('0.75')
+  })
+
+  it('fitToTarget：畫面格不會被壓到 0.75 秒以下；改格長的編輯（ShotEdit）也一樣：0.5 不收、0.75 收', () => {
+    const beats: TrailerBeat[] = [video(3), video(3), video(3), title(3)]
+    const squeezed = fitToTarget(beats, 10, FPS)
+    expect(squeezed.ok).toBe(true)
+    for (const d of squeezed.durations.slice(0, 3)) expect(d).toBeGreaterThanOrEqual(0.75)
+    const tight = fitToTarget([video(3), video(3), video(3), title(3)], 5, FPS)
+    expect(tight.ok).toBe(false)
+    expect(tight.durations.slice(0, 3)).toEqual([0.75, 0.75, 0.75])
+    expect(ShotEditSchema.safeParse({ durationSec: 0.5 }).success).toBe(false)
+    expect(ShotEditSchema.safeParse({ durationSec: 0.75 }).success).toBe(true)
   })
 })
 

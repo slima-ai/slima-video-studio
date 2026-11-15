@@ -151,7 +151,12 @@ export function TrailerBadge({ status }: { status: TrailerStatus | undefined }) 
     setBusy(refit ? 'fit' : 'save')
     setError(undefined)
     call('trailer.update', { patch, ...(refit ? { refit } : {}) })
-      .catch((e: unknown) => {
+      .catch(async (e: unknown) => {
+        // 照新長度重排放不下（每一格的最短秒數加起來就超過）：還是把新的目標存起來，只是不重排；
+        // 之後可以照新長度重寫腳本。面板照樣說放不下
+        if (refit && errorText(e) === t('trailer.refitImpossible')) {
+          await call('trailer.update', { patch }).catch(() => undefined)
+        }
         setError(errorText(e))
       })
       .finally(() => {

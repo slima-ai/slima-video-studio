@@ -13,6 +13,7 @@ import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
   AssetRefSchema,
+  MIN_MOVING_BEAT_SEC,
   QUICK_STYLE_IDS,
   isAppError,
   type AssetRef,
@@ -57,6 +58,7 @@ import {
 } from '@svs/schema'
 import {
   STUDIO_SERVICE_KEY,
+  LOCAL_BEAT_FPS,
   ShotItemSchema,
   buildEndFrameWorkflow,
   buildShotWorkflow,
@@ -1833,6 +1835,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         throw invalid(t('services.canTFindThisLocation'))
       }
       const prompt = edit.prompt?.trim()
+      // 預告片的會動格被改成比 1.5 秒短（照成品的整數格算）：做不出像樣的影片，改成不動的畫面
+      // （只在這次改了秒數、而且還是會動格的時候；使用者自己選的種類照辦）
+      const movingTooShort =
+        edit.durationSec !== undefined &&
+        (edit.beatKind ?? shot.beatKind) === 'video' &&
+        s.handle.repos.trailer.get() !== undefined &&
+        Math.round(edit.durationSec * LOCAL_BEAT_FPS) / LOCAL_BEAT_FPS < MIN_MOVING_BEAT_SEC - 1e-9
       const text = (value: string | null | undefined): string | undefined =>
         value?.trim() ? value.trim() : undefined
       const updated = shots.update(shotId, {
@@ -1864,7 +1873,11 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         ...(edit.timeOfDay === undefined ? {} : { timeOfDay: text(edit.timeOfDay) }),
         ...(edit.mood === undefined ? {} : { mood: text(edit.mood) }),
         ...(edit.inCut === undefined ? {} : { inCut: edit.inCut }),
-        ...(edit.beatKind === undefined ? {} : { beatKind: edit.beatKind }),
+        ...(movingTooShort
+          ? { beatKind: 'still' as const }
+          : edit.beatKind === undefined
+            ? {}
+            : { beatKind: edit.beatKind }),
         // null＝清掉字卡
         ...(edit.card === undefined ? {} : { card: edit.card ?? undefined }),
       })
