@@ -225,6 +225,66 @@ describe('示範模式的假腳本', () => {
   })
 })
 
+describe('示範模式的假腳本：語錄體', () => {
+  const QUOTES_TEXT =
+    '寵辱不驚，閒看庭前花開花落。去留無意，漫隨天外雲卷雲舒。得意時毋忘失意。有生趣的是活潑。三思而後行。靜坐常思己過。讀書不忘本分。'
+  const flat = (text: string): string => text.replace(/[\s\p{P}]/gu, '').toLowerCase()
+  const scriptOf = (sec: number, narration = true, text = QUOTES_TEXT) =>
+    TrailerScriptSchema.parse(demoTrailerScript(request(text, 'idea', sec, narration)))
+
+  it('短句夠多的文本：form 是 quotes，3～5 句金句逐字取自原文，疊在不動的格子上；一定過檢查器（含原文檢查）', () => {
+    const bad: string[] = []
+    for (let sec = 20; sec <= 120; sec += 5) {
+      for (const narration of [true, false]) {
+        const script = scriptOf(sec, narration)
+        // 金句之間夾的沒有字的畫面也屬於 quote 段，不算金句
+        const quotes = script.beats.filter((b) => b.segment === 'quote' && b.overlayText !== '')
+        const label = `${String(sec)}s narration=${String(narration)}`
+        if (script.form !== 'quotes') bad.push(`${label}: form ${script.form}`)
+        if (quotes.length < 3 || quotes.length > 5)
+          bad.push(`${label}: ${String(quotes.length)} 句`)
+        for (const q of quotes) {
+          if (q.beatKind !== 'still') bad.push(`${label}: 金句不是 still`)
+          if (!flat(QUOTES_TEXT).includes(flat(q.overlayText)))
+            bad.push(`${label}: ${q.overlayText} 不在原文`)
+        }
+        const settings = TrailerSettingsSchema.parse({
+          kind: 'idea',
+          targetSec: sec,
+          title: script.title,
+          sourceText: QUOTES_TEXT,
+        })
+        const check = checkTrailerScript(beatsOf(script), settings, 24)
+        const problems = [
+          ...check.errors,
+          ...check.warnings.filter((w) => w.code !== 'title_no_action'),
+        ]
+        if (problems.length > 0 || Math.abs(check.totalSec - sec) > 0.05) {
+          bad.push(`${label}: ${problems.map((p) => p.code).join(',')}`)
+        }
+      }
+    }
+    expect(bad).toEqual([])
+  })
+
+  it('目標太短放不下（15 秒）、或文本不是一句一句的短句：照一般的觀點型（form 是 argument）', () => {
+    expect(scriptOf(15).form).toBe('argument')
+    const prose =
+      '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半。'
+    expect(scriptOf(30, true, prose).form).toBe('argument')
+  })
+
+  it('主視覺 3 個以上、沒有角色與黑底字卡', () => {
+    const script = scriptOf(60)
+    const visuals = new Set(
+      script.beats.filter((b) => b.beatKind !== 'title').map((b) => b.location),
+    )
+    expect(visuals.size).toBeGreaterThanOrEqual(3)
+    expect(script.beats.every((b) => b.characters.length === 0)).toBe(true)
+    expect(script.beats.filter((b) => b.beatKind === 'card')).toHaveLength(0)
+  })
+})
+
 describe('示範模式的假腳本：觀點型', () => {
   const IDEA_TEXT =
     '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半。'

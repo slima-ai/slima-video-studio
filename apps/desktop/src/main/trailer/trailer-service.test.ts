@@ -378,6 +378,58 @@ describe('trailer.plan：示範模式（假腳本）', () => {
   })
 })
 
+describe('trailer.plan：語錄體（示範模式與模型寫錯金句）', () => {
+  const QUOTES_TEXT =
+    '寵辱不驚，閒看庭前花開花落。去留無意，漫隨天外雲卷雲舒。得意時毋忘失意。有生趣的是活潑。三思而後行。靜坐常思己過。讀書不忘本分。'
+  const flat = (text: string): string => text.replace(/[\s\p{P}]/gu, '')
+
+  it('30 秒：金句是原文裡的短句，疊在不動的畫面上；原文存進設定，沒有 error、沒有修正', async () => {
+    const h = setup()
+    const result = await h.trailer.plan({ text: QUOTES_TEXT, kind: 'idea' })
+    expect(result.errors).toEqual([])
+    expect(result.fixes).toEqual([])
+    expect(result.settings.sourceText).toBe(QUOTES_TEXT)
+    const stored = h.projects.current()?.repos.shots.list() ?? []
+    const quotes = stored.filter((s) => s.segment === 'quote')
+    expect(quotes.length).toBeGreaterThanOrEqual(3)
+    for (const shot of quotes) {
+      expect(shot.beatKind).toBe('still')
+      expect(flat(QUOTES_TEXT)).toContain(flat(shot.overlay?.text ?? '（沒有疊字）'))
+    }
+  })
+
+  it('模型兩次都把金句寫錯一個字：換成原文裡最像的那一句，存進鏡頭，白話說明在 fixes', async () => {
+    const wrong = () => {
+      const script = demoTrailerScript({
+        capability: 'llm',
+        modelId: 'mock/llm',
+        messages: [
+          {
+            role: 'user',
+            content: `故事：\n${QUOTES_TEXT}\n\n請寫預告片腳本。類型：idea。目標總長：30 秒。旁白：開。`,
+          },
+        ],
+      }) as { beats: { segment: string; overlayText: string; dialogue: string }[] }
+      const quote = script.beats.find((b) => b.segment === 'quote')
+      if (quote) {
+        quote.overlayText = `${quote.overlayText}了`
+        quote.dialogue = quote.overlayText
+      }
+      return script
+    }
+    const llm = scripted(wrong)
+    const h = setup({ mockLlm: llm.llm })
+    const result = await h.trailer.plan({ text: QUOTES_TEXT, kind: 'idea' })
+    expect(llm.calls).toHaveLength(2)
+    expect(result.errors).toEqual([])
+    expect(result.fixes.length).toBeGreaterThan(0)
+    const stored = h.projects.current()?.repos.shots.list() ?? []
+    for (const shot of stored.filter((s) => s.segment === 'quote')) {
+      expect(flat(QUOTES_TEXT)).toContain(flat(shot.overlay?.text ?? '（沒有疊字）'))
+    }
+  })
+})
+
 describe('trailer.plan：觀點型（示範模式）', () => {
   const IDEA_TEXT =
     '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半。'

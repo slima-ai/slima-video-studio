@@ -30,6 +30,8 @@ import {
   OVERLAY_STAY_EXTRA_SEC,
   OVERLAY_SUB_MAX_CJK,
   OVERLAY_SUB_MAX_WORDS,
+  QUOTE_SEGMENT_KEY,
+  QUOTES_SEGMENTS,
   overlaySize,
   textUnits,
   type TrailerBeat,
@@ -82,6 +84,7 @@ const IDEA_SEGMENT_NAMES: Readonly<Record<string, string>> = {
   gains: '三個收穫（三句，各寫在一個隱喻畫面上，不是人物劇情；一句講一個收穫）',
   author: '作者憑什麼（作者是誰、做過什麼，只用使用者提供的字）',
   praise: '推薦語（只用使用者提供的原文）',
+  quote: '金句（從文本挑出來的原文，每格一句，疊在不動的畫面上，畫面是那一句的隱喻）',
   title: '封面與行動（片名卡，什麼都不用寫：封面、書名、作者、上市資訊由程式放）',
 }
 
@@ -142,6 +145,10 @@ function ideaSystemPrompt(input: TrailerPromptInput): string {
       return `${segment.key}＝${name}，約 ${secText((segment.share / keptShare) * settings.targetSec)} 秒，${DENSITY_TEXT[segment.narrationDensity]}，句子最多 ${String(cards)} 句`
     })
     .join('；')
+  const quotesOutline = QUOTES_SEGMENTS.map(
+    (segment) =>
+      `${segment.key}＝${IDEA_SEGMENT_NAMES[segment.key] ?? segment.key}，約 ${secText(segment.share * settings.targetSec)} 秒`,
+  ).join('；')
   const given = [
     settings.title ? `書名「${settings.title}」（title 欄位照這個寫）` : '',
     hasAuthor ? `作者「${settings.author}」` : '',
@@ -170,6 +177,8 @@ function ideaSystemPrompt(input: TrailerPromptInput): string {
     '推薦語、獎項、銷量、名人背書只能用使用者提供的原文；沒提供就不要寫，也不要暗示。' +
     '描述畫面（description）寫一個隱喻畫面（例如「凌晨還亮著燈的辦公室」「一張被劃掉的待辦清單」），優先用物件、環境、剪影，不是人物劇情；一格只做一件事，不要寫招牌、字幕、標題這類畫面裡的文字；要讓人讀的字都用疊字（或黑底字卡）。有疊字的格子，畫面下方要簡單、偏暗，留給字。' +
     `${SIZE_HINTS}。${ANGLE_HINTS}。cameraMove 只能是 null（固定）或下列其中一個：${CAMERA_MOVES.map((c) => `${c.id}（${c.label}）`).join('、')}（still 格的運鏡決定推近、拉遠或搖鏡）。` +
+    `兩種寫法（腳本的 form 欄位）：文本有一個貫穿的主張（商業書、工具書）就寫 argument，照上面那幾段；文本是一則一則獨立的短句（格言、語錄、箴言集）就寫 quotes，改成這幾段：${quotesOutline}。` +
+    'quotes 的規矩：segment 是 quote 的每一格都是不動的畫面（still），疊字 overlayText 必須是文本裡連續的一段原文，一個字都不能改、不能改寫、不能把兩句接在一起、不能自己編（標點與空白不算）；挑最短、最有力、各講不同事情的幾句，每格一句，各配一個不同的隱喻畫面，每一句都要讀得完；鉤子與收穫可以是你自己寫的短句。' +
     `長度與句數：15 秒＝1 句＋片名；30 秒＝鉤子＋主張＋最多 2 個收穫＋片名，作者與推薦語最多擇一；60 秒才放滿六段，最多 5 句。每一句都要讀得完（疊字與字卡的停留秒數夠長），句與句之間留一點只有音樂的空檔，不要塞滿。` +
     `這一型沒有角色：每一格的 characters 一律是空陣列，people 一律是空陣列。角色那一步改成 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個主視覺：location 欄位寫這一格用的主視覺名字（短，例如「深夜辦公室」「待辦清單」），整支用 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個，同一個畫面每次用同一個名字，同一個主視覺可以給好幾格用（一次推近、一次平移）；字卡與片名卡留空。` +
     PLACE_LOOK_INSTRUCTION +
@@ -360,6 +369,64 @@ function shortenDialogue(text: string, durationSec: number): string {
   return truncateUnits(first, max)
 }
 
+/** 兩串字照順序最多能對上幾個（最長共同子序列）。 */
+function commonLength(a: readonly string[], b: readonly string[]): number {
+  let row = new Array<number>(b.length + 1).fill(0)
+  for (const x of a) {
+    const next = [0]
+    b.forEach((y, j) => {
+      next.push(x === y ? (row[j] ?? 0) + 1 : Math.max(row[j + 1] ?? 0, next[j] ?? 0))
+    })
+    row = next
+  }
+  return row[b.length] ?? 0
+}
+
+/** 金句在原文裡找不到時，原文裡有六成以上的字（照順序）對得上的那一句才算「最像」。 */
+const QUOTE_MATCH_RATIO = 0.6
+
+/**
+ * 語錄體：金句在原文裡找不到時，找原文裡跟它最像的那一句（照字的順序比，金句有六成以上的字對得上才算）；
+ * 那一句超過疊字的字數上限，就在標點處取最像、又最短的連續一段。找不到像的回 undefined。
+ */
+export function closestSourceLine(quote: string, source: string): string | undefined {
+  const wanted = Array.from(flat(quote))
+  if (wanted.length === 0) return undefined
+  const sentences = source
+    .split(/[。！？!?；;\n]+|(?<=[A-Za-z0-9])\.(?=\s)/u)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence !== '')
+  let best: { sentence: string; ratio: number } | undefined
+  for (const sentence of sentences) {
+    const ratio = commonLength(wanted, Array.from(flat(sentence))) / wanted.length
+    if (!best || ratio > best.ratio) best = { sentence, ratio }
+  }
+  if (!best || best.ratio < QUOTE_MATCH_RATIO) return undefined
+  const { sentence } = best
+  const fits = (text: string): boolean => {
+    const size = overlaySize(text, 'text')
+    return size.used <= size.max
+  }
+  if (fits(sentence)) return sentence
+  // 太長：在標點處切成幾小段，取連續的幾段裡最像（同分取最短）、字數不超過上限的
+  const pieces = [...sentence.matchAll(/[^，、：,:]+/gu)].map((m) => ({
+    start: m.index,
+    end: m.index + m[0].length,
+  }))
+  let pick: { text: string; score: number } | undefined
+  for (let from = 0; from < pieces.length; from++) {
+    for (let to = from; to < pieces.length; to++) {
+      const text = sentence.slice(pieces[from]?.start ?? 0, pieces[to]?.end ?? 0).trim()
+      if (!fits(text)) break
+      const score = commonLength(wanted, Array.from(flat(text)))
+      if (!pick || score > pick.score || (score === pick.score && text.length < pick.text.length)) {
+        pick = { text, score }
+      }
+    }
+  }
+  return pick?.text
+}
+
 /**
  * 重寫之後還有問題時，用程式修正能修的：字卡太長截字、旁白太長截短（只留一句）、沒要旁白就清掉、第一格太長縮短，
  * 最後把各格秒數調成剛好等於目標。回傳修正後的腳本與做了什麼（白話）。
@@ -367,9 +434,30 @@ function shortenDialogue(text: string, durationSec: number): string {
 export function repairScript(
   script: TrailerScript,
   settings: TrailerSettings,
+  sourceText = '',
 ): { script: TrailerScript; fixes: string[] } {
   const fixes: string[] = []
-  const beats = script.beats.map((beat) => ({ ...beat }))
+  let beats = script.beats.map((beat) => ({ ...beat }))
+  // 語錄體：金句在原文裡找不到，換成原文裡最像的那一句；連六成都對不上就把這一格拿掉（秒數由後面的調整讓給其他格）
+  if (flat(sourceText) !== '' && beats.some((b) => b.segment === QUOTE_SEGMENT_KEY)) {
+    const dropped = new Set<number>()
+    beats.forEach((beat, i) => {
+      const text = beat.overlayText.trim()
+      if (beat.segment !== QUOTE_SEGMENT_KEY || text === '') return
+      if (flat(sourceText).includes(flat(text))) return
+      const n = String(i + 1)
+      const found = closestSourceLine(text, sourceText)
+      if (found === undefined) {
+        dropped.add(i)
+        fixes.push(t('trailer.fixQuoteRemoved', { n }))
+        return
+      }
+      beat.overlayText = found
+      if (beat.dialogue.trim() !== '') beat.dialogue = found
+      fixes.push(t('trailer.fixQuoteReplaced', { n }))
+    })
+    if (dropped.size > 0) beats = beats.filter((_, i) => !dropped.has(i))
+  }
   // 疊字：只能放在不動的格子、不能太長。不截字（截掉的句子就不是那句話了），有問題的整句拿掉
   beats.forEach((beat, i) => {
     if (beat.overlayText.trim() === '') {
@@ -578,7 +666,7 @@ export async function writeTrailerScript(
   }
   let fixes: string[] = []
   if (check.errors.length > 0) {
-    const repaired = repairScript(script, input.settings)
+    const repaired = repairScript(script, input.settings, input.text)
     script = repaired.script
     fixes = repaired.fixes
     check = checkScript(script, input.settings, input.text)
@@ -614,6 +702,7 @@ const MUSIC_SILENCE_BEFORE_TITLE_SEC = 0.8
 /** 觀點型各段的配樂情緒（沒列的段落用 SEGMENT_MUSIC_MOODS）：平穩，不停一拍。 */
 const IDEA_MUSIC_MOODS: Readonly<Record<string, string>> = {
   hook: 'a single instrument, calm and steady, one clear opening thought',
+  quote: 'each line gets its own quiet moment, one steady instrument, space between the lines',
   title: 'the same single instrument carries on, one more layer joins as the title appears',
 }
 

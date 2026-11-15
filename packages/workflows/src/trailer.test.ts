@@ -1,4 +1,5 @@
 import {
+  TrailerScriptSchema,
   TrailerSettingsSchema,
   checkTrailerScript,
   type LlmRequest,
@@ -9,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 import type { StudioServices } from './services'
 import {
   PEOPLE_LOOK_INSTRUCTION,
+  closestSourceLine,
   ensureTagline,
   MUSIC_END_FADE_SEC,
   MUSIC_EXTRA_SEC,
@@ -44,6 +46,7 @@ const beat = (extra: Record<string, unknown> = {}) => ({
 })
 
 const script = (beats: ReturnType<typeof beat>[], title = '黑藤裂谷'): TrailerScript => ({
+  form: 'argument',
   title,
   music: '留白、推進、停一拍、重音',
   places: [],
@@ -367,6 +370,94 @@ describe('金句型：疊字（寫在不動格子的 overlayText）', () => {
     const result = await writeTrailerScript(studio, ideaInput, ctx)
     expect(result.script.beats[0]?.durationSec).toBeGreaterThanOrEqual(2.9 - 1e-9)
     expect(result.check.totalSec).toBeCloseTo(10, 6)
+  })
+})
+
+describe('語錄體：原文檢查與修正', () => {
+  const SOURCE = '寵辱不驚，閒看庭前花開花落；去留無意，漫隨天外雲卷雲舒。'
+  const quotesSettings = TrailerSettingsSchema.parse({
+    kind: 'idea',
+    targetSec: 10,
+    title: '菜根譚',
+  })
+  const quotesInput = { ...input, text: SOURCE, settings: quotesSettings }
+  const quoteBeat = (text: string, extra: Record<string, unknown> = {}) =>
+    beat({
+      beatKind: 'still',
+      segment: 'quote',
+      durationSec: 4,
+      location: '庭院',
+      overlayText: text,
+      dialogue: text,
+      ...extra,
+    })
+  const quotesScript = (quote: string): TrailerScript =>
+    script([
+      beat({ segment: 'hook', durationSec: 3, location: '庭院' }),
+      quoteBeat(quote),
+      beat({ beatKind: 'title', segment: 'title', durationSec: 3, description: '' }),
+    ])
+
+  it('腳本多一個 form：argument（預設）或 quotes；舊的 JSON 沒有這個欄位照常解析', () => {
+    expect(TrailerScriptSchema.parse({ beats: [beat()] }).form).toBe('argument')
+    expect(TrailerScriptSchema.parse({ form: 'quotes', beats: [beat()] }).form).toBe('quotes')
+    expect(TrailerScriptSchema.safeParse({ form: 'poem', beats: [beat()] }).success).toBe(false)
+  })
+
+  it('closestSourceLine：找原文裡最像的那一句（照字的順序比，六成以上才算）；太長就在標點處取連續的一段', () => {
+    expect(closestSourceLine('閒看庭前花開花落了', SOURCE)).toBe('寵辱不驚，閒看庭前花開花落')
+    expect(closestSourceLine('去留無意漫隨天外雲', SOURCE)).toBe('去留無意，漫隨天外雲卷雲舒')
+    expect(closestSourceLine('先做最重要的事', SOURCE)).toBeUndefined()
+    const long = '一二三四五六七八，九十甲乙丙丁戊己，庚辛壬癸子丑寅卯，辰巳午未申酉戌亥。'
+    const cut = closestSourceLine('庚辛壬癸子丑寅卯', long)
+    expect(cut).toBe('庚辛壬癸子丑寅卯')
+    expect(cut?.replace(/[，。]/g, '').length).toBeLessThanOrEqual(24)
+  })
+
+  it('金句都在原文裡（整句、半句）：第一次就過，不重寫、不修正', async () => {
+    const { studio, requests } = studioOf([quotesScript('閒看庭前花開花落')])
+    const result = await writeTrailerScript(studio, quotesInput, ctx)
+    expect(requests).toHaveLength(1)
+    expect(result.fixes).toEqual([])
+  })
+
+  it('金句差一個字：先把「哪一句找不到」退回重寫；還是錯，換成原文裡最像的那一句（旁白也跟著換），寫在 fixes', async () => {
+    const { studio, requests } = studioOf([quotesScript('閒看庭前花開花落了')])
+    const result = await writeTrailerScript(studio, quotesInput, ctx)
+    expect(requests).toHaveLength(2)
+    expect(JSON.stringify(requests[1]?.messages)).toContain('閒看庭前花開花落了')
+    expect(result.script.beats[1]?.overlayText).toBe('寵辱不驚，閒看庭前花開花落')
+    expect(result.script.beats[1]?.dialogue).toBe('寵辱不驚，閒看庭前花開花落')
+    expect(result.fixes.some((f) => f.includes('2'))).toBe(true)
+    expect(result.check.errors).toEqual([])
+  })
+
+  it('金句在原文裡找不到、連六成都對不上：這一格拿掉，秒數讓給其他格，加總仍是目標，寫在 fixes', async () => {
+    const bad = script([
+      beat({ segment: 'hook', durationSec: 3, location: '庭院' }),
+      quoteBeat('閒看庭前花開花落'),
+      quoteBeat('先做最重要的事', { durationSec: 2 }),
+      beat({ beatKind: 'title', segment: 'title', durationSec: 3, description: '' }),
+    ])
+    const { studio } = studioOf([bad])
+    const result = await writeTrailerScript(studio, quotesInput, ctx)
+    expect(result.script.beats).toHaveLength(3)
+    expect(result.script.beats.map((b) => b.overlayText)).toEqual(['', '閒看庭前花開花落', ''])
+    expect(result.check.totalSec).toBeCloseTo(10, 6)
+    expect(result.fixes.some((f) => f.includes('3'))).toBe(true)
+  })
+
+  it('不是語錄體（沒有 quote 這一段）：不檢查原文', async () => {
+    const { studio, requests } = studioOf([
+      script([
+        beat({ segment: 'hook', durationSec: 3, location: '庭院' }),
+        quoteBeat('先做最重要的事', { segment: 'claim' }),
+        beat({ beatKind: 'title', segment: 'title', durationSec: 3, description: '' }),
+      ]),
+    ])
+    const result = await writeTrailerScript(studio, quotesInput, ctx)
+    expect(requests).toHaveLength(1)
+    expect(result.fixes).toEqual([])
   })
 })
 
@@ -727,6 +818,47 @@ describe('觀點型：toCheckBeat 帶地點、腳本過檢查器', () => {
     const retryMessage = JSON.stringify(requests[1]?.messages.at(-1))
     expect(retryMessage).toContain('最多 5 個')
     expect(result.script.beats.map((b) => b.location)).toContain('c')
+  })
+})
+
+describe('觀點型：兩種寫法（argument／quotes）寫進提示', () => {
+  const p = trailerSystemPrompt({
+    text: '寵辱不驚，閒看庭前花開花落。',
+    settings: TrailerSettingsSchema.parse({ kind: 'idea', targetSec: 30, title: '菜根譚' }),
+    guide: '',
+    knownCharacters: [],
+    style: 'realistic',
+  })
+
+  it('說明 form 欄位、語錄體的時間分配（12／65／10／13％）與「原文連續的一段、一個字都不能改」的規矩', () => {
+    expect(p).toContain('form')
+    expect(p).toContain('argument')
+    expect(p).toContain('quotes')
+    expect(p).toContain('quote＝金句')
+    expect(p).toContain('hook＝')
+    expect(p).toContain('約 3.6 秒')
+    expect(p).toContain('約 19.5 秒')
+    expect(p).toContain('連續的一段原文')
+    expect(p).toContain('一個字都不能改')
+  })
+
+  it('語錄體的金句那一段有自己的配樂情緒', () => {
+    const spans = musicSpansOf(
+      [
+        { segment: 'hook', durationSec: 3 },
+        { segment: 'quote', durationSec: 20 },
+        { segment: 'title', durationSec: 4 },
+      ],
+      'idea',
+      27,
+    )
+    const text = trailerMusicPrompt({
+      settings: TrailerSettingsSchema.parse({ kind: 'idea' }),
+      spans,
+      filmSec: 27,
+    })
+    expect(text).toContain('s quote: ')
+    expect(text).not.toContain('s quote: follow the picture')
   })
 })
 

@@ -54,6 +54,11 @@ export const TrailerPersonSchema = z.object({
 export type TrailerPerson = z.infer<typeof TrailerPersonSchema>
 
 export const TrailerScriptSchema = z.object({
+  /**
+   * 觀點型的腳本形式（只有觀點型用）：argument＝有一個貫穿的主張（hook、claim、gains…那組六段）；
+   * quotes＝語錄體，一則一則獨立的短句（hook、quote、gains、title），金句要是原文裡連續的一段。其他類型不用。
+   */
+  form: z.enum(['argument', 'quotes']).default('argument'),
   /** 書名（使用者沒給時由 AI 從文本取）。 */
   title: z.string().default(''),
   /** 配樂說明：照腳本的時間寫成有時間碼的描述，純音樂、不要人聲。 */
