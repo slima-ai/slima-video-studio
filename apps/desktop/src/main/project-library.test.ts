@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createProjectLibrary } from './project-library'
@@ -66,7 +66,7 @@ describe('專案清單', () => {
     mkdirSync(elsewhere)
     const info = library.createNew('貓的故事', elsewhere)
     expect(info.name).toBe('貓的故事')
-    expect(info.dir.startsWith(`${elsewhere}/`)).toBe(true)
+    expect(info.dir.startsWith(`${elsewhere}${sep}`)).toBe(true)
     expect(projects.info()?.dir).toBe(info.dir)
 
     for (const bad of [join(root, '沒有這個資料夾'), '相對/路徑']) {
@@ -117,7 +117,7 @@ describe('專案清單', () => {
       const elsewhere = join(root, '別處')
       mkdirSync(elsewhere)
       const away = await library.saveAs('別處的副本', elsewhere)
-      expect(away.dir.startsWith(`${elsewhere}/`)).toBe(true)
+      expect(away.dir.startsWith(`${elsewhere}${sep}`)).toBe(true)
 
       await expect(library.saveAs('   ')).rejects.toThrow('請給這一份一個名字')
       await expect(library.saveAs('x', join(root, '沒有這個資料夾'))).rejects.toThrow(

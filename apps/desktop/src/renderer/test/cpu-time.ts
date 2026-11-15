@@ -7,7 +7,7 @@
 
 // renderer 的型別沒有 node 的 process；測試是在 node 裡跑的，用得到
 const { process: nodeProcess } = globalThis as unknown as {
-  process: { cpuUsage: () => { user: number; system: number } }
+  process: { cpuUsage: () => { user: number; system: number }; platform: string }
 }
 
 /** 這個行程到現在用掉的 CPU 時間（毫秒，user＋system）。 */
@@ -17,7 +17,8 @@ export const cpuNowMs = (): number => {
 }
 
 /** 一次量測至少要累積這麼多 CPU 毫秒：太短的話，作業系統記 CPU 時間的粒度（Linux 常是 1～10 毫秒）會把比值量歪。 */
-const MIN_MEASURE_MS = 40
+// Windows 的行程 CPU 時間約 15.6 毫秒才更新一次，要累積得更久，不然 0 毫秒對 15 毫秒會讓比值變成幾百倍
+const MIN_MEASURE_MS = nodeProcess.platform === 'win32' ? 400 : 40
 
 /**
  * 「資料量放大 N 倍，時間會放大幾倍」：回傳 `large` 對 `small` 的 CPU 時間比。

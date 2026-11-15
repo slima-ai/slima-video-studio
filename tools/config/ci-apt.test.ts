@@ -34,7 +34,10 @@ describe('ci.yml：系統套件只走 apt-install.sh，而且那一步有逾時�
   )
 })
 
-describe('tools/ci/apt-install.sh', () => {
+// 這支腳本只在 Linux 的 CI 上跑；測試用 bash、冒號分隔的 PATH、可執行的假指令，Windows 上跑不起來也沒有意義
+const describeOnLinux = describe.skipIf(process.platform === 'win32')
+
+describeOnLinux('tools/ci/apt-install.sh', () => {
   const dirs: string[] = []
   afterEach(() => {
     for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })

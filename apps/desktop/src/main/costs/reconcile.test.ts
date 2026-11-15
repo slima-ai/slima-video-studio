@@ -11,7 +11,10 @@ import { createCostReconciler, reconcileJobCosts } from './reconcile'
 // 任務成功了、錢也花了（任務記錄上有金額），但花費帳本沒有同一個 jobId 的紀錄
 // （例如 App 關掉時影片還在輪詢，重開後佇列接回、做完了，沒有任何一段程式會替它記帳）。
 const roots: string[] = []
+const managers: ProjectManager[] = []
 afterEach(() => {
+  // 先關專案（放掉資料庫檔），Windows 上開著的檔案刪不掉
+  for (const manager of managers.splice(0)) manager.close()
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
@@ -20,6 +23,7 @@ const setup = () => {
   roots.push(root)
   const ledger = createAppLedger({})
   const projects = new ProjectManager('test', ledger)
+  managers.push(projects)
   projects.create(join(root, 'p.svsproj'), '測試專案')
   const handle = projects.current()
   if (!handle) throw new Error('應該有專案')
