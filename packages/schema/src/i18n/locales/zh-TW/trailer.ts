@@ -98,4 +98,8 @@ export const trailer = {
   'trailer.panel.cancel': '先不要',
   'trailer.panel.rewriteConfirm': '確定重寫',
   'trailer.panel.replaceWarn': '{generated} 格已生成的畫面會被取代，可以復原',
+  'trailer.aspect.label': '畫面',
+  'trailer.aspect.landscape': '橫式',
+  'trailer.aspect.portrait': '直式',
+  'trailer.aspect.note': '改了以後新生成的畫面才用新比例，已經做好的不會跟著變。',
 } as const

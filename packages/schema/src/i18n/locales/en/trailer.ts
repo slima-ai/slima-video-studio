@@ -119,4 +119,9 @@ export const trailer = {
   'trailer.panel.rewriteConfirm': 'Rewrite it',
   'trailer.panel.replaceWarn':
     '{generated} generated pictures will be replaced. You can undo this.',
+  'trailer.aspect.label': 'Frame',
+  'trailer.aspect.landscape': 'Wide',
+  'trailer.aspect.portrait': 'Tall',
+  'trailer.aspect.note':
+    'Pictures made from now on use the new shape. The ones already made stay as they are.',
 } as const

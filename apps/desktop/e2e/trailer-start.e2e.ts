@@ -338,4 +338,41 @@ test.describe('做預告片：英文介面與窄視窗', () => {
     expect((panel?.x ?? 0) + (panel?.width ?? 999)).toBeLessThanOrEqual(390)
     await shoot(page, testInfo, '14-narrow-390-panel.png')
   })
+  test('直式：起手卡點「直式」→ 專案是 9:16 → 寫腳本 → 設定面板也寫直式；改回橫式', async ({
+    page,
+  }, testInfo) => {
+    await openCanvas(page)
+    // 一開始照專案：橫式亮著
+    await expect(page.getByTestId('trailer-aspect-landscape')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await page.getByTestId('trailer-aspect-portrait').click()
+    await expect(page.getByTestId('trailer-aspect-portrait')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await expect.poll(async () => (await currentProject(page))?.aspectRatio).toBe('9:16')
+    await page.getByTestId('trailer-text').fill(STORY)
+    await shoot(page, testInfo, '15-start-card-portrait.png')
+
+    await page.getByTestId('trailer-go').click()
+    await expect(page.getByTestId('trailer-badge')).toBeVisible({ timeout: 30_000 })
+    expect((await currentProject(page))?.aspectRatio).toBe('9:16')
+
+    // 設定面板：直式亮著、有一句「已經做好的不會跟著變」；點橫式改回 16:9
+    await page.getByTestId('trailer-badge').click()
+    await expect(page.getByTestId('trailer-panel-aspect-portrait')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await expect(page.getByTestId('trailer-panel-aspect-note')).toContainText('不會跟著變')
+    await shoot(page, testInfo, '16-panel-portrait.png')
+    await page.getByTestId('trailer-panel-aspect-landscape').click()
+    await expect.poll(async () => (await currentProject(page))?.aspectRatio).toBe('16:9')
+    await expect(page.getByTestId('trailer-panel-aspect-landscape')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+  })
 })

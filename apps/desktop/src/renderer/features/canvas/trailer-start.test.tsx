@@ -151,3 +151,112 @@ describe('TrailerStartCard：做預告片', () => {
     expect((await screen.findByTestId('trailer-error')).textContent).toContain('縮短一點再試')
   })
 })
+
+describe('TrailerStartCard：橫式｜直式', () => {
+  const project = (aspectRatio: string) => () => ({
+    id: 'p1',
+    name: '測試專案',
+    dir: '/tmp/test.svsproj',
+    aspectRatio,
+  })
+  const checked = (key: 'landscape' | 'portrait'): string | null =>
+    screen.getByTestId(`trailer-aspect-${key}`).getAttribute('aria-checked')
+
+  it('一開始照專案的比例亮著；點「直式」就把專案改成 9:16，再寫腳本', async () => {
+    const configure = vi.fn((payload: { aspectRatio?: string }) => ({
+      styleId: 'realistic',
+      aspectRatio: payload.aspectRatio ?? '16:9',
+    }))
+    const plan = vi.fn(() => RESULT)
+    installFakeSvs({
+      'project.current': project('16:9'),
+      'project.configure': configure,
+      'trailer.check': () => CHECK_DEMO,
+      'trailer.plan': plan,
+    })
+    const onDone = vi.fn()
+    render(<TrailerStartCard onDone={onDone} />)
+    await waitFor(() => {
+      expect(checked('landscape')).toBe('true')
+    })
+    expect(checked('portrait')).toBe('false')
+
+    fireEvent.click(screen.getByTestId('trailer-aspect-portrait'))
+    expect(checked('portrait')).toBe('true')
+    expect(configure).toHaveBeenCalledWith({ aspectRatio: '9:16' })
+
+    fill('一座斷橋，一個老人。')
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+    fireEvent.click(screen.getByTestId('trailer-go'))
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledTimes(1)
+    })
+    // 比例是專案的設定，不是腳本的設定：不會塞進 trailer.plan 的請求
+    expect(plan).toHaveBeenCalledWith({
+      text: '一座斷橋，一個老人。',
+      targetSec: 30,
+      kind: 'story',
+    })
+  })
+
+  it('專案已經是直式：直式亮著，點「橫式」改回 16:9；點已經亮著的不重複送', async () => {
+    const configure = vi.fn((payload: { aspectRatio?: string }) => ({
+      styleId: 'realistic',
+      aspectRatio: payload.aspectRatio ?? '9:16',
+    }))
+    installFakeSvs({ 'project.current': project('9:16'), 'project.configure': configure })
+    render(<TrailerStartCard />)
+    await waitFor(() => {
+      expect(checked('portrait')).toBe('true')
+    })
+    fireEvent.click(screen.getByTestId('trailer-aspect-portrait'))
+    expect(configure).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('trailer-aspect-landscape'))
+    expect(configure).toHaveBeenCalledWith({ aspectRatio: '16:9' })
+    expect(checked('landscape')).toBe('true')
+  })
+
+  it('改比例失敗：退回原本的選擇，卡片上寫出原因', async () => {
+    installFakeSvs({
+      'project.current': project('16:9'),
+      'project.configure': () => {
+        throw appError('專案是唯讀的。')
+      },
+    })
+    render(<TrailerStartCard />)
+    await waitFor(() => {
+      expect(checked('landscape')).toBe('true')
+    })
+    fireEvent.click(screen.getByTestId('trailer-aspect-portrait'))
+    expect((await screen.findByTestId('trailer-aspect-error')).textContent).toBe('專案是唯讀的。')
+    expect(checked('landscape')).toBe('true')
+    expect(checked('portrait')).toBe('false')
+  })
+  it('比例還在改的時候，「先產生腳本」暫時按不了（免得腳本在比例定下來之前就寫了）', async () => {
+    let finish: (value: unknown) => void = () => undefined
+    installFakeSvs({
+      'project.current': project('16:9'),
+      'project.configure': () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+      'trailer.check': () => CHECK_DEMO,
+    })
+    render(<TrailerStartCard />)
+    await waitFor(() => {
+      expect(checked('landscape')).toBe('true')
+    })
+    fill('一座斷橋。')
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+    fireEvent.click(screen.getByTestId('trailer-aspect-portrait'))
+    expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(true)
+    finish({ styleId: 'realistic', aspectRatio: '9:16' })
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+  })
+})
