@@ -33,6 +33,11 @@ export const trailer = {
   'trailer.ruleTitleNoAction': '沒填上市資訊，片名卡只會有書名。',
   'trailer.ruleUnverifiedClaim':
     '第 {n} 格提到了暢銷、獎項、推薦語之類的說法，但這不是你提供的。推薦語、獎項、銷量只能用你自己提供的原文；沒有就拿掉。',
+  'trailer.warnCardHoldTooLong':
+    '第 {n} 格的字卡停了 {sec} 秒，字不多，建議不超過 {max} 秒，不然節奏會拖住。',
+  'trailer.warnTitleHoldTooLong': '片名卡停了 {sec} 秒，建議不超過 {max} 秒。',
+  'trailer.warnBeatHoldTooLong':
+    '第 {n} 格停了 {sec} 秒，建議不超過 {max} 秒，不然看起來像停住了。',
   'trailer.ruleNoEscalation': '後段沒有比前段短（平均 {last} 秒對 {first} 秒）。',
   'trailer.beatVideo': '會動',
   'trailer.beatStill': '不動',

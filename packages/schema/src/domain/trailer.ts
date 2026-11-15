@@ -223,6 +223,10 @@ export const CARD_BASE_SEC = 0.8
 export const CARD_SEC_PER_UNIT = 0.2
 /** 規則 7：片名卡最短幾秒。 */
 export const TITLE_MIN_SEC = 3
+/** 停太久的提醒（不擋）：字卡超過最短停留的幾倍、片名卡最長幾秒、第一格以外的畫面格最長幾秒。 */
+export const CARD_HOLD_MAX_FACTOR = 2
+export const TITLE_HOLD_MAX_SEC = 6
+export const BEAT_HOLD_MAX_SEC = 6
 /** 規則 3：最後三分之一的平均格長要不超過前三分之一的幾成（只提醒）；至少幾格才比。 */
 export const ESCALATION_RATIO = 0.6
 export const ESCALATION_MIN_BEATS = 6
@@ -274,6 +278,9 @@ export type TrailerIssueCode =
   | 'title_no_action'
   | 'unverified_claim'
   | 'no_escalation'
+  | 'card_hold_too_long'
+  | 'title_hold_too_long'
+  | 'beat_hold_too_long'
 
 export interface TrailerIssue {
   code: TrailerIssueCode
@@ -523,6 +530,46 @@ export function checkTrailerScript(
       })
     }
   }
+
+  // 停太久（只提醒）：字很少的字卡、片名卡、第一格以外的畫面格停得太長，節奏就拖住了
+  beats.forEach((beat, index) => {
+    const sec = secs[index] ?? 0
+    if (beat.beatKind === 'card' && beat.card) {
+      const max = CARD_HOLD_MAX_FACTOR * cardMinSec(beat.card)
+      if (sec > max + EPS) {
+        warnings.push({
+          code: 'card_hold_too_long',
+          index,
+          message: t('trailer.warnCardHoldTooLong', {
+            ...num(index),
+            sec: sec.toFixed(1),
+            max: max.toFixed(1),
+          }),
+        })
+      }
+    } else if (beat.beatKind === 'title') {
+      if (sec > TITLE_HOLD_MAX_SEC + EPS) {
+        warnings.push({
+          code: 'title_hold_too_long',
+          index,
+          message: t('trailer.warnTitleHoldTooLong', {
+            sec: sec.toFixed(1),
+            max: String(TITLE_HOLD_MAX_SEC),
+          }),
+        })
+      }
+    } else if (index > 0 && sec > BEAT_HOLD_MAX_SEC + EPS) {
+      warnings.push({
+        code: 'beat_hold_too_long',
+        index,
+        message: t('trailer.warnBeatHoldTooLong', {
+          ...num(index),
+          sec: sec.toFixed(1),
+          max: String(BEAT_HOLD_MAX_SEC),
+        }),
+      })
+    }
+  })
 
   return { errors, warnings, totalSec }
 }

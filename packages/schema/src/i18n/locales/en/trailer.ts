@@ -44,6 +44,12 @@ export const trailer = {
   'trailer.ruleTitleNoAction': 'No release info, so the title card will show only the book title.',
   'trailer.ruleUnverifiedClaim':
     'Shot {n} mentions a bestseller, award or blurb claim that you did not provide. Blurbs, awards and sales figures may only use text you provided; remove it if you have none.',
+  'trailer.warnCardHoldTooLong':
+    'The text card in shot {n} stays {sec} seconds. It has few words; keep it to {max} seconds or less so the pace does not drag.',
+  'trailer.warnTitleHoldTooLong':
+    'The title card stays {sec} seconds; keep it to {max} seconds or less.',
+  'trailer.warnBeatHoldTooLong':
+    'Shot {n} stays {sec} seconds; keep it to {max} seconds or less, or it looks frozen.',
   'trailer.ruleNoEscalation':
     'The last third isn’t shorter than the first (average {last} seconds against {first} seconds).',
   'trailer.beatVideo': 'Moving',

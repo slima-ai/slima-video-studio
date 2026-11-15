@@ -458,6 +458,56 @@ describe('checkTrailerScript：規則 7 片名卡', () => {
   })
 })
 
+describe('checkTrailerScript：停太久（只提醒，不擋）', () => {
+  /** 把 goodScript 的某一格換掉；目標秒數跟著新的總長，這樣不會冒出「長度不對」的錯誤。 */
+  const swap = (index: number, beat: TrailerBeat) => {
+    const beats = goodScript()
+    beats[index] = beat
+    const total = beats.reduce((sum, b) => sum + b.durationSec, 0)
+    return { beats, config: settings({ targetSec: total }) }
+  }
+  const check = (index: number, beat: TrailerBeat) => {
+    const { beats, config } = swap(index, beat)
+    return checkTrailerScript(beats, config, FPS)
+  }
+  const warnCodes = (index: number, beat: TrailerBeat) => codes(check(index, beat).warnings)
+
+  it('字卡停留超過最短停留的 2 倍：提醒（指出第幾格）；剛好 2 倍不提醒', () => {
+    // 「這一次」3 個字：最短 0.8＋3×0.2＝1.4 秒，2 倍是 2.8 秒
+    const result = check(6, card('這一次', 3))
+    expect(result.errors).toEqual([])
+    expect(
+      result.warnings.filter((w) => w.code === 'card_hold_too_long').map((w) => w.index),
+    ).toEqual([6])
+    expect(warnCodes(6, card('這一次', 2.8))).not.toContain('card_hold_too_long')
+    expect(codes(checkTrailerScript(goodScript(), settings(), FPS).warnings)).toEqual([])
+  })
+
+  it('片名卡超過 6 秒：提醒；剛好 6 秒不提醒', () => {
+    expect(warnCodes(10, title(6.5))).toContain('title_hold_too_long')
+    expect(warnCodes(10, title(6))).not.toContain('title_hold_too_long')
+  })
+
+  it('畫面格（第一格以外）超過 6 秒：提醒；剛好 6 秒、第一格、字卡不算', () => {
+    const result = check(3, video(6.5))
+    expect(result.errors).toEqual([])
+    expect(
+      result.warnings.filter((w) => w.code === 'beat_hold_too_long').map((w) => w.index),
+    ).toEqual([3])
+    expect(warnCodes(3, video(6))).not.toContain('beat_hold_too_long')
+    // 第一格另有 4 秒的上限（錯誤），不再重複提醒
+    expect(warnCodes(0, video(7))).not.toContain('beat_hold_too_long')
+  })
+
+  it('訊息是白話，寫出第幾格與秒數', () => {
+    const message = check(3, video(6.5)).warnings.find(
+      (w) => w.code === 'beat_hold_too_long',
+    )?.message
+    expect(message).toContain('4')
+    expect(message).toContain('6.5')
+  })
+})
+
 describe('checkTrailerScript：規則 11 不編造', () => {
   it('字卡寫了「暢銷」「得獎」之類，但使用者沒填過：擋', () => {
     const beats = goodScript()

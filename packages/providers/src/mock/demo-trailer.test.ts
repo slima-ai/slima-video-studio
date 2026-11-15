@@ -7,7 +7,7 @@ import {
 } from '@svs/schema'
 import { describe, expect, it } from 'vitest'
 
-import { demoTrailerScript, parseTrailerRequest } from './demo-trailer'
+import { capWeights, demoTrailerScript, parseTrailerRequest } from './demo-trailer'
 
 const request = (
   story: string,
@@ -104,6 +104,42 @@ describe('示範模式的假腳本', () => {
     })
   }
 
+  // 示範是讓人看「做好是什麼樣子」：字很少的字卡、片名卡、單一畫面都不能停太久（60、90 秒要多排幾格才不會每格都很長）
+  it('15～120 秒、兩種類型、旁白開關：示範腳本沒有「停太久」的提醒；長片畫面格比較多', () => {
+    const bad: string[] = []
+    const pictures: Record<string, number> = {}
+    for (const kind of ['story', 'teaser'] as const) {
+      for (const sec of [15, 20, 30, 45, 60, 75, 90, 105, 120]) {
+        for (const narration of [true, false]) {
+          const script = TrailerScriptSchema.parse(
+            demoTrailerScript(request(STORY, kind, sec, narration)),
+          )
+          const settings = TrailerSettingsSchema.parse({
+            kind,
+            targetSec: sec,
+            title: script.title,
+          })
+          const check = checkTrailerScript(beatsOf(script), settings, 24)
+          for (const w of check.warnings) {
+            if (w.code.endsWith('_hold_too_long')) {
+              bad.push(`${kind} ${String(sec)}s narration=${String(narration)} ${w.code}`)
+            }
+          }
+          if (narration) {
+            pictures[`${kind}${String(sec)}`] = script.beats.filter(
+              (b) => b.beatKind === 'video' || b.beatKind === 'still',
+            ).length
+          }
+        }
+      }
+    }
+    expect(bad).toEqual([])
+    // 60 秒以前最多 10 個畫面；60、90 秒要比 10 個多
+    expect(pictures.story60).toBeGreaterThan(10)
+    expect(pictures.story90).toBeGreaterThan(pictures.story60 ?? 0)
+    expect(pictures.teaser90).toBeGreaterThan(10)
+  })
+
   for (const [kind, sec] of [
     ['story', 30],
     ['story', 60],
@@ -175,5 +211,25 @@ describe('示範模式的假腳本', () => {
     const a = JSON.stringify(demoTrailerScript(request(STORY, 'story', 30)))
     const b = JSON.stringify(demoTrailerScript(request(STORY, 'story', 30)))
     expect(a).toBe(b)
+  })
+})
+
+describe('capWeights：比重換成秒數，每格不超過上限', () => {
+  it('沒有超過上限：照比重分配，加總剛好', () => {
+    const out = capWeights([1, 2, 1], 8, 5)
+    expect(out).toEqual([2, 4, 2])
+  })
+
+  it('有格子超過上限：削到上限，多出來的時間分給其他格，加總不變', () => {
+    const out = capWeights([6, 1, 1], 12, 5)
+    expect(out[0]).toBe(5)
+    expect(out[1]).toBeCloseTo(3.5, 9)
+    expect(out[2]).toBeCloseTo(3.5, 9)
+    expect(out.reduce((sum, v) => sum + v, 0)).toBeCloseTo(12, 9)
+  })
+
+  it('全部都到上限還排不滿：每格都是上限（加總比要的短）', () => {
+    expect(capWeights([1, 1], 20, 5)).toEqual([5, 5])
+    expect(capWeights([], 10, 5)).toEqual([])
   })
 })
