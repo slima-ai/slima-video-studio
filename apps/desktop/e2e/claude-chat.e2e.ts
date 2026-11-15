@@ -508,7 +508,9 @@ function slowClaude(): { bin: string; gate: string; dir: string } {
 const SLOW = slowClaude()
 const SLOW_CLAUDE = SLOW.bin
 const GATE_FILE = SLOW.gate
-test.afterAll(() => {
+// 不能用 test.afterAll 清：fullyParallel 把每條測試當成各自的一組，檔案層的 afterAll 每條測完都會跑，
+// 資料夾就在同一個 worker 的下一條測試之前被刪掉了。這個 worker 結束時才清。
+process.once('exit', () => {
   rmSync(SLOW.dir, { recursive: true, force: true })
 })
 const watchChecking = (page: Page) =>
