@@ -265,6 +265,19 @@ export const TRAILER_TEMPLATES: Readonly<Record<TrailerKind, TrailerTemplate>> =
   },
 }
 
+/**
+ * 觀點型的第二種時間分配：語錄體（一則一則獨立的短句，例如格言集）。不另開選單，寫腳本的模型看文本判斷（腳本的 `form`），
+ * 之後重新檢查時看鏡頭上有沒有 `quote` 這一段。開場 12%、金句 65%、收穫 10%、片名 13%。
+ */
+export const QUOTES_SEGMENTS: readonly TrailerSegment[] = [
+  { key: 'hook', share: 0.12, narrationDensity: 'sparse', maxCards: 1 },
+  { key: 'quote', share: 0.65, narrationDensity: 'normal', maxCards: 5 },
+  { key: 'gains', share: 0.1, narrationDensity: 'normal', maxCards: 1 },
+  { key: 'title', share: 0.13, narrationDensity: 'none', maxCards: 0 },
+]
+/** 語錄體裡「金句」那一段的段落代號：這一段的每一句疊字都必須是原文裡連續的一段。 */
+export const QUOTE_SEGMENT_KEY = 'quote'
+
 // ---- 規則用的常數（規劃第 2.3 節） ----
 
 /** 規則 1：各格秒數加總與目標相差不超過這麼多（秒）。 */
@@ -368,6 +381,7 @@ export type TrailerIssueCode =
   | 'overlay_wrong_kind'
   | 'overlay_narration_differs'
   | 'many_black_cards'
+  | 'quote_not_in_source'
   | 'unverified_author'
   | 'too_many_visuals'
   | 'few_visuals'
@@ -633,6 +647,23 @@ export function checkTrailerScript(
       error('overlay_narration_differs', t('trailer.ruleOverlayNarration', num(index)), index)
     }
   })
+
+  // 語錄體（有 quote 這一段）：金句那一段的每一句疊字，去掉標點與空白後，必須是原文（同樣處理）裡連續的一段；
+  // 可以只取一句裡連續的一小段，但不能跳著接、不能改字（簡體、繁體、異體字也不互相當成一樣）
+  const flatSource = normalize(settings.sourceText)
+  if (flatSource !== '' && beats.some((beat) => beat.segment === QUOTE_SEGMENT_KEY)) {
+    beats.forEach((beat, index) => {
+      const text = (beat.overlay?.text ?? '').trim()
+      if (beat.segment !== QUOTE_SEGMENT_KEY || text === '') return
+      if (!flatSource.includes(normalize(text))) {
+        error(
+          'quote_not_in_source',
+          t('trailer.ruleQuoteNotInSource', { ...num(index), text }),
+          index,
+        )
+      }
+    })
+  }
 
   // 字卡總數：黑底字卡和有疊字的格子加起來算（金句壓在畫面上也是一句話）
   {

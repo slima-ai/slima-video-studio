@@ -31,6 +31,7 @@ import {
   textUnits,
   OVERLAY_STAY_EXTRA_SEC,
   overlayMinSec,
+  QUOTES_SEGMENTS,
   type TrailerBeat,
   type TrailerIssueCode,
   type TrailerSettings,
@@ -766,6 +767,71 @@ describe('checkTrailerScript：疊字（字壓在不動的畫面上）', () => {
   it('疊字也算「說了什麼」：暢銷、獎項這類字眼不是使用者給的就擋下（規則 11）', () => {
     expect(errorCodes([still(4, '榮獲年度暢銷榜首')])).toContain('unverified_claim')
     expect(errorCodes([still(4, '閒看庭前花開花落')])).not.toContain('unverified_claim')
+  })
+})
+
+describe('語錄體：第二種時間分配與原文檢查', () => {
+  const SOURCE = '寵辱不驚，閒看庭前花開花落；去留無意，漫隨天外雲卷雲舒。'
+  const EN_SOURCE = 'Do the one thing that matters most. Less is more.'
+  const quote = (text: string, extra: Partial<TrailerBeat> = {}): TrailerBeat => ({
+    beatKind: 'still',
+    durationSec: 4,
+    segment: 'quote',
+    overlay: { text },
+    ...extra,
+  })
+  const run = (beat: TrailerBeat, source = SOURCE, segment?: string) => {
+    const beats = goodScript()
+    beats.splice(3, 0, segment === undefined ? beat : { ...beat, segment })
+    const total = beats.reduce((sum, b) => sum + b.durationSec, 0)
+    return checkTrailerScript(
+      beats,
+      settings({ kind: 'idea', targetSec: Math.min(120, total), sourceText: source }),
+      FPS,
+    )
+  }
+  const notFound = (beat: TrailerBeat, source = SOURCE, segment?: string) =>
+    codes(run(beat, source, segment).errors).includes('quote_not_in_source')
+
+  it('時間分配：開場 12%、金句 65%、收穫 10%、片名 13%；段落代號 hook、quote、gains、title', () => {
+    expect(QUOTES_SEGMENTS.map((x) => x.key)).toEqual(['hook', 'quote', 'gains', 'title'])
+    expect(QUOTES_SEGMENTS.map((x) => x.share)).toEqual([0.12, 0.65, 0.1, 0.13])
+    expect(QUOTES_SEGMENTS.reduce((sum, x) => sum + x.share, 0)).toBeCloseTo(1, 9)
+  })
+
+  it('金句在原文裡（整句、只取半句）：過；去掉標點與空白、大小寫不算', () => {
+    expect(notFound(quote('寵辱不驚，閒看庭前花開花落'))).toBe(false)
+    expect(notFound(quote('閒看庭前花開花落'))).toBe(false)
+    expect(notFound(quote('寵辱不驚 閒看庭前花開花落'))).toBe(false)
+    expect(notFound(quote('the one thing that matters'), EN_SOURCE)).toBe(false)
+    expect(notFound(quote('DO THE ONE THING'), EN_SOURCE)).toBe(false)
+  })
+
+  it('差一個字、跳著接、不在原文：擋下（quote_not_in_source），訊息寫出第幾格與那一句', () => {
+    expect(notFound(quote('閑看庭前花開花落'))).toBe(true)
+    expect(notFound(quote('寵辱不驚漫隨天外雲卷雲舒'))).toBe(true)
+    expect(notFound(quote('先做最重要的事'))).toBe(true)
+    expect(notFound(quote('Do the matters most'), EN_SOURCE)).toBe(true)
+    const issue = run(quote('先做最重要的事')).errors.find((e) => e.code === 'quote_not_in_source')
+    expect(issue?.index).toBe(3)
+    expect(issue?.message).toContain('先做最重要的事')
+    expect(issue?.message).toContain('4')
+  })
+
+  it('只檢查金句那一段（quote）的疊字：開場與收穫的字不用在原文裡；沒有原文、不是語錄體都不檢查', () => {
+    expect(notFound(quote('先做最重要的事'), SOURCE, 'gains')).toBe(false)
+    expect(notFound(quote('先做最重要的事'), SOURCE, 'hook')).toBe(false)
+    expect(notFound(quote('先做最重要的事'), '')).toBe(false)
+    // 沒有任何一格是 quote 段（論點型）：不檢查
+    const beats = goodScript()
+    beats.splice(3, 0, { ...quote('先做最重要的事'), segment: 'claim' })
+    const total = beats.reduce((sum, b) => sum + b.durationSec, 0)
+    const result = checkTrailerScript(
+      beats,
+      settings({ kind: 'idea', targetSec: Math.min(120, total), sourceText: SOURCE }),
+      FPS,
+    )
+    expect(codes(result.errors)).not.toContain('quote_not_in_source')
   })
 })
 

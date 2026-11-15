@@ -11,6 +11,9 @@ import { expect, test } from './fixtures'
 const IDEA =
   '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半，每天留一小時專心。'
 
+const QUOTES =
+  '寵辱不驚，閒看庭前花開花落。去留無意，漫隨天外雲卷雲舒。得意時毋忘失意。有生趣的是活潑。三思而後行。靜坐常思己過。讀書不忘本分。'
+
 const shotsOf = async (page: Page) => {
   const result = await page.evaluate(() => window.svs.invoke('shots.list', {}))
   if (!result.ok) throw new Error(result.error.userMessage)
@@ -128,5 +131,32 @@ test.describe('金句型：句子疊在畫面上（示範模式，不花錢）',
     const after = (await shotsOf(page)).find((s) => s.id === target.id)
     expect(after?.firstFrames).toHaveLength(framesBefore)
     expect(after?.videos.at(-1)?.costUsd ?? 0).toBe(0)
+  })
+
+  test('語錄體：一則一則的短句文本 → 金句逐字取自原文，疊在不動的畫面上；沒有黑底字卡', async ({
+    page,
+  }) => {
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await expect(page.getByTestId('canvas-root')).toBeVisible()
+    const planned = await page.evaluate(
+      (text) => window.svs.invoke('trailer.plan', { text, kind: 'idea', targetSec: 30 }),
+      QUOTES,
+    )
+    if (!planned.ok) throw new Error(planned.error.userMessage)
+    expect(planned.data.errors).toEqual([])
+    expect(planned.data.fixes).toEqual([])
+    expect(planned.data.matches).toBe(true)
+
+    const written = await shotsOf(page)
+    // 第一句是鉤子（模型自己寫的話）；其餘都是金句：3 句以上、逐字取自原文
+    const overlays = written.filter((s) => s.overlay !== undefined)
+    const quotes = overlays.slice(1)
+    expect(quotes.length).toBeGreaterThanOrEqual(3)
+    const flat = (text: string): string => text.replace(/[\s\p{P}]/gu, '')
+    for (const shot of quotes) {
+      expect(shot.beatKind).toBe('still')
+      expect(flat(QUOTES)).toContain(flat(shot.overlay?.text ?? '（沒有疊字）'))
+    }
+    expect(written.filter((s) => s.beatKind === 'card')).toHaveLength(0)
   })
 })

@@ -70,6 +70,8 @@ export const trailer = {
     'Narration is on in shot {n}: it must read the line over the picture word for word. It can also be left empty.',
   'trailer.warnManyBlackCards':
     'There are {count} black text cards; keep it to {max} or fewer. Put the lines people should remember over the pictures instead.',
+  'trailer.ruleQuoteNotInSource':
+    'The quote “{text}” in shot {n} is not in the source text. A quote must be one continuous stretch of the source: it can be a part of one sentence, but never reworded and never stitched together.',
   'trailer.ruleNoEscalation':
     'The last third isn’t shorter than the first (average {last} seconds against {first} seconds).',
   'trailer.beatVideo': 'Moving',
@@ -103,6 +105,9 @@ export const trailer = {
     'The text over the picture in shot {n} was too long and was removed as a whole (words are never cut: a cut line is no longer that line).',
   'trailer.fixOverlayNarration':
     'The narration of shot {n} was changed to the line over the picture.',
+  'trailer.fixQuoteReplaced':
+    'The quote in shot {n} was not in the source text, so it was replaced by the closest line of the source.',
+  'trailer.fixQuoteRemoved': 'The quote in shot {n} was not in the source text and was removed.',
   'trailer.fixNarrationCut':
     'The narration in shot {n} was too long and has been cut to one sentence.',
   'trailer.fixMovingToStill':

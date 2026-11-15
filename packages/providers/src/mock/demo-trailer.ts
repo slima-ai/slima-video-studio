@@ -8,6 +8,7 @@ import {
   NARRATION_MAX_WORDS_PER_SEC,
   fitToTarget,
   MIN_MOVING_BEAT_SEC,
+  overlaySize,
   t,
   textUnits,
   type LlmRequest,
@@ -134,12 +135,179 @@ const IDEA_CARD_KEYS = [
   'mock.ideaCard5',
 ] as const
 
+/** 把排好的格子輸出成腳本的格子：有旁白的格子加起來不超過全片的 5 成半（檢查器的上限是 6 成），念不完的句子就不念，疊字還在。 */
+function ideaBeatsOut(beats: readonly DemoBeat[], durations: readonly number[], targetSec: number) {
+  let narratedSec = 0
+  return beats.map((beat, i) => {
+    const sec = durations[i] ?? beat.durationSec
+    const spoken = beat.clause !== '' && narratedSec + sec <= targetSec * 0.55
+    if (spoken) narratedSec += sec
+    return {
+      segment: beat.segment,
+      // 會動的格被排到比 1.5 秒短：做不出像樣的影片，示範腳本自己就寫成不動的畫面
+      beatKind:
+        beat.beatKind === 'video' && sec < MIN_MOVING_BEAT_SEC - 1e-9 ? 'still' : beat.beatKind,
+      durationSec: sec,
+      description: beat.description,
+      action: '',
+      size: i % 3 === 0 ? 'wide' : i % 3 === 1 ? 'medium' : 'full',
+      angle: 'eye_level',
+      cameraMove: beat.cameraMove,
+      characters: [],
+      location: beat.location ?? '',
+      dialogue: spoken ? beat.clause : '',
+      cardText: '',
+      cardSubtext: '',
+      overlayText: beat.overlay?.text ?? '',
+      overlaySubtext: '',
+    }
+  })
+}
+
+/** 語錄體的示範：原文切成句子後，夠多句、而且多半是能疊在畫面上的短句，就當語錄體。 */
+const QUOTE_SPLIT = /[。！？!?；;\n]+|(?<=[A-Za-z0-9])\.(?=\s)/u
+const QUOTES_MIN_LINES = 5
+const QUOTES_MAX_BEATS = 5
+const QUOTES_MIN_BEATS = 3
+
+function quoteLinesOf(story: string): string[] {
+  const sentences = story
+    .split(QUOTE_SPLIT)
+    .map((c) => c.trim())
+    .filter((c) => c !== '')
+  const lines = sentences.filter((c) => {
+    const size = overlaySize(c, 'text')
+    return size.used <= size.max && !CLAIMISH.test(c)
+  })
+  // 大半是短句才算語錄體；一篇長文裡夾幾句短句不算
+  return lines.length >= QUOTES_MIN_LINES && lines.length >= sentences.length * 0.6 ? lines : []
+}
+
+/**
+ * 語錄體的假腳本：鉤子（一句示範的話）→ 3～5 句原文裡的短句（逐字照抄，疊在不動的畫面上）→ 片名卡。
+ * 放不下（目標太短）就回 undefined，改走一般的觀點型。
+ */
+function demoQuotesScript(
+  lines: readonly string[],
+  targetSec: number,
+  narration: boolean,
+): unknown {
+  const places = [t('mock.ideaPlace1'), t('mock.ideaPlace2'), t('mock.ideaPlace3')]
+  const looks = [t('mock.ideaPlaceLook1'), t('mock.ideaPlaceLook2'), t('mock.ideaPlaceLook3')]
+  const shots = IDEA_SHOT_KEYS.map((key) => t(key))
+  const hook = t('mock.ideaCard1')
+  // extra：夾在金句中間的沒有字的畫面（目標長的時候，金句只有 3～5 句，不夾畫面每一格會停太久）
+  const build = (count: number, extra: number): DemoBeat[] => {
+    const beats: DemoBeat[] = []
+    let n = 0
+    const quote = (segment: string, text: string): void => {
+      const i = n++
+      beats.push({
+        beatKind: 'still',
+        durationSec: segment === 'hook' ? 3 : 4.5,
+        segment,
+        description: shots[i % shots.length] ?? t('mock.demoPicture'),
+        cameraMove: MOTIONS[i % MOTIONS.length] ?? null,
+        cardText: '',
+        clause: narration ? text : '',
+        overlay: { text },
+        ...(narration ? { dialogue: text } : {}),
+        characters: [],
+        location: places[i % places.length] ?? '',
+      })
+    }
+    const filler = (): void => {
+      const i = n++
+      const still = i % 2 === 1
+      beats.push({
+        beatKind: still ? 'still' : 'video',
+        durationSec: 3.5,
+        segment: 'quote',
+        description: shots[i % shots.length] ?? t('mock.demoPicture'),
+        cameraMove: still ? (MOTIONS[i % MOTIONS.length] ?? null) : null,
+        cardText: '',
+        clause: '',
+        characters: [],
+        location: places[i % places.length] ?? '',
+      })
+    }
+    const perQuote = Array.from({ length: count }, () => 0)
+    for (let e = 0; e < extra; e++) perQuote[e % count] = (perQuote[e % count] ?? 0) + 1
+    quote('hook', hook)
+    lines.slice(0, count).forEach((text, k) => {
+      quote('quote', text)
+      for (let f = 0; f < (perQuote[k] ?? 0); f++) filler()
+    })
+    beats.push({
+      beatKind: 'title',
+      durationSec: 4,
+      segment: 'title',
+      description: '',
+      cameraMove: null,
+      cardText: '',
+      clause: '',
+    })
+    return beats
+  }
+  // 第一格固定 3 秒、片名卡固定停留；其餘的畫面格分剩下的時間，每格不超過上限（不夠就多夾幾格畫面）
+  const frame = (sec: number): number => Math.round(sec * 24) / 24
+  const titleSec = frame(Math.min(5.5, Math.max(3, targetSec * 0.15)))
+  const arrange = (count: number, extra: number) => {
+    const list = build(count, extra)
+    const fixed = list.map((beat, i) =>
+      i === 0 ? 3 : beat.beatKind === 'title' ? titleSec : undefined,
+    )
+    const fixedSum = fixed.reduce<number>((sum, sec) => sum + (sec ?? 0), 0)
+    const pictures = list.filter((_, i) => fixed[i] === undefined)
+    const budget = targetSec - fixedSum
+    const filled = capWeights(
+      pictures.map((beat) => beat.durationSec),
+      budget,
+      DEMO_PICTURE_MAX_SEC,
+    )
+    const rest = fitToTarget(
+      pictures.map((beat, i) => ({ ...beat, durationSec: filled[i] ?? beat.durationSec })),
+      budget,
+      24,
+    )
+    let k = 0
+    const durations = fixed.map((sec) => sec ?? rest.durations[k++] ?? 1)
+    return { list, ok: rest.ok, durations, longest: Math.max(0, ...rest.durations) }
+  }
+  for (let count = Math.min(QUOTES_MAX_BEATS, lines.length); count >= QUOTES_MIN_BEATS; count--) {
+    let fallback: ReturnType<typeof arrange> | undefined
+    let chosen: ReturnType<typeof arrange> | undefined
+    for (let extra = 0; extra <= 24 && chosen === undefined; extra++) {
+      const attempt = arrange(count, extra)
+      if (!attempt.ok) break
+      fallback ??= attempt
+      if (attempt.longest <= DEMO_PICTURE_MAX_SEC + 1e-9) chosen = attempt
+    }
+    const picked = chosen ?? fallback
+    if (picked === undefined) continue
+    return {
+      form: 'quotes',
+      title: cut(lines[0] ?? '', 16) || t('mock.trailerTitle'),
+      music: t('mock.ideaMusic'),
+      places: places.map((name, i) => ({ name, look: looks[i] ?? '' })),
+      people: [],
+      beats: ideaBeatsOut(picked.list, picked.durations, targetSec),
+    }
+  }
+  return undefined
+}
+
 /**
  * 觀點型的假腳本：沒有角色，3 個主視覺（地點）；要讓人記住的句子（鉤子、核心主張、三個收穫）壓在不動的畫面上（疊字），
  * 旁白念的就是那一句；沒有黑底字卡 → 片名卡。示範只收到文本，不知道作者與推薦語，所以不放 author、praise 兩段
  * （那兩段只用使用者提供的字）。節奏平穩，每一格差不多長；句子放不下（目標很短）時依「三個收穫、鉤子、主張」的順序少放幾句。
  */
 function demoIdeaScript(story: string, targetSec: number, narration: boolean): unknown {
+  const quoteLines = quoteLinesOf(story)
+  if (quoteLines.length > 0) {
+    const quotes = demoQuotesScript(quoteLines, targetSec, narration)
+    if (quotes !== undefined) return quotes
+  }
   const places = [t('mock.ideaPlace1'), t('mock.ideaPlace2'), t('mock.ideaPlace3')]
   const looks = [t('mock.ideaPlaceLook1'), t('mock.ideaPlaceLook2'), t('mock.ideaPlaceLook3')]
   const clauses = story
@@ -241,32 +409,7 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
     }
   }
   const { list: beats, fit } = chosen ?? fallback ?? arrange(0, 5)
-  // 有旁白的格子加起來不超過全片的 5 成半（檢查器的上限是 6 成）：念不完的句子就不念，疊字還在
-  let narratedSec = 0
-  const out = beats.map((beat, i) => {
-    const sec = fit.durations[i] ?? beat.durationSec
-    const spoken = beat.clause !== '' && narratedSec + sec <= targetSec * 0.55
-    if (spoken) narratedSec += sec
-    return {
-      segment: beat.segment,
-      // 會動的格被排到比 1.5 秒短：做不出像樣的影片，示範腳本自己就寫成不動的畫面
-      beatKind:
-        beat.beatKind === 'video' && sec < MIN_MOVING_BEAT_SEC - 1e-9 ? 'still' : beat.beatKind,
-      durationSec: sec,
-      description: beat.description,
-      action: '',
-      size: i % 3 === 0 ? 'wide' : i % 3 === 1 ? 'medium' : 'full',
-      angle: 'eye_level',
-      cameraMove: beat.cameraMove,
-      characters: [],
-      location: beat.location ?? '',
-      dialogue: spoken ? beat.clause : '',
-      cardText: '',
-      cardSubtext: '',
-      overlayText: beat.overlay?.text ?? '',
-      overlaySubtext: '',
-    }
-  })
+  const out = ideaBeatsOut(beats, fit.durations, targetSec)
   const first = out[0]
   if (first && story.includes(DEMO_BAD_SCRIPT_MARK)) {
     out[0] = {

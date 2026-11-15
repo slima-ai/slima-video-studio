@@ -56,6 +56,8 @@ export const trailer = {
     '第 {n} 格開了旁白，旁白要念畫面上疊的那一句，一個字都不差；旁白也可以留空。',
   'trailer.warnManyBlackCards':
     '黑底字卡有 {count} 張，建議不超過 {max} 張；要讓人記住的句子改寫在畫面上（疊字）。',
+  'trailer.ruleQuoteNotInSource':
+    '第 {n} 格的金句「{text}」在原文裡找不到。金句必須是原文裡連續的一段：可以只取一句裡的一小段，但不能改字、不能跳著接。',
   'trailer.ruleNoEscalation': '後段沒有比前段短（平均 {last} 秒對 {first} 秒）。',
   'trailer.beatVideo': '會動',
   'trailer.beatStill': '不動',
@@ -83,6 +85,8 @@ export const trailer = {
   'trailer.fixOverlayTooLong':
     '第 {n} 格疊在畫面上的字太長，已整句拿掉（不截字，截掉就不是那句話了）。',
   'trailer.fixOverlayNarration': '第 {n} 格的旁白已改成畫面上疊的那一句。',
+  'trailer.fixQuoteReplaced': '第 {n} 格的金句在原文找不到，已換成原文裡最像的那一句。',
+  'trailer.fixQuoteRemoved': '第 {n} 格的金句在原文找不到，已拿掉。',
   'trailer.fixNarrationCut': '第 {n} 格的旁白太長，已截短成一句。',
   'trailer.fixMovingToStill': '第 {n} 格是會動的但太短，已改成不動的畫面。',
   'trailer.fixFirstShortened': '第一格縮短到 4 秒。',
