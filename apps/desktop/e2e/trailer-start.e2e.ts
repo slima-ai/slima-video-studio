@@ -138,6 +138,21 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     await expect(page.getByTestId('trailer-panel')).toHaveCount(0)
 
     // 5. 全部生成（字卡與片名卡本機做，不花錢）→ 成品面板寫「成品 30 秒」
+    // 旁白與配樂還在加的那段時間，匯出被擋下（成品現在沒有聲音）：開始加時從畫面這邊試著匯出一次，記下結果
+    await page.evaluate(() => {
+      const w = window as unknown as { __soundAdding: unknown[] }
+      w.__soundAdding = []
+      window.svs.on('canvas.soundAddingChanged', (state) => {
+        w.__soundAdding.push({ adding: state.adding })
+        if (state.adding) {
+          void window.svs.invoke('quickstart.export', { credits: false }).then((result) => {
+            w.__soundAdding.push({
+              exportWhileAdding: result.ok ? 'exported' : result.error.userMessage,
+            })
+          })
+        }
+      })
+    })
     await page.getByTestId('run-all').click()
     await page.getByTestId('run-confirm-ok').click()
     await expect(page.getByTestId('run-all')).toHaveText('全部都生成好了', { timeout: 120_000 })
@@ -156,6 +171,18 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
       )
       .toBe(true)
     await expect(page.getByTestId('toast').filter({ hasText: '加好了' })).toHaveCount(0)
+    // 旁白與配樂：開始加（true）→ 這時匯出被擋下、白話說原因 → 加完（false）；之後才打開成品
+    const adding = await page.evaluate(
+      () => (window as unknown as { __soundAdding: unknown[] }).__soundAdding,
+    )
+    expect(adding).toContainEqual({ adding: true })
+    expect(adding).toContainEqual({ adding: false })
+    expect(adding.findIndex((e) => JSON.stringify(e) === '{"adding":true}')).toBeLessThan(
+      adding.findIndex((e) => JSON.stringify(e) === '{"adding":false}'),
+    )
+    expect(adding).toContainEqual({
+      exportWhileAdding: '旁白與配樂還在加，加好之後再匯出，才會有聲音。',
+    })
     await shoot(page, testInfo, '05-final-cut-30s.png')
     // 匯出（勾著標註：併進片名卡，不另外接字卡）：24 fps × 30 秒 ＝ 720 格，誤差一格內
     await expect(page.getByTestId('final-cut-credits')).toBeChecked()

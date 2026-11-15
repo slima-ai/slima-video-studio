@@ -306,6 +306,7 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     })
     return {}
   })
+  registry.registerHandler('canvas.soundAdding', () => ({ adding: canvas.soundAdding() }))
   registry.registerHandler('canvas.runPlan', (request) => canvas.runPlan(request))
   registry.registerHandler('canvas.runChoices', (request) => canvas.runChoices(request))
   registry.registerHandler('canvas.run', (request) => canvas.run(request))
@@ -440,9 +441,16 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
     history.clear()
     return result
   })
-  registry.registerHandler('quickstart.export', ({ credits }) =>
-    quickstart.export(credits === undefined ? {} : { credits }),
-  )
+  registry.registerHandler('quickstart.export', ({ credits }) => {
+    // 旁白與配樂還在加的那段時間，成品是沒有聲音的：不讓匯出（畫面的匯出鈕也停用，這裡擋 AI 工具與其他入口）
+    if (canvas.soundAdding()) {
+      throw new AppError({
+        code: 'invalid_request',
+        userMessage: t('services.narrationAndMusicAreStillBeing'),
+      })
+    }
+    return quickstart.export(credits === undefined ? {} : { credits })
+  })
   registry.registerHandler('shots.list', () => shots.list())
   registry.registerHandler('shots.update', ({ shotId, patch }) =>
     history.record(shotEditLabel(patch), () => shots.update(shotId, patch)),
