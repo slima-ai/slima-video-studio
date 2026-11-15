@@ -566,6 +566,11 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
             beatKind: shot.beatKind,
             durationSec: shot.durationSec,
             ...(shot.beatKind === 'card' && shot.card ? { card: shot.card } : {}),
+            // 疊字的格子最短停留比字卡長；旁白照念疊的那一句時還要夠念完
+            ...(shot.overlay ? { overlay: shot.overlay } : {}),
+            ...(next.narration && shot.overlay && shot.dialogue.trim() !== ''
+              ? { dialogue: shot.dialogue }
+              : {}),
           })),
           next.targetSec,
           FPS,

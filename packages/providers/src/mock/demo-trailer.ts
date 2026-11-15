@@ -173,6 +173,8 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
         // 旁白念的就是疊的那一句；沒有疊字的畫面不說話
         clause: narration ? overlay : '',
         ...(overlay === '' ? {} : { overlay: { text: overlay } }),
+        // 旁白念疊的那一句：最短停留要夠念完（英文比中文慢）
+        ...(narration && overlay !== '' ? { dialogue: overlay } : {}),
         characters: [],
         // 三個主視覺輪流用：每個都至少用到一次
         location: places[i % places.length] ?? '',

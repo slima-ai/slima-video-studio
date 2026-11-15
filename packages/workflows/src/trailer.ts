@@ -412,6 +412,10 @@ export function repairScript(
     ...(b.overlayText.trim() !== ''
       ? { overlay: { text: b.overlayText.trim(), subtext: b.overlaySubtext.trim() } }
       : {}),
+    // 開了旁白又有字：旁白會念疊的那一句，最短停留要夠念完
+    ...(settings.narration && b.overlayText.trim() !== '' && b.dialogue.trim() !== ''
+      ? { dialogue: b.dialogue.trim() }
+      : {}),
   })
   const fit = fitToTarget(beats.map(fitItem), settings.targetSec, FPS)
   if (fit.ok) {

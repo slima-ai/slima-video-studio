@@ -394,9 +394,19 @@ export interface TrailerCheckResult {
   totalSec: number
 }
 
-/** 疊字的格子最短停留秒數：字卡的最短停留，再加淡入與看一眼畫面的 0.5 秒。 */
-export function overlayMinSec(overlay: { text: string; subtext?: string | undefined }): number {
-  return cardMinSec(overlay) + OVERLAY_STAY_EXTRA_SEC
+/**
+ * 疊字的格子最短停留秒數：字卡的最短停留，再加淡入與看一眼畫面的 0.5 秒。
+ * 旁白照念這一句（`narrated`）時，再跟「用這個語言的旁白速度念完要的秒數」比，取比較大的
+ * （中文每秒 4 個字、英文每秒 2.6 個單字：英文 12 個單字念完要 4.6 秒，比字卡規則的 3.7 秒長）。
+ */
+export function overlayMinSec(
+  overlay: { text: string; subtext?: string | undefined },
+  narrated = false,
+): number {
+  const stay = cardMinSec(overlay) + OVERLAY_STAY_EXTRA_SEC
+  if (!narrated) return stay
+  const speed = hasHan(overlay.text) ? NARRATION_MAX_CJK_PER_SEC : NARRATION_MAX_WORDS_PER_SEC
+  return Math.max(stay, textUnits(overlay.text) / speed)
 }
 
 /** 字卡最短停留秒數：0.8 ＋ 字數 × 0.2（主文字與副文字都算）。 */
@@ -605,7 +615,8 @@ export function checkTrailerScript(
         index,
       )
     }
-    const min = overlayMinSec(overlay)
+    // 開了旁白又念這一句：最短停留要夠旁白念完（英文比中文慢）
+    const min = overlayMinSec(overlay, settings.narration && (beat.dialogue ?? '').trim() !== '')
     if ((secs[index] ?? 0) < min - EPS) {
       error(
         'overlay_short_stay',
@@ -822,7 +833,7 @@ export function checkTrailerScript(
 
 /** 一格調長度時最少要幾格（frame）：字卡照停留秒數、片名卡 3 秒、其他（影片、靜態）0.75 秒。 */
 export function beatMinFrames(
-  beat: Pick<TrailerBeat, 'beatKind' | 'card' | 'overlay'>,
+  beat: Pick<TrailerBeat, 'beatKind' | 'card' | 'overlay' | 'dialogue'>,
   fps: number,
 ): number {
   if (beat.beatKind === 'title') return Math.ceil(TITLE_MIN_SEC * fps - EPS)
@@ -832,7 +843,7 @@ export function beatMinFrames(
   }
   // 疊字的格子：字卡的最短停留再加 0.5 秒（不動的格子才有疊字）
   if (beat.beatKind === 'still' && beat.overlay && beat.overlay.text.trim() !== '') {
-    return Math.ceil(overlayMinSec(beat.overlay) * fps - EPS)
+    return Math.ceil(overlayMinSec(beat.overlay, (beat.dialogue ?? '').trim() !== '') * fps - EPS)
   }
   return Math.ceil(MIN_BEAT_SEC * fps - EPS)
 }
@@ -849,7 +860,7 @@ export interface FitResult {
  * 照原本的比例分配；被壓到最短的格子就停在最短，多出來的時間由其他格按比例分攤；最後用最大餘數法湊整格數。
  */
 export function fitToTarget(
-  beats: readonly Pick<TrailerBeat, 'beatKind' | 'durationSec' | 'card' | 'overlay'>[],
+  beats: readonly Pick<TrailerBeat, 'beatKind' | 'durationSec' | 'card' | 'overlay' | 'dialogue'>[],
   targetSec: number,
   fps: number,
 ): FitResult {

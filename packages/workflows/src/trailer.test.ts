@@ -342,6 +342,21 @@ describe('金句型：疊字（寫在不動格子的 overlayText）', () => {
     expect(result.fixes.length).toBeGreaterThanOrEqual(1)
   })
 
+  it('英文 12 個單字的疊字、旁白念同一句：最短停留是旁白念完的 4.6 秒（不是字卡規則的 3.7 秒），重排秒數時當下限', async () => {
+    const twelve = 'one two three four five six seven eight nine ten eleven twelve'
+    const bad = script([
+      beat({ durationSec: 3, location: '深夜辦公室' }),
+      withOverlay({ durationSec: 4, overlayText: twelve, dialogue: twelve }),
+      beat({ beatKind: 'title', durationSec: 3, description: '' }),
+    ])
+    const { studio } = studioOf([bad])
+    const result = await writeTrailerScript(studio, ideaInput, ctx)
+    expect(result.script.beats[1]?.durationSec ?? 0).toBeGreaterThanOrEqual(4.6)
+    expect(result.script.beats[1]?.dialogue).toBe(twelve)
+    expect(result.check.errors).toEqual([])
+    expect(result.check.totalSec).toBeCloseTo(10, 6)
+  })
+
   it('停留太短（疊字的格子 2 秒、至少要 2.9 秒）：重排秒數時把最短停留當下限，加總仍是目標', async () => {
     const bad = script([
       withOverlay({ durationSec: 2 }),

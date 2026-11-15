@@ -629,6 +629,47 @@ describe('checkTrailerScript：疊字（字壓在不動的畫面上）', () => {
     expect(beatMinFrames({ beatKind: 'still' }, FPS)).toBe(Math.ceil(MIN_BEAT_SEC * FPS - 1e-9))
   })
 
+  it('旁白念同一句時，最短停留取兩個裡比較大的：字卡最短停留＋0.5 秒、或用這個語言的旁白速度念完要的秒數', () => {
+    // 英文 12 個單字：字卡最短 0.8＋12×0.2＋0.5 ＝ 3.7 秒；念完要 12÷2.6 ＝ 4.62 秒 → 取 4.62
+    const twelve = 'one two three four five six seven eight nine ten eleven twelve'
+    expect(overlayMinSec({ text: twelve })).toBeCloseTo(3.7, 9)
+    expect(overlayMinSec({ text: twelve }, true)).toBeCloseTo(12 / 2.6, 9)
+    expect(
+      beatMinFrames({ beatKind: 'still', overlay: { text: twelve }, dialogue: twelve }, FPS) / FPS,
+    ).toBeGreaterThanOrEqual(4.6)
+    // 沒有旁白（沒有 dialogue）：還是 3.7 秒
+    expect(beatMinFrames({ beatKind: 'still', overlay: { text: twelve } }, FPS) / FPS).toBeLessThan(
+      4,
+    )
+    // 中文 24 個字：念完要 24÷4 ＝ 6 秒，字卡規則是 0.8＋4.8＋0.5 ＝ 6.1 秒 → 取 6.1（跟以前一樣）
+    expect(overlayMinSec({ text: '字'.repeat(24) }, true)).toBeCloseTo(6.1, 9)
+    // 重排秒數也不會壓到這個下限以下
+    const squeezed = fitToTarget(
+      [
+        video(3),
+        { beatKind: 'still', durationSec: 5, overlay: { text: twelve }, dialogue: twelve },
+        title(3),
+      ],
+      9,
+      FPS,
+    )
+    expect(squeezed.ok).toBe(true)
+    expect(squeezed.durations[1] ?? 0).toBeGreaterThanOrEqual(4.6)
+  })
+
+  it('檢查器：開旁白、旁白念疊的那一句，英文 12 個單字停 4 秒不夠（要 4.6 秒）；沒有旁白停 4 秒就夠', () => {
+    const twelve = 'one two three four five six seven eight nine ten eleven twelve'
+    expect(errorCodes([still(4, twelve, { dialogue: twelve })])).toContain('overlay_short_stay')
+    expect(errorCodes([still(4.7, twelve, { dialogue: twelve })])).not.toContain(
+      'overlay_short_stay',
+    )
+    expect(errorCodes([still(4, twelve)])).not.toContain('overlay_short_stay')
+    const off = withBeats([still(4, twelve, { dialogue: twelve })])
+    expect(
+      codes(checkTrailerScript(off.beats, { ...off.config, narration: false }, FPS).errors),
+    ).not.toContain('overlay_short_stay')
+  })
+
   it('一個好的疊字格：不動、字數在上限內、停留夠久 → 沒有任何新的提醒或錯誤', () => {
     const result = check([still(3, '閒看庭前花開花落')])
     expect(result.errors).toEqual([])
