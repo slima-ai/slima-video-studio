@@ -37,7 +37,7 @@ const scripted = (first: () => unknown, next?: () => unknown) => {
 
 /** 示範模式的正確腳本。 */
 const good =
-  (sec = 30, kind: 'story' | 'teaser' = 'story') =>
+  (sec = 30, kind: 'story' | 'teaser' | 'idea' = 'story') =>
   () =>
     demoTrailerScript({
       capability: 'llm',
@@ -374,6 +374,92 @@ describe('trailer.plan：示範模式（假腳本）', () => {
     expect(before).toMatchObject({ ok: true, demoMode: true, existingBeats: 0, generatedBeats: 0 })
     await h.trailer.plan({ text: STORY })
     expect(h.trailer.check().existingBeats).toBe(h.shots.list().shots.length - 1)
+  })
+})
+
+describe('trailer.plan：觀點型（示範模式）', () => {
+  const IDEA_TEXT =
+    '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半。'
+
+  it('30 秒：類型存成 idea；腳本加總剛好、沒有 error；有 5 張字卡（超過劇情型的 4 張上限）', async () => {
+    const h = setup()
+    const result = await h.trailer.plan({ text: IDEA_TEXT, kind: 'idea' })
+    expect(result.settings.kind).toBe('idea')
+    expect(result.matches).toBe(true)
+    expect(result.errors).toEqual([])
+    expect(result.retried).toBe(false)
+    const shots = shotsOf(h)
+    expect(shots.filter((s) => s.beatKind === 'card')).toHaveLength(5)
+    expect(shots.at(-1)?.beatKind).toBe('title')
+    // 段落存進鏡頭：觀點型的六段裡，示範用到 hook、claim、gains、title
+    const stored = h.projects.current()?.repos.shots.list() ?? []
+    expect(new Set(stored.map((s) => s.segment))).toEqual(
+      new Set(['hook', 'claim', 'gains', 'title']),
+    )
+  })
+
+  it('沒有角色卡；3 個主視覺用場景卡（草稿，有地方的外觀說明）；畫面的格子都掛著主視覺', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: IDEA_TEXT, kind: 'idea' })
+    expect(h.characters.list()).toEqual([])
+    const places = h.outline.get().locations
+    expect(places).toHaveLength(3)
+    expect(places.every((l) => l.description !== '')).toBe(true)
+    const shots = shotsOf(h)
+    const pictures = shots.filter((s) => s.beatKind === 'video' || s.beatKind === 'still')
+    expect(pictures.every((s) => s.characters.length === 0)).toBe(true)
+    expect(pictures.every((s) => s.locationId !== undefined)).toBe(true)
+    expect(new Set(pictures.map((s) => s.locationId)).size).toBe(3)
+  })
+
+  it('模型照劇情型的習慣寫了角色：觀點型不建角色卡、鏡頭也不掛角色', async () => {
+    const idea = scripted(() => {
+      const script = good(30, 'idea')() as Script
+      script.beats[0] = { ...script.beats[0], characters: ['阿鐵'] }
+      return script
+    })
+    const h = setup({ mockLlm: idea.llm })
+    await h.trailer.plan({ text: IDEA_TEXT, kind: 'idea' })
+    expect(h.characters.list()).toEqual([])
+    expect(shotsOf(h).every((s) => s.characters.length === 0)).toBe(true)
+  })
+
+  it('存進專案之後 trailer.status 也數主視覺：只有 2 個地點，寫的當下與存進去之後都只提醒、不擋', async () => {
+    const twoPlaces = scripted(() => {
+      const script = good(30, 'idea')() as Script & { places: { name: string; look: string }[] }
+      const names = ['甲', '乙']
+      let n = 0
+      script.beats = script.beats.map((b) =>
+        b.beatKind === 'video' || b.beatKind === 'still' ? { ...b, location: names[n++ % 2] } : b,
+      )
+      script.places = names.map((name) => ({ name, look: '一個地方' }))
+      return script
+    })
+    const h = setup({ mockLlm: twoPlaces.llm })
+    const result = await h.trailer.plan({ text: IDEA_TEXT, kind: 'idea' })
+    expect(result.errors).toEqual([])
+    expect(result.warnings.map((w) => w.code)).toContain('few_visuals')
+    expect(h.trailer.status().warnings.map((w) => w.code)).toContain('few_visuals')
+  })
+
+  it('主視覺用了 6 個：退回重寫，第二次合併成 3 個就過（只花兩次文字費）', async () => {
+    const six = () => {
+      const script = good(30, 'idea')() as Script & { places: unknown[] }
+      let n = 0
+      script.beats = script.beats.map((b) =>
+        b.beatKind === 'video' || b.beatKind === 'still'
+          ? { ...b, location: `地方${String(n++ % 6)}` }
+          : b,
+      )
+      return script
+    }
+    const llm = scripted(six, good(30, 'idea'))
+    const h = setup({ mockLlm: llm.llm })
+    const result = await h.trailer.plan({ text: IDEA_TEXT, kind: 'idea' })
+    expect(llm.calls).toHaveLength(2)
+    expect(result.retried).toBe(true)
+    expect(result.errors).toEqual([])
+    expect(h.outline.get().locations).toHaveLength(3)
   })
 })
 

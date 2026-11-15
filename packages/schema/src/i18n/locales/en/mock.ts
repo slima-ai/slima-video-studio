@@ -68,4 +68,38 @@ export const mock = {
     'An old stone bridge covered in black vines, the stone wet and gleaming, one lamp hanging at its centre, low mist all around',
   'mock.trailerPlaceLook2':
     'A reed-lined riverbank with soft mud, the water reflecting a grey-blue sky, the air barely moving',
+  'mock.ideaMusic':
+    'Instrumental only, no vocals: a quiet opening with soft piano; a steady pulse that builds, one more layer for each key point; a held breath before the title; one final accent with a long tail.',
+  'mock.ideaCard1': 'Busier, yet behind?',
+  'mock.ideaCard2': 'The real problem is order',
+  'mock.ideaCard3': 'Do the one thing that matters',
+  'mock.ideaCard4': 'Cut your to-do list in half',
+  'mock.ideaCard5': 'One focused hour a day',
+  'mock.ideaLine1': 'Busy is not progress',
+  'mock.ideaLine2': 'Decide what matters most',
+  'mock.ideaLine3': 'Do one thing at a time',
+  'mock.ideaLine4': 'Do less, do it well',
+  'mock.ideaLine5': 'One focused hour is gold',
+  'mock.ideaLine6': 'A shorter list gets done',
+  'mock.ideaShot1': 'An office still lit before dawn',
+  'mock.ideaShot2': 'A to-do list, mostly crossed out',
+  'mock.ideaShot3': 'The hands of a desk clock slowly moving',
+  'mock.ideaShot4': 'An empty desk with a single pen',
+  'mock.ideaShot5': 'The sky outside slowly brightening',
+  'mock.ideaShot6': 'A neat stack of papers',
+  'mock.ideaShot7': 'A cup of coffee gone cold',
+  'mock.ideaShot8': 'A wall calendar turned to a new page',
+  'mock.ideaShot9': 'A notebook with one line in large letters',
+  'mock.ideaShot10': 'Street lights reflected in a rain-washed window',
+  'mock.ideaShot11': 'A single key on a clean desk',
+  'mock.ideaShot12': 'A switched-off screen catching the first light',
+  'mock.ideaPlace1': 'Late-night office',
+  'mock.ideaPlace2': 'Crossed-out to-do list',
+  'mock.ideaPlace3': 'Desk clock',
+  'mock.ideaPlaceLook1':
+    'An open-plan office before dawn, a single desk lamp on, cold white light on an empty desk',
+  'mock.ideaPlaceLook2':
+    'A paper to-do list laid flat, several lines struck through, slightly creased paper, warm lamp light',
+  'mock.ideaPlaceLook3':
+    'An old-fashioned desk clock on a wooden desk, light slanting in from the side, soft focus behind',
 } as const

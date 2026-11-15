@@ -109,6 +109,27 @@ describe('TrailerStartCard：做預告片', () => {
     })
   })
 
+  it('類型選單可以選「金句」；選了就用 idea 寫腳本', async () => {
+    const plan = vi.fn(() => ({ exists: true }))
+    installFakeSvs({ 'trailer.check': () => CHECK_DEMO, 'trailer.plan': plan })
+    render(<TrailerStartCard onDone={vi.fn()} />)
+    fill('越忙越沒進度，是因為優先順序錯了。')
+    choose('trailer-kind', 'idea')
+    expect(screen.getByTestId('trailer-kind').textContent).toContain('金句')
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('trailer-go').disabled).toBe(false)
+    })
+    fireEvent.click(screen.getByTestId('trailer-go'))
+    await waitFor(() => {
+      expect(plan).toHaveBeenCalledTimes(1)
+    })
+    expect(plan).toHaveBeenCalledWith({
+      text: '越忙越沒進度，是因為優先順序錯了。',
+      targetSec: 30,
+      kind: 'idea',
+    })
+  })
+
   it('檢查器擋下：卡片上直接寫出那則錯誤（原文），不只是一閃而過的提示；不會叫人縮短文本', async () => {
     const message =
       '腳本沒有通過檢查，專案沒有被改：第 1 格是字卡，預告片的第一格不能是字卡。 請再試一次。'

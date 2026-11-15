@@ -9,11 +9,14 @@ import {
   DEFAULT_TRAILER_GUIDE,
   DEFAULT_TRAILER_GUIDE_EN,
   DEFAULT_TRAILER_SETTINGS,
+  MIN_BEAT_SEC,
+  MIN_MOVING_BEAT_SEC,
   TITLE_MIN_SEC,
   TRAILER_TEMPLATES,
   TrailerSettingsPatchSchema,
   beatMinFrames,
   TrailerSettingsSchema,
+  cardLimitOf,
   cardMinSec,
   checkTrailerScript,
   defaultTrailerGuide,
@@ -54,12 +57,12 @@ function goodScript(): TrailerBeat[] {
     video(3.5, { dialogue: '黑藤爬滿了斷橋。' }),
     card('他回來了', 2),
     video(3),
-    video(3),
+    video(2.5),
     video(2.5),
     card('這一次', 2),
     video(2),
     video(2),
-    video(1),
+    video(1.5),
     title(5),
   ]
 }
@@ -80,13 +83,14 @@ describe('預告片設定：預設長度是 30 秒', () => {
     })
   })
 
-  it('目標秒數 10～120：9.9 與 120.1 不收，10 與 120 收；類型只有 story、teaser', () => {
+  it('目標秒數 10～120：9.9 與 120.1 不收，10 與 120 收；類型只有 story、teaser、idea', () => {
     expect(TrailerSettingsSchema.safeParse({ targetSec: 9.9 }).success).toBe(false)
     expect(TrailerSettingsSchema.safeParse({ targetSec: 120.1 }).success).toBe(false)
     expect(TrailerSettingsSchema.parse({ targetSec: 10 }).targetSec).toBe(10)
     expect(TrailerSettingsSchema.parse({ targetSec: 120 }).targetSec).toBe(120)
-    expect(TrailerSettingsSchema.safeParse({ kind: 'idea' }).success).toBe(false)
+    expect(TrailerSettingsSchema.safeParse({ kind: 'essay' }).success).toBe(false)
     expect(TrailerSettingsSchema.parse({ kind: 'teaser' }).kind).toBe('teaser')
+    expect(TrailerSettingsSchema.parse({ kind: 'idea' }).kind).toBe('idea')
   })
 
   it('封面素材要是內容雜湊；patch 每個欄位都可以不給', () => {
@@ -157,9 +161,9 @@ describe('類型模板是資料', () => {
       const total = template.segments.reduce((sum, s) => sum + s.share, 0)
       expect(total).toBeCloseTo(1, 9)
       expect(template.segments.at(-1)?.key).toBe('title')
-      // 全片字卡數的上限不能大於檢查器的上限
+      // 全片字卡數的上限不能大於檢查器給這個類型的上限
       const cards = template.segments.reduce((sum, s) => sum + s.maxCards, 0)
-      expect(cards).toBeLessThanOrEqual(CARD_MAX_COUNT)
+      expect(cards).toBeLessThanOrEqual(cardLimitOf(template.kind))
     }
   })
 
@@ -459,6 +463,127 @@ describe('checkTrailerScript：規則 7 片名卡', () => {
   })
 })
 
+describe('checkTrailerScript：格子最短（D3）', () => {
+  /** 在 goodScript 最後一格畫面前面多塞一格，再把前面某一格縮短補回去，讓總長仍是 30 秒。 */
+  const withBeat = (extra: TrailerBeat, takeFrom: number): TrailerBeat[] => {
+    const beats = goodScript()
+    const donor = beats[takeFrom]
+    if (!donor) throw new Error('no donor')
+    beats[takeFrom] = { ...donor, durationSec: donor.durationSec - extra.durationSec }
+    beats.splice(9, 0, extra)
+    return beats
+  }
+
+  it('常數：任何一格至少 0.75 秒，會動的至少 1.5 秒', () => {
+    expect(MIN_BEAT_SEC).toBe(0.75)
+    expect(MIN_MOVING_BEAT_SEC).toBe(1.5)
+    expect(beatMinFrames({ beatKind: 'video' }, FPS)).toBe(18)
+    expect(beatMinFrames({ beatKind: 'still' }, FPS)).toBe(18)
+  })
+
+  it('畫面格短於 0.75 秒：擋下（error beat_too_short，指出是哪一格）；剛好 0.75 秒通過', () => {
+    const short = withBeat({ beatKind: 'still', durationSec: 0.5 }, 3)
+    const result = checkTrailerScript(short, settings(), FPS)
+    expect(result.errors.filter((e) => e.code === 'beat_too_short').map((e) => e.index)).toEqual([
+      9,
+    ])
+    const ok = withBeat({ beatKind: 'still', durationSec: 0.75 }, 3)
+    expect(codes(checkTrailerScript(ok, settings(), FPS).errors)).toEqual([])
+    const movingShort = withBeat({ beatKind: 'video', durationSec: 0.5 }, 3)
+    expect(codes(checkTrailerScript(movingShort, settings(), FPS).errors)).toContain(
+      'beat_too_short',
+    )
+  })
+
+  it('會動的格短於 1.5 秒：只提醒（warning moving_beat_too_short）；不動的、字卡、片名卡不提醒；1.5 秒整不提醒', () => {
+    const moving = withBeat({ beatKind: 'video', durationSec: 1 }, 3)
+    const result = checkTrailerScript(moving, settings(), FPS)
+    expect(result.errors).toEqual([])
+    expect(
+      result.warnings.filter((w) => w.code === 'moving_beat_too_short').map((w) => w.index),
+    ).toEqual([9])
+    const still = withBeat({ beatKind: 'still', durationSec: 1 }, 3)
+    expect(codes(checkTrailerScript(still, settings(), FPS).warnings)).not.toContain(
+      'moving_beat_too_short',
+    )
+    const exact = withBeat({ beatKind: 'video', durationSec: 1.5 }, 3)
+    expect(codes(checkTrailerScript(exact, settings(), FPS).warnings)).not.toContain(
+      'moving_beat_too_short',
+    )
+  })
+
+  it('訊息是白話，寫出第幾格與最短秒數', () => {
+    const short = withBeat({ beatKind: 'still', durationSec: 0.5 }, 3)
+    const message = checkTrailerScript(short, settings(), FPS).errors.find(
+      (e) => e.code === 'beat_too_short',
+    )?.message
+    expect(message).toContain('10')
+    expect(message).toContain('0.75')
+  })
+
+  it('fitToTarget：畫面格不會被壓到 0.75 秒以下；改格長的編輯（ShotEdit）也一樣：0.5 不收、0.75 收', () => {
+    const beats: TrailerBeat[] = [video(3), video(3), video(3), title(3)]
+    const squeezed = fitToTarget(beats, 10, FPS)
+    expect(squeezed.ok).toBe(true)
+    for (const d of squeezed.durations.slice(0, 3)) expect(d).toBeGreaterThanOrEqual(0.75)
+    const tight = fitToTarget([video(3), video(3), video(3), title(3)], 5, FPS)
+    expect(tight.ok).toBe(false)
+    expect(tight.durations.slice(0, 3)).toEqual([0.75, 0.75, 0.75])
+    expect(ShotEditSchema.safeParse({ durationSec: 0.5 }).success).toBe(false)
+    expect(ShotEditSchema.safeParse({ durationSec: 0.75 }).success).toBe(true)
+  })
+})
+
+describe('checkTrailerScript：停太久（只提醒，不擋）', () => {
+  /** 把 goodScript 的某一格換掉；目標秒數跟著新的總長，這樣不會冒出「長度不對」的錯誤。 */
+  const swap = (index: number, beat: TrailerBeat) => {
+    const beats = goodScript()
+    beats[index] = beat
+    const total = beats.reduce((sum, b) => sum + b.durationSec, 0)
+    return { beats, config: settings({ targetSec: total }) }
+  }
+  const check = (index: number, beat: TrailerBeat) => {
+    const { beats, config } = swap(index, beat)
+    return checkTrailerScript(beats, config, FPS)
+  }
+  const warnCodes = (index: number, beat: TrailerBeat) => codes(check(index, beat).warnings)
+
+  it('字卡停留超過最短停留的 2 倍：提醒（指出第幾格）；剛好 2 倍不提醒', () => {
+    // 「這一次」3 個字：最短 0.8＋3×0.2＝1.4 秒，2 倍是 2.8 秒
+    const result = check(6, card('這一次', 3))
+    expect(result.errors).toEqual([])
+    expect(
+      result.warnings.filter((w) => w.code === 'card_hold_too_long').map((w) => w.index),
+    ).toEqual([6])
+    expect(warnCodes(6, card('這一次', 2.8))).not.toContain('card_hold_too_long')
+    expect(codes(checkTrailerScript(goodScript(), settings(), FPS).warnings)).toEqual([])
+  })
+
+  it('片名卡超過 6 秒：提醒；剛好 6 秒不提醒', () => {
+    expect(warnCodes(10, title(6.5))).toContain('title_hold_too_long')
+    expect(warnCodes(10, title(6))).not.toContain('title_hold_too_long')
+  })
+
+  it('畫面格（第一格以外）超過 6 秒：提醒；剛好 6 秒、第一格、字卡不算', () => {
+    const result = check(3, video(6.5))
+    expect(result.errors).toEqual([])
+    expect(
+      result.warnings.filter((w) => w.code === 'beat_hold_too_long').map((w) => w.index),
+    ).toEqual([3])
+    expect(warnCodes(3, video(6))).not.toContain('beat_hold_too_long')
+    // 第一格另有 4 秒的上限（錯誤），不再重複提醒
+    expect(warnCodes(0, video(7))).not.toContain('beat_hold_too_long')
+  })
+
+  it('訊息是白話，寫出第幾格與秒數', () => {
+    const message = check(3, video(6.5)).warnings.find(
+      (w) => w.code === 'beat_hold_too_long',
+    )?.message
+    expect(message).toContain('4')
+    expect(message).toContain('6.5')
+  })
+})
+
 describe('checkTrailerScript：規則 11 不編造', () => {
   it('字卡寫了「暢銷」「得獎」之類，但使用者沒填過：擋', () => {
     const beats = goodScript()
@@ -664,8 +789,7 @@ describe('fitAround：固定一格的秒數，其他格讓時間，總長不變'
   it('字卡不低於最短停留：其他格排不下時 ok 是 false，並說這一格最多能到幾秒', () => {
     // 兩張字卡（各 0.8＋0.2×5 ＝ 1.8 秒）加片名卡最短，剩下的時間才是這一格能用的
     const beats = [video(3), card('一二三四五', 1.8), card('一二三四五', 1.8), title(3)]
-    const minRest =
-      beatMinFrames(beats[1] as TrailerBeat, FPS) * 2 + beatMinFrames(beats[3] as TrailerBeat, FPS)
+    const minRest = beats.slice(1).reduce((sum, beat) => sum + beatMinFrames(beat, FPS), 0)
     const result = fitAround(beats, new Map([[0, 10]]), 10, FPS)
     expect(result.ok).toBe(false)
     expect(result.maxSec).toBeCloseTo((frames(10) - minRest) / FPS, 9)
@@ -690,5 +814,307 @@ describe('fitAround：固定一格的秒數，其他格讓時間，總長不變'
     expect(result.durations[0]).toBeCloseTo(4, 9)
     expect(result.durations[1]).toBeCloseTo(5, 9)
     expect(sum(result.durations)).toBe(frames(20))
+  })
+})
+
+// ---- 觀點型（idea）：商業書、工具書、非虛構 ----
+
+describe('觀點型：模板六段（規劃第 2.2 節 C）', () => {
+  it('鉤子 15%、核心主張 20%、三個收穫 35%、作者憑什麼 12%、推薦語 8%、封面與行動 10%', () => {
+    const segs = TRAILER_TEMPLATES.idea.segments
+    expect(segs.map((s) => s.key)).toEqual(['hook', 'claim', 'gains', 'author', 'praise', 'title'])
+    expect(segs.map((s) => s.share)).toEqual([0.15, 0.2, 0.35, 0.12, 0.08, 0.1])
+    expect(segs.reduce((sum, s) => sum + s.share, 0)).toBeCloseTo(1, 9)
+  })
+
+  it('字卡是主角：每一段都可以放字卡（鉤子 1、主張 1、收穫 3、作者 1、推薦語 1）；全片 7 張', () => {
+    const segs = TRAILER_TEMPLATES.idea.segments
+    expect(segs.map((s) => s.maxCards)).toEqual([1, 1, 3, 1, 1, 0])
+    expect(cardLimitOf('idea')).toBe(7)
+  })
+
+  it('其他兩種類型的字卡上限不變：4 張', () => {
+    expect(cardLimitOf('story')).toBe(4)
+    expect(cardLimitOf('teaser')).toBe(4)
+    expect(CARD_MAX_COUNT).toBe(4)
+  })
+})
+
+/** 觀點型 30 秒：鉤子（畫面＋字卡）→ 主張 → 三個收穫（三張字卡各配畫面）→ 作者 → 封面與片名。 */
+function ideaScript(extra: { visuals?: string[] } = {}): TrailerBeat[] {
+  const v = extra.visuals ?? ['辦公室', '待辦清單', '時鐘', '辦公室', '待辦清單', '時鐘']
+  const pic = (sec: number, i: number, segment: string, dialogue = ''): TrailerBeat =>
+    video(sec, { segment, location: v[i] ?? '辦公室', ...(dialogue ? { dialogue } : {}) })
+  return [
+    pic(3, 0, 'hook'),
+    card('越忙越沒進度？', 2.5),
+    pic(3, 1, 'claim', '真正的問題是優先順序。'),
+    pic(2.5, 2, 'gains'),
+    card('先做最重要的一件', 2.5),
+    pic(2.5, 3, 'gains'),
+    card('把待辦清單砍一半', 2.5),
+    pic(2.5, 4, 'gains'),
+    card('每天留一小時深度工作', 3.5),
+    pic(2.5, 5, 'author'),
+    title(3),
+  ]
+}
+const ideaSettings = (patch: Partial<TrailerSettings> = {}): TrailerSettings =>
+  settings({ kind: 'idea', targetSec: 30, ...patch })
+
+describe('觀點型：檢查器依類型給不同的字卡上限', () => {
+  it('同一份有 5 張字卡的腳本：劇情型擋（上限 4），觀點型過（上限 7）', () => {
+    const beats = ideaScript()
+    const cards = beats.filter((b) => b.beatKind === 'card').length
+    expect(cards).toBe(4)
+    // 補成 5 張：把「作者」那一格換成字卡
+    const five = beats.map((b) =>
+      b.segment === 'author' ? { ...card('作者做過十年顧問', 2.5), segment: 'author' } : b,
+    )
+    expect(five.filter((b) => b.beatKind === 'card')).toHaveLength(5)
+    expect(
+      codes(checkTrailerScript(five, settings({ kind: 'story', targetSec: 30 }), FPS).errors),
+    ).toContain('too_many_cards')
+    expect(
+      codes(checkTrailerScript(five, ideaSettings({ author: '某作者' }), FPS).errors),
+    ).not.toContain('too_many_cards')
+  })
+
+  it('觀點型 7 張過、8 張擋；擋的訊息寫的是 7 張', () => {
+    const base = (n: number): TrailerBeat[] => [
+      video(3, { location: 'a' }),
+      ...Array.from({ length: n }, (_, i) => card(`字卡${String(i + 1)}`, 2)),
+      video(3, { location: 'b' }),
+      video(3, { location: 'c' }),
+      title(3),
+    ]
+    const seven = checkTrailerScript(base(7), ideaSettings({ targetSec: 23 }), FPS)
+    expect(codes(seven.errors)).not.toContain('too_many_cards')
+    const eight = checkTrailerScript(base(8), ideaSettings({ targetSec: 25 }), FPS)
+    expect(codes(eight.errors)).toContain('too_many_cards')
+    expect(eight.errors.find((e) => e.code === 'too_many_cards')?.message).toContain('7')
+  })
+
+  it('一般的劇情型訊息還是「4 張」', () => {
+    const five = [
+      video(3.5),
+      card('一', 2),
+      card('二', 2),
+      card('三', 2),
+      card('四', 2),
+      card('五', 2),
+      video(3.5),
+      title(5),
+    ]
+    const r = checkTrailerScript(five, settings({ targetSec: 22 }), FPS)
+    expect(r.errors.find((e) => e.code === 'too_many_cards')?.message).toContain('4')
+  })
+})
+
+describe('觀點型：節奏與主視覺', () => {
+  it('不要求「一路升高」：講道理的片子節奏平，不提醒', () => {
+    const flat: TrailerBeat[] = [
+      ...Array.from({ length: 8 }, (_, i) =>
+        video(3.25, { location: ['a', 'b', 'c'][i % 3] ?? 'a' }),
+      ),
+      title(4),
+    ]
+    const r = checkTrailerScript(flat, ideaSettings({ targetSec: 30 }), FPS)
+    expect(codes(r.warnings)).not.toContain('no_escalation')
+    // 同一份在劇情型還是會提醒
+    expect(codes(checkTrailerScript(flat, settings({ targetSec: 30 }), FPS).warnings)).toContain(
+      'no_escalation',
+    )
+  })
+
+  it('主視覺（地點）3～5 個：3、5 個過；6 個擋；2 個只提醒', () => {
+    const withVisuals = (names: string[]): TrailerBeat[] => [
+      ...names.map((n) => video(4, { location: n })),
+      title(3),
+    ]
+    const ok3 = checkTrailerScript(
+      withVisuals(['a', 'b', 'c']),
+      ideaSettings({ targetSec: 15 }),
+      FPS,
+    )
+    expect(codes(ok3.errors)).not.toContain('visuals_out_of_range')
+    expect(codes(ok3.warnings)).not.toContain('few_visuals')
+    const ok5 = checkTrailerScript(
+      withVisuals(['a', 'b', 'c', 'd', 'e']),
+      ideaSettings({ targetSec: 23 }),
+      FPS,
+    )
+    expect(codes(ok5.errors)).not.toContain('too_many_visuals')
+    const six = checkTrailerScript(
+      withVisuals(['a', 'b', 'c', 'd', 'e', 'f']),
+      ideaSettings({ targetSec: 27 }),
+      FPS,
+    )
+    expect(codes(six.errors)).toContain('too_many_visuals')
+    expect(six.errors.find((e) => e.code === 'too_many_visuals')?.message).toContain('5')
+    // 30 秒：2 個主視覺只提醒、不擋
+    const many2 = [
+      ...Array.from({ length: 9 }, (_, i) => video(3, { location: i % 2 === 0 ? 'a' : 'b' })),
+      title(3),
+    ]
+    const two = checkTrailerScript(many2, ideaSettings({ targetSec: 30 }), FPS)
+    expect(codes(two.errors)).not.toContain('too_many_visuals')
+    expect(codes(two.warnings)).toContain('few_visuals')
+  })
+
+  it('同一個主視覺用幾次都只算一個；字卡與片名卡不算；劇情型不管地點數', () => {
+    const r = checkTrailerScript(ideaScript(), ideaSettings(), FPS)
+    expect(codes(r.errors)).not.toContain('too_many_visuals')
+    const many = [
+      ...['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((n) => video(3, { location: n })),
+      title(3),
+    ]
+    expect(codes(checkTrailerScript(many, settings({ targetSec: 24 }), FPS).errors)).not.toContain(
+      'too_many_visuals',
+    )
+  })
+})
+
+describe('觀點型：推薦語與作者只用使用者提供的字', () => {
+  const withPraise = (text: string): TrailerBeat[] => [
+    video(4, { location: 'a' }),
+    video(4, { location: 'b' }),
+    video(4, { location: 'c' }),
+    { ...card(text, 3), segment: 'praise' },
+    title(3),
+  ]
+
+  it('沒提供推薦語，卻有「推薦語」那一段：擋（說的是沒提供）', () => {
+    const r = checkTrailerScript(
+      withPraise('每個經理人都該讀'),
+      ideaSettings({ targetSec: 18 }),
+      FPS,
+    )
+    const issue = r.errors.find((e) => e.code === 'unverified_claim')
+    expect(issue).toBeDefined()
+    expect(issue?.index).toBe(3)
+  })
+
+  it('提供了推薦語，字卡是它的原文（或原文裡的一段）：過；改寫過：擋', () => {
+    const claims = ['每個經理人都該讀這本書——某某雜誌']
+    const ok = checkTrailerScript(
+      withPraise('每個經理人都該讀這本書'),
+      ideaSettings({ targetSec: 18, claims }),
+      FPS,
+    )
+    expect(codes(ok.errors)).not.toContain('unverified_claim')
+    const rewritten = checkTrailerScript(
+      withPraise('經理人必讀的一本書'),
+      ideaSettings({ targetSec: 18, claims }),
+      FPS,
+    )
+    expect(codes(rewritten.errors)).toContain('unverified_claim')
+  })
+
+  it('推薦語一段的旁白也一樣；一般段落的字卡不受這條影響', () => {
+    const beats = withPraise('每個經理人都該讀這本書')
+    beats[2] = video(4, {
+      location: 'b',
+      segment: 'praise',
+      dialogue: '大家都說它改變了工作方式。',
+    })
+    const r = checkTrailerScript(
+      beats,
+      ideaSettings({ targetSec: 18, claims: ['每個經理人都該讀這本書'] }),
+      FPS,
+    )
+    expect(r.errors.filter((e) => e.code === 'unverified_claim').map((e) => e.index)).toEqual([2])
+    expect(codes(checkTrailerScript(ideaScript(), ideaSettings(), FPS).errors)).not.toContain(
+      'unverified_claim',
+    )
+  })
+
+  it('劇情型的「praise」段不存在，這條不影響（沿用規則 11 的原樣）', () => {
+    const beats = withPraise('每個經理人都該讀')
+    expect(codes(checkTrailerScript(beats, settings({ targetSec: 18 }), FPS).errors)).not.toContain(
+      'unverified_claim',
+    )
+  })
+})
+
+describe('觀點型：好腳本全部規則都過', () => {
+  it('六段齊全、4 張字卡、3 個主視覺：沒有 errors 也沒有 warnings', () => {
+    const r = checkTrailerScript(ideaScript(), ideaSettings({ endLine: '12 月 1 日上市' }), FPS)
+    expect(r.errors).toEqual([])
+    expect(r.warnings).toEqual([])
+    expect(r.totalSec).toBeCloseTo(30, 9)
+  })
+})
+
+describe('觀點型：短片不提醒「主視覺少於 3 個」', () => {
+  const visuals = (n: number, sec: number): TrailerBeat[] => {
+    const each = (sec - 3) / n
+    return [
+      ...Array.from({ length: n }, (_, i) => video(each, { location: `v${String(i)}` })),
+      title(3),
+    ]
+  }
+
+  it('15 秒、1 個主視覺：不提醒；20 秒 1 個提醒、2 個不提醒；30 秒 2 個提醒；劇情型不管', () => {
+    const warn = (n: number, sec: number) =>
+      codes(checkTrailerScript(visuals(n, sec), ideaSettings({ targetSec: sec }), FPS).warnings)
+    expect(warn(1, 15)).not.toContain('few_visuals')
+    expect(warn(1, 20)).toContain('few_visuals')
+    expect(warn(2, 20)).not.toContain('few_visuals')
+    expect(warn(2, 30)).toContain('few_visuals')
+    expect(warn(3, 30)).not.toContain('few_visuals')
+  })
+})
+
+describe('觀點型：作者那一段（作者經歷）只能是使用者給的字或文本裡的原文', () => {
+  const authorBeats = (text: string, dialogue = ''): TrailerBeat[] => [
+    video(4, { location: 'a' }),
+    video(4, { location: 'b' }),
+    video(4, { location: 'c' }),
+    {
+      ...card(text, 3),
+      segment: 'author',
+      ...(dialogue ? { dialogue } : {}),
+    },
+    title(3),
+  ]
+  const run = (text: string, patch: Partial<TrailerSettings> = {}, dialogue = '') =>
+    checkTrailerScript(authorBeats(text, dialogue), ideaSettings({ targetSec: 18, ...patch }), FPS)
+
+  it('編出來的頭銜、經歷：擋（unverified_author，指到那一格）', () => {
+    const r = run('哈佛教授')
+    const issue = r.errors.find((e) => e.code === 'unverified_author')
+    expect(issue?.index).toBe(3)
+    expect(run('十年顧問經歷').errors.map((e) => e.code)).toContain('unverified_author')
+  })
+
+  it('作者欄的名字（含「作者：」「by」稱呼）、推薦語原文、文本裡逐字寫著的：過', () => {
+    expect(codes(run('某作者').errors)).not.toContain('unverified_author')
+    expect(codes(run('作者：某作者').errors)).not.toContain('unverified_author')
+    expect(codes(run('by 某作者').errors)).not.toContain('unverified_author')
+    const text = '某作者在顧問業做了二十年，寫過三本書。'
+    expect(codes(run('做了二十年', { sourceText: text }).errors)).not.toContain('unverified_author')
+    expect(codes(run('做了二十年').errors)).toContain('unverified_author')
+  })
+
+  it('旁白也一樣；其他段落的字不受這條影響', () => {
+    const r = checkTrailerScript(
+      [
+        video(4, { location: 'a' }),
+        video(4, { location: 'b', segment: 'author', dialogue: '他是業界公認的專家。' }),
+        video(4, { location: 'c' }),
+        card('先做最重要的一件', 3),
+        title(3),
+      ],
+      ideaSettings({ targetSec: 18 }),
+      FPS,
+    )
+    expect(r.errors.filter((e) => e.code === 'unverified_author').map((e) => e.index)).toEqual([1])
+  })
+
+  it('劇情型沒有「author」這一段：這條不影響', () => {
+    expect(
+      codes(checkTrailerScript(authorBeats('哈佛教授'), settings({ targetSec: 18 }), FPS).errors),
+    ).not.toContain('unverified_author')
   })
 })

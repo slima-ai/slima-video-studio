@@ -67,10 +67,13 @@ const cut = (text: string, max: number): string => {
 /** 請求裡的目標與類型（寫腳本的使用者訊息：「…類型：story。目標總長：30 秒。旁白：開。」）。 */
 export function parseTrailerRequest(
   request: LlmRequest,
-): { story: string; kind: 'story' | 'teaser'; targetSec: number; narration: boolean } | undefined {
+):
+  | { story: string; kind: 'story' | 'teaser' | 'idea'; targetSec: number; narration: boolean }
+  | undefined {
   const last = request.messages.find((m) => m.role === 'user')?.content ?? ''
   if (!last.includes(TRAILER_REQUEST_MARK)) return undefined
-  const kind = /類型：(story|teaser)/.exec(last)?.[1] === 'teaser' ? 'teaser' : 'story'
+  const kindText = /類型：(story|teaser|idea)/.exec(last)?.[1]
+  const kind = kindText === 'teaser' || kindText === 'idea' ? kindText : 'story'
   const target = Number(/目標總長：([\d.]+)\s*秒/.exec(last)?.[1] ?? '30')
   const story = (/故事：\s*([\s\S]*?)\s*請寫預告片腳本/.exec(last)?.[1] ?? '').trim()
   return {
@@ -81,10 +84,173 @@ export function parseTrailerRequest(
   }
 }
 
+const IDEA_SHOT_KEYS = [
+  'mock.ideaShot1',
+  'mock.ideaShot2',
+  'mock.ideaShot3',
+  'mock.ideaShot4',
+  'mock.ideaShot5',
+  'mock.ideaShot6',
+  'mock.ideaShot7',
+  'mock.ideaShot8',
+  'mock.ideaShot9',
+  'mock.ideaShot10',
+  'mock.ideaShot11',
+  'mock.ideaShot12',
+] as const
+const IDEA_LINE_KEYS = [
+  'mock.ideaLine1',
+  'mock.ideaLine2',
+  'mock.ideaLine3',
+  'mock.ideaLine4',
+  'mock.ideaLine5',
+  'mock.ideaLine6',
+] as const
+const IDEA_CARD_KEYS = [
+  'mock.ideaCard1',
+  'mock.ideaCard2',
+  'mock.ideaCard3',
+  'mock.ideaCard4',
+  'mock.ideaCard5',
+] as const
+
+/**
+ * 觀點型的假腳本：沒有角色，3 個主視覺（地點）；鉤子（畫面＋字卡）→ 核心主張（畫面＋字卡）→ 三個收穫（各一張字卡＋畫面）→ 片名卡。
+ * 示範只收到文本，不知道作者與推薦語，所以不放 author、praise 兩段（那兩段只用使用者提供的字）。
+ * 節奏平穩，每一格差不多長；字卡放不下（目標很短）時依「三個收穫、鉤子、主張」的順序少放幾張。
+ */
+function demoIdeaScript(story: string, targetSec: number, narration: boolean): unknown {
+  const places = [t('mock.ideaPlace1'), t('mock.ideaPlace2'), t('mock.ideaPlace3')]
+  const looks = [t('mock.ideaPlaceLook1'), t('mock.ideaPlaceLook2'), t('mock.ideaPlaceLook3')]
+  const clauses = story
+    .split(/[，。！？；、,.!?;\n]+/u)
+    .map((c) => c.trim())
+    .filter((c) => c !== '' && !CLAIMISH.test(c))
+  // 每一格的字都不一樣：先用文本裡的句子（第一句留給書名），用完了接示範的畫面描述
+  const shots = [...new Set([...clauses.slice(1), ...IDEA_SHOT_KEYS.map((key) => t(key))])]
+  const lines = IDEA_LINE_KEYS.map((key) => t(key))
+  const cardTexts = IDEA_CARD_KEYS.map((key) => t(key))
+  // 字卡的位置：0 鉤子、1 主張、2～4 三個收穫；放不下就依這個順序少放
+  const priority = [2, 0, 3, 1, 4]
+  // 畫面的數目跟著長度：每 4.5 秒左右一格，至少 4 格（鉤子、主張、各收穫至少一格）、最多 14 格
+  const pictureCount = Math.max(4, Math.min(12, Math.round(targetSec / 4.5)))
+  // 鉤子 1 格、主張 1 格，其餘平分給三個收穫
+  const gainPictures = [0, 0, 0]
+  for (let i = 0; i < pictureCount - 2; i++) gainPictures[i % 3] = (gainPictures[i % 3] ?? 0) + 1
+  const build = (cardCount: number) => {
+    const has = (slot: number): boolean => priority.slice(0, cardCount).includes(slot)
+    const beats: DemoBeat[] = []
+    let n = 0
+    let talked = 0
+    const picture = (segment: string, weight: number, talk: boolean): void => {
+      const i = n++
+      const still = i % 2 === 1
+      beats.push({
+        beatKind: still ? 'still' : 'video',
+        durationSec: weight,
+        segment,
+        description: shots[i % shots.length] ?? t('mock.demoPicture'),
+        cameraMove: still ? (MOTIONS[i % MOTIONS.length] ?? null) : null,
+        cardText: '',
+        // 旁白每句只用一次：句子用完就不再說話
+        clause: talk && narration && talked < lines.length ? (lines[talked++] ?? '') : '',
+        characters: [],
+        // 三個主視覺輪流用：每個都至少用到一次
+        location: places[i % places.length] ?? '',
+      })
+    }
+    const card = (segment: string, weight: number, slot: number): void => {
+      if (!has(slot)) return
+      const text = cardTexts[slot] ?? ''
+      beats.push({
+        beatKind: 'card',
+        durationSec: weight,
+        segment,
+        description: '',
+        cameraMove: null,
+        cardText: text,
+        clause: '',
+        card: { text, subtext: '' },
+      })
+    }
+    picture('hook', 3, false)
+    card('hook', 2.6, 0)
+    picture('claim', 3.5, true)
+    card('claim', 2.6, 1)
+    for (let g = 0; g < 3; g++) {
+      card('gains', 2.6, 2 + g)
+      for (let k = 0; k < (gainPictures[g] ?? 0); k++) picture('gains', 3.5, k % 2 === 0)
+    }
+    beats.push({
+      beatKind: 'title',
+      durationSec: 4,
+      segment: 'title',
+      description: '',
+      cameraMove: null,
+      cardText: '',
+      clause: '',
+    })
+    return beats
+  }
+  const headSec = 3
+  const arrange = (cardCount: number) => {
+    const list = build(cardCount)
+    const rest = fitToTarget(list.slice(1), targetSec - headSec, 24)
+    return { list, fit: { ok: rest.ok, durations: [headSec, ...rest.durations] } }
+  }
+  const maxCards = targetSec >= 25 ? 5 : targetSec >= 20 ? 3 : targetSec >= 15 ? 2 : 1
+  let { list: beats, fit } = arrange(maxCards)
+  for (let c = maxCards - 1; !fit.ok && c >= 0; c--) {
+    ;({ list: beats, fit } = arrange(c))
+  }
+  const out = beats.map((beat, i) => {
+    const sec = fit.durations[i] ?? beat.durationSec
+    const cjk = /\p{Script=Han}/u.test(beat.clause)
+    const max = Math.max(
+      1,
+      Math.floor(sec * (cjk ? NARRATION_MAX_CJK_PER_SEC : NARRATION_MAX_WORDS_PER_SEC)),
+    )
+    const dialogue =
+      beat.clause === '' || textUnits(beat.clause) === 0 ? '' : cut(beat.clause, Math.min(max, 12))
+    return {
+      segment: beat.segment,
+      beatKind: beat.beatKind,
+      durationSec: sec,
+      description: beat.description,
+      action: '',
+      size: i % 3 === 0 ? 'wide' : i % 3 === 1 ? 'medium' : 'full',
+      angle: 'eye_level',
+      cameraMove: beat.cameraMove,
+      characters: [],
+      location: beat.location ?? '',
+      dialogue,
+      cardText: cut(beat.cardText, CARD_MAX_CJK),
+      cardSubtext: '',
+    }
+  })
+  const first = out[0]
+  if (first && story.includes(DEMO_BAD_SCRIPT_MARK)) {
+    out[0] = {
+      ...first,
+      beatKind: 'card',
+      description: '',
+      cardText: cardTexts[1] ?? '',
+      dialogue: '',
+    }
+  }
+  return {
+    title: story === '' ? t('mock.trailerTitle') : cut(clauses[0] ?? t('mock.trailerTitle'), 16),
+    music: t('mock.ideaMusic'),
+    places: places.map((name, i) => ({ name, look: looks[i] ?? '' })),
+    beats: out,
+  }
+}
+
 export function demoTrailerScript(request: LlmRequest): unknown {
   const parsed = parseTrailerRequest(request)
   if (!parsed) return undefined
   const { story, kind, targetSec, narration } = parsed
+  if (kind === 'idea') return demoIdeaScript(story, targetSec, narration)
   const clauses = story
     .split(/[，。！？；、,.!?;\n]+/u)
     .map((c) => c.trim())

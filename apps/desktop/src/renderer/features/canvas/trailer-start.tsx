@@ -148,9 +148,10 @@ export function TrailerStartCard({ onDone }: { onDone?: () => void }) {
             options={[
               { value: 'story', label: t('trailer.kindStory') },
               { value: 'teaser', label: t('trailer.kindTeaser') },
+              { value: 'idea', label: t('trailer.kindIdea') },
             ]}
             onChange={(value) => {
-              setKind(value === 'teaser' ? 'teaser' : 'story')
+              setKind(value === 'teaser' || value === 'idea' ? value : 'story')
             }}
           />
         </div>

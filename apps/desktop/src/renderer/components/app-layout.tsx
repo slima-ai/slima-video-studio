@@ -120,6 +120,8 @@ export interface AppLayoutProps {
   showSlima?: boolean
   /** 目前的專案有預告片設定才顯示「預告片」。 */
   showTrailer?: boolean
+  /** 「場景卡」這一項要顯示的名字（觀點型專案叫「主視覺」）；沒給就用預設。 */
+  locationsLabel?: string | undefined
   /** 最上面一條，每一頁都在（專案名、存檔狀態、模式、花費）。 */
   header?: ReactNode
   /** 整條從右邊滑出的面板（Claude 對話）：占自己的位置，中央區與詳細面板讓出空間，不被蓋住。 */
@@ -137,6 +139,7 @@ export function AppLayout({
   queue,
   showSlima = false,
   showTrailer = false,
+  locationsLabel,
   header,
   drawer,
 }: AppLayoutProps) {
@@ -172,7 +175,7 @@ export function AppLayout({
             ).map(({ label, short, icon, view: target }) => (
               <NavButton
                 key={label.msgKey}
-                label={t(label)}
+                label={target === 'locations' && locationsLabel ? locationsLabel : t(label)}
                 short={short}
                 icon={icon}
                 active={target !== undefined && target === view}
