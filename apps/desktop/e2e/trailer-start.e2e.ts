@@ -193,25 +193,19 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     expect(Math.abs(exportedFrames(userDataDir) - 720)).toBeLessThanOrEqual(1)
     await page.keyboard.press('Escape')
 
-    // 6. 改成 15 秒：自動重排，標籤變 15／15（13 格塞進 15 秒，檢查器會說好幾句旁白念不完；面板不能把畫面頂歪）
+    // 6. 改成 15 秒：這份 14 格的腳本，每格至少 0.75 秒、字卡與片名卡也有最短停留，加起來塞不進 15 秒——
+    // 面板說放不下、只存新的目標（不重排）；標籤變 30／15，接著可以照新長度重寫（面板不能把畫面頂歪）
     const barTop = (await page.getByTestId('canvas-topbar').boundingBox())?.y
     await page.getByTestId('trailer-badge').click()
     await pick(page, 'trailer-panel-length', '15')
-    await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 15／15 秒')
-    expect((await statusOf(page)).matches).toBe(true)
-    // 好幾格旁白念不完：面板不列、也沒有第二顆重寫鈕；那幾格在畫布上標「旁白太長」
-    const badges = (await statusOf(page)).errors.filter((e) => e.code === 'narration_too_dense')
-    expect(badges.length).toBeGreaterThan(1)
-    // 畫布節點上對到的格子數（畫面外的卡不一定畫出來，所以看節點資料）
-    const marked = (await canvasNodes(page)).filter(
-      (n) => (n.data as { narrationTooLong?: boolean }).narrationTooLong === true,
-    )
-    expect(marked).toHaveLength(badges.length)
-    await expect(page.getByTestId('trailer-narration-summary')).toHaveCount(0)
-    await expect(page.getByTestId('trailer-narration-rewrite')).toHaveCount(0)
-    await expect(page.getByTestId('trailer-panel')).not.toContainText('這一格只有')
+    await expect(page.getByTestId('trailer-panel-error')).toContainText('放不下')
+    await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 30／15 秒')
+    const tooLong = await statusOf(page)
+    expect(tooLong.matches).toBe(false)
+    expect(tooLong.targetSec).toBe(15)
+    expect(tooLong.scriptSec).toBeCloseTo(30, 6)
     await expect(page.getByTestId('trailer-rewrite')).toBeEnabled()
-    await shoot(page, testInfo, '05b-narration-overflow.png')
+    await shoot(page, testInfo, '05b-length-too-short.png')
     expect((await page.getByTestId('canvas-topbar').boundingBox())?.y).toBe(barTop)
 
     // 7. 用存著的原文重寫（示範模式不花錢）：已有生成過的格子，先確認；寫完還是 15／15
@@ -294,6 +288,10 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     await page.getByTestId('trailer-text').fill(STORY)
     await page.getByTestId('trailer-go').click()
     await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
+    // 沒填書名：專案名是腳本的片名，不是「預告片」或「我的短片」
+    const title = (await statusOf(page)).settings.title
+    expect(title).not.toBe('')
+    expect((await currentProject(page))?.name).toBe(title)
     await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await expect(page.getByTestId('character-item-draft-小葉')).toHaveText('草稿')
     await expect(page.getByTestId('character-item-draft-老鐘')).toHaveText('草稿')
@@ -311,6 +309,9 @@ test.describe('做預告片：按「全部生成」前提醒還沒確認的角�
     await openCanvas(page)
     await page.getByTestId('trailer-text').fill(STORY)
     await page.getByTestId('trailer-go').click()
+    // 寫完腳本落在預告片頁；「全部生成」在畫布上，先切過去
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
+    await openCanvas(page)
     await expect(page.getByTestId('trailer-badge')).toBeVisible({ timeout: 30_000 })
 
     await page.getByTestId('run-all').click()
@@ -426,7 +427,8 @@ test.describe('做預告片：英文介面與窄視窗', () => {
     page,
   }, testInfo) => {
     await openCanvas(page)
-    // 一開始照專案：橫式亮著
+    // 還沒有專案：預設橫式亮著
+    expect(await currentProject(page)).toBeNull()
     await expect(page.getByTestId('trailer-aspect-landscape')).toHaveAttribute(
       'aria-checked',
       'true',
@@ -436,13 +438,17 @@ test.describe('做預告片：英文介面與窄視窗', () => {
       'aria-checked',
       'true',
     )
-    await expect.poll(async () => (await currentProject(page))?.aspectRatio).toBe('9:16')
+    // 寫腳本才建專案（失敗不留空專案），所以選了直式先記著，這時還沒有專案
+    expect(await currentProject(page)).toBeNull()
     await page.getByTestId('trailer-text').fill(STORY)
     await shoot(page, testInfo, '15-start-card-portrait.png')
 
     await page.getByTestId('trailer-go').click()
+    // 寫完腳本落在預告片頁；設定面板在畫布上，先切過去
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
+    await expect.poll(async () => (await currentProject(page))?.aspectRatio).toBe('9:16')
+    await openCanvas(page)
     await expect(page.getByTestId('trailer-badge')).toBeVisible({ timeout: 30_000 })
-    expect((await currentProject(page))?.aspectRatio).toBe('9:16')
 
     // 設定面板：直式亮著、有一句「已經做好的不會跟著變」；點橫式改回 16:9
     await page.getByTestId('trailer-badge').click()
