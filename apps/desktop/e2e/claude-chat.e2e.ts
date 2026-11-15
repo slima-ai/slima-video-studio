@@ -1,9 +1,10 @@
 import type { Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { kindCount } from './canvas-helpers'
 import { expect, test } from './fixtures'
@@ -488,8 +489,28 @@ test.describe('Claude 對話：還不能用時', () => {
 })
 
 // 「正在檢查」不閃：結果很快回來就不出現；拖過約 0.4 秒才出現。檢查什麼時候有結果，由測試用「檔案出現」決定，不靠真的等
-const SLOW_CLAUDE = join(__dirname, 'fake-claude/claude-slow-check.mjs')
-const GATE_FILE = join(tmpdir(), 'svs-e2e-fake-claude-check-gate') // 跟 claude-slow-check.mjs 約定的同一個路徑
+const SLOW_SOURCE = join(__dirname, 'fake-claude/claude-slow-check.mjs')
+/**
+ * 每個 worker 一份自己的「慢檢查」假 claude 與閘門檔：閘門檔放在轉接檔旁邊（claude-slow-check.mjs 照啟動它的檔找）。
+ * 以前兩條測試共用 tmpdir 裡同一個固定路徑，fullyParallel 把它們排到不同 worker 時，
+ * 一條放行會讓另一條的檢查提早有結果，「正在檢查」就一直沒出現。
+ */
+function slowClaude(): { bin: string; gate: string; dir: string } {
+  const dir = mkdtempSync(join(tmpdir(), 'svs-e2e-slow-claude-'))
+  const bin = join(dir, 'claude.mjs')
+  writeFileSync(
+    bin,
+    `#!/usr/bin/env node\nawait import(${JSON.stringify(pathToFileURL(SLOW_SOURCE).href)})\n`,
+    { mode: 0o755 },
+  )
+  return { bin, gate: join(dir, 'check-gate'), dir }
+}
+const SLOW = slowClaude()
+const SLOW_CLAUDE = SLOW.bin
+const GATE_FILE = SLOW.gate
+test.afterAll(() => {
+  rmSync(SLOW.dir, { recursive: true, force: true })
+})
 const watchChecking = (page: Page) =>
   page.evaluate(() => {
     const w = window as unknown as { __checkingSeen?: boolean }
