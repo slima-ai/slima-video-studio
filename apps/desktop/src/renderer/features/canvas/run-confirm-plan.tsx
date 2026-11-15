@@ -1,5 +1,7 @@
 import type { CanvasRunPlan, ModelTier } from '@svs/schema'
 
+import { Button } from '../../components/button'
+import { useAppNavigation } from '../../lib/app-navigation'
 import { cn } from '../../lib/cn'
 import { RunConfirm, type ConfirmAnchor } from './run-confirm'
 import { t, msg, type MessageRef } from '@svs/schema'
@@ -175,6 +177,52 @@ export function runLines(plan: CanvasRunPlan): string[] {
   return [...runStepLines(plan), ...runPinnedLines(plan)]
 }
 
+/**
+ * 預告片專案：這次要生畫面的鏡頭用到的角色、場景卡還沒確認（鎖定）時，確認視窗放一行提醒與〔先確認〕。
+ * 沒鎖定的長相不會帶進提示，每一鏡各畫各的。「先確認」關掉視窗（不生成、不花錢）並帶去角色頁（有角色沒確認）或場景卡頁。
+ */
+export function unconfirmedText(unconfirmed: NonNullable<CanvasRunPlan['unconfirmed']>): string {
+  const characters = t('canvas.unconfirmedCharacters', { count: unconfirmed.characters })
+  const locations = t('canvas.unconfirmedLocations', { count: unconfirmed.locations })
+  const what =
+    unconfirmed.characters > 0 && unconfirmed.locations > 0
+      ? t('canvas.unconfirmedBoth', { characters, locations })
+      : unconfirmed.characters > 0
+        ? characters
+        : locations
+  return t('canvas.unconfirmedNote', { what })
+}
+
+function UnconfirmedNote({
+  unconfirmed,
+  onCancel,
+}: {
+  unconfirmed: NonNullable<CanvasRunPlan['unconfirmed']>
+  onCancel: () => void
+}) {
+  const nav = useAppNavigation()
+  return (
+    <div
+      className="flex items-center justify-between gap-2 rounded-md bg-warning/10 px-2.5 py-1.5 text-sm"
+      data-testid="run-confirm-unconfirmed"
+    >
+      <span className="min-w-0 text-warning">{unconfirmedText(unconfirmed)}</span>
+      <Button
+        size="sm"
+        variant="secondary"
+        className="shrink-0 whitespace-nowrap"
+        data-testid="run-confirm-go-confirm"
+        onClick={() => {
+          onCancel()
+          nav.openView(unconfirmed.characters > 0 ? 'characters' : 'locations')
+        }}
+      >
+        {t('canvas.confirmFirst')}
+      </Button>
+    </div>
+  )
+}
+
 /** 執行的花費確認：列出這次會跑的每一步（已經有結果的不在裡面），預估花費。 */
 export function RunPlanConfirm({
   plan,
@@ -222,9 +270,13 @@ export function RunPlanConfirm({
   ) : null
   const qualitySwitch =
     onQuality && plan.shotCount > 0 ? <QualitySwitch value={quality} onChange={onQuality} /> : null
+  const unconfirmedNote = plan.unconfirmed ? (
+    <UnconfirmedNote unconfirmed={plan.unconfirmed} onCancel={onCancel} />
+  ) : null
   const extra =
-    soundNote || qualitySwitch ? (
+    unconfirmedNote || soundNote || qualitySwitch ? (
       <>
+        {unconfirmedNote}
         {soundNote}
         {qualitySwitch}
       </>

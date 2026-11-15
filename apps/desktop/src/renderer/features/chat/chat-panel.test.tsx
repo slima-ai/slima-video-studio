@@ -98,6 +98,7 @@ function setup(
       value={{
         openSettings: options.openSettings ?? (() => undefined),
         openTrailer: () => undefined,
+        openView: () => undefined,
       }}
     >
       <ChatProvider>

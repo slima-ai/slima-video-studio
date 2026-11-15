@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installFakeSvs } from '../../test/fake-svs'
 import { TopBar } from './chrome'
 import { RunAllMenu } from './run-all-menu'
+import { AppNavigationProvider } from '../../lib/app-navigation'
 import { RunPlanConfirm } from './run-confirm-plan'
 
 afterEach(() => {
@@ -31,6 +32,83 @@ const plan = (patch: Partial<CanvasRunPlan> = {}): CanvasRunPlan => ({
 })
 
 const anchor = { left: 360, right: 400, top: 100, bottom: 130 }
+
+describe('RunPlanConfirm：還沒確認的角色與場景（預告片專案）', () => {
+  const view = (
+    unconfirmed: CanvasRunPlan['unconfirmed'],
+    options: { onCancel?: () => void; openView?: (view: 'characters' | 'locations') => void } = {},
+  ) =>
+    render(
+      <AppNavigationProvider
+        value={{ openSettings: vi.fn(), openView: options.openView ?? vi.fn() }}
+      >
+        <RunPlanConfirm
+          plan={plan(unconfirmed ? { unconfirmed } : {})}
+          anchor={anchor}
+          onOk={vi.fn()}
+          onCancel={options.onCancel ?? vi.fn()}
+        />
+      </AppNavigationProvider>,
+    )
+
+  it('角色和場景都有：「3 個角色、2 個場景還沒確認，每一鏡的長相可能不一樣。」＋〔先確認〕', () => {
+    view({ characters: 3, locations: 2 })
+    expect(screen.getByTestId('run-confirm-unconfirmed').textContent).toContain(
+      '3 個角色、2 個場景還沒確認，每一鏡的長相可能不一樣。',
+    )
+    expect(screen.getByTestId('run-confirm-go-confirm').textContent).toBe('先確認')
+  })
+
+  it('只有一種的時候只寫那一種', () => {
+    view({ characters: 2, locations: 0 })
+    const text = screen.getByTestId('run-confirm-unconfirmed').textContent
+    expect(text).toContain('2 個角色還沒確認，每一鏡的長相可能不一樣。')
+    expect(text).not.toContain('場景')
+    cleanup()
+    view({ characters: 0, locations: 1 })
+    const only = screen.getByTestId('run-confirm-unconfirmed').textContent
+    expect(only).toContain('1 個場景還沒確認，每一鏡的長相可能不一樣。')
+    expect(only).not.toContain('角色')
+  })
+
+  it('沒有 unconfirmed（一般專案、全部確認了、這次不生畫面）：不出現', () => {
+    view(undefined)
+    expect(screen.queryByTestId('run-confirm-unconfirmed')).toBeNull()
+    expect(screen.queryByTestId('run-confirm-go-confirm')).toBeNull()
+  })
+
+  it('一直放在不跟著清單捲動的那一區（不在步驟清單裡），按「生成」的鈕也還在', () => {
+    view({ characters: 1, locations: 1 })
+    const steps = screen.getByTestId('run-confirm-steps')
+    expect(steps.contains(screen.getByTestId('run-confirm-unconfirmed'))).toBe(false)
+    expect(screen.getByTestId('run-confirm-ok')).toBeTruthy()
+  })
+
+  it('按〔先確認〕：關掉視窗（呼叫取消，不開始生成）；有角色沒確認就去角色頁', () => {
+    const onCancel = vi.fn()
+    const openView = vi.fn()
+    view({ characters: 2, locations: 2 }, { onCancel, openView })
+    fireEvent.click(screen.getByTestId('run-confirm-go-confirm'))
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(openView).toHaveBeenCalledWith('characters')
+  })
+
+  it('只剩場景沒確認：去場景卡頁', () => {
+    const openView = vi.fn()
+    view({ characters: 0, locations: 2 }, { openView })
+    fireEvent.click(screen.getByTestId('run-confirm-go-confirm'))
+    expect(openView).toHaveBeenCalledWith('locations')
+  })
+
+  it('英文：單數與複數、「Confirm first」', () => {
+    setLocale('en')
+    view({ characters: 1, locations: 2 })
+    expect(screen.getByTestId('run-confirm-unconfirmed').textContent).toContain(
+      '1 character and 2 locations not confirmed yet, so each shot may look different.',
+    )
+    expect(screen.getByTestId('run-confirm-go-confirm').textContent).toBe('Confirm first')
+  })
+})
 
 describe('RunPlanConfirm', () => {
   it('列出這次會做的每一步、用的模型和預估花費', () => {

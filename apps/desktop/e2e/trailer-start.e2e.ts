@@ -304,6 +304,50 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
   })
 })
 
+test.describe('做預告片：按「全部生成」前提醒還沒確認的角色與場景卡', () => {
+  test('確認視窗有一行提醒；按〔先確認〕去角色頁、沒開始生成；全部鎖定後再按，那一行不見', async ({
+    page,
+  }, testInfo) => {
+    await openCanvas(page)
+    await page.getByTestId('trailer-text').fill(STORY)
+    await page.getByTestId('trailer-go').click()
+    await expect(page.getByTestId('trailer-badge')).toBeVisible({ timeout: 30_000 })
+
+    await page.getByTestId('run-all').click()
+    await expect(page.getByTestId('run-confirm-unconfirmed')).toContainText(
+      '2 個角色、2 個場景還沒確認，每一鏡的長相可能不一樣。',
+    )
+    await shoot(page, testInfo, '11-confirm-unconfirmed-line.png')
+    await page.getByTestId('run-confirm-go-confirm').click()
+    await expect(page.getByTestId('characters-page')).toBeVisible()
+    await expect(page.getByTestId('run-confirm')).toHaveCount(0)
+    // 沒有開始生成：每一鏡都還沒有首幀與影片
+    expect(
+      (await shotsOf(page)).every(
+        (shot) => shot.firstFrames.length === 0 && shot.videos.length === 0,
+      ),
+    ).toBe(true)
+
+    // 角色與場景卡都鎖定（草稿已經有外觀，一步就能鎖；場景卡不用先挑主圖）
+    for (const name of ['小葉', '老鐘']) {
+      await page.getByTestId(`character-item-${name}`).click()
+      await page.getByTestId('character-anchor-lock').click()
+      await expect(page.getByTestId(`character-item-lock-${name}`)).toBeVisible()
+    }
+    await page.getByRole('button', { name: '場景卡', exact: true }).click()
+    for (const name of ['斷橋', '河岸']) {
+      await page.getByTestId(`location-item-${name}`).click()
+      await page.getByTestId('location-lock').click()
+      await expect(page.getByTestId('location-status')).toContainText('已鎖定')
+    }
+
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
+    await page.getByTestId('run-all').click()
+    await expect(page.getByTestId('run-confirm')).toBeVisible()
+    await expect(page.getByTestId('run-confirm-unconfirmed')).toHaveCount(0)
+  })
+})
+
 const HAN_OR_FULLWIDTH = /[㐀-鿿，。：；（）、！？「」・]/u
 
 test.describe('做預告片：英文介面與窄視窗', () => {

@@ -5,11 +5,14 @@ export interface AppNavigation {
   openSettings: () => void
   /** 去「預告片」頁（寫完腳本之後）。 */
   openTrailer: () => void
+  /** 帶去角色頁或場景卡頁（生成前的「先確認」用）。 */
+  openView: (view: 'characters' | 'locations') => void
 }
 
 const NONE: AppNavigation = {
   openSettings: () => undefined,
   openTrailer: () => undefined,
+  openView: () => undefined,
 }
 
 const AppNavigationContext = createContext<AppNavigation>(NONE)
