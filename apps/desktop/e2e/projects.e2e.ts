@@ -157,6 +157,37 @@ test.describe('另存為與儲存提示（示範模式）', () => {
 test.describe('首頁（不帶 SVS_DISABLE_HOME、不跳過引導：真正的第一次開啟）', () => {
   test.use({ appEnv: { SVS_DISABLE_HOME: '', SVS_DISABLE_ONBOARDING: '' } })
 
+  test('首頁第一張大卡是「做預告片」：貼文字寫腳本進新專案；開著別的專案時寫進另一個新專案、舊的還在', async ({
+    page,
+  }) => {
+    const STORY =
+      '黑藤爬滿了斷橋。她一個人守著最後一盞燈，直到有人敲門。門外的人說，他來自河的另一邊。'
+    await page.getByTestId('wizard-demo').click()
+    await expect(page.getByTestId('home-page')).toBeVisible()
+    // 大卡在「新專案」「開啟舊專案」上面
+    const card = await page.getByTestId('home-trailer').boundingBox()
+    const next = await page.getByTestId('home-new').boundingBox()
+    expect(card && next && card.y < next.y).toBe(true)
+
+    await page.getByTestId('trailer-text').fill(STORY)
+    await page.getByTestId('trailer-title').fill('斷橋')
+    await page.getByTestId('trailer-go').click()
+    await expect(page.getByTestId('trailer-badge')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('project-name')).toHaveText('斷橋')
+
+    // 從專案選單回首頁：開著「斷橋」；再做一支預告片，寫進另一個新專案，「斷橋」留在最近的專案
+    await page.getByTestId('project-menu-button').click()
+    await page.getByTestId('menu-home').click()
+    await expect(page.getByTestId('home-current')).toContainText('斷橋')
+    await page.getByTestId('trailer-text').fill(STORY)
+    await page.getByTestId('trailer-title').fill('第二本')
+    await page.getByTestId('trailer-go').click()
+    await expect(page.getByTestId('project-name')).toHaveText('第二本', { timeout: 30_000 })
+    await page.getByTestId('project-menu-button').click()
+    await page.getByTestId('menu-home').click()
+    await expect(page.getByTestId('home-recent').filter({ hasText: '斷橋' })).toHaveCount(1)
+  })
+
   test('第一次開啟：引導之後先到首頁，建新專案進畫布；專案選單的「首頁」回得來，最近的專案找不到時標出來並可以移除', async ({
     page,
     userDataDir,

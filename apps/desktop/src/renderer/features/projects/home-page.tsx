@@ -7,6 +7,7 @@ import { Button } from '../../components/button'
 import { Page } from '../../components/page'
 import { call, errorText } from '../../lib/svs'
 import { timeAgo } from '../../lib/usage'
+import { TrailerStartCard } from '../canvas/trailer-start'
 import { NewProjectDialog } from './new-project-dialog'
 import { t } from '@svs/schema'
 
@@ -25,6 +26,8 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
   const [creating, setCreating] = useState(false)
+  // 寫腳本前關掉的專案：寫失敗時卡片上有「重新打開」
+  const [closed, setClosed] = useState<{ name: string; dir: string }>()
 
   const load = useCallback((): void => {
     call('project.recent', {})
@@ -73,6 +76,36 @@ export function HomePage({ onNavigate }: { onNavigate: (view: AppView) => void }
             }}
           />
         ) : null}
+
+        {/* 第一張大卡：貼一本書的文字，一顆按鈕寫腳本。開著別的專案時，腳本寫進新專案（先關掉舊的） */}
+        <section data-testid="home-trailer" aria-label={t('trailer.start.title')}>
+          <TrailerStartCard
+            wide
+            onDone={() => {
+              onNavigate('canvas')
+            }}
+            {...(current
+              ? {
+                  beforePlan: async () => {
+                    await call('project.close', {})
+                    setClosed({ name: current.name, dir: current.dir })
+                    load()
+                  },
+                }
+              : {})}
+            {...(closed
+              ? {
+                  restore: {
+                    name: closed.name,
+                    reopen: async () => {
+                      await call('project.openRecent', { dir: closed.dir })
+                      onNavigate('canvas')
+                    },
+                  },
+                }
+              : {})}
+          />
+        </section>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <button
