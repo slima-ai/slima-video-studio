@@ -80,6 +80,8 @@ export function App() {
   }, [])
   const slima = useSlimaStatus()
   const trailer = useTrailerStatus()
+  // 觀點型預告片專案：導覽列的「場景卡」叫「主視覺」
+  const ideaProject = trailer.status?.exists === true && trailer.status.settings.kind === 'idea'
   // 這個專案沒有預告片設定（換了專案、或設定被清掉）時，不停在預告片頁
   const page: AppView =
     view === 'trailer' && trailer.status?.exists === false ? 'canvas' : (view ?? 'canvas')
@@ -111,7 +113,7 @@ export function App() {
 
   return (
     <ToastProvider>
-      <AppNavigationProvider value={{ openSettings, openTrailer }}>
+      <AppNavigationProvider value={{ openSettings, openTrailer, openView: setView }}>
         <ModelNotices onOpenSettings={openSettings} />
         <CostReconcileNotice
           onOpenRecords={() => {
@@ -125,9 +127,10 @@ export function App() {
             }
           >
             <AppLayout
-              drawer={page === 'canvas' ? <ChatDrawer /> : undefined}
+              drawer={page === 'canvas' || page === 'trailer' ? <ChatDrawer /> : undefined}
               view={page}
               onNavigate={setView}
+              locationsLabel={ideaProject ? t('trailer.visuals') : undefined}
               queue={<QueuePanel />}
               showSlima={slima !== undefined && slima.state !== 'no_token'}
               showTrailer={trailer.status?.exists === true}
