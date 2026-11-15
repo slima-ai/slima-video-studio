@@ -1,4 +1,5 @@
 import {
+  MIN_BEAT_SEC,
   TRAILER_TEMPLATES,
   TrailerKindSchema,
   TrailerSettingsPatchSchema,
@@ -250,7 +251,7 @@ export function registerTrailerTools(ctx: ToolContext): void {
       subtext: z.string().trim().max(100).default('').describe('A smaller second line (optional)'),
       durationSec: z
         .number()
-        .min(0.25)
+        .min(MIN_BEAT_SEC)
         .max(15)
         .optional()
         .describe('Seconds on screen (default: the shortest hold time for this text)'),

@@ -2,7 +2,12 @@ import { z } from 'zod'
 
 import { CAMERA_MOVE_IDS } from './camera'
 import { ShotAngleSchema, ShotSizeSchema } from './story'
-import { BeatKindSchema, TrailerSettingsPatchSchema, TrailerSettingsSchema } from './trailer'
+import {
+  BeatKindSchema,
+  MIN_BEAT_SEC,
+  TrailerSettingsPatchSchema,
+  TrailerSettingsSchema,
+} from './trailer'
 
 // 預告片腳本（T5）：寫腳本的 AI 輸出的格式，以及預告片服務的請求與回應。
 
@@ -138,7 +143,7 @@ export const TrailerAddCardRequestSchema = z.object({
   afterShotId: z.string().min(1),
   text: z.string().trim().min(1).max(100),
   subtext: z.string().trim().max(100).default(''),
-  durationSec: z.number().min(0.25).max(15).optional(),
+  durationSec: z.number().min(MIN_BEAT_SEC).max(15).optional(),
 })
 export type TrailerAddCardRequest = z.input<typeof TrailerAddCardRequestSchema>
 

@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { ContentHashSchema, IdSchema, IsoDateTimeSchema } from './common'
 import { ShotAngleSchema, ShotSizeSchema, ShotStatusSchema, TakeKindSchema } from './story'
-import { BeatKindSchema, ShotCardSchema } from './trailer'
+import { BeatKindSchema, MIN_BEAT_SEC, ShotCardSchema } from './trailer'
 import { TrimSchema } from './trim'
 
 /** 一個鏡頭的生成結果版本（首幀圖或影片）。 */
@@ -119,8 +119,8 @@ export const ShotEditSchema = z.object({
   /** 空字串代表清掉。 */
   endDescription: z.string().max(1000).optional(),
   cameraMove: z.string().max(100).nullable().optional(),
-  // 預告片的格子可以短到 0.25 秒（一般鏡頭的面板與分鏡表自己還是 1～15 秒）
-  durationSec: z.number().min(0.25).max(15).optional(),
+  // 預告片的格子可以短到 0.75 秒（一般鏡頭的面板與分鏡表自己還是 1～15 秒）
+  durationSec: z.number().min(MIN_BEAT_SEC).max(15).optional(),
   prompt: z.string().max(4000).nullable().optional(),
   size: ShotSizeSchema.optional(),
   angle: ShotAngleSchema.optional(),
