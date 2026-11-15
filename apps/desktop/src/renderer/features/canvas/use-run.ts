@@ -219,6 +219,8 @@ export interface PendingCost {
   joinOnly: boolean
   /** 「生成空的」會做幾個步驟（首幀與影片各算一步，接成品不算）。 */
   steps: number
+  /** 示範模式：不會花錢，按鈕上不寫金額。 */
+  demo: boolean
 }
 
 /**
@@ -235,10 +237,11 @@ export function usePendingCost(
     done: false,
     joinOnly: false,
     steps: 0,
+    demo: false,
   })
   useEffect(() => {
     if (!hasShots) {
-      setCost({ usd: undefined, done: false, joinOnly: false, steps: 0 })
+      setCost({ usd: undefined, done: false, joinOnly: false, steps: 0, demo: false })
       return
     }
     let alive = true
@@ -254,12 +257,14 @@ export function usePendingCost(
                   joinOnly:
                     plan.steps.length > 0 && plan.steps.every((step) => step.kind === 'cut'),
                   steps: plan.steps.filter((step) => step.kind !== 'cut').length,
+                  demo: plan.demoMode,
                 }
-              : { usd: undefined, done: false, joinOnly: false, steps: 0 },
+              : { usd: undefined, done: false, joinOnly: false, steps: 0, demo: false },
           )
         })
         .catch(() => {
-          if (alive) setCost({ usd: undefined, done: false, joinOnly: false, steps: 0 })
+          if (alive)
+            setCost({ usd: undefined, done: false, joinOnly: false, steps: 0, demo: false })
         })
     }, 300)
     return () => {

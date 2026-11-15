@@ -26,11 +26,13 @@ async function centerOf(page: Page, testId: string): Promise<{ x: number; y: num
 }
 
 test.describe('畫布的回饋（示範模式）', () => {
-  test('上方列：已花多少、復原與重做旁有步數；「整理」讓拖過的鏡頭回到排好的位置，可以復原', async ({
+  test('上方列：示範模式沒有已花、復原與重做旁有步數；「整理」讓拖過的鏡頭回到排好的位置，可以復原', async ({
     page,
   }) => {
     await generateAndOpenCanvas(page)
-    await expect(page.getByTestId('spent')).toHaveText('已花 US$0.00')
+    // 示範模式不花錢：沒有「已花 US$0.00」，只有「示範模式」那顆
+    await expect(page.getByTestId('mode-badge')).toHaveText('示範模式')
+    await expect(page.getByTestId('spent')).toHaveCount(0)
     const [shot] = (await canvasNodes(page)).filter((n) => n.data.kind === 'shot')
     if (!shot) throw new Error('沒有鏡頭')
     const home = shot.position

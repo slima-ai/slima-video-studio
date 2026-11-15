@@ -331,6 +331,7 @@ describe('RunPlanConfirm', () => {
 describe('TopBar 全部生成', () => {
   const bar = (props: {
     pendingCostUsd?: number | undefined
+    pendingDemo?: boolean
     allDone?: boolean
     joinOnly?: boolean
     fillSteps?: number
@@ -348,6 +349,25 @@ describe('TopBar 全部生成', () => {
     expect(onRunAll).toHaveBeenCalledTimes(1)
     const [anchor] = onRunAll.mock.calls[0] as [{ right: number; top: number; bottom: number }]
     expect(typeof anchor.right).toBe('number')
+  })
+
+  it('示範模式：不會花錢，按鈕只寫幾步、沒有金額（中英文都是）；真模式照舊有金額', () => {
+    bar({ pendingCostUsd: 0.69, pendingDemo: true, fillSteps: 22, onRunAll: vi.fn() })
+    expect(screen.getByTestId('run-all').textContent).toBe('生成空的（22 步）')
+    cleanup()
+    setLocale('en')
+    try {
+      bar({ pendingCostUsd: 0.16, pendingDemo: true, fillSteps: 1, onRunAll: vi.fn() })
+      expect(screen.getByTestId('run-all').textContent).toBe('Generate what’s empty (1 step)')
+      cleanup()
+      bar({ pendingCostUsd: 0.69, pendingDemo: true, fillSteps: 22, onRunAll: vi.fn() })
+      expect(screen.getByTestId('run-all').textContent).toBe('Generate what’s empty (22 steps)')
+    } finally {
+      setLocale(DEFAULT_LOCALE)
+    }
+    cleanup()
+    bar({ pendingCostUsd: 0.69, pendingDemo: false, fillSteps: 22, onRunAll: vi.fn() })
+    expect(screen.getByTestId('run-all').textContent).toBe('生成空的（22 步，約 US$0.69）')
   })
 
   it('素材都好了、只剩接成品：按鈕寫「接成成品」，可以按', () => {

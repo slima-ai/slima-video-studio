@@ -48,6 +48,21 @@ describe('ProjectBar：每頁最上面的專案列', () => {
     expect(spent.getAttribute('title')).toContain('含沒寫成的腳本 US$0.74')
   })
 
+  it('示範模式還沒花過錢：不顯示「已花 US$0.00」；花過的（例如以前用真模式）照舊顯示；真模式 0 元也顯示', async () => {
+    installFakeSvs({ 'project.status': () => status({ spentUsd: 0 }) })
+    const first = render(<ProjectBar onNavigate={vi.fn()} demoMode />)
+    await screen.findByTestId('save-status')
+    expect(screen.queryByTestId('spent')).toBeNull()
+    first.unmount()
+    installFakeSvs({ 'project.status': () => status({ spentUsd: 0.5 }) })
+    const second = render(<ProjectBar onNavigate={vi.fn()} demoMode />)
+    expect((await screen.findByTestId('spent')).textContent).toBe('已花 US$0.50')
+    second.unmount()
+    installFakeSvs({ 'project.status': () => status({ spentUsd: 0 }) })
+    render(<ProjectBar onNavigate={vi.fn()} demoMode={false} hasKey />)
+    expect((await screen.findByTestId('spent')).textContent).toBe('已花 US$0.00')
+  })
+
   it('沒有專案：寫「還沒有專案」（不是「未命名專案」），不能改名，沒有存檔狀態也沒有花費', async () => {
     const fake = installFakeSvs({ 'project.status': () => null })
     render(<ProjectBar onNavigate={vi.fn()} demoMode />)
