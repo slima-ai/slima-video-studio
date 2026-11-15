@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 
+import { breakText } from './break-text'
+
 import {
-  breakOverlayText,
   cardSizeFor,
   creditsHtml,
   escapeHtml,
@@ -275,7 +276,7 @@ describe('titleCardHtml：片名卡', () => {
   })
 })
 
-describe('breakOverlayText：疊字自己斷行（不留孤字）', () => {
+describe('breakText：疊字自己斷行（不留孤字）', () => {
   const landscape = { perLine: 12, maxLines: 2 }
   const portrait = { perLine: 9, maxLines: 3 }
   const cases: [string, string, typeof landscape, string[]][] = [
@@ -324,7 +325,7 @@ describe('breakOverlayText：疊字自己斷行（不留孤字）', () => {
   ]
   for (const [name, text, opts, expected] of cases) {
     it(name, () => {
-      expect(breakOverlayText(text, opts)).toEqual(expected)
+      expect(breakText(text, opts)).toEqual(expected)
     })
   }
 
@@ -337,7 +338,7 @@ describe('breakOverlayText：疊字自己斷行（不留孤字）', () => {
     ]
     for (const text of samples) {
       for (const opts of [landscape, portrait]) {
-        const lines = breakOverlayText(text, opts)
+        const lines = breakText(text, opts)
         expect(lines.length, text).toBeLessThanOrEqual(opts.maxLines)
         for (const line of lines) {
           if (lines.length > 1)
@@ -349,10 +350,10 @@ describe('breakOverlayText：疊字自己斷行（不留孤字）', () => {
   })
 
   it('英文：照單字斷，兩行盡量平均；一行放得下就一行', () => {
-    expect(breakOverlayText('Focus beats busyness', landscape)).toEqual(['Focus beats busyness'])
-    expect(
-      breakOverlayText('Do the one thing that matters most before anything else', landscape),
-    ).toEqual(['Do the one thing that matters', 'most before anything else'])
+    expect(breakText('Focus beats busyness', landscape)).toEqual(['Focus beats busyness'])
+    expect(breakText('Do the one thing that matters most before anything else', landscape)).toEqual(
+      ['Do the one thing that matters', 'most before anything else'],
+    )
   })
 })
 
