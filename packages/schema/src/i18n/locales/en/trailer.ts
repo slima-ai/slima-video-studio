@@ -60,6 +60,16 @@ export const trailer = {
     'The title card stays {sec} seconds; keep it to {max} seconds or less.',
   'trailer.warnBeatHoldTooLong':
     'Shot {n} stays {sec} seconds; keep it to {max} seconds or less, or it looks frozen.',
+  'trailer.ruleOverlayWrongKind':
+    'Shot {n} has text over the picture but it is not a still shot; text over the picture can only be on a still shot.',
+  'trailer.ruleOverlayTooLong':
+    'The text over the picture in shot {n} has {units} units; the limit is {limit}. Do not cut the words: write a shorter line, or drop the overlay.',
+  'trailer.ruleOverlayShortStay':
+    'Shot {n} has text over the picture but stays only {sec} seconds; it needs at least {min} seconds (the text fades in, and people need a moment with the picture).',
+  'trailer.ruleOverlayNarration':
+    'Narration is on in shot {n}: it must read the line over the picture word for word. It can also be left empty.',
+  'trailer.warnManyBlackCards':
+    'There are {count} black text cards; keep it to {max} or fewer. Put the lines people should remember over the pictures instead.',
   'trailer.ruleNoEscalation':
     'The last third isn’t shorter than the first (average {last} seconds against {first} seconds).',
   'trailer.beatVideo': 'Moving',
@@ -87,6 +97,12 @@ export const trailer = {
   'trailer.fixCardCut': 'The text card in shot {n} was too long and has been shortened.',
   'trailer.fixNarrationRemoved':
     'The narration in shot {n} was removed (this trailer has no narration, or the shot is not a picture).',
+  'trailer.fixOverlayWrongKind':
+    'Shot {n} is not a still shot, so the text over the picture was removed.',
+  'trailer.fixOverlayTooLong':
+    'The text over the picture in shot {n} was too long and was removed as a whole (words are never cut: a cut line is no longer that line).',
+  'trailer.fixOverlayNarration':
+    'The narration of shot {n} was changed to the line over the picture.',
   'trailer.fixNarrationCut':
     'The narration in shot {n} was too long and has been cut to one sentence.',
   'trailer.fixMovingToStill':

@@ -57,9 +57,9 @@ const GOLDEN: Record<string, string> = {
   '寫預告片腳本：角色外觀的要求（people）':
     '67c4c0905b7da0178d2aa6d9d867624bf367dc45eb0ca6600917c6d3e234e37e',
   '寫預告片腳本 system prompt：觀點型 30 秒、沒有推薦語、有作者':
-    '663d62b1bacb75ae978ce29f29cfd9c9404faf14b3d84ea653254462b627c2b4',
+    '137ec68535c014a3afe7c6da6b6f2474cb9c62e98c1a73a8f15eb3ba5cbe4358',
   '寫預告片腳本 system prompt：觀點型 60 秒、有推薦語、沒有作者、不要旁白':
-    'bb84f78b350d9555da2e1e2837937d4a2616d310b2d0269f7e78fbede35ba0ea',
+    'a17acb561a9c6575bedab21bf7afeff608ded76a6d46068227ba9218d2db0a14',
   '配樂描述：觀點型（不停一拍、單一樂器、片名進來時加一層）':
     '1059fd11a119db6f5495efeebf3791492ffacfd410f68741c81d1648f1b14263',
   '寫預告片腳本：地點外觀的要求（只寫地方本身，不寫人與動作）':
@@ -99,6 +99,8 @@ const GOLDEN: Record<string, string> = {
   '場景角度：反方向': '497b6619bd280d1c8788358004188bb3b05a97ab1f0d3c8e0b530852b211c330',
   '場景角度：拉遠': '5da7439c30a45cc05b60eca68d9beb9d5da920b3e1d5e270bfe1ef26044c9b81',
   '尾幀（英文）': '84ad32aae76f277c134a6742089299202f921b76a94ff9094ade5d3ff366b9af',
+  'shot：有疊字（橫式與直式）：圖的下半部留給字':
+    '36ac863f6a6a219beb2277fd888ddf635359c4a5e66066ab40b5ea6626bb62fa',
   參考圖後綴: '20da9d8b4cadead856c7a24261814553059832c5deeb0fc32f790332d5224e7e',
   '滿版後綴 16:9': '0b54512bd810add7f6a7866cb461aa9989263b7d7dc1b393085e366972880a9a',
   '滿版後綴 9:16': '3b51cb883c74b465c9baf4e8dc1a504466d576b04d9886505e7e485759329872',
@@ -142,6 +144,10 @@ const hero = { hash: 'a'.repeat(64), kind: 'image' as const, mime: 'image/png', 
 const OUTPUTS: Record<string, () => unknown> = {
   'shot：簡單': () => composeShotPrompts(shot({ characters: [], mood: '' }), 'realistic'),
   'shot：角色、氣氛、外觀、場景': () => composeShotPrompts(shot(), 'anime', anchors, scenes),
+  'shot：有疊字（橫式與直式）：圖的下半部留給字': () => [
+    composeShotPrompts(shot({ overlay: 'wide' }), 'anime', anchors, scenes).imagePrompt,
+    composeShotPrompts(shot({ overlay: 'tall' }), 'anime', anchors, scenes).imagePrompt,
+  ],
   'shot：有動作（影片 Prompt 以動作開頭，帶角色限制）': () =>
     composeShotPrompts(shot({ action: '他推開門。' }), 'watercolor', anchors, scenes),
   'shot：使用者改過 Prompt': () => composeShotPrompts(shot({ promptOverride: '自己寫的' }), '3d'),

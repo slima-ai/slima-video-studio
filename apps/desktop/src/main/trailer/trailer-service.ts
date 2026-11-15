@@ -152,6 +152,7 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
           ? { dialogue: shot.dialogue }
           : {}),
         ...(shot.beatKind === 'card' && shot.card ? { card: shot.card } : {}),
+        ...(shot.overlay ? { overlay: shot.overlay } : {}),
         // 段落存在鏡頭上：跟寫腳本當下用同一套檢查（「懸念」那一格不算進節奏）
         ...(shot.segment === undefined ? {} : { segment: shot.segment }),
         // 觀點型數「主視覺」有幾個：用場景卡的 id（同一張卡就是同一個）
@@ -415,6 +416,9 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
             : '',
         ...(beat.beatKind === 'card'
           ? { card: { text: beat.cardText.trim(), subtext: beat.cardSubtext.trim() } }
+          : {}),
+        ...(beat.overlayText.trim() !== ''
+          ? { overlay: { text: beat.overlayText.trim(), subtext: beat.overlaySubtext.trim() } }
           : {}),
         ...(beat.segment.trim() === '' ? {} : { segment: beat.segment.trim() }),
       }))

@@ -24,6 +24,13 @@ import {
   snapToFrame,
   storyLanguageNote,
   t,
+  IDEA_BLACK_CARD_ADVISED,
+  OVERLAY_MAX_CJK,
+  OVERLAY_MAX_WORDS,
+  OVERLAY_STAY_EXTRA_SEC,
+  OVERLAY_SUB_MAX_CJK,
+  OVERLAY_SUB_MAX_WORDS,
+  overlaySize,
   textUnits,
   type TrailerBeat,
   type TrailerCheckResult,
@@ -70,9 +77,9 @@ const SEGMENT_NAMES: Readonly<Record<string, string>> = {
 export const IDEA_FULL_SIX_SEC = 45
 
 const IDEA_SEGMENT_NAMES: Readonly<Record<string, string>> = {
-  hook: '鉤子（一個反直覺的問句，或讀者的痛點：一張大字卡加一個隱喻畫面；第一格仍然是畫面）',
+  hook: '鉤子（一個反直覺的問句，或讀者的痛點：寫在第一格的畫面上，畫面就是這句話的隱喻；第一格是不動的畫面）',
   claim: '核心主張（「如果……呢？」這本書的那一個想法，用一句話說清楚）',
-  gains: '三個收穫（三張字卡，各配一個隱喻畫面，不是人物劇情；一張字卡講一個收穫）',
+  gains: '三個收穫（三句，各寫在一個隱喻畫面上，不是人物劇情；一句講一個收穫）',
   author: '作者憑什麼（作者是誰、做過什麼，只用使用者提供的字）',
   praise: '推薦語（只用使用者提供的原文）',
   title: '封面與行動（片名卡，什麼都不用寫：封面、書名、作者、上市資訊由程式放）',
@@ -129,10 +136,10 @@ function ideaSystemPrompt(input: TrailerPromptInput): string {
     .map((segment) => {
       const name =
         segment.key === 'gains' && !full
-          ? `收穫（最多 2 張字卡，各配一個隱喻畫面，不是人物劇情；一張字卡講一個收穫）`
+          ? `收穫（最多 2 句，各寫在一個隱喻畫面上，不是人物劇情；一句講一個收穫）`
           : (IDEA_SEGMENT_NAMES[segment.key] ?? segment.key)
       const cards = segment.key === 'gains' ? gainCards : segment.maxCards
-      return `${segment.key}＝${name}，約 ${secText((segment.share / keptShare) * settings.targetSec)} 秒，${DENSITY_TEXT[segment.narrationDensity]}，字卡最多 ${String(cards)} 張`
+      return `${segment.key}＝${name}，約 ${secText((segment.share / keptShare) * settings.targetSec)} 秒，${DENSITY_TEXT[segment.narrationDensity]}，句子最多 ${String(cards)} 句`
     })
     .join('；')
   const given = [
@@ -146,7 +153,7 @@ function ideaSystemPrompt(input: TrailerPromptInput): string {
     '你是書籍預告片的腳本助手。讀使用者給的文本（商業書、工具書或非虛構的內文、摘要），寫一支「觀點型」預告片：一串依序排列的格子（beats），每一格有種類與秒數。' +
     '觀點型預告片的目的是讓人想讀這本書：用說明的口吻講清楚這本書的那一個想法，和它帶給讀者的三個收穫；不要照順序摘要整本書，也沒有劇情與角色。' +
     `格子種類 beatKind 只有四種：video（會動的畫面）、still（一張靜態畫面慢慢推近或拉遠）、card（只有字的字卡）、title（片名卡，最後一格，只放書名與行動，不用寫其他欄位）。` +
-    `依序分成這幾段：${outline}。每一格的 segment 填段落代號。字卡比畫面重要：每個重點都用一張字卡寫出來，畫面只負責配上一個隱喻。` +
+    `依序分成這幾段：${outline}。每一格的 segment 填段落代號。要讓人記住的句子寫在畫面上：用不動格子（still）的疊字 overlayText，畫面就是那一句的隱喻。` +
     (extras.includes('praise')
       ? `推薦語（praise 那一段）：字卡與旁白只能逐字使用使用者提供的這些原文：${settings.claims.map((c) => `「${c}」`).join('、')}，不要改寫、不要自己加。`
       : '') +
@@ -155,14 +162,15 @@ function ideaSystemPrompt(input: TrailerPromptInput): string {
       : '') +
     `目標總長 ${secText(settings.targetSec)} 秒：所有格子的 durationSec 加起來必須剛好等於 ${secText(settings.targetSec)}，每格秒數是 1/${String(LOCAL_BEAT_FPS)} 秒的整數倍（例如 2.5、0.75）。` +
     `第一格必須是畫面（video 或 still），不能是字卡，最長 ${String(FIRST_BEAT_MAX_SEC)} 秒。節奏平穩，不必越剪越快；最後一格是片名卡，至少 ${String(TITLE_MIN_SEC)} 秒。` +
-    `字卡 card：cardText 最多 ${String(CARD_MAX_CJK)} 個中文字（英文最多 ${String(CARD_MAX_WORDS)} 個單字），cardSubtext 可以留空；停留秒數至少 ${String(CARD_BASE_SEC)} 加上每個字 ${String(CARD_SEC_PER_UNIT)} 秒；字卡是這一型的主角，全片最多 ${String(IDEA_CARD_MAX_COUNT)} 張（片名卡不算）。` +
+    `疊字：beatKind 是 still 的格子可以把一句話疊在畫面下方：overlayText 最多 ${String(OVERLAY_MAX_CJK)} 個中文字（英文最多 ${String(OVERLAY_MAX_WORDS)} 個單字），overlaySubtext 是出處或小字，最多 ${String(OVERLAY_SUB_MAX_CJK)} 個中文字（英文最多 ${String(OVERLAY_SUB_MAX_WORDS)} 個單字），可以留空；只有 still 格可以寫疊字，video、card、title 的 overlayText 一律留空；有疊字的格子停留秒數至少是 ${String(CARD_BASE_SEC)} 加上每個字（主文字與小字都算）${String(CARD_SEC_PER_UNIT)} 秒，再加 ${String(OVERLAY_STAY_EXTRA_SEC)} 秒（字要淡入）。` +
+    `黑底字卡 card 全片最多 ${String(IDEA_BLACK_CARD_ADVISED)} 張，只留給開場的提問或最後的小結：cardText 最多 ${String(CARD_MAX_CJK)} 個中文字（英文最多 ${String(CARD_MAX_WORDS)} 個單字），cardSubtext 可以留空，停留秒數至少 ${String(CARD_BASE_SEC)} 加上每個字 ${String(CARD_SEC_PER_UNIT)} 秒；黑底字卡與有疊字的格子加起來全片最多 ${String(IDEA_CARD_MAX_COUNT)} 個（片名卡不算）。` +
     (settings.narration
-      ? `旁白 dialogue 用說明的口吻：連續、有自信，像一個懂行的人直接對讀者說話（可以用「你」），講清楚觀念與做法，用肯定句，不要賣關子、不要用問句吊胃口。每格最多一句、不跨格，中文每秒最多 ${String(NARRATION_MAX_CJK_PER_SEC)} 個字（英文每秒最多 ${String(NARRATION_MAX_WORDS_PER_SEC)} 個單字），有旁白的格子加起來不超過全片的 ${String(Math.round(NARRATION_MAX_SHARE * 100))}%；字卡與片名卡的 dialogue 留空字串。`
+      ? `旁白 dialogue 用說明的口吻：連續、有自信，像一個懂行的人直接對讀者說話（可以用「你」），講清楚觀念與做法，用肯定句，不要賣關子、不要用問句吊胃口（只有鉤子那一句可以是問句）。每格最多一句、不跨格，中文每秒最多 ${String(NARRATION_MAX_CJK_PER_SEC)} 個字（英文每秒最多 ${String(NARRATION_MAX_WORDS_PER_SEC)} 個單字），有旁白的格子加起來不超過全片的 ${String(Math.round(NARRATION_MAX_SHARE * 100))}%；字卡與片名卡的 dialogue 留空字串；有疊字的格子，dialogue 一律寫成跟 overlayText 一模一樣的一句（旁白念的就是畫面上那一句，一個字都不差）。`
       : '這一支不要旁白：每一格的 dialogue 都是空字串。') +
     '推薦語、獎項、銷量、名人背書只能用使用者提供的原文；沒提供就不要寫，也不要暗示。' +
-    '描述畫面（description）寫一個隱喻畫面（例如「凌晨還亮著燈的辦公室」「一張被劃掉的待辦清單」），優先用物件、環境、剪影，不是人物劇情；一格只做一件事，不要寫招牌、字幕、標題這類畫面裡的文字；所有的字都用字卡。' +
+    '描述畫面（description）寫一個隱喻畫面（例如「凌晨還亮著燈的辦公室」「一張被劃掉的待辦清單」），優先用物件、環境、剪影，不是人物劇情；一格只做一件事，不要寫招牌、字幕、標題這類畫面裡的文字；要讓人讀的字都用疊字（或黑底字卡）。有疊字的格子，畫面下方要簡單、偏暗，留給字。' +
     `${SIZE_HINTS}。${ANGLE_HINTS}。cameraMove 只能是 null（固定）或下列其中一個：${CAMERA_MOVES.map((c) => `${c.id}（${c.label}）`).join('、')}（still 格的運鏡決定推近、拉遠或搖鏡）。` +
-    `長度與句數：15 秒＝1 句＋片名；30 秒＝鉤子＋主張＋最多 2 個收穫＋片名，作者與推薦語最多擇一；60 秒才放滿六段，最多 5 句。每一句都要讀得完（字卡的停留秒數夠長），句與句之間留一點只有音樂的空檔，不要塞滿。` +
+    `長度與句數：15 秒＝1 句＋片名；30 秒＝鉤子＋主張＋最多 2 個收穫＋片名，作者與推薦語最多擇一；60 秒才放滿六段，最多 5 句。每一句都要讀得完（疊字與字卡的停留秒數夠長），句與句之間留一點只有音樂的空檔，不要塞滿。` +
     `這一型沒有角色：每一格的 characters 一律是空陣列，people 一律是空陣列。角色那一步改成 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個主視覺：location 欄位寫這一格用的主視覺名字（短，例如「深夜辦公室」「待辦清單」），整支用 ${String(IDEA_VISUALS_MIN)} 到 ${String(IDEA_VISUALS_MAX)} 個，同一個畫面每次用同一個名字，同一個主視覺可以給好幾格用（一次推近、一次平移）；字卡與片名卡留空。` +
     PLACE_LOOK_INSTRUCTION +
     'look 要寫畫得出來的具體地方與物件（例如「一張被劃掉大半的待辦清單」「凌晨還亮著一盞燈的辦公桌」），不要寫抽象的詞（例如「成功」「焦慮」「效率」），因為抽象的詞畫不出來。' +
@@ -243,6 +251,9 @@ export function trailerUserMessage(text: string, settings: TrailerSettings): str
   return `故事：\n${text}\n\n${TRAILER_REQUEST_MARK}。類型：${settings.kind}。目標總長：${secText(settings.targetSec)} 秒。旁白：${settings.narration ? '開' : '關'}。`
 }
 
+/** 比較兩句話：不看標點、空白與大小寫。 */
+const flat = (text: string): string => text.replace(/[\s\p{P}]/gu, '').toLowerCase()
+
 /** 腳本的一格 → 檢查器看的一格。 */
 export function toCheckBeat(beat: TrailerScriptBeat): TrailerBeat {
   const picture = beat.beatKind === 'video' || beat.beatKind === 'still'
@@ -255,6 +266,31 @@ export function toCheckBeat(beat: TrailerScriptBeat): TrailerBeat {
       : {}),
     ...(beat.segment === '' ? {} : { segment: beat.segment }),
     ...(picture && beat.location.trim() !== '' ? { location: beat.location.trim() } : {}),
+    ...(beat.overlayText.trim() !== ''
+      ? {
+          overlay: {
+            text: beat.overlayText.trim(),
+            ...(beat.overlaySubtext.trim() !== '' ? { subtext: beat.overlaySubtext.trim() } : {}),
+          },
+        }
+      : {}),
+  }
+}
+
+/** 劇情型與懸念短版不寫疊字：腳本裡出現了就當沒寫（使用者之後可以自己手動加）。 */
+export function dropOverlaysUnlessIdea(
+  script: TrailerScript,
+  kind: TrailerSettings['kind'],
+): TrailerScript {
+  if (
+    kind === 'idea' ||
+    script.beats.every((b) => b.overlayText === '' && b.overlaySubtext === '')
+  ) {
+    return script
+  }
+  return {
+    ...script,
+    beats: script.beats.map((b) => ({ ...b, overlayText: '', overlaySubtext: '' })),
   }
 }
 
@@ -334,6 +370,28 @@ export function repairScript(
 ): { script: TrailerScript; fixes: string[] } {
   const fixes: string[] = []
   const beats = script.beats.map((beat) => ({ ...beat }))
+  // 疊字：只能放在不動的格子、不能太長。不截字（截掉的句子就不是那句話了），有問題的整句拿掉
+  beats.forEach((beat, i) => {
+    if (beat.overlayText.trim() === '') {
+      beat.overlayText = ''
+      beat.overlaySubtext = ''
+      return
+    }
+    const n = String(i + 1)
+    if (beat.beatKind !== 'still') {
+      beat.overlayText = ''
+      beat.overlaySubtext = ''
+      fixes.push(t('trailer.fixOverlayWrongKind', { n }))
+      return
+    }
+    const main = overlaySize(beat.overlayText, 'text')
+    const sub = overlaySize(beat.overlaySubtext, 'sub')
+    if (main.used > main.max || sub.used > sub.max) {
+      beat.overlayText = ''
+      beat.overlaySubtext = ''
+      fixes.push(t('trailer.fixOverlayTooLong', { n }))
+    }
+  })
   beats.forEach((beat, i) => {
     const n = String(i + 1)
     // 使用者給的標語一個字都不改（太長就讓檢查器擋下，回白話錯誤）
@@ -346,15 +404,16 @@ export function repairScript(
       }
     }
   })
-  const fit = fitToTarget(
-    beats.map((b) => ({
-      beatKind: b.beatKind,
-      durationSec: b.durationSec,
-      ...(b.beatKind === 'card' ? { card: { text: b.cardText, subtext: b.cardSubtext } } : {}),
-    })),
-    settings.targetSec,
-    FPS,
-  )
+  const fitItem = (b: (typeof beats)[number]) => ({
+    beatKind: b.beatKind,
+    durationSec: b.durationSec,
+    ...(b.beatKind === 'card' ? { card: { text: b.cardText, subtext: b.cardSubtext } } : {}),
+    // 疊字的格子最短停留比一般的長
+    ...(b.overlayText.trim() !== ''
+      ? { overlay: { text: b.overlayText.trim(), subtext: b.overlaySubtext.trim() } }
+      : {}),
+  })
+  const fit = fitToTarget(beats.map(fitItem), settings.targetSec, FPS)
   if (fit.ok) {
     const before = beats.reduce((sum, b) => sum + snapToFrame(b.durationSec, FPS), 0)
     fit.durations.forEach((sec, i) => {
@@ -365,15 +424,7 @@ export function repairScript(
     const first = beats[0]
     if (first && first.durationSec > FIRST_BEAT_MAX_SEC && beats.length > 1) {
       const rest = beats.slice(1)
-      const refit = fitToTarget(
-        rest.map((b) => ({
-          beatKind: b.beatKind,
-          durationSec: b.durationSec,
-          ...(b.beatKind === 'card' ? { card: { text: b.cardText, subtext: b.cardSubtext } } : {}),
-        })),
-        settings.targetSec - FIRST_BEAT_MAX_SEC,
-        FPS,
-      )
+      const refit = fitToTarget(rest.map(fitItem), settings.targetSec - FIRST_BEAT_MAX_SEC, FPS)
       if (refit.ok) {
         first.durationSec = FIRST_BEAT_MAX_SEC
         refit.durations.forEach((sec, i) => {
@@ -395,6 +446,14 @@ export function repairScript(
     if (!settings.narration || (beat.beatKind !== 'video' && beat.beatKind !== 'still')) {
       beat.dialogue = ''
       fixes.push(t('trailer.fixNarrationRemoved', { n }))
+      return
+    }
+    // 有疊字的格子：旁白念的就是疊的那一句（不截短，停留秒數已經夠念）
+    if (beat.overlayText.trim() !== '') {
+      if (flat(beat.dialogue) !== flat(beat.overlayText)) {
+        beat.dialogue = beat.overlayText.trim()
+        fixes.push(t('trailer.fixOverlayNarration', { n }))
+      }
       return
     }
     const cutText = shortenDialogue(beat.dialogue, snapToFrame(beat.durationSec, FPS))
@@ -480,7 +539,10 @@ export async function writeTrailerScript(
     ctx,
   )
   addCost(first.costUsd)
-  let script = ensureTagline(first.data, input.settings)
+  let script = ensureTagline(
+    dropOverlaysUnlessIdea(first.data, input.settings.kind),
+    input.settings,
+  )
   let provider = first.provider
   let jobId = first.jobId
   let check = checkScript(script, input.settings, input.text)
@@ -505,7 +567,7 @@ export async function writeTrailerScript(
       ctx,
     )
     addCost(second.costUsd)
-    script = ensureTagline(second.data, input.settings)
+    script = ensureTagline(dropOverlaysUnlessIdea(second.data, input.settings.kind), input.settings)
     provider = second.provider
     jobId = second.jobId
     check = checkScript(script, input.settings, input.text)
