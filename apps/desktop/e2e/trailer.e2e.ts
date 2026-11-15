@@ -50,6 +50,9 @@ test.describe('預告片：寫腳本（示範模式，假腳本，不花錢）',
     await page.getByRole('button', { name: '分鏡表' }).click()
     await expect(page.getByTestId('shot-row')).toHaveCount(shots.length)
     await expect(page.getByRole('button', { name: '預告片', exact: true }).first()).toBeVisible()
+    // 預告片專案的分鏡表預設只有時間、段落、種類、畫面或字、旁白、秒數；角色與地點在「更多欄位」裡
+    await expect(page.getByTestId('cell-characters')).toHaveCount(0)
+    await page.getByTestId('storyboard-more-columns').click()
     await page.getByTestId('storyboard-table').evaluate((el) => {
       el.parentElement?.scrollTo({ left: el.parentElement.scrollWidth })
     })
@@ -114,6 +117,8 @@ test.describe('預告片：寫腳本（示範模式，假腳本，不花錢）',
     await page.getByRole('button', { name: '分鏡表' }).click()
     await expect(page.getByTestId('shot-row')).toHaveCount(result.data.beatCount)
     await expect(page.getByTestId('shot-beat-kind').last()).toHaveText('片名卡')
+    await expect(page.getByTestId('shot-segment').first()).toHaveText('鉤子')
+    await expect(page.getByTestId('shot-start').first()).toHaveText('0:00.0')
     await page.screenshot({ path: testInfo.outputPath('trailer-storyboard.png') })
 
     // 狀態：腳本加總＝目標

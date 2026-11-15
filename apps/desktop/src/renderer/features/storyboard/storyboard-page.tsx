@@ -11,6 +11,7 @@ import { useEscape } from '../../lib/use-escape'
 import { useShots } from '../shots/use-shots'
 import { BatchConfirm } from './batch-confirm'
 import { StoryboardBoard } from './storyboard-board'
+import { useTrailerStatus } from '../canvas/use-trailer-status'
 import { StoryboardTable } from './storyboard-table'
 import { Page, SELECT_CLASS } from '../../components/page'
 import { t } from '@svs/schema'
@@ -177,6 +178,7 @@ const OUTLINE_EVENTS = ['outline.changed'] as const
 
 export function StoryboardPage() {
   const { shots } = useShots()
+  const trailer = useTrailerStatus().status?.exists === true
   const [outline, setOutline] = useState<OutlineView>(EMPTY_OUTLINE)
   const [selected, setSelected] = useState<RowSelectionState>({})
   const [error, setError] = useState<string>()
@@ -390,6 +392,7 @@ export function StoryboardPage() {
             onSelect={setSelected}
             onEdit={edit}
             onReorder={reorder}
+            trailer={trailer}
           />
         )}
       </div>
