@@ -207,7 +207,7 @@ export function registerLocationTools(ctx: ToolContext): void {
     name: 'lock_location',
     title: 'Lock the location card',
     description:
-      'Lock the location card: the fixed place text (must not be empty) and the main picture (must be picked) are then used for every shot of a scene set at this location. Lock after both are final. To change a locked card it must be unlocked in the app. Free.',
+      'Lock the location card: the fixed place text (must not be empty) is then used for every shot of a scene set at this location, together with the main picture if one is picked (a picture is not required). Lock after both are final. To change a locked card it must be unlocked in the app. Free.',
     input: { locationId: z.string().min(1) },
     hints: { readOnly: false, idempotent: true },
     run: async ({ locationId }) =>

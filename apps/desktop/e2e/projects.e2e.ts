@@ -172,7 +172,7 @@ test.describe('首頁（不帶 SVS_DISABLE_HOME、不跳過引導：真正的第
     await page.getByTestId('trailer-text').fill(STORY)
     await page.getByTestId('trailer-title').fill('斷橋')
     await page.getByTestId('trailer-go').click()
-    await expect(page.getByTestId('trailer-badge')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('project-name')).toHaveText('斷橋')
 
     // 從專案選單回首頁：開著「斷橋」；再做一支預告片，寫進另一個新專案，「斷橋」留在最近的專案

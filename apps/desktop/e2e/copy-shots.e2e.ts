@@ -48,9 +48,9 @@ test.describe('文案截圖（改前改後對照）', () => {
     await page.getByTestId('trailer-badge').click()
     await expect(page.getByTestId('trailer-panel')).toBeVisible()
     await shoot(page, testInfo, '03-trailer-panel.png')
-    // 改成 15 秒：13 格塞進 15 秒，旁白念不完的提醒會出現
+    // 改成 15 秒：這份 13 格的腳本每格有最短停留，塞不進 15 秒——面板說放不下、只存新的目標（不重排）
     await pick(page, 'trailer-panel-length', '15')
-    await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 15／15 秒')
+    await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 30／15 秒')
     await shoot(page, testInfo, '04-trailer-panel-15s-reminder.png')
     await page.getByTestId('trailer-rewrite').click()
     await expect(page.getByTestId('trailer-rewrite-confirm')).toBeVisible()

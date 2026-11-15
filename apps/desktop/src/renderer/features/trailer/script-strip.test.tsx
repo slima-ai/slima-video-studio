@@ -75,7 +75,7 @@ describe('ScriptStrip：預告片腳本條', () => {
   })
 
   it('旁白那一排只在有旁白的格子畫；沒開配樂就沒有配樂條；播放線在成品播放時才有', () => {
-    draw([beat(1, { dialogue: '一句話' }), beat(2)], { musicOn: false, playheadSec: 1 })
+    draw([beat(1, { dialogue: '一句話' }), beat(2)], { musicOn: false, playheadSec: 2 })
     expect(screen.getAllByTestId('strip-narration').map((n) => n.dataset.has)).toEqual([
       'true',
       'false',

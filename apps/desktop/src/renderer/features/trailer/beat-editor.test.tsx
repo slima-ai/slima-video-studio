@@ -139,11 +139,15 @@ describe('BeatEditor：點一格在下面改', () => {
     expect(screen.getByTestId<HTMLInputElement>('beat-seconds-input').value).toBe('2')
   })
 
-  it('種類：會動→不動直接存；改成字卡要先有字，字填好離開欄位才一起存', () => {
+  it('種類：會動→不動直接存；改成字卡要先有字，字填好離開欄位才一起存', async () => {
     const { update } = setup(beat(2))
     fireEvent.click(screen.getByTestId('beat-kind-still'))
     expect(update).toHaveBeenLastCalledWith({ shotId: 's2', patch: { beatKind: 'still' } })
     update.mockClear()
+    // 存的時候按鈕先停用；存好了才能再點
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('beat-kind-card').disabled).toBe(false)
+    })
     fireEvent.click(screen.getByTestId('beat-kind-card'))
     expect(update).not.toHaveBeenCalled()
     expect(screen.getByTestId('beat-card-text')).toBeTruthy()
@@ -155,15 +159,21 @@ describe('BeatEditor：點一格在下面改', () => {
     })
   })
 
-  it('改畫面描述、段落：離開欄位才存；段落可以清掉', () => {
+  it('改畫面描述、段落：離開欄位才存；段落可以清掉', async () => {
     const { update } = setup(beat(2, { segment: 'world' }))
     blur('beat-description', '黑藤爬滿斷橋')
     expect(update).toHaveBeenLastCalledWith({
       shotId: 's2',
       patch: { description: '黑藤爬滿斷橋' },
     })
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('beat-segment').disabled).toBe(false)
+    })
     choose('beat-segment', 'turn')
     expect(update).toHaveBeenLastCalledWith({ shotId: 's2', patch: { segment: 'turn' } })
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('beat-segment').disabled).toBe(false)
+    })
     choose('beat-segment', '')
     expect(update).toHaveBeenLastCalledWith({ shotId: 's2', patch: { segment: '' } })
   })

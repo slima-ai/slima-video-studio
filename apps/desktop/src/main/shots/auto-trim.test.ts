@@ -62,12 +62,12 @@ describe('影片格子自動剪到格長（只有預告片專案）', () => {
     expect(secOf(plain, b.id)).toBe(2.5)
   })
 
-  it('格長不是整數格（1.2 秒＝28.8 格）：裁到最近的整數格（29 格），不累積誤差', async () => {
+  it('格長不是整數格（2.4 秒＝57.6 格）：裁到最近的整數格（58 格），不累積誤差', async () => {
     const h = setup()
-    await film(h, 1.2, true)
+    await film(h, 2.4, true)
     const trim = adoptedVideo(h)?.trim
     expect(trim?.inSec).toBeUndefined()
-    expect(trim?.outSec).toBeCloseTo(29 / 24, 4)
+    expect(trim?.outSec).toBeCloseTo(58 / 24, 4)
   })
 
   it('影片剛好等於格長：不裁', async () => {
@@ -86,16 +86,16 @@ describe('影片格子自動剪到格長（只有預告片專案）', () => {
 
   it('使用者改入點：出點跟著保持格長（入點＋格長）', async () => {
     const h = setup()
-    const id = await film(h, 1.2, true)
+    const id = await film(h, 2.4, true)
     const plan = await h.shots.planTrim(id, { inSec: 0.5 })
     const outcome = h.shots.applyTrim(plan)
-    expect(outcome.endSec - outcome.startSec).toBeCloseTo(29 / 24, 3)
+    expect(outcome.endSec - outcome.startSec).toBeCloseTo(58 / 24, 3)
     expect(outcome.startSec).toBeCloseTo(0.5, 1)
   })
 
   it('使用者自己同時設了入點與出點：照使用者的', async () => {
     const h = setup()
-    const id = await film(h, 1.2, true)
+    const id = await film(h, 2.4, true)
     const plan = await h.shots.planTrim(id, { inSec: 0.5, outSec: 1.5 })
     const outcome = h.shots.applyTrim(plan)
     expect(outcome.endSec - outcome.startSec).toBeCloseTo(1, 1)
@@ -103,7 +103,7 @@ describe('影片格子自動剪到格長（只有預告片專案）', () => {
 
   it('使用者改過入點後重生影片：入點保留，出點保持格長', async () => {
     const h = setup()
-    const id = await film(h, 1.2, true)
+    const id = await film(h, 2.4, true)
     h.shots.applyTrim(await h.shots.planTrim(id, { inSec: 0.5 }))
     await h.shots.regenerate(id, 'video')
     await h.idle(id)
@@ -112,6 +112,6 @@ describe('影片格子自動剪到格長（只有預告片專案）', () => {
     expect(shot?.videos).toHaveLength(2)
     const latest = shot?.videos.find((v) => v.adopted)
     expect(latest?.trim?.inSec).toBeCloseTo(0.5, 1)
-    expect((latest?.trim?.outSec ?? 0) - (latest?.trim?.inSec ?? 0)).toBeCloseTo(29 / 24, 2)
+    expect((latest?.trim?.outSec ?? 0) - (latest?.trim?.inSec ?? 0)).toBeCloseTo(58 / 24, 2)
   })
 })

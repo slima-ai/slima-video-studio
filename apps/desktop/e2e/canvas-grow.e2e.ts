@@ -438,9 +438,9 @@ test.describe('畫布上的一句話（示範模式）', () => {
     })
     const done = page.getByTestId('toast').filter({ hasText: '分鏡寫好了' })
     await expect(done).toBeVisible()
-    // 分鏡寫好之後，畫面上提到「全部生成」的價錢只有一個來源：右上角那顆；提示不寫數字
+    // 分鏡寫好之後，提示不寫數字；示範模式右上角那顆也只寫步數、不寫金額（不會花錢，D5）
     await expect(done).not.toContainText('US$')
-    await expect(page.getByTestId('run-all')).toContainText(/生成空的（\d+ 步，約 US\$\d+\.\d\d/)
+    await expect(page.getByTestId('run-all')).toContainText(/生成空的（\d+ 步）/)
     const prices = await page.evaluate(() => {
       const found = new Set<string>()
       for (const el of document.querySelectorAll(
@@ -452,7 +452,7 @@ test.describe('畫布上的一句話（示範模式）', () => {
       }
       return [...found]
     })
-    expect(prices).toHaveLength(1)
+    expect(prices).toHaveLength(0)
     await expect.poll(() => kindCount(page, 'scene')).toBe(1)
     expect(await kindCount(page, 'shot')).toBe(3)
     // 圖片、影片、成品都還沒生成

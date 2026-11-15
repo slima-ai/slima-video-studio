@@ -40,7 +40,11 @@ describe('RunPlanConfirm：還沒確認的角色與場景（預告片專案）',
   ) =>
     render(
       <AppNavigationProvider
-        value={{ openSettings: vi.fn(), openView: options.openView ?? vi.fn() }}
+        value={{
+          openSettings: vi.fn(),
+          openTrailer: vi.fn(),
+          openView: options.openView ?? vi.fn(),
+        }}
       >
         <RunPlanConfirm
           plan={plan(unconfirmed ? { unconfirmed } : {})}

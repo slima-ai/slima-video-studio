@@ -19,6 +19,7 @@ export const HAN_EXCEPTIONS = [
       'apps/desktop/src/main/test-support/**',
       'packages/db/src/__tests__/**',
       'packages/engine/src/test-helpers.ts',
+      'apps/desktop/src/renderer/features/trailer/shots.fixture.ts',
     ],
     reason:
       '測試與測試輔助：固定用繁體中文跑（docs/i18n.md「測試固定用繁體中文」），假資料與斷言本來就寫中文。',

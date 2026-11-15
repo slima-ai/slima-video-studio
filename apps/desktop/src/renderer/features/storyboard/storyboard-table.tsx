@@ -142,6 +142,24 @@ interface Handle {
 }
 const HandleContext = createContext<Handle | undefined>(undefined)
 
+/**
+ * 每一格從第幾秒開始。走 context 而不是放進欄位定義：欄位定義一換，整張表的輸入框都會重新長出來，
+ * 改一格就掉焦點（Enter 跳到下一列後焦點會被收走）。
+ */
+const StartsContext = createContext<ReadonlyMap<string, number>>(new Map())
+
+function StartCell({ shotId }: { shotId: string }) {
+  const starts = useContext(StartsContext)
+  return (
+    <span
+      className="block truncate px-2 text-sm tabular-nums text-fg-muted"
+      data-testid="shot-start"
+    >
+      {startClock(starts.get(shotId) ?? 0)}
+    </span>
+  )
+}
+
 function DragHandle({ shot }: { shot: ShotView }) {
   const handle = useContext(HandleContext)
   return (
@@ -277,14 +295,7 @@ export function StoryboardTable({
         // 唯讀：這一格從影片的第幾秒開始（預告片專案才顯示）
         id: 'start',
         header: t('storyboard.start'),
-        cell: ({ row }) => (
-          <span
-            className="block truncate px-2 text-sm tabular-nums text-fg-muted"
-            data-testid="shot-start"
-          >
-            {startClock(starts.get(row.original.id) ?? 0)}
-          </span>
-        ),
+        cell: ({ row }) => <StartCell shotId={row.original.id} />,
       },
       {
         // 唯讀：這一格屬於預告片的哪一段（預告片專案才顯示；沒有段落留空）
@@ -540,16 +551,7 @@ export function StoryboardTable({
         ),
       },
     ],
-    [
-      sceneOptions,
-      locationOptions,
-      sizeChoices,
-      angleChoices,
-      cameraOptions,
-      onEdit,
-      starts,
-      trailer,
-    ],
+    [sceneOptions, locationOptions, sizeChoices, angleChoices, cameraOptions, onEdit, trailer],
   )
 
   // 「種類」欄只有專案裡有不動的畫面或字卡時才出現：一般專案的分鏡表跟以前一樣
@@ -566,7 +568,12 @@ export function StoryboardTable({
     columns,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (shot) => shot.id,
-    state: { rowSelection: selected, columnVisibility: visibility },
+    // 預告片專案：欄位照「時間、段落、種類、畫面或字、旁白、秒數」排，其餘（更多欄位）接在後面
+    state: {
+      rowSelection: selected,
+      columnVisibility: visibility,
+      ...(trailer ? { columnOrder: [...TRAILER_COLUMNS] } : {}),
+    },
     onRowSelectionChange: (updater) => {
       onSelect(typeof updater === 'function' ? updater(selected) : updater)
     },
@@ -605,42 +612,44 @@ export function StoryboardTable({
         </div>
       ) : null}
       <div className="overflow-x-auto rounded-lg border border-border bg-surface-raised shadow-card">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <table
-            style={{ width: tableWidth(widths) }}
-            className="table-fixed border-collapse text-left"
-            data-testid="storyboard-table"
-          >
-            <thead className="border-b border-border text-xs text-fg-muted">
-              {table.getHeaderGroups().map((group) => (
-                <tr key={group.id}>
-                  {group.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      style={{ width: widths[header.column.id] }}
-                      className="whitespace-nowrap px-2 py-2 font-medium"
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-                {table.getRowModel().rows.map((row) => (
-                  <SortableRow key={row.id} shot={row.original}>
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-1 py-1">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
+        <StartsContext.Provider value={starts}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <table
+              style={{ width: tableWidth(widths) }}
+              className="table-fixed border-collapse text-left"
+              data-testid="storyboard-table"
+            >
+              <thead className="border-b border-border text-xs text-fg-muted">
+                {table.getHeaderGroups().map((group) => (
+                  <tr key={group.id}>
+                    {group.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        style={{ width: widths[header.column.id] }}
+                        className="whitespace-nowrap px-2 py-2 font-medium"
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
                     ))}
-                  </SortableRow>
+                  </tr>
                 ))}
-              </SortableContext>
-            </tbody>
-          </table>
-        </DndContext>
+              </thead>
+              <tbody>
+                <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                  {table.getRowModel().rows.map((row) => (
+                    <SortableRow key={row.id} shot={row.original}>
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-1 py-1">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </SortableRow>
+                  ))}
+                </SortableContext>
+              </tbody>
+            </table>
+          </DndContext>
+        </StartsContext.Provider>
       </div>
     </>
   )

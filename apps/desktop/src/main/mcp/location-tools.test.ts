@@ -112,6 +112,9 @@ describe('場景卡工具（示範模式）', () => {
     await r.call('create_project', { name: 'x' })
     const made = dataOf(Location, await r.call('create_location', { name: '斷橋' }))
     expect(made.anchor).toEqual({ status: 'none', text: '' })
+    // 鎖定要有固定描述（主圖不是必要的）：還沒寫就先說清楚少什麼
+    const noText = await r.call('lock_location', { locationId: made.id })
+    expect((noText as { isError?: boolean }).isError).toBe(true)
 
     const renamed = dataOf(
       Location,
@@ -130,10 +133,6 @@ describe('場景卡工具（示範模式）', () => {
 
     const nothing = await r.call('update_location', { locationId: made.id })
     expect(textOf(nothing)).toContain('at least one')
-
-    // 鎖定要有主場景圖：先說清楚少什麼
-    const noPicture = await r.call('lock_location', { locationId: made.id })
-    expect((noPicture as { isError?: boolean }).isError).toBe(true)
 
     await r.call('generate_location_images', { locationId: made.id })
     await waitDone(r)

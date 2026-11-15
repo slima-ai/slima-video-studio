@@ -99,8 +99,6 @@ export const ShotViewSchema = z.object({
   endFrameSupported: z.boolean().optional(),
   /** 採用中的影片在成品裡佔幾秒（照裁切算）；還沒有影片就沒有這個欄位。 */
   filmSeconds: z.number().nonnegative().optional(),
-  /** 預告片腳本裡這一格屬於模板的哪一段（hook、world、turn、escalate、suspense、title…）；沒有就沒有這個欄位。 */
-  segment: z.string().optional(),
 })
 export type ShotView = z.infer<typeof ShotViewSchema>
 

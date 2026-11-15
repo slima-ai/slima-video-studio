@@ -404,7 +404,7 @@ test.describe('畫布執行（示範模式）', () => {
       await expect(page.getByTestId(`node-${image}`).getByTestId('node-error')).toContainText(
         '內容被拒絕',
       )
-      await expect(page.getByTestId('toast')).toContainText('有 1 步沒有成功')
+      await expect(page.getByTestId('toast')).toContainText(/第 \d+ 鏡沒有成功/)
       const retry = page.getByTestId(`run-${image}`)
       await expect(retry).toHaveText('重試')
 
@@ -447,7 +447,7 @@ test.describe('畫布執行（示範模式）', () => {
       await expect(page.getByTestId(`node-${video}`).getByTestId('node-error')).toContainText(
         '內容被拒絕',
       )
-      await expect(page.getByTestId('toast')).toContainText('有 1 步沒有成功')
+      await expect(page.getByTestId('toast')).toContainText(/第 \d+ 鏡沒有成功/)
     })
   })
 })

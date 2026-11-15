@@ -51,7 +51,7 @@ const renderTable = (trailer: boolean) => {
 const headers = (): string[] =>
   within(screen.getByTestId('storyboard-table'))
     .getAllByRole('columnheader')
-    .map((h) => h.textContent ?? '')
+    .map((h) => h.textContent)
     .filter((text) => text !== '')
 
 describe('分鏡表：預告片專案的預設欄位', () => {
@@ -130,5 +130,34 @@ describe('分鏡表的小算術', () => {
       beat: true,
       size: false,
     })
+  })
+})
+
+describe('分鏡表：改一格內容時，其他格的輸入框不重新長出來（焦點才留得住）', () => {
+  it('shots 換了新的陣列（某一格的畫面描述變了）：同一個輸入框元素還在、焦點沒掉', () => {
+    installFakeSvs()
+    const props = {
+      outline,
+      selected: {},
+      onSelect: vi.fn(),
+      onEdit: vi.fn(),
+      onReorder: vi.fn(),
+      trailer: true,
+    }
+    const view = render(<StoryboardTable shots={shots} {...props} />)
+    const inputs = screen.getAllByTestId('cell-description')
+    const second = inputs[1] as HTMLInputElement
+    second.focus()
+    expect(document.activeElement).toBe(second)
+
+    // 第一格的描述被存下去、鏡頭清單換成新陣列（跟 Enter 存好之後的畫面一樣）
+    view.rerender(
+      <StoryboardTable
+        shots={shots.map((s) => (s.id === 'a' ? { ...s, description: '甲' } : s))}
+        {...props}
+      />,
+    )
+    expect(screen.getAllByTestId('cell-description')[1]).toBe(second)
+    expect(document.activeElement).toBe(second)
   })
 })

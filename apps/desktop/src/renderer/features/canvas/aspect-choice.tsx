@@ -14,14 +14,21 @@ const CHOICES = [
 /**
  * 目前專案的畫面比例（橫式 16:9／直式 9:16）。`choose` 立刻改專案（之後生成的畫面才用新比例，
  * 已經做好的不會跟著變）；失敗時退回原本的選擇並給一句話。`pending` 期間不要往下做事。
+ * 還沒有開著的專案（空畫布、首頁：寫腳本時才建專案）：預設亮橫式，選了先記在這裡，
+ * 寫好腳本、專案建好之後由 `commit` 套上去（寫失敗不留空專案，所以不能先建）。
  */
 export function useProjectAspect(): {
   aspect: AspectRatio | undefined
   choose: (next: AspectRatio) => void
+  commit: () => Promise<void>
   pending: boolean
   error: string | undefined
 } {
-  const [aspect, setAspect] = useState<AspectRatio>()
+  const [projectAspect, setAspect] = useState<AspectRatio>()
+  const [hasProject, setHasProject] = useState<boolean>()
+  const [wanted, setWanted] = useState<AspectRatio>()
+  const wantedRef = useRef<AspectRatio | undefined>(undefined)
+  const aspect = hasProject === false ? (wanted ?? '16:9') : projectAspect
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string>()
   const latest = useRef(0)
@@ -30,7 +37,9 @@ export function useProjectAspect(): {
     let stale = false
     call('project.current', {})
       .then((info) => {
-        if (!stale && info) setAspect(info.aspectRatio)
+        if (stale) return
+        setHasProject(Boolean(info))
+        if (info) setAspect(info.aspectRatio)
       })
       .catch(() => undefined)
     return () => {
@@ -41,6 +50,11 @@ export function useProjectAspect(): {
   const choose = useCallback(
     (next: AspectRatio): void => {
       if (next === aspect) return
+      if (hasProject === false) {
+        wantedRef.current = next
+        setWanted(next)
+        return
+      }
       const before = aspect
       const mine = ++latest.current
       setAspect(next)
@@ -59,10 +73,19 @@ export function useProjectAspect(): {
           if (mine === latest.current) setPending(false)
         })
     },
-    [aspect],
+    [aspect, hasProject],
   )
 
-  return { aspect, choose, pending, error }
+  const commit = useCallback(async (): Promise<void> => {
+    const next = wantedRef.current
+    if (next === undefined) return
+    wantedRef.current = undefined
+    const result = await call('project.configure', { aspectRatio: next })
+    setAspect(result.aspectRatio)
+    setHasProject(true)
+  }, [])
+
+  return { aspect, choose, commit, pending, error }
 }
 
 /** 「橫式｜直式」兩選一。`testIdPrefix` 讓起手卡與設定面板各有自己的 testid。 */
