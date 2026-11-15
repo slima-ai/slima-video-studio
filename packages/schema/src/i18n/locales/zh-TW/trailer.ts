@@ -46,6 +46,16 @@ export const trailer = {
   'trailer.warnTitleHoldTooLong': '片名卡停了 {sec} 秒，建議不超過 {max} 秒。',
   'trailer.warnBeatHoldTooLong':
     '第 {n} 格停了 {sec} 秒，建議不超過 {max} 秒，不然看起來像停住了。',
+  'trailer.ruleOverlayWrongKind':
+    '第 {n} 格不是不動的畫面，卻有疊在畫面上的字；疊字只能放在不動的格子。',
+  'trailer.ruleOverlayTooLong':
+    '第 {n} 格疊在畫面上的字有 {units} 個，最多 {limit} 個。不要截字：請換成比較短的一句，或拿掉疊字。',
+  'trailer.ruleOverlayShortStay':
+    '第 {n} 格有疊字，只停 {sec} 秒，至少要 {min} 秒（字要淡入，還要看一眼畫面）。',
+  'trailer.ruleOverlayNarration':
+    '第 {n} 格開了旁白，旁白要念畫面上疊的那一句，一個字都不差；旁白也可以留空。',
+  'trailer.warnManyBlackCards':
+    '黑底字卡有 {count} 張，建議不超過 {max} 張；要讓人記住的句子改寫在畫面上（疊字）。',
   'trailer.ruleNoEscalation': '後段沒有比前段短（平均 {last} 秒對 {first} 秒）。',
   'trailer.beatVideo': '會動',
   'trailer.beatStill': '不動',
@@ -69,6 +79,10 @@ export const trailer = {
   'trailer.runOverMax': '{no}：要 {want} 秒，超過影片模型的上限 {max} 秒，影片只會有 {max} 秒。',
   'trailer.fixCardCut': '第 {n} 格的字卡太長，已截短。',
   'trailer.fixNarrationRemoved': '第 {n} 格的旁白拿掉了（這一支不要旁白，或這一格不是畫面）。',
+  'trailer.fixOverlayWrongKind': '第 {n} 格不是不動的畫面，疊在畫面上的字已拿掉。',
+  'trailer.fixOverlayTooLong':
+    '第 {n} 格疊在畫面上的字太長，已整句拿掉（不截字，截掉就不是那句話了）。',
+  'trailer.fixOverlayNarration': '第 {n} 格的旁白已改成畫面上疊的那一句。',
   'trailer.fixNarrationCut': '第 {n} 格的旁白太長，已截短成一句。',
   'trailer.fixMovingToStill': '第 {n} 格是會動的但太短，已改成不動的畫面。',
   'trailer.fixFirstShortened': '第一格縮短到 4 秒。',

@@ -33,6 +33,9 @@ const beatsOf = (script: ReturnType<typeof TrailerScriptSchema.parse>): TrailerB
     durationSec: b.durationSec,
     ...(b.dialogue === '' ? {} : { dialogue: b.dialogue }),
     ...(b.beatKind === 'card' ? { card: { text: b.cardText, subtext: b.cardSubtext } } : {}),
+    ...(b.overlayText === ''
+      ? {}
+      : { overlay: { text: b.overlayText, subtext: b.overlaySubtext } }),
     segment: b.segment,
     ...(b.location === '' ? {} : { location: b.location }),
   }))
@@ -272,22 +275,54 @@ describe('示範模式的假腳本：觀點型', () => {
     }
   })
 
-  it('字卡是主角：30 秒有 5 張字卡（鉤子、主張、三個收穫）；段落只用 hook、claim、gains、title（示範沒有推薦語與作者可用）', () => {
+  it('金句壓在畫面上：30 秒有 5 個疊字格（鉤子、主張、三個收穫），沒有黑底字卡；段落只用 hook、claim、gains、title', () => {
     const script = scriptOf(30)
-    expect(script.beats.filter((b) => b.beatKind === 'card')).toHaveLength(5)
+    const overlays = script.beats.filter((b) => b.overlayText !== '')
+    expect(overlays).toHaveLength(5)
+    expect(script.beats.filter((b) => b.beatKind === 'card')).toHaveLength(0)
+    expect(overlays.every((b) => b.beatKind === 'still')).toBe(true)
     expect(new Set(script.beats.map((b) => b.segment))).toEqual(
       new Set(['hook', 'claim', 'gains', 'title']),
     )
-    expect(script.beats[0]?.beatKind === 'video' || script.beats[0]?.beatKind === 'still').toBe(
-      true,
-    )
+    expect(script.beats[0]?.beatKind).toBe('still')
+    expect(script.beats[0]?.overlayText).not.toBe('')
   })
 
-  it('地點外觀只寫地方（沒有人物、沒有動作）；旁白是說明的口吻、不是問句', () => {
+  it('15～120 秒、旁白開關：疊字只放在不動的格子；旁白要嘛是空的、要嘛就是疊的那一句；黑底字卡最多 2 張；30 秒以上至少 3 個疊字格', () => {
+    for (const sec of [15, 20, 30, 45, 60, 90, 120]) {
+      for (const narration of [true, false]) {
+        const script = scriptOf(sec, narration)
+        const label = `${String(sec)}s narration=${String(narration)}`
+        const overlays = script.beats.filter((b) => b.overlayText !== '')
+        expect(
+          overlays.every((b) => b.beatKind === 'still'),
+          label,
+        ).toBe(true)
+        for (const b of overlays) {
+          expect(b.dialogue === '' || b.dialogue === b.overlayText, label).toBe(true)
+          if (!narration) expect(b.dialogue, label).toBe('')
+        }
+        expect(script.beats.filter((b) => b.beatKind === 'card').length, label).toBeLessThanOrEqual(
+          2,
+        )
+        if (sec >= 30) expect(overlays.length, label).toBeGreaterThanOrEqual(3)
+        // 其他格（沒有疊字的畫面）不念旁白：旁白全都是疊字那一句
+        for (const b of script.beats.filter((x) => x.overlayText === '')) {
+          expect(b.dialogue, label).toBe('')
+        }
+      }
+    }
+  })
+
+  it('地點外觀只寫地方（沒有人物、沒有動作）；旁白是說明的口吻、不是問句（鉤子除外）', () => {
     const script = scriptOf(30)
     expect(script.places.length).toBeGreaterThanOrEqual(3)
     for (const place of script.places) expect(place.look).not.toBe('')
-    const lines = script.beats.map((b) => b.dialogue).filter((d) => d !== '')
+    // 鉤子是一個問句（疊在畫面上，旁白照念）；其他段的旁白用肯定句
+    const lines = script.beats
+      .filter((b) => b.segment !== 'hook')
+      .map((b) => b.dialogue)
+      .filter((d) => d !== '')
     expect(lines.length).toBeGreaterThan(0)
     for (const line of lines) expect(line).not.toMatch(/[？?]/)
   })

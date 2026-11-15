@@ -464,6 +464,42 @@ describe('節點：組 Prompt', () => {
     })
   })
 
+  describe('有疊字的格子：圖的下半部留給字', () => {
+    const LINE_WIDE = '構圖：畫面下方三分之一保持簡單、偏暗、沒有細節；畫面裡不要出現任何文字。'
+    const LINE_TALL = '構圖：畫面下方四成保持簡單、偏暗、沒有細節；畫面裡不要出現任何文字。'
+
+    it('橫式（與方形）：圖片 Prompt 後面多一句「下方三分之一」；直式是「下方四成」', () => {
+      const plain = composeShotPrompts(ShotItemSchema.parse(shot), 'anime').imagePrompt
+      const wide = composeShotPrompts(ShotItemSchema.parse({ ...shot, overlay: 'wide' }), 'anime')
+      const tall = composeShotPrompts(ShotItemSchema.parse({ ...shot, overlay: 'tall' }), 'anime')
+      expect(wide.imagePrompt).toBe(`${plain}。${LINE_WIDE}`)
+      expect(tall.imagePrompt).toBe(`${plain}。${LINE_TALL}`)
+    })
+
+    it('沒有疊字的格子：圖片與影片 Prompt 一個字都沒變；影片 Prompt 也不帶構圖那一句', () => {
+      const plain = composeShotPrompts(ShotItemSchema.parse(shot), 'anime')
+      expect(plain.imagePrompt).not.toContain('構圖')
+      const withOverlay = composeShotPrompts(
+        ShotItemSchema.parse({ ...shot, overlay: 'wide' }),
+        'anime',
+      )
+      expect(withOverlay.videoPrompt).toBe(plain.videoPrompt)
+    })
+
+    it('手動改過 Prompt 的格子照用手動的（不加這一句）', () => {
+      const parsed = ShotItemSchema.parse({ ...shot, overlay: 'wide', promptOverride: 'my prompt' })
+      expect(composeShotPrompts(parsed, 'anime').imagePrompt).toBe('my prompt')
+    })
+
+    it('節點輸出也一樣：有疊字的格子圖片 Prompt 多那一句', async () => {
+      const { out } = await runNode(shotPromptNode, {
+        params: { style: 'anime' },
+        inputs: { shot: { ...shot, overlay: 'wide' } },
+      })
+      expect(out.imagePrompt).toContain(LINE_WIDE)
+    })
+  })
+
   describe('固定外觀描述（錨點）', () => {
     const anchors = [
       { name: '小花', text: '白色短毛、左耳有缺角、藍色項圈' },

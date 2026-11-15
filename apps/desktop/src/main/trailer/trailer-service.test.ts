@@ -382,7 +382,7 @@ describe('trailer.plan：觀點型（示範模式）', () => {
   const IDEA_TEXT =
     '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半。'
 
-  it('30 秒：類型存成 idea；腳本加總剛好、沒有 error；有 5 張字卡（超過劇情型的 4 張上限）', async () => {
+  it('30 秒：類型存成 idea；腳本加總剛好、沒有 error；5 句話疊在不動的畫面上（沒有黑底字卡）', async () => {
     const h = setup()
     const result = await h.trailer.plan({ text: IDEA_TEXT, kind: 'idea' })
     expect(result.settings.kind).toBe('idea')
@@ -390,7 +390,11 @@ describe('trailer.plan：觀點型（示範模式）', () => {
     expect(result.errors).toEqual([])
     expect(result.retried).toBe(false)
     const shots = shotsOf(h)
-    expect(shots.filter((s) => s.beatKind === 'card')).toHaveLength(5)
+    expect(shots.filter((s) => s.beatKind === 'card')).toHaveLength(0)
+    expect(shots.filter((s) => s.overlay !== undefined)).toHaveLength(5)
+    expect(shots.filter((s) => s.overlay !== undefined).every((s) => s.beatKind === 'still')).toBe(
+      true,
+    )
     expect(shots.at(-1)?.beatKind).toBe('title')
     // 段落存進鏡頭：觀點型的六段裡，示範用到 hook、claim、gains、title
     const stored = h.projects.current()?.repos.shots.list() ?? []
@@ -1136,5 +1140,81 @@ describe('懸念短版的長度：後端也擋（跟畫面的選單一致）', (
     // 直接寫進專案的舊資料（60 秒的懸念短版）：只改書名不被擋
     h.projects.current()?.repos.trailer.update({ targetSec: 60 })
     expect(h.trailer.update({ patch: { title: '新書名' } }).settings.title).toBe('新書名')
+  })
+})
+
+describe('trailer.plan：金句型的疊字', () => {
+  const overlayBeat = (extra: Record<string, unknown>) => ({
+    segment: '',
+    beatKind: 'video',
+    durationSec: 3,
+    description: '凌晨還亮著燈的辦公室',
+    action: '',
+    size: 'medium',
+    angle: 'eye_level',
+    cameraMove: null,
+    characters: [],
+    location: '深夜辦公室',
+    dialogue: '',
+    cardText: '',
+    cardSubtext: '',
+    overlayText: '',
+    overlaySubtext: '',
+    ...extra,
+  })
+  const ideaScript = () => ({
+    title: '專注力',
+    music: '單一樂器，穩定推進',
+    places: [{ name: '深夜辦公室', look: '凌晨還亮著一盞燈的辦公桌' }],
+    people: [],
+    beats: [
+      overlayBeat({
+        segment: 'hook',
+        beatKind: 'still',
+        durationSec: 4,
+        overlayText: '先做最重要的事',
+        overlaySubtext: '《專注力》',
+        dialogue: '先做最重要的事',
+      }),
+      overlayBeat({ segment: 'claim', durationSec: 3 }),
+      overlayBeat({
+        segment: 'title',
+        beatKind: 'title',
+        durationSec: 3,
+        description: '',
+        location: '',
+      }),
+    ],
+  })
+
+  it('金句型：腳本的疊字寫進不動的格子（主文字、小字），旁白念同一句；其他格沒有；檢查器沒有錯誤；復原一步全退回', async () => {
+    const llm = scripted(ideaScript)
+    const h = setup({ mockLlm: llm.llm })
+    const status = await h.trailer.plan({ text: STORY, kind: 'idea', targetSec: 10 })
+    expect(status.errors).toEqual([])
+    const [first, second] = h.shots.list().shots
+    expect(first?.beatKind).toBe('still')
+    expect(first?.overlay).toEqual({ text: '先做最重要的事', subtext: '《專注力》' })
+    expect(first?.dialogue).toBe('先做最重要的事')
+    expect(second?.overlay).toBeUndefined()
+    h.history.undo()
+    expect(h.shots.list().shots).toHaveLength(0)
+  })
+
+  it('重新檢查（trailer.status）也看得到疊字：存進去之後把疊字改太長，檢查器擋下', async () => {
+    const llm = scripted(ideaScript)
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY, kind: 'idea', targetSec: 10 })
+    const first = h.shots.list().shots[0]
+    if (!first) throw new Error('沒有格子')
+    h.shots.update(first.id, { overlay: { text: '字'.repeat(30), subtext: '' } })
+    expect(h.trailer.status().errors.map((e) => e.code)).toContain('overlay_too_long')
+  })
+
+  it('劇情型：模型寫了疊字也當沒寫，鏡頭上沒有 overlay', async () => {
+    const llm = scripted(ideaScript)
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY, kind: 'story', targetSec: 10 })
+    expect(h.shots.list().shots.every((s) => s.overlay === undefined)).toBe(true)
   })
 })

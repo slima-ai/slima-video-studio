@@ -25,6 +25,7 @@ const Beat = z.looseObject({
   segment: z.string().optional(),
   startSec: z.number().optional(),
   location: z.string().optional(),
+  overlay: z.object({ text: z.string(), subtext: z.string() }).optional(),
 })
 const Trailer = z.looseObject({
   exists: z.boolean(),
@@ -327,7 +328,7 @@ describe('預告片工具：金句／觀點型（idea）', () => {
   const IDEA =
     '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半。'
 
-  it('plan_trailer(kind: idea)：腳本過檢查、5 張字卡（比劇情型的 4 張多）、沒有草稿角色；update_trailer 也收 idea', async () => {
+  it('plan_trailer(kind: idea)：腳本過檢查、5 個疊字格（句子壓在不動的畫面上，沒有黑底字卡）、沒有草稿角色；update_trailer 也收 idea', async () => {
     const r = await start()
     await r.call('create_project', { name: '金句' })
     const planned = await planAndRead(r, {
@@ -339,7 +340,10 @@ describe('預告片工具：金句／觀點型（idea）', () => {
     expect(planned.kind).toBe('idea')
     expect(planned.matches).toBe(true)
     expect(planned.errors).toEqual([])
-    expect(planned.beats.filter((b) => b.beatKind === 'card')).toHaveLength(5)
+    expect(planned.beats.filter((b) => b.beatKind === 'card')).toHaveLength(0)
+    const overlays = planned.beats.filter((b) => b.overlay !== undefined)
+    expect(overlays).toHaveLength(5)
+    expect(overlays.every((b) => b.beatKind === 'still')).toBe(true)
     const chars = textOf(await r.call('list_characters', {}))
     expect(chars).not.toContain('小葉')
     expect(chars).not.toContain('老鐘')
@@ -348,7 +352,7 @@ describe('預告片工具：金句／觀點型（idea）', () => {
     expect(dataOf(Trailer, await r.call('update_trailer', { kind: 'idea' })).kind).toBe('idea')
   })
 
-  it('指南說明金句／觀點型：沒有角色、用 3～5 個主視覺（場景卡）、字卡最多 7 張、推薦語與作者只用使用者給的字', async () => {
+  it('指南說明金句／觀點型：沒有角色、用 3～5 個主視覺（場景卡）、句子疊在畫面上（疊字，旁白念同一句、改字不花錢）、黑底字卡最多 2 張、加起來最多 7 個、推薦語與作者只用使用者給的字', async () => {
     const r = await start()
     const { text } = dataOf(
       z.object({ text: z.string() }),
@@ -358,7 +362,11 @@ describe('預告片工具：金句／觀點型（idea）', () => {
     expect(line).toContain('no characters')
     expect(line).toContain('3–5 main visuals')
     expect(line).toContain('place cards')
-    expect(line).toContain('up to 7')
+    expect(line).toContain('overlay')
+    expect(line).toContain('same line as the overlay')
+    expect(line).toContain('costs nothing')
+    expect(line).toContain('2 at most')
+    expect(line).toContain('at most 7')
     expect(line).toContain('only the user')
     // 順序裡的「角色」那一步也說了觀點型不做
     expect(text).toMatch(/6\. Characters[^\n]*idea/)

@@ -38,6 +38,8 @@ const beat = (extra: Record<string, unknown> = {}) => ({
   dialogue: '',
   cardText: '',
   cardSubtext: '',
+  overlayText: '',
+  overlaySubtext: '',
   ...extra,
 })
 
@@ -250,6 +252,124 @@ describe('moveShortToStill：太短的會動格改成不動', () => {
   })
 })
 
+describe('金句型：疊字（寫在不動格子的 overlayText）', () => {
+  const ideaSettings = TrailerSettingsSchema.parse({
+    kind: 'idea',
+    targetSec: 10,
+    title: '黑藤裂谷',
+  })
+  const ideaInput = { ...input, settings: ideaSettings }
+  const withOverlay = (extra: Record<string, unknown> = {}) =>
+    beat({
+      beatKind: 'still',
+      durationSec: 4,
+      location: '深夜辦公室',
+      overlayText: '閒看庭前花開花落',
+      dialogue: '閒看庭前花開花落',
+      ...extra,
+    })
+  /** 4 秒有疊字的不動格＋3 秒畫面＋3 秒片名卡＝10 秒。 */
+  const ideaScript = (first = withOverlay()): TrailerScript =>
+    script([
+      first,
+      beat({ durationSec: 3, location: '深夜辦公室' }),
+      beat({ beatKind: 'title', durationSec: 3, description: '' }),
+    ])
+
+  it('toCheckBeat：疊字帶給檢查器（主文字、小字）；沒有疊字就沒有 overlay 欄位', () => {
+    expect(
+      toCheckBeat(withOverlay({ overlayText: ' 一句話 ', overlaySubtext: ' 出處 ' }) as never)
+        .overlay,
+    ).toEqual({ text: '一句話', subtext: '出處' })
+    expect(toCheckBeat(beat() as never)).not.toHaveProperty('overlay')
+  })
+
+  it('第一次就過：疊字、旁白念同一句，不重寫、不修正', async () => {
+    const { studio, requests } = studioOf([ideaScript()])
+    const result = await writeTrailerScript(studio, ideaInput, ctx)
+    expect(requests).toHaveLength(1)
+    expect(result.fixes).toEqual([])
+    expect(result.script.beats[0]).toMatchObject({
+      beatKind: 'still',
+      overlayText: '閒看庭前花開花落',
+    })
+  })
+
+  it('劇情型與懸念短版：腳本裡的疊字當沒寫（清掉，不報錯、不重寫）', async () => {
+    const withText = good()
+    withText.beats[0] = { ...withText.beats[0], overlayText: '一句話' } as never
+    for (const kind of ['story', 'teaser'] as const) {
+      const { studio, requests } = studioOf([withText])
+      const result = await writeTrailerScript(
+        studio,
+        {
+          ...input,
+          settings: TrailerSettingsSchema.parse({ kind, targetSec: 10, title: '黑藤裂谷' }),
+        },
+        ctx,
+      )
+      expect(requests, kind).toHaveLength(1)
+      expect(
+        result.script.beats.every((b) => b.overlayText === ''),
+        kind,
+      ).toBe(true)
+    }
+  })
+
+  it('不是不動的格子有疊字：重寫後還是這樣，程式把疊字拿掉，寫在 fixes', async () => {
+    const bad = ideaScript(withOverlay({ beatKind: 'video' }))
+    const { studio } = studioOf([bad])
+    const result = await writeTrailerScript(studio, ideaInput, ctx)
+    expect(result.script.beats[0]?.overlayText).toBe('')
+    expect(result.fixes.some((f) => f.includes('1'))).toBe(true)
+  })
+
+  it('疊字太長：不截字，重寫後還是太長就把這一格的疊字拿掉（也不留旁白念不出來的字），寫在 fixes', async () => {
+    const bad = ideaScript(withOverlay({ overlayText: '字'.repeat(30), dialogue: '' }))
+    const { studio, requests } = studioOf([bad])
+    const result = await writeTrailerScript(studio, ideaInput, ctx)
+    expect(requests).toHaveLength(2)
+    expect(result.script.beats[0]?.overlayText).toBe('')
+    expect(result.fixes.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('旁白不是疊的那一句：重寫後還是不一樣，程式把旁白改成疊的那一句', async () => {
+    const bad = ideaScript(withOverlay({ dialogue: '寵辱不驚' }))
+    const { studio } = studioOf([bad])
+    const result = await writeTrailerScript(studio, ideaInput, ctx)
+    expect(result.script.beats[0]?.dialogue).toBe('閒看庭前花開花落')
+    expect(result.script.beats[0]?.overlayText).toBe('閒看庭前花開花落')
+    expect(result.fixes.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('英文 12 個單字的疊字、旁白念同一句：最短停留是旁白念完的 4.6 秒（不是字卡規則的 3.7 秒），重排秒數時當下限', async () => {
+    const twelve = 'one two three four five six seven eight nine ten eleven twelve'
+    const bad = script([
+      beat({ durationSec: 3, location: '深夜辦公室' }),
+      withOverlay({ durationSec: 4, overlayText: twelve, dialogue: twelve }),
+      beat({ beatKind: 'title', durationSec: 3, description: '' }),
+    ])
+    const { studio } = studioOf([bad])
+    const result = await writeTrailerScript(studio, ideaInput, ctx)
+    expect(result.script.beats[1]?.durationSec ?? 0).toBeGreaterThanOrEqual(4.6)
+    expect(result.script.beats[1]?.dialogue).toBe(twelve)
+    expect(result.check.errors).toEqual([])
+    expect(result.check.totalSec).toBeCloseTo(10, 6)
+  })
+
+  it('停留太短（疊字的格子 2 秒、至少要 2.9 秒）：重排秒數時把最短停留當下限，加總仍是目標', async () => {
+    const bad = script([
+      withOverlay({ durationSec: 2 }),
+      beat({ durationSec: 5, location: '深夜辦公室' }),
+      beat({ beatKind: 'title', durationSec: 3, description: '' }),
+    ])
+    const { studio } = studioOf([bad])
+    const result = await writeTrailerScript(studio, ideaInput, ctx)
+    expect(result.script.beats[0]?.durationSec).toBeGreaterThanOrEqual(2.9 - 1e-9)
+    expect(result.check.totalSec).toBeCloseTo(10, 6)
+  })
+})
+
 describe('小工具', () => {
   it('truncateUnits：中文截前 N 個字（標點不算字）；英文截前 N 個單字', () => {
     expect(truncateUnits('一二三，四五六', 4)).toBe('一二三，四')
@@ -451,7 +571,34 @@ describe('觀點型：寫腳本的提示改成說明的口吻', () => {
     expect(p).not.toContain('越到後面剪得越快')
   })
 
-  it('60 秒、作者與推薦語都有：依序列出六段、各段約幾秒；字卡是主角：全片最多 7 張（不是 4 張）', () => {
+  it('疊字：要讓人記住的句子寫在不動格子的 overlayText；黑底字卡全片最多 2 張；字卡與疊字加起來最多 7 個；旁白念同一句', () => {
+    const p = promptOf()
+    expect(p).toContain('overlayText')
+    expect(p).toContain('overlaySubtext')
+    expect(p).toContain('最多 24 個中文字')
+    expect(p).toContain('最多 16 個中文字')
+    expect(p).toContain('黑底字卡 card 全片最多 2 張')
+    expect(p).toContain('加起來全片最多 7 個')
+    expect(p).toContain('旁白念的就是畫面上那一句')
+    // 以前的說法（「所有的字都用字卡」「字卡比畫面重要」）不能留著，不然跟疊字打架
+    expect(p).not.toContain('所有的字都用字卡')
+    expect(p).not.toContain('字卡比畫面重要')
+    // 不要旁白：沒有「旁白念同一句」那段
+    expect(promptOf({ narration: false })).not.toContain('旁白念的就是畫面上那一句')
+    // 劇情型與懸念短版完全沒有提到疊字
+    for (const kind of ['story', 'teaser'] as const) {
+      const other = trailerSystemPrompt({
+        text: '故事',
+        settings: TrailerSettingsSchema.parse({ kind }),
+        guide: '',
+        knownCharacters: [],
+        style: 'realistic',
+      })
+      expect(other, kind).not.toContain('overlayText')
+    }
+  })
+
+  it('60 秒、作者與推薦語都有：依序列出六段、各段約幾秒；字卡與疊字加起來全片最多 7 個（不是 4 張）', () => {
     const p = promptOf({ targetSec: 60, claims: ['每個經理人都該讀——某某雜誌'] })
     for (const key of ['hook', 'claim', 'gains', 'author', 'praise', 'title']) {
       expect(p).toContain(`${key}＝`)
@@ -459,20 +606,20 @@ describe('觀點型：寫腳本的提示改成說明的口吻', () => {
     expect(p).toContain('hook＝鉤子')
     expect(p).toContain('約 9 秒') // 60 秒的 15%
     expect(p).toContain('約 21 秒') // 三個收穫 35%
-    expect(p).toContain('全片最多 7 張')
+    expect(p).toContain('加起來全片最多 7 個')
     expect(p).not.toContain('全片最多 4 張')
-    expect(p).toContain('字卡比畫面重要')
+    expect(p).toContain('要讓人記住的句子寫在畫面上')
   })
 
-  it('30 秒：作者與推薦語最多擇一（兩個都有就留推薦語）；收穫最多 2 張字卡；沒給的那一段整段不印', () => {
+  it('30 秒：作者與推薦語最多擇一（兩個都有就留推薦語）；收穫最多 2 句；沒給的那一段整段不印', () => {
     const both = promptOf({ claims: ['每個經理人都該讀——某某雜誌'] })
     expect(both).toContain('praise＝')
     expect(both).not.toContain('author＝')
-    expect(both).toContain('收穫（最多 2 張字卡')
+    expect(both).toContain('收穫（最多 2 句')
     expect(both).not.toContain('三個收穫（三張字卡')
     // 時間按比例分給留下的各段：hook .15 / claim .2 / gains .35 / praise .08 / title .1，總和 .88
     expect(both).toContain(
-      'hook＝鉤子（一個反直覺的問句，或讀者的痛點：一張大字卡加一個隱喻畫面；第一格仍然是畫面），約 5.11 秒',
+      'hook＝鉤子（一個反直覺的問句，或讀者的痛點：寫在第一格的畫面上，畫面就是這句話的隱喻；第一格是不動的畫面），約 5.11 秒',
     )
     const authorOnly = promptOf()
     expect(authorOnly).toContain('author＝')

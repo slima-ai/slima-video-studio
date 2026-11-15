@@ -126,14 +126,6 @@ const IDEA_SHOT_KEYS = [
   'mock.ideaShot23',
   'mock.ideaShot24',
 ] as const
-const IDEA_LINE_KEYS = [
-  'mock.ideaLine1',
-  'mock.ideaLine2',
-  'mock.ideaLine3',
-  'mock.ideaLine4',
-  'mock.ideaLine5',
-  'mock.ideaLine6',
-] as const
 const IDEA_CARD_KEYS = [
   'mock.ideaCard1',
   'mock.ideaCard2',
@@ -143,9 +135,9 @@ const IDEA_CARD_KEYS = [
 ] as const
 
 /**
- * 觀點型的假腳本：沒有角色，3 個主視覺（地點）；鉤子（畫面＋字卡）→ 核心主張（畫面＋字卡）→ 三個收穫（各一張字卡＋畫面）→ 片名卡。
- * 示範只收到文本，不知道作者與推薦語，所以不放 author、praise 兩段（那兩段只用使用者提供的字）。
- * 節奏平穩，每一格差不多長；字卡放不下（目標很短）時依「三個收穫、鉤子、主張」的順序少放幾張。
+ * 觀點型的假腳本：沒有角色，3 個主視覺（地點）；要讓人記住的句子（鉤子、核心主張、三個收穫）壓在不動的畫面上（疊字），
+ * 旁白念的就是那一句；沒有黑底字卡 → 片名卡。示範只收到文本，不知道作者與推薦語，所以不放 author、praise 兩段
+ * （那兩段只用使用者提供的字）。節奏平穩，每一格差不多長；句子放不下（目標很短）時依「三個收穫、鉤子、主張」的順序少放幾句。
  */
 function demoIdeaScript(story: string, targetSec: number, narration: boolean): unknown {
   const places = [t('mock.ideaPlace1'), t('mock.ideaPlace2'), t('mock.ideaPlace3')]
@@ -156,21 +148,21 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
     .filter((c) => c !== '' && !CLAIMISH.test(c))
   // 每一格的字都不一樣：先用文本裡的句子（第一句留給書名），用完了接示範的畫面描述
   const shots = [...new Set([...clauses.slice(1), ...IDEA_SHOT_KEYS.map((key) => t(key))])]
-  const lines = IDEA_LINE_KEYS.map((key) => t(key))
-  const cardTexts = IDEA_CARD_KEYS.map((key) => t(key))
-  // 字卡的位置：0 鉤子、1 主張、2～4 三個收穫；放不下就依這個順序少放
+  const sentences = IDEA_CARD_KEYS.map((key) => t(key))
+  // 句子的位置：0 鉤子、1 主張、2～4 三個收穫；放不下就依這個順序少放
   const priority = [2, 0, 3, 1, 4]
-  const build = (cardCount: number, pictureCount: number) => {
-    // 鉤子 1 格、主張 1 格，其餘平分給三個收穫
-    const gainPictures = [0, 0, 0]
-    for (let i = 0; i < pictureCount - 2; i++) gainPictures[i % 3] = (gainPictures[i % 3] ?? 0) + 1
-    const has = (slot: number): boolean => priority.slice(0, cardCount).includes(slot)
+  const build = (sentenceCount: number, pictureCount: number) => {
+    // 鉤子 1 格、主張 1 格，其餘平分給三個收穫（每個收穫至少一格：句子就寫在它的第一格上）
+    const gainPictures = [1, 1, 1]
+    for (let i = 0; i < pictureCount - 5; i++) gainPictures[i % 3] = (gainPictures[i % 3] ?? 1) + 1
+    const has = (slot: number): boolean => priority.slice(0, sentenceCount).includes(slot)
     const beats: DemoBeat[] = []
     let n = 0
-    let talked = 0
-    const picture = (segment: string, weight: number, talk: boolean): void => {
+    // slot：這一格要不要把那一句疊在畫面上（有的話一定是不動的格子）
+    const picture = (segment: string, weight: number, slot?: number): void => {
       const i = n++
-      const still = i % 2 === 1
+      const overlay = slot !== undefined && has(slot) ? (sentences[slot] ?? '') : ''
+      const still = overlay !== '' || i % 2 === 1
       beats.push({
         beatKind: still ? 'still' : 'video',
         durationSec: weight,
@@ -178,34 +170,21 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
         description: shots[i % shots.length] ?? t('mock.demoPicture'),
         cameraMove: still ? (MOTIONS[i % MOTIONS.length] ?? null) : null,
         cardText: '',
-        // 旁白每句只用一次：句子用完就不再說話
-        clause: talk && narration && talked < lines.length ? (lines[talked++] ?? '') : '',
+        // 旁白念的就是疊的那一句；沒有疊字的畫面不說話
+        clause: narration ? overlay : '',
+        ...(overlay === '' ? {} : { overlay: { text: overlay } }),
+        // 旁白念疊的那一句：最短停留要夠念完（英文比中文慢）
+        ...(narration && overlay !== '' ? { dialogue: overlay } : {}),
         characters: [],
         // 三個主視覺輪流用：每個都至少用到一次
         location: places[i % places.length] ?? '',
       })
     }
-    const card = (segment: string, weight: number, slot: number): void => {
-      if (!has(slot)) return
-      const text = cardTexts[slot] ?? ''
-      beats.push({
-        beatKind: 'card',
-        durationSec: weight,
-        segment,
-        description: '',
-        cameraMove: null,
-        cardText: text,
-        clause: '',
-        card: { text, subtext: '' },
-      })
-    }
-    picture('hook', 3, false)
-    card('hook', 2.6, 0)
-    picture('claim', 3.5, true)
-    card('claim', 2.6, 1)
+    picture('hook', 3, 0)
+    picture('claim', 3.5, 1)
     for (let g = 0; g < 3; g++) {
-      card('gains', 2.6, 2 + g)
-      for (let k = 0; k < (gainPictures[g] ?? 0); k++) picture('gains', 3.5, k % 2 === 0)
+      picture('gains', 3.5, 2 + g)
+      for (let k = 1; k < (gainPictures[g] ?? 1); k++) picture('gains', 3.5)
     }
     beats.push({
       beatKind: 'title',
@@ -222,15 +201,11 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
   const headSec = 3
   const frame = (sec: number): number => Math.round(sec * 24) / 24
   const titleSec = frame(Math.min(5.5, Math.max(3, targetSec * 0.15)))
-  const holdOf = (beat: DemoBeat): number | undefined =>
-    beat.beatKind === 'title'
-      ? titleSec
-      : beat.beatKind === 'card'
-        ? frame(cardMinSec(beat.card ?? { text: beat.cardText }) * 1.25)
-        : undefined
-  const arrange = (cardCount: number, pictureCount: number) => {
-    const list = build(cardCount, pictureCount)
-    const fixed = list.map((beat, i) => (i === 0 ? headSec : holdOf(beat)))
+  const arrange = (sentenceCount: number, pictureCount: number) => {
+    const list = build(sentenceCount, pictureCount)
+    const fixed = list.map((beat, i) =>
+      i === 0 ? headSec : beat.beatKind === 'title' ? titleSec : undefined,
+    )
     const fixedSum = fixed.reduce<number>((sum, sec) => sum + (sec ?? 0), 0)
     const pictures = list.filter((_, i) => fixed[i] === undefined)
     const budget = targetSec - fixedSum
@@ -248,13 +223,13 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
     const durations = fixed.map((sec) => sec ?? rest.durations[k++] ?? 1)
     return { list, fit: { ok: rest.ok, durations }, longest: Math.max(0, ...rest.durations) }
   }
-  // 畫面的數目跟著長度：每 4.5 秒左右一格，至少 4 格；畫面格停太久就多排幾格（描述用完為止）；放不下就少放幾張字卡
-  const maxCards = targetSec >= 25 ? 5 : targetSec >= 20 ? 3 : targetSec >= 15 ? 2 : 1
-  const base = Math.max(4, Math.round(targetSec / 4.5))
+  // 畫面的數目跟著長度：每 4.5 秒左右一格，至少 5 格（鉤子、主張、各收穫至少一格）；畫面格停太久就多排幾格（描述用完為止）；放不下就少放幾句
+  const maxSentences = targetSec >= 25 ? 5 : targetSec >= 20 ? 3 : targetSec >= 15 ? 2 : 1
+  const base = Math.max(5, Math.round(targetSec / 4.5))
   const cap = Math.max(base, shots.length)
   let chosen: ReturnType<typeof arrange> | undefined
   let fallback: ReturnType<typeof arrange> | undefined
-  for (let c = maxCards; c >= 0 && chosen === undefined; c--) {
+  for (let c = maxSentences; c >= 0 && chosen === undefined; c--) {
     for (let v = base; v <= cap; v++) {
       const attempt = arrange(c, v)
       if (!attempt.fit.ok) break
@@ -265,16 +240,13 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
       }
     }
   }
-  const { list: beats, fit } = chosen ?? fallback ?? arrange(0, 4)
+  const { list: beats, fit } = chosen ?? fallback ?? arrange(0, 5)
+  // 有旁白的格子加起來不超過全片的 5 成半（檢查器的上限是 6 成）：念不完的句子就不念，疊字還在
+  let narratedSec = 0
   const out = beats.map((beat, i) => {
     const sec = fit.durations[i] ?? beat.durationSec
-    const cjk = /\p{Script=Han}/u.test(beat.clause)
-    const max = Math.max(
-      1,
-      Math.floor(sec * (cjk ? NARRATION_MAX_CJK_PER_SEC : NARRATION_MAX_WORDS_PER_SEC)),
-    )
-    const dialogue =
-      beat.clause === '' || textUnits(beat.clause) === 0 ? '' : cut(beat.clause, Math.min(max, 12))
+    const spoken = beat.clause !== '' && narratedSec + sec <= targetSec * 0.55
+    if (spoken) narratedSec += sec
     return {
       segment: beat.segment,
       // 會動的格被排到比 1.5 秒短：做不出像樣的影片，示範腳本自己就寫成不動的畫面
@@ -288,9 +260,11 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
       cameraMove: beat.cameraMove,
       characters: [],
       location: beat.location ?? '',
-      dialogue,
-      cardText: cut(beat.cardText, CARD_MAX_CJK),
+      dialogue: spoken ? beat.clause : '',
+      cardText: '',
       cardSubtext: '',
+      overlayText: beat.overlay?.text ?? '',
+      overlaySubtext: '',
     }
   })
   const first = out[0]
@@ -299,8 +273,9 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
       ...first,
       beatKind: 'card',
       description: '',
-      cardText: cardTexts[1] ?? '',
+      cardText: sentences[1] ?? '',
       dialogue: '',
+      overlayText: '',
     }
   }
   return {

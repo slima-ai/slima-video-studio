@@ -143,6 +143,11 @@ export const ShotItemSchema = z.object({
   promptOverride: z.string().optional(),
   /** 這一鏡的旁白台詞（拆鏡時一句話勾了「旁白」才會寫）；不進圖片與影片的 Prompt。 */
   dialogue: z.string().optional(),
+  /**
+   * 這一格有疊在畫面上的字（字本身不進 Prompt，只決定圖的構圖要留位置）：wide＝橫式與方形（下方三分之一），tall＝直式（下方四成）。
+   * 沒有疊字就沒有這個欄位，Prompt 與指紋都跟以前一樣。
+   */
+  overlay: z.enum(['wide', 'tall']).optional(),
 })
 export type ShotItem = z.infer<typeof ShotItemSchema>
 
@@ -155,6 +160,7 @@ const LlmShotSchema = ShotItemSchema.omit({
   locationId: true,
   dialogue: true,
   action: true,
+  overlay: true,
 }).extend({
   /** 只能從運鏡預設清單裡選（或 null 代表沒特別要求）。 */
   cameraMove: z.enum(CAMERA_MOVE_IDS).nullable().default(null),
@@ -482,10 +488,15 @@ export function composeShotPrompts(
     (looks.length > 0 ? `。角色外觀——${looks.join('；')}` : '') +
     (place ? `。場景（${place.name}）——${place.text}` : '')
   // 運鏡不寫在這裡：送出影片請求時才依模型決定是用原生參數還是加進 Prompt（見 resolveCameraMove）
-  const imagePrompt = `${base}。${style}`
+  const plain = `${base}。${style}`
+  // 有疊字：圖的下半部留給字（只加在圖片的 Prompt，沒有疊字的格子一個字都沒變）
+  const imagePrompt =
+    shot.overlay === undefined
+      ? plain
+      : `${plain}。構圖：畫面下方${shot.overlay === 'tall' ? '四成' : '三分之一'}保持簡單、偏暗、沒有細節；畫面裡不要出現任何文字。`
   // 動作句尾的標點拿掉：後面會接「。」，不要變成「.。」
   const action = (shot.action ?? '').trim().replace(/[.。!！?？…\s]+$/u, '')
-  if (action === '') return { imagePrompt, videoPrompt: imagePrompt }
+  if (action === '') return { imagePrompt, videoPrompt: plain }
   // 有動作：影片 Prompt 以動作開頭，接角色的「不要有…」限制，再接畫風；
   // 首幀圖已經定了畫面，不再重講一次（重講的外觀與場景描述會讓模型重畫、長出不存在的五官）
   const limits = anchors

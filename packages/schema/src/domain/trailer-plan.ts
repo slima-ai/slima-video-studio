@@ -32,6 +32,9 @@ export const TrailerScriptBeatSchema = z.object({
   /** 字卡上的字（只有 card 才用）；副文字可以空。 */
   cardText: z.string().default(''),
   cardSubtext: z.string().default(''),
+  /** 疊在畫面上的字（只有觀點型的 still 格子用；其他類型當沒寫）：要讓人記住的那一句，加一行小字（出處，可以空）。 */
+  overlayText: z.string().default(''),
+  overlaySubtext: z.string().default(''),
 })
 export type TrailerScriptBeat = z.infer<typeof TrailerScriptBeatSchema>
 

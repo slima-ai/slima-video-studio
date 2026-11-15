@@ -24,6 +24,7 @@ import {
   type QuickStyleId,
   type RegenerateMode,
   type BeatKind,
+  type AspectRatio,
   type CardJob,
   type Shot,
   type ShotAngle,
@@ -116,6 +117,8 @@ export interface TrailerBeatInput {
   locationId?: string | undefined
   dialogue: string
   card?: { text: string; subtext: string } | undefined
+  /** 疊在畫面上的字（只有不動的格子）。 */
+  overlay?: { text: string; subtext: string } | undefined
   /** 這一格屬於模板的哪一段（存進專案，之後的節奏檢查才認得「懸念」那一格）。 */
   segment?: string | undefined
 }
@@ -355,7 +358,7 @@ const toStyle = (id: string | undefined): QuickStyleId =>
   QUICK_STYLE_IDS.find((s) => s === id) ?? 'realistic'
 
 /** 鏡頭 → 單鏡頭工作流的輸入。withOverride=false 用來算「自動組出的 Prompt」。 */
-function toShotItem(shot: Shot, withOverride = true): ShotItem {
+function toShotItem(shot: Shot, withOverride = true, aspectRatio: AspectRatio = '16:9'): ShotItem {
   return ShotItemSchema.parse({
     number: shot.number,
     description: shot.description,
@@ -368,6 +371,8 @@ function toShotItem(shot: Shot, withOverride = true): ShotItem {
     mood: shot.mood ?? '',
     ...(shot.locationId ? { locationId: shot.locationId } : {}),
     ...(withOverride && shot.prompt ? { promptOverride: shot.prompt } : {}),
+    // 有疊字：圖的下半部留給字（直式留多一點）
+    ...(shot.overlay ? { overlay: aspectRatio === '9:16' ? 'tall' : 'wide' } : {}),
   })
 }
 
@@ -1945,7 +1950,9 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       .run(flow, {
         projectId: handle.projectId,
         signal: controller.signal,
-        inputs: { item: toShotItem(shot) },
+        inputs: {
+          item: toShotItem(shot, true, handle.repos.projects.get().aspectRatio),
+        },
         budget: settings.get().budget,
       })
       .catch((error: unknown) => {
@@ -2416,6 +2423,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           dialogue: beat.dialogue,
           ...(beat.locationId ? { locationId: beat.locationId } : {}),
           ...(beat.card ? { card: beat.card } : {}),
+          ...(beat.overlay ? { overlay: beat.overlay } : {}),
           ...(beat.segment ? { segment: beat.segment } : {}),
         }),
       )

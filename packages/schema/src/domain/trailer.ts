@@ -287,6 +287,10 @@ export const IDEA_VISUALS_MIN = 3
 export const IDEA_VISUALS_MAX = 5
 export const CARD_BASE_SEC = 0.8
 export const CARD_SEC_PER_UNIT = 0.2
+/** 疊字的格子比字卡的最短停留多停幾秒：字淡入、再看一眼畫面。 */
+export const OVERLAY_STAY_EXTRA_SEC = 0.5
+/** 觀點型的黑底字卡建議最多幾張（只提醒）：要讓人記住的句子改寫在畫面上（疊字）。 */
+export const IDEA_BLACK_CARD_ADVISED = 2
 /** 規則 7：片名卡最短幾秒。 */
 export const TITLE_MIN_SEC = 3
 /** 停太久的提醒（不擋）：字卡超過最短停留的幾倍、片名卡最長幾秒、第一格以外的畫面格最長幾秒。 */
@@ -326,6 +330,8 @@ export interface TrailerBeat {
   /** 旁白念的句子（只有 video、still 算旁白）。 */
   dialogue?: string | undefined
   card?: { text: string; subtext?: string | undefined } | undefined
+  /** 疊在不動的畫面上的字（只有 still 可以有）。 */
+  overlay?: { text: string; subtext?: string | undefined } | undefined
   /** 這一格屬於模板的哪一段（`TrailerSegment.key`）；規則 3 用它略過「懸念」那一格。可以不填。 */
   segment?: string | undefined
   /** 這一格的地點（名字或代號，同一個地方要一樣）；觀點型用它數「主視覺」有幾個。可以不填。 */
@@ -357,6 +363,11 @@ export type TrailerIssueCode =
   | 'title_no_action'
   | 'unverified_claim'
   | 'no_escalation'
+  | 'overlay_too_long'
+  | 'overlay_short_stay'
+  | 'overlay_wrong_kind'
+  | 'overlay_narration_differs'
+  | 'many_black_cards'
   | 'unverified_author'
   | 'too_many_visuals'
   | 'few_visuals'
@@ -381,6 +392,21 @@ export interface TrailerCheckResult {
   warnings: TrailerIssue[]
   /** 成品實際總長（每格先對齊到整數格再加總）。 */
   totalSec: number
+}
+
+/**
+ * 疊字的格子最短停留秒數：字卡的最短停留，再加淡入與看一眼畫面的 0.5 秒。
+ * 旁白照念這一句（`narrated`）時，再跟「用這個語言的旁白速度念完要的秒數」比，取比較大的
+ * （中文每秒 4 個字、英文每秒 2.6 個單字：英文 12 個單字念完要 4.6 秒，比字卡規則的 3.7 秒長）。
+ */
+export function overlayMinSec(
+  overlay: { text: string; subtext?: string | undefined },
+  narrated = false,
+): number {
+  const stay = cardMinSec(overlay) + OVERLAY_STAY_EXTRA_SEC
+  if (!narrated) return stay
+  const speed = hasHan(overlay.text) ? NARRATION_MAX_CJK_PER_SEC : NARRATION_MAX_WORDS_PER_SEC
+  return Math.max(stay, textUnits(overlay.text) / speed)
 }
 
 /** 字卡最短停留秒數：0.8 ＋ 字數 × 0.2（主文字與副文字都算）。 */
@@ -565,10 +591,70 @@ export function checkTrailerScript(
         index,
       )
     }
-    if (cardCount === cardLimit + 1) {
-      error('too_many_cards', t('trailer.ruleTooManyCards', { limit: String(cardLimit) }), index)
+  })
+
+  // 疊字：只有「不動」的格子可以有；字數、停留、旁白都有規定（金句壓在畫面上，不是另外一張黑底字卡）
+  beats.forEach((beat, index) => {
+    const overlay = beat.overlay
+    if (!overlay || overlay.text.trim() === '') return
+    if (beat.beatKind !== 'still') {
+      error('overlay_wrong_kind', t('trailer.ruleOverlayWrongKind', num(index)), index)
+      return
+    }
+    const mainSize = overlaySize(overlay.text, 'text')
+    const subSize = overlaySize(overlay.subtext ?? '', 'sub')
+    if (mainSize.used > mainSize.max || subSize.used > subSize.max) {
+      const over = mainSize.used > mainSize.max ? mainSize : subSize
+      error(
+        'overlay_too_long',
+        t('trailer.ruleOverlayTooLong', {
+          ...num(index),
+          units: String(over.used),
+          limit: String(over.max),
+        }),
+        index,
+      )
+    }
+    // 開了旁白又念這一句：最短停留要夠旁白念完（英文比中文慢）
+    const min = overlayMinSec(overlay, settings.narration && (beat.dialogue ?? '').trim() !== '')
+    if ((secs[index] ?? 0) < min - EPS) {
+      error(
+        'overlay_short_stay',
+        t('trailer.ruleOverlayShortStay', {
+          ...num(index),
+          sec: (secs[index] ?? 0).toFixed(1),
+          min: min.toFixed(1),
+        }),
+        index,
+      )
+    }
+    const spoken = (beat.dialogue ?? '').trim()
+    if (settings.narration && spoken !== '' && normalize(spoken) !== normalize(overlay.text)) {
+      error('overlay_narration_differs', t('trailer.ruleOverlayNarration', num(index)), index)
     }
   })
+
+  // 字卡總數：黑底字卡和有疊字的格子加起來算（金句壓在畫面上也是一句話）
+  {
+    let sentences = 0
+    beats.forEach((beat, index) => {
+      const hasOverlay = (beat.overlay?.text ?? '').trim() !== ''
+      if (beat.beatKind !== 'card' && !hasOverlay) return
+      sentences++
+      if (sentences === cardLimit + 1) {
+        error('too_many_cards', t('trailer.ruleTooManyCards', { limit: String(cardLimit) }), index)
+      }
+    })
+  }
+  if (settings.kind === 'idea' && cardCount > IDEA_BLACK_CARD_ADVISED) {
+    warnings.push({
+      code: 'many_black_cards',
+      message: t('trailer.warnManyBlackCards', {
+        count: String(cardCount),
+        max: String(IDEA_BLACK_CARD_ADVISED),
+      }),
+    })
+  }
 
   // 規則 7：片名卡
   const titleIndexes = beats.flatMap((beat, index) => (beat.beatKind === 'title' ? [index] : []))
@@ -603,7 +689,13 @@ export function checkTrailerScript(
     .filter((s) => s !== '')
   beats.forEach((beat, index) => {
     const narrated = beat.beatKind === 'video' || beat.beatKind === 'still'
-    const texts = [beat.card?.text, beat.card?.subtext, narrated ? beat.dialogue : undefined]
+    const texts = [
+      beat.card?.text,
+      beat.card?.subtext,
+      narrated ? beat.dialogue : undefined,
+      beat.overlay?.text,
+      beat.overlay?.subtext,
+    ]
     // 觀點型的「推薦語」那一段：整段都只能是使用者給的原文（不只是看起來像推薦語的字）
     const quoted = settings.kind === 'idea' && beat.segment === 'praise'
     const invented = texts.some((text) => {
@@ -628,7 +720,13 @@ export function checkTrailerScript(
     beats.forEach((beat, index) => {
       if (beat.segment !== 'author') return
       const narrated = beat.beatKind === 'video' || beat.beatKind === 'still'
-      const texts = [beat.card?.text, beat.card?.subtext, narrated ? beat.dialogue : undefined]
+      const texts = [
+        beat.card?.text,
+        beat.card?.subtext,
+        narrated ? beat.dialogue : undefined,
+        beat.overlay?.text,
+        beat.overlay?.subtext,
+      ]
       const invented = texts.some((text) => {
         const value = (text ?? '').trim()
         if (value === '') return false
@@ -734,11 +832,18 @@ export function checkTrailerScript(
 // ---- fitToTarget ----
 
 /** 一格調長度時最少要幾格（frame）：字卡照停留秒數、片名卡 3 秒、其他（影片、靜態）0.75 秒。 */
-export function beatMinFrames(beat: Pick<TrailerBeat, 'beatKind' | 'card'>, fps: number): number {
+export function beatMinFrames(
+  beat: Pick<TrailerBeat, 'beatKind' | 'card' | 'overlay' | 'dialogue'>,
+  fps: number,
+): number {
   if (beat.beatKind === 'title') return Math.ceil(TITLE_MIN_SEC * fps - EPS)
   if (beat.beatKind === 'card') {
     const sec = beat.card ? cardMinSec(beat.card) : CARD_BASE_SEC
     return Math.ceil(sec * fps - EPS)
+  }
+  // 疊字的格子：字卡的最短停留再加 0.5 秒（不動的格子才有疊字）
+  if (beat.beatKind === 'still' && beat.overlay && beat.overlay.text.trim() !== '') {
+    return Math.ceil(overlayMinSec(beat.overlay, (beat.dialogue ?? '').trim() !== '') * fps - EPS)
   }
   return Math.ceil(MIN_BEAT_SEC * fps - EPS)
 }
@@ -755,7 +860,7 @@ export interface FitResult {
  * 照原本的比例分配；被壓到最短的格子就停在最短，多出來的時間由其他格按比例分攤；最後用最大餘數法湊整格數。
  */
 export function fitToTarget(
-  beats: readonly Pick<TrailerBeat, 'beatKind' | 'durationSec' | 'card'>[],
+  beats: readonly Pick<TrailerBeat, 'beatKind' | 'durationSec' | 'card' | 'overlay' | 'dialogue'>[],
   targetSec: number,
   fps: number,
 ): FitResult {

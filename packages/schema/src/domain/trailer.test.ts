@@ -29,6 +29,8 @@ import {
   fitAround,
   fitToTarget,
   textUnits,
+  OVERLAY_STAY_EXTRA_SEC,
+  overlayMinSec,
   type TrailerBeat,
   type TrailerIssueCode,
   type TrailerSettings,
@@ -590,6 +592,183 @@ describe('checkTrailerScript：停太久（只提醒，不擋）', () => {
   })
 })
 
+describe('checkTrailerScript：疊字（字壓在不動的畫面上）', () => {
+  const still = (
+    durationSec: number,
+    text: string,
+    extra: Partial<TrailerBeat> = {},
+  ): TrailerBeat => ({
+    beatKind: 'still',
+    durationSec,
+    overlay: { text },
+    ...extra,
+  })
+  /** 在 goodScript 前面三格之後插入一些格子；目標秒數跟著新的總長，這樣不會冒出「長度不對」。 */
+  const withBeats = (extra: TrailerBeat[], kind: 'story' | 'idea' = 'story') => {
+    const beats = goodScript()
+    beats.splice(3, 0, ...extra)
+    const total = beats.reduce((sum, b) => sum + b.durationSec, 0)
+    return { beats, config: settings({ kind, targetSec: Math.min(120, total) }) }
+  }
+  const check = (extra: TrailerBeat[], kind: 'story' | 'idea' = 'story') => {
+    const { beats, config } = withBeats(extra, kind)
+    return checkTrailerScript(beats, config, FPS)
+  }
+  const errorCodes = (extra: TrailerBeat[], kind: 'story' | 'idea' = 'story') =>
+    codes(check(extra, kind).errors)
+
+  it('最短停留：字卡的最短停留再加 0.5 秒（淡入與看一眼畫面）', () => {
+    expect(OVERLAY_STAY_EXTRA_SEC).toBe(0.5)
+    // 「閒看庭前花開花落」8 個字：0.8 + 8×0.2 + 0.5 = 2.9 秒
+    expect(overlayMinSec({ text: '閒看庭前花開花落' })).toBeCloseTo(2.9, 9)
+    expect(overlayMinSec({ text: '閒看庭前花開花落', subtext: '菜根譚' })).toBeCloseTo(3.5, 9)
+    expect(beatMinFrames({ beatKind: 'still', overlay: { text: '閒看庭前花開花落' } }, FPS)).toBe(
+      Math.ceil(2.9 * FPS - 1e-9),
+    )
+    // 沒有疊字：跟以前一樣（畫面格最短 0.75 秒）
+    expect(beatMinFrames({ beatKind: 'still' }, FPS)).toBe(Math.ceil(MIN_BEAT_SEC * FPS - 1e-9))
+  })
+
+  it('旁白念同一句時，最短停留取兩個裡比較大的：字卡最短停留＋0.5 秒、或用這個語言的旁白速度念完要的秒數', () => {
+    // 英文 12 個單字：字卡最短 0.8＋12×0.2＋0.5 ＝ 3.7 秒；念完要 12÷2.6 ＝ 4.62 秒 → 取 4.62
+    const twelve = 'one two three four five six seven eight nine ten eleven twelve'
+    expect(overlayMinSec({ text: twelve })).toBeCloseTo(3.7, 9)
+    expect(overlayMinSec({ text: twelve }, true)).toBeCloseTo(12 / 2.6, 9)
+    expect(
+      beatMinFrames({ beatKind: 'still', overlay: { text: twelve }, dialogue: twelve }, FPS) / FPS,
+    ).toBeGreaterThanOrEqual(4.6)
+    // 沒有旁白（沒有 dialogue）：還是 3.7 秒
+    expect(beatMinFrames({ beatKind: 'still', overlay: { text: twelve } }, FPS) / FPS).toBeLessThan(
+      4,
+    )
+    // 中文 24 個字：念完要 24÷4 ＝ 6 秒，字卡規則是 0.8＋4.8＋0.5 ＝ 6.1 秒 → 取 6.1（跟以前一樣）
+    expect(overlayMinSec({ text: '字'.repeat(24) }, true)).toBeCloseTo(6.1, 9)
+    // 重排秒數也不會壓到這個下限以下
+    const squeezed = fitToTarget(
+      [
+        video(3),
+        { beatKind: 'still', durationSec: 5, overlay: { text: twelve }, dialogue: twelve },
+        title(3),
+      ],
+      9,
+      FPS,
+    )
+    expect(squeezed.ok).toBe(true)
+    expect(squeezed.durations[1] ?? 0).toBeGreaterThanOrEqual(4.6)
+  })
+
+  it('檢查器：開旁白、旁白念疊的那一句，英文 12 個單字停 4 秒不夠（要 4.6 秒）；沒有旁白停 4 秒就夠', () => {
+    const twelve = 'one two three four five six seven eight nine ten eleven twelve'
+    expect(errorCodes([still(4, twelve, { dialogue: twelve })])).toContain('overlay_short_stay')
+    expect(errorCodes([still(4.7, twelve, { dialogue: twelve })])).not.toContain(
+      'overlay_short_stay',
+    )
+    expect(errorCodes([still(4, twelve)])).not.toContain('overlay_short_stay')
+    const off = withBeats([still(4, twelve, { dialogue: twelve })])
+    expect(
+      codes(checkTrailerScript(off.beats, { ...off.config, narration: false }, FPS).errors),
+    ).not.toContain('overlay_short_stay')
+  })
+
+  it('一個好的疊字格：不動、字數在上限內、停留夠久 → 沒有任何新的提醒或錯誤', () => {
+    const result = check([still(3, '閒看庭前花開花落')])
+    expect(result.errors).toEqual([])
+  })
+
+  it('overlay_too_long：主文字超過 24 個中文字／12 個英文單字、小字超過 16／8 就擋下；剛好上限通過', () => {
+    expect(errorCodes([still(8, '字'.repeat(24))])).not.toContain('overlay_too_long')
+    expect(errorCodes([still(8, '字'.repeat(25))])).toContain('overlay_too_long')
+    expect(
+      errorCodes([still(8, 'one two three four five six seven eight nine ten eleven twelve')]),
+    ).not.toContain('overlay_too_long')
+    expect(
+      errorCodes([
+        still(8, 'one two three four five six seven eight nine ten eleven twelve thirteen'),
+      ]),
+    ).toContain('overlay_too_long')
+    expect(
+      errorCodes([
+        still(8, '閒看庭前花', { overlay: { text: '閒看庭前花', subtext: '字'.repeat(16) } }),
+      ]),
+    ).not.toContain('overlay_too_long')
+    expect(
+      errorCodes([
+        still(8, '閒看庭前花', { overlay: { text: '閒看庭前花', subtext: '字'.repeat(17) } }),
+      ]),
+    ).toContain('overlay_too_long')
+    const issue = check([still(8, '字'.repeat(25))]).errors.find(
+      (e) => e.code === 'overlay_too_long',
+    )
+    expect(issue?.index).toBe(3)
+    expect(issue?.message).toContain('4')
+  })
+
+  it('overlay_short_stay：這一格比最短停留（字卡最短停留＋0.5 秒）短就擋下；剛好通過', () => {
+    expect(errorCodes([still(2.9, '閒看庭前花開花落')])).not.toContain('overlay_short_stay')
+    expect(errorCodes([still(2.5, '閒看庭前花開花落')])).toContain('overlay_short_stay')
+    const issue = check([still(2.5, '閒看庭前花開花落')]).errors.find(
+      (e) => e.code === 'overlay_short_stay',
+    )
+    expect(issue?.message).toContain('2.9')
+  })
+
+  it('overlay_wrong_kind：不是「不動」的格子有疊字就擋下（會動、字卡、片名卡都一樣）', () => {
+    for (const kind of ['video', 'card', 'title'] as const) {
+      const beat: TrailerBeat = {
+        beatKind: kind,
+        durationSec: 4,
+        overlay: { text: '閒看庭前花開花落' },
+        ...(kind === 'card' ? { card: { text: '他回來了' } } : {}),
+      }
+      expect(errorCodes([beat]), kind).toContain('overlay_wrong_kind')
+    }
+  })
+
+  it('overlay_narration_differs：開旁白時，旁白有字卻不等於疊的那一句就擋下（不看標點與空白）；空的旁白、關旁白不擋', () => {
+    const base = '閒看庭前花開花落'
+    expect(errorCodes([still(4, base, { dialogue: '寵辱不驚' })])).toContain(
+      'overlay_narration_differs',
+    )
+    expect(errorCodes([still(4, base, { dialogue: '閒看庭前，花開花落。' })])).not.toContain(
+      'overlay_narration_differs',
+    )
+    expect(errorCodes([still(4, base, { dialogue: base })])).not.toContain(
+      'overlay_narration_differs',
+    )
+    expect(errorCodes([still(4, base)])).not.toContain('overlay_narration_differs')
+    const off = withBeats([still(4, base, { dialogue: '寵辱不驚' })])
+    expect(
+      codes(checkTrailerScript(off.beats, { ...off.config, narration: false }, FPS).errors),
+    ).not.toContain('overlay_narration_differs')
+  })
+
+  it('字卡總數：黑底字卡和有疊字的格子加起來不超過類型的上限（劇情型 4、金句型 7）', () => {
+    // goodScript 本身有 2 張字卡；再加 3 個疊字格 ＝ 5 > 4
+    const three = [still(3, '閒看庭前花開'), still(3, '寵辱不驚去留'), still(3, '先做最重要的')]
+    const story = check(three)
+    expect(story.errors.filter((e) => e.code === 'too_many_cards')).toHaveLength(1)
+    expect(check(three.slice(0, 2)).errors.map((e) => e.code)).not.toContain('too_many_cards')
+    // 金句型上限 7：2 張字卡＋3 個疊字格 ＝ 5，不超過
+    expect(errorCodes(three, 'idea')).not.toContain('too_many_cards')
+    const eight = Array.from({ length: 6 }, (_, i) => still(3, `一二三四五六${String(i)}`))
+    expect(errorCodes(eight, 'idea')).toContain('too_many_cards')
+  })
+
+  it('金句型黑底字卡超過 2 張：只提醒（many_black_cards）；其他類型、沒超過都不提醒', () => {
+    // goodScript 有 2 張黑底字卡：剛好不提醒；多一張就提醒
+    expect(codes(check([], 'idea').warnings)).not.toContain('many_black_cards')
+    const extra = check([card('第三張', 2)], 'idea')
+    expect(extra.errors).toEqual([])
+    expect(codes(extra.warnings)).toContain('many_black_cards')
+    expect(codes(check([card('第三張', 2)], 'story').warnings)).not.toContain('many_black_cards')
+  })
+
+  it('疊字也算「說了什麼」：暢銷、獎項這類字眼不是使用者給的就擋下（規則 11）', () => {
+    expect(errorCodes([still(4, '榮獲年度暢銷榜首')])).toContain('unverified_claim')
+    expect(errorCodes([still(4, '閒看庭前花開花落')])).not.toContain('unverified_claim')
+  })
+})
+
 describe('checkTrailerScript：規則 11 不編造', () => {
   it('字卡寫了「暢銷」「得獎」之類，但使用者沒填過：擋', () => {
     const beats = goodScript()
@@ -1044,10 +1223,10 @@ describe('觀點型：推薦語與作者只用使用者提供的字', () => {
 })
 
 describe('觀點型：好腳本全部規則都過', () => {
-  it('六段齊全、4 張字卡、3 個主視覺：沒有 errors 也沒有 warnings', () => {
+  it('六段齊全、4 張字卡、3 個主視覺：沒有 errors；只有一則提醒：黑底字卡超過 2 張（句子改寫在畫面上）', () => {
     const r = checkTrailerScript(ideaScript(), ideaSettings({ endLine: '12 月 1 日上市' }), FPS)
     expect(r.errors).toEqual([])
-    expect(r.warnings).toEqual([])
+    expect(codes(r.warnings)).toEqual(['many_black_cards'])
     expect(r.totalSec).toBeCloseTo(30, 9)
   })
 })
