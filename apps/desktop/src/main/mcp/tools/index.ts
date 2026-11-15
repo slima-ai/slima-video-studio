@@ -3,6 +3,7 @@ import { registerCharacterTools } from './characters'
 import { registerFilmTools } from './film'
 import { registerSoundTools } from './sound'
 import { registerGenerationTools } from './generation'
+import { registerLocationTools } from './locations'
 import { registerMetaTools } from './meta'
 import { registerProjectTools } from './project'
 import { registerSetupTools } from './setup'
@@ -18,6 +19,7 @@ export function registerAllTools(ctx: ToolContext): void {
   registerStoryTools(ctx)
   registerShotTools(ctx)
   registerCharacterTools(ctx)
+  registerLocationTools(ctx)
   registerGenerationTools(ctx)
   registerFilmTools(ctx)
   registerSoundTools(ctx)

@@ -90,6 +90,7 @@ import {
   UpgradeResultSchema,
 } from './domain/quickstart'
 import {
+  LOCATION_ANCHOR_MAX,
   LOCATION_REFERENCE_LABEL_MAX,
   LocationCardViewSchema,
   LocationReferencePurposeSchema,
@@ -1143,6 +1144,28 @@ export const ipcContract = {
   'locations.list': {
     request: z.object({}),
     response: z.object({ locations: z.array(LocationCardViewSchema) }),
+  },
+  /** 新增一張場景卡（一個新地點）；名字必填，故事裡的說明與固定場景描述可以一起寫。可以復原。 */
+  'locations.create': {
+    request: z.object({
+      name: z.string().trim().min(1).max(100),
+      description: z.string().max(4000).default(''),
+      anchorText: z.string().max(LOCATION_ANCHOR_MAX).optional(),
+    }),
+    response: LocationCardViewSchema,
+  },
+  /** 改場景卡的名字或故事裡的說明（只改有給的欄位）；已鎖定的場景卡不能改。可以復原。 */
+  'locations.update': {
+    request: z.object({
+      locationId: IdSchema,
+      patch: z
+        .object({
+          name: z.string().trim().min(1).max(100).optional(),
+          description: z.string().max(4000).optional(),
+        })
+        .refine((p) => Object.keys(p).length > 0),
+    }),
+    response: LocationCardViewSchema,
   },
   /** 寫下（或修改）固定的場景描述；已鎖定的場景卡不能改。 */
   'locations.setAnchor': {

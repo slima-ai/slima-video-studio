@@ -254,6 +254,12 @@ export function testSettingsDeps(
     },
     locations: {
       list: () => [],
+      create: () => {
+        throw new Error('測試用的場景卡服務不能新增')
+      },
+      update: () => {
+        throw new Error('測試用的場景卡服務不能修改')
+      },
       setAnchor: () => {
         throw new Error('測試用的場景卡服務不能修改')
       },

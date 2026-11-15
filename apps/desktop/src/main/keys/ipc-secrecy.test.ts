@@ -157,6 +157,8 @@ const SAMPLE_PAYLOADS: Record<IpcChannel, unknown[]> = {
   'storyboard.splitCheck': [{ sceneId: 'sc1' }],
   'storyboard.splitScene': [{ sceneId: 'sc1' }],
   'locations.list': [{}],
+  'locations.create': [{ name: '磚牆倉庫', description: '', anchorText: '磚牆倉庫' }],
+  'locations.update': [{ locationId: 'l1', patch: { name: '磚牆倉庫' } }],
   'locations.setAnchor': [{ locationId: 'l1', text: '磚牆倉庫' }],
   'locations.images': [{ locationId: 'l1' }],
   'locations.check': [{ locationId: 'l1', kind: 'concepts' }],

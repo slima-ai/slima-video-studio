@@ -53,6 +53,13 @@ export interface LocationServiceDeps {
 
 export interface LocationService {
   list: () => LocationCardView[]
+  /** 新增一張場景卡（一個新地點）；固定描述有給就一起寫。 */
+  create: (request: { name: string; description?: string; anchorText?: string }) => LocationCardView
+  /** 改名字或故事裡的說明；已鎖定的不能改。 */
+  update: (
+    locationId: string,
+    patch: { name?: string | undefined; description?: string | undefined },
+  ) => LocationCardView
   setAnchor: (locationId: string, text: string) => LocationCardView
   images: (locationId: string) => LocationImagesState
   check: (locationId: string, kind: LocationGenerateKind) => ConceptCheck
@@ -337,6 +344,37 @@ export function createLocationService(deps: LocationServiceDeps): LocationServic
 
   return {
     list: () => projects.current()?.repos.locationCards.list() ?? [],
+
+    create({ name, description, anchorText }) {
+      if (anchorText !== undefined && anchorText.length > LOCATION_ANCHOR_MAX) {
+        throw invalid(
+          t('chat.keepTheLocationDescriptionUnder', { value: String(LOCATION_ANCHOR_MAX) }),
+        )
+      }
+      const handle = need()
+      const made = handle.repos.outline.addLocation({
+        name,
+        ...(description === undefined ? {} : { description }),
+      })
+      const { locationCards } = handle.repos
+      if (anchorText !== undefined && anchorText.trim() !== '') {
+        return locationCards.setAnchor(made.id, anchorText)
+      }
+      const card = locationCards.get(made.id)
+      if (!card) throw invalid(t('chat.couldnTFindThisLocation'))
+      return card
+    },
+
+    update(locationId, patch) {
+      const handle = need()
+      const card = handle.repos.locationCards.get(locationId)
+      if (!card) throw invalid(t('chat.couldnTFindThisLocation'))
+      if (card.status === 'locked') throw invalid(t('chat.thisLocationIsLockedUnlock'))
+      handle.repos.outline.updateLocation(locationId, patch)
+      const updated = handle.repos.locationCards.get(locationId)
+      if (!updated) throw invalid(t('chat.couldnTFindThisLocation'))
+      return updated
+    },
 
     setAnchor(locationId, text) {
       if (text.length > LOCATION_ANCHOR_MAX) {
