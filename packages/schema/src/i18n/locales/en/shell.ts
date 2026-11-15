@@ -1,6 +1,7 @@
 export const shell = {
   'shell.loading': 'Loading',
   'shell.loading2': 'Loading…',
+  'shell.trailer': 'Trailer',
   'shell.canvas': 'Canvas',
   'shell.outline': 'Outline',
   'shell.storyboard': 'Storyboard',

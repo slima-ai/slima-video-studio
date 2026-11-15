@@ -587,6 +587,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       ...(shot.inCut ? {} : { inCut: false }),
       ...(shot.beatKind === 'video' ? {} : { beatKind: shot.beatKind }),
       ...(shot.card === undefined ? {} : { card: shot.card }),
+      ...(shot.segment ? { segment: shot.segment } : {}),
       ...(overMax ? { lengthOverMax: overMax } : {}),
       ...(filmSeconds === undefined ? {} : { filmSeconds }),
       autoPrompt: auto,

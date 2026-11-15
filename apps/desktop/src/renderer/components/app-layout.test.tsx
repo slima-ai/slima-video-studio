@@ -83,6 +83,16 @@ describe('AppLayout', () => {
     expect(screen.getByRole('button', { name: '從 Slima 匯入' })).toBeTruthy()
   })
 
+  it('「預告片」只在專案有預告片設定時出現，而且排在導覽最前面', () => {
+    const { rerender } = render(<AppLayout />)
+    expect(screen.queryByRole('button', { name: '預告片' })).toBeNull()
+    rerender(<AppLayout showTrailer view="trailer" />)
+    const buttons = within(screen.getByTestId('layout-nav')).getAllByRole('button')
+    expect(buttons[0]?.getAttribute('aria-label')).toBe('預告片')
+    expect(buttons[0]?.getAttribute('aria-current')).toBe('page')
+    expect(screen.getByRole('button', { name: '畫布' }).getAttribute('aria-current')).toBeNull()
+  })
+
   it('導覽按鈕在圖示下面直接寫名字，不用滑過才知道；從 Slima 匯入寫短的「Slima」', () => {
     render(<AppLayout view="canvas" showSlima />)
     const nav = within(screen.getByTestId('layout-nav'))

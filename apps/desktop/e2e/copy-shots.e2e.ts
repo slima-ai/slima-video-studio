@@ -36,6 +36,9 @@ test.describe('文案截圖（改前改後對照）', () => {
     await page.getByTestId('trailer-text').fill(STORY)
     await page.getByTestId('trailer-title').fill('斷橋')
     await page.getByTestId('trailer-go').click()
+    // 寫完腳本落在「預告片」頁；接下來要在畫布上做事，先切過去
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
+    await page.getByRole('button', { name: '畫布', exact: true }).click()
     await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 30／30 秒', {
       timeout: 30_000,
     })

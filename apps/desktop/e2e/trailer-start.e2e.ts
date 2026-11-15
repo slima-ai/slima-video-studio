@@ -109,6 +109,10 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
 
     // 3. 寫腳本：畫布長出「預告片」場與鏡頭，頂列標籤寫 30／30 秒
     await page.getByTestId('trailer-go').click()
+    // 寫完腳本落在「預告片」頁（標題列也寫 30／30 秒）；這條接著在畫布上檢查，先切過去
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('trailer-page-length')).toHaveText('30／30 秒')
+    await openCanvas(page)
     await expect(page.getByTestId('canvas-empty')).toHaveCount(0, { timeout: 30_000 })
     await expect(page.getByTestId('trailer-badge')).toHaveText('預告片 30／30 秒')
     await expect(page.getByTestId('trailer-badge')).toHaveAttribute('data-matches', 'true')
@@ -262,7 +266,7 @@ test.describe('做預告片：從空白畫布的入口走到成品（示範模�
     await openCanvas(page)
     await page.getByTestId('trailer-text').fill(STORY)
     await page.getByTestId('trailer-go').click()
-    await expect(page.getByTestId('trailer-badge')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
     await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await expect(page.getByTestId('character-item-draft-小葉')).toHaveText('草稿')
     await expect(page.getByTestId('character-item-draft-老鐘')).toHaveText('草稿')
@@ -308,6 +312,13 @@ test.describe('做預告片：英文介面與窄視窗', () => {
 
       await page.getByTestId('trailer-text').fill('A bridge, a lamp, a knock. The door opens.')
       await page.getByTestId('trailer-go').click()
+      await expect(page.getByTestId('trailer-page-length')).toHaveText('30/30 s', {
+        timeout: 30_000,
+      })
+      await page
+        .getByTestId('layout-nav')
+        .getByRole('button', { name: 'Canvas', exact: true })
+        .click()
       await expect(page.getByTestId('trailer-badge')).toHaveText('Trailer 30/30 s', {
         timeout: 30_000,
       })
@@ -330,6 +341,8 @@ test.describe('做預告片：英文介面與窄視窗', () => {
     await expect(page.getByTestId('trailer-go')).toBeEnabled()
     await shoot(page, testInfo, '13-narrow-390.png')
     await page.getByTestId('trailer-go').click()
+    await expect(page.getByTestId('trailer-page')).toBeVisible({ timeout: 30_000 })
+    await openCanvas(page)
     await expect(page.getByTestId('trailer-badge')).toBeVisible({ timeout: 30_000 })
     // 標籤與面板在窄視窗也完整露出
     await page.getByTestId('trailer-badge').click()

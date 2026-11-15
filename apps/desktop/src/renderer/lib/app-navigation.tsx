@@ -3,10 +3,13 @@ import { createContext, useContext, type ReactNode } from 'react'
 /** 畫面深處（聲音區、聊天面板）要帶使用者去別的頁時用；沒包在 provider 裡就什麼都不做（測試與單獨渲染）。 */
 export interface AppNavigation {
   openSettings: () => void
+  /** 去「預告片」頁（寫完腳本之後）。 */
+  openTrailer: () => void
 }
 
 const NONE: AppNavigation = {
   openSettings: () => undefined,
+  openTrailer: () => undefined,
 }
 
 const AppNavigationContext = createContext<AppNavigation>(NONE)
