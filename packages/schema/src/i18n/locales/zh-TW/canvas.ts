@@ -553,6 +553,8 @@ export const canvas = {
   'canvas.shotCouldnTStart': '第 {value} 鏡沒辦法開始：{error}',
   'canvas.starting': '開始生成：{summary}',
   'canvas.stepsDidnTSucceedPress': '有 {value} 步沒有成功：在那一格按「重試」',
+  'canvas.shotsDidnTSucceed': '第 {value} 鏡沒有成功：在那一格按「重試」',
+  'canvas.seeTheFirstOne': '看第一個',
   'canvas.done2': '完成：{summary}',
   'canvas.stoppedWhatSDoneIs': '已經停止，做好的部分留著',
   'canvas.cell': '格子',

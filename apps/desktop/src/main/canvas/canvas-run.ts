@@ -338,8 +338,20 @@ export function createCanvasRunner(deps: CanvasRunnerDeps): CanvasRunner {
         // 背景等所有鏡頭做完再接片；有鏡頭沒有影片時 rejoin 會說是第幾鏡
         void shots
           .whenIdle()
-          .then(() => shots.rejoin())
           .then(async () => {
+            // 有鏡頭沒做出影片（使用者按了「停止」，或那一鏡失敗了）：不接片、不丟「第 N 鏡還沒有可用的影片」的錯誤，
+            // 畫面自己會說「已經停止」或「第 N 鏡沒有成功」
+            if (segmentsWithoutVideo([]) > 0) {
+              log.info(
+                'Canvas run: some shots have no video (stopped or failed), the film is not joined',
+              )
+              return false
+            }
+            await shots.rejoin()
+            return true
+          })
+          .then(async (joined) => {
+            if (!joined) return
             if (!soundWant || !runSound) {
               done({ tone: 'success', message: t('canvas.theFilmIsJoined') })
               return
