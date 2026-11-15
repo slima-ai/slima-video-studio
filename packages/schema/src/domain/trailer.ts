@@ -243,11 +243,19 @@ export const CARD_BASE_SEC = 0.8
 export const CARD_SEC_PER_UNIT = 0.2
 /** 規則 7：片名卡最短幾秒。 */
 export const TITLE_MIN_SEC = 3
+/** 停太久的提醒（不擋）：字卡超過最短停留的幾倍、片名卡最長幾秒、第一格以外的畫面格最長幾秒。 */
+export const CARD_HOLD_MAX_FACTOR = 2
+export const TITLE_HOLD_MAX_SEC = 6
+export const BEAT_HOLD_MAX_SEC = 6
 /** 規則 3：最後三分之一的平均格長要不超過前三分之一的幾成（只提醒）；至少幾格才比。 */
 export const ESCALATION_RATIO = 0.6
 export const ESCALATION_MIN_BEATS = 6
-/** 一般格子（影片、靜態）調長度時的最短秒數。 */
-export const MIN_BEAT_SEC = 0.25
+/** 懸念短版是給社群看的：目標最長幾秒（畫面只列 15、30 秒；後端也擋超過的，Claude 透過 MCP 也一樣）。 */
+export const TEASER_MAX_SEC = 30
+/** 畫面格（影片、靜態）的最短秒數：再短看不清楚。 */
+export const MIN_BEAT_SEC = 0.75
+/** 會動的格子最短幾秒：再短就只是影片的一個開頭，付一整段影片的錢用不到；比這短的改成不動的畫面。 */
+export const MIN_MOVING_BEAT_SEC = 1.5
 
 const EPS = 1e-9
 const HAN = /\p{Script=Han}/u
@@ -288,6 +296,8 @@ export type TrailerIssueCode =
   | 'length'
   | 'first_beat_not_picture'
   | 'first_beat_too_long'
+  | 'beat_too_short'
+  | 'moving_beat_too_short'
   | 'narration_too_dense'
   | 'narration_share'
   | 'narration_one_sentence'
@@ -301,8 +311,12 @@ export type TrailerIssueCode =
   | 'title_no_action'
   | 'unverified_claim'
   | 'no_escalation'
+  | 'unverified_author'
   | 'too_many_visuals'
   | 'few_visuals'
+  | 'card_hold_too_long'
+  | 'title_hold_too_long'
+  | 'beat_hold_too_long'
 
 export interface TrailerIssue {
   code: TrailerIssueCode
@@ -404,6 +418,33 @@ export function checkTrailerScript(
       )
     }
   }
+
+  // 格子最短：畫面格至少 0.75 秒（錯，要退回）；會動的至少 1.5 秒（只提醒，建議改成不動）
+  beats.forEach((beat, index) => {
+    if (beat.beatKind !== 'video' && beat.beatKind !== 'still') return
+    const sec = secs[index] ?? 0
+    if (sec < MIN_BEAT_SEC - EPS) {
+      error(
+        'beat_too_short',
+        t('trailer.ruleBeatTooShort', {
+          ...num(index),
+          sec: sec.toFixed(2),
+          min: String(MIN_BEAT_SEC),
+        }),
+        index,
+      )
+    } else if (beat.beatKind === 'video' && sec < MIN_MOVING_BEAT_SEC - EPS) {
+      warnings.push({
+        code: 'moving_beat_too_short',
+        index,
+        message: t('trailer.warnMovingTooShort', {
+          ...num(index),
+          sec: sec.toFixed(2),
+          min: String(MIN_MOVING_BEAT_SEC),
+        }),
+      })
+    }
+  })
 
   // 規則 4：旁白密度（只有影片、靜態格有旁白）
   let narratedSec = 0
@@ -535,8 +576,29 @@ export function checkTrailerScript(
     }
   })
 
-  // 觀點型：主視覺（地點）3～5 個
+  // 觀點型的「作者憑什麼」那一段（作者經歷）：比照推薦語，只能是使用者給的字（作者欄、推薦語、標語…）或文本裡明明寫著的原文
   if (settings.kind === 'idea') {
+    const bioSources = [...allowed, normalize(settings.sourceText)].filter((s) => s !== '')
+    beats.forEach((beat, index) => {
+      if (beat.segment !== 'author') return
+      const narrated = beat.beatKind === 'video' || beat.beatKind === 'still'
+      const texts = [beat.card?.text, beat.card?.subtext, narrated ? beat.dialogue : undefined]
+      const invented = texts.some((text) => {
+        const value = (text ?? '').trim()
+        if (value === '') return false
+        // 「作者：某某」「by 某某」前面的稱呼不算
+        const flat = normalize(value).replace(/^(作者|by)/, '')
+        return !bioSources.some((source) => source.includes(flat))
+      })
+      if (invented) {
+        error('unverified_author', t('trailer.ruleUnverifiedAuthor', num(index)), index)
+      }
+    })
+  }
+
+  // 觀點型：主視覺（地點）3～5 個（短片放不下那麼多：15 秒約 1 個、20 秒約 2 個）
+  if (settings.kind === 'idea') {
+    const minVisuals = Math.min(IDEA_VISUALS_MIN, Math.max(1, Math.floor(settings.targetSec / 8)))
     const visuals = new Set(
       beats.flatMap((beat) =>
         (beat.beatKind === 'video' || beat.beatKind === 'still') && (beat.location ?? '') !== ''
@@ -552,12 +614,12 @@ export function checkTrailerScript(
           max: String(IDEA_VISUALS_MAX),
         }),
       )
-    } else if (visuals.size > 0 && visuals.size < IDEA_VISUALS_MIN) {
+    } else if (visuals.size > 0 && visuals.size < minVisuals) {
       warnings.push({
         code: 'few_visuals',
         message: t('trailer.ruleFewVisuals', {
           count: String(visuals.size),
-          min: String(IDEA_VISUALS_MIN),
+          min: String(minVisuals),
         }),
       })
     }
@@ -580,12 +642,52 @@ export function checkTrailerScript(
     }
   }
 
+  // 停太久（只提醒）：字很少的字卡、片名卡、第一格以外的畫面格停得太長，節奏就拖住了
+  beats.forEach((beat, index) => {
+    const sec = secs[index] ?? 0
+    if (beat.beatKind === 'card' && beat.card) {
+      const max = CARD_HOLD_MAX_FACTOR * cardMinSec(beat.card)
+      if (sec > max + EPS) {
+        warnings.push({
+          code: 'card_hold_too_long',
+          index,
+          message: t('trailer.warnCardHoldTooLong', {
+            ...num(index),
+            sec: sec.toFixed(1),
+            max: max.toFixed(1),
+          }),
+        })
+      }
+    } else if (beat.beatKind === 'title') {
+      if (sec > TITLE_HOLD_MAX_SEC + EPS) {
+        warnings.push({
+          code: 'title_hold_too_long',
+          index,
+          message: t('trailer.warnTitleHoldTooLong', {
+            sec: sec.toFixed(1),
+            max: String(TITLE_HOLD_MAX_SEC),
+          }),
+        })
+      }
+    } else if (index > 0 && sec > BEAT_HOLD_MAX_SEC + EPS) {
+      warnings.push({
+        code: 'beat_hold_too_long',
+        index,
+        message: t('trailer.warnBeatHoldTooLong', {
+          ...num(index),
+          sec: sec.toFixed(1),
+          max: String(BEAT_HOLD_MAX_SEC),
+        }),
+      })
+    }
+  })
+
   return { errors, warnings, totalSec }
 }
 
 // ---- fitToTarget ----
 
-/** 一格調長度時最少要幾格（frame）：字卡照停留秒數、片名卡 3 秒、其他 0.25 秒。 */
+/** 一格調長度時最少要幾格（frame）：字卡照停留秒數、片名卡 3 秒、其他（影片、靜態）0.75 秒。 */
 export function beatMinFrames(beat: Pick<TrailerBeat, 'beatKind' | 'card'>, fps: number): number {
   if (beat.beatKind === 'title') return Math.ceil(TITLE_MIN_SEC * fps - EPS)
   if (beat.beatKind === 'card') {
