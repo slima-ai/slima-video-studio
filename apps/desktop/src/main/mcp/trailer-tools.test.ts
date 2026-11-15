@@ -192,7 +192,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   it('update_shot 的 overlay：靜態格可以疊字、get_trailer 與 list_shots 看得到、null 清掉；太長被擋下', async () => {
     const r = await start()
     await r.call('create_project', { name: '預告片' })
-    const planned = dataOf(Planned, await r.call('plan_trailer', { text: STORY }))
+    const planned = await planAndRead(r, { text: STORY })
     const video = planned.beats.find((b) => b.beatKind === 'video')
     if (!video) throw new Error('缺格子')
     await r.call('set_shot_motion', { shotId: video.id, motion: 'still' })
