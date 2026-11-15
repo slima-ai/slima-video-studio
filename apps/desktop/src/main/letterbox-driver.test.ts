@@ -10,7 +10,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { withLetterboxTrim } from './letterbox-driver'
 
 const dirs: string[] = []
+const handles: { close: () => void }[] = []
 afterEach(() => {
+  // 先關專案（放掉資料庫檔），Windows 上開著的檔案刪不掉
+  for (const h of handles.splice(0)) h.close()
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
 })
 
@@ -25,6 +28,7 @@ async function setup(boxes: readonly string[]) {
     { dir: join(root, '貓.svsproj'), name: '貓' },
     { appVersion: 'test' },
   )
+  handles.push(handle)
   const file = join(root, 'frame.png')
   await runTool(tools.ffmpegPath, [
     '-hide_banner',

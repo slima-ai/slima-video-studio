@@ -74,7 +74,10 @@ describe('tools/ci/install-ffmpeg.sh：固定來源與版號', () => {
   })
 })
 
-describe('tools/ci/install-ffmpeg.sh：行為（用假的 ffmpeg 與本機檔案當來源）', () => {
+// 這支腳本只在 Linux 的 CI 上跑；測試用 bash、冒號分隔的 PATH、可執行的假指令，Windows 上跑不起來也沒有意義
+const describeOnLinux = describe.skipIf(process.platform === 'win32')
+
+describeOnLinux('tools/ci/install-ffmpeg.sh：行為（用假的 ffmpeg 與本機檔案當來源）', () => {
   const dirs: string[] = []
   afterEach(() => {
     for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })

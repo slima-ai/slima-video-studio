@@ -8,7 +8,7 @@ import {
   renameSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, posix, win32 } from 'node:path'
 
 /** 寫進 AI 工具設定裡的名字。 */
 export const SERVER_NAME = 'slima-video-studio'
@@ -39,8 +39,15 @@ export function desktopConfigPath(
   appData: string | undefined,
 ): string | undefined {
   if (platform === 'darwin')
-    return join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
-  if (platform === 'win32' && appData) return join(appData, 'Claude', 'claude_desktop_config.json')
+    return posix.join(
+      home,
+      'Library',
+      'Application Support',
+      'Claude',
+      'claude_desktop_config.json',
+    )
+  if (platform === 'win32' && appData)
+    return win32.join(appData, 'Claude', 'claude_desktop_config.json')
   return undefined
 }
 

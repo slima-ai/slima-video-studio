@@ -252,7 +252,10 @@ describe('ChatService：開對話、送一則、一路串流', () => {
     if (!child) throw new Error('沒有啟動行程')
     // 第一則：--session-id、只傳必要的環境、在我們的工作資料夾
     expect(calls[0]?.args).toContain('--session-id')
-    expect(calls[0]?.env).toEqual({ PATH: '/usr/bin', HOME: '/home/x' })
+    // 只傳必要的環境（金鑰、別的變數都不傳）；Windows 認的是 USERPROFILE 那一組，沒有 HOME
+    expect(calls[0]?.env).toEqual(
+      process.platform === 'win32' ? { PATH: '/usr/bin' } : { PATH: '/usr/bin', HOME: '/home/x' },
+    )
     expect(calls[0]?.file).toBe('/bin/claude')
     expect(child.written).toEqual([
       {

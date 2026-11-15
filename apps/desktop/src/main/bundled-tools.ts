@@ -1,7 +1,7 @@
 import { resolveTools, type MediaTools } from '@svs/media'
 import ffmpegStatic from 'ffmpeg-static'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { posix, win32 } from 'node:path'
 
 /** 打包後 node_modules 在 app.asar 裡，但執行檔必須放在 app.asar.unpacked 才跑得起來。 */
 export function unpackedPath(path: string): string {
@@ -17,7 +17,9 @@ export function bundledFfmpegPath(
   platform: NodeJS.Platform = process.platform,
 ): string | undefined {
   if (resourcesPath === undefined) return undefined
-  return join(resourcesPath, 'ffmpeg', platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')
+  // 路徑照指定的平台組（不看現在跑在哪一台）：Windows 用反斜線、其他用斜線
+  const path = platform === 'win32' ? win32 : posix
+  return path.join(resourcesPath, 'ffmpeg', platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')
 }
 
 /**
