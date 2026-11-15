@@ -1,7 +1,6 @@
 export const onboarding = {
   'onboarding.welcome': '歡迎使用 Slima Video Studio',
-  'onboarding.intro':
-    '把你的故事做成 AI 影片：先自動分成一個個畫面，再逐一生成畫面和影片，最後接成一支完整的片。',
+  'onboarding.intro': '把一本書做成一支預告片',
   'onboarding.question': '想怎麼開始？',
   'onboarding.demo.title': '先試玩看看',
   'onboarding.demo.body':

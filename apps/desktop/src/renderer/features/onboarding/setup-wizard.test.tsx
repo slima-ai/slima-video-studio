@@ -19,6 +19,14 @@ const data = (keys = KEYS): AppData => ({
 })
 
 describe('SetupWizard', () => {
+  it('歡迎頁的說法是「把一本書做成一支預告片」，沒有副標那一長句', () => {
+    installFakeSvs()
+    render(<SetupWizard data={data()} reload={vi.fn()} onDone={vi.fn()} />)
+    expect(screen.getByText('把一本書做成一支預告片')).toBeTruthy()
+    expect(screen.queryByText(/AI 影片/)).toBeNull()
+    expect(screen.queryByText(/逐一生成畫面和影片/)).toBeNull()
+  })
+
   it('先試玩看看 → 開啟示範模式並完成引導', async () => {
     const svs = installFakeSvs()
     const onDone = vi.fn()
