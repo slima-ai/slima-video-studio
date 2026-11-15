@@ -21,7 +21,10 @@ const Beat = z.looseObject({
   number: z.number(),
   beatKind: z.enum(['video', 'still', 'card', 'title']),
   durationSec: z.number(),
-  card: z.object({ text: z.string(), subtext: z.string() }).nullable(),
+  card: z.object({ text: z.string(), subtext: z.string() }).optional(),
+  segment: z.string().optional(),
+  startSec: z.number().optional(),
+  location: z.string().optional(),
 })
 const Trailer = z.looseObject({
   exists: z.boolean(),
@@ -35,13 +38,21 @@ const Trailer = z.looseObject({
   errors: z.array(z.looseObject({ code: z.string() })),
   next: z.string().optional(),
 })
-const Planned = Trailer.extend({
+/** plan_trailer 只回摘要（沒有每一格）；每一格看 get_trailer。 */
+const PlannedSummary = Trailer.omit({ beats: true }).extend({
   wroteAgain: z.boolean(),
   fixedByTheApp: z.array(z.string()),
   spending: z.looseObject({ estimatedUsd: z.number(), reservedUsd: z.number() }),
 })
 const Waited = z.looseObject({ finished: z.boolean() })
 const Sound = z.looseObject({ totalSec: z.number() })
+
+/** 寫腳本，再把每一格讀回來（plan_trailer 只回摘要）。 */
+async function planAndRead(r: Running, input: Record<string, unknown>) {
+  const summary = dataOf(PlannedSummary, await r.call('plan_trailer', input))
+  const read = dataOf(Trailer, await r.call('get_trailer'))
+  return { ...summary, beats: read.beats }
+}
 
 async function start(options: Parameters<typeof startRealMcp>[0] = {}): Promise<Running> {
   const r = await startRealMcp(options)
@@ -63,10 +74,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   it('寫腳本 → 看 → 改一格秒數會回「差幾秒」→ 重排後又等於目標 → 生成、接片、get_sound 的 totalSec 等於目標', async () => {
     const r = await start()
     await r.call('create_project', { name: '預告片' })
-    const planned = dataOf(
-      Planned,
-      await r.call('plan_trailer', { text: STORY, targetSec: 30, title: '黑藤之夜' }),
-    )
+    const planned = await planAndRead(r, { text: STORY, targetSec: 30, title: '黑藤之夜' })
     // 示範模式不花錢也不預留
     expect(planned.spending.reservedUsd).toBe(0)
     expect(planned.exists).toBe(true)
@@ -116,7 +124,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   it('add_card：字卡加在指定格後面（種類 card、停留時間照字數）、總長變長、復原就回來；不是預告片的格子被擋下', async () => {
     const r = await start()
     await r.call('create_project', { name: '預告片' })
-    const before = dataOf(Planned, await r.call('plan_trailer', { text: STORY }))
+    const before = await planAndRead(r, { text: STORY })
     const after = before.beats[1]
     if (!after) throw new Error('格子不夠')
 
@@ -150,7 +158,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   it('set_shot_motion：影片格 ⇄ 靜態格；字卡與片名卡沒有動作，被擋下並說明', async () => {
     const r = await start()
     await r.call('create_project', { name: '預告片' })
-    const planned = dataOf(Planned, await r.call('plan_trailer', { text: STORY }))
+    const planned = await planAndRead(r, { text: STORY })
     const video = planned.beats.find((b) => b.beatKind === 'video')
     const title = planned.beats.find((b) => b.beatKind === 'title')
     if (!video || !title) throw new Error('缺格子')
@@ -198,7 +206,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   it('重寫腳本：已經生成過畫面的要明確同意（replaceGenerated）；同意之後整份換掉', async () => {
     const r = await start()
     await r.call('create_project', { name: '預告片' })
-    const first = dataOf(Planned, await r.call('plan_trailer', { text: STORY }))
+    const first = await planAndRead(r, { text: STORY })
     const video = first.beats.find((b) => b.beatKind === 'video')
     await r.call('generate_first_frames', { shotIds: [video?.id ?? ''] })
     await waitDone(r)
@@ -211,10 +219,7 @@ describe('預告片工具（示範模式，走完整條路）', () => {
       first.beats.map((b) => b.id),
     )
 
-    const again = dataOf(
-      Planned,
-      await r.call('plan_trailer', { text: STORY, replaceGenerated: true }),
-    )
+    const again = await planAndRead(r, { text: STORY, replaceGenerated: true })
     expect(again.beats.map((b) => b.id)).not.toContain(video?.id)
     expect(again.matches).toBe(true)
   })
@@ -236,6 +241,43 @@ describe('預告片工具（示範模式，走完整條路）', () => {
   })
 })
 
+describe('預告片工具：estimate_cost 提醒還沒鎖定的角色與場景卡（A1c）', () => {
+  const Estimate = z.looseObject({
+    possible: z.boolean(),
+    unconfirmed: z.object({ characters: z.number(), locations: z.number() }).optional(),
+    note: z.string().optional(),
+  })
+
+  it('generate_first_frames：預告片寫完沒鎖定，回 unconfirmed 與一句說明；鎖定角色後角色數是 0；generate_videos 沒有', async () => {
+    const r = await start()
+    await r.call('create_project', { name: '預告片' })
+    await r.call('plan_trailer', { text: STORY, targetSec: 30, title: '黑藤之夜' })
+    const first = dataOf(
+      Estimate,
+      await r.call('estimate_cost', { action: 'generate_first_frames' }),
+    )
+    expect(first.unconfirmed).toEqual({ characters: 2, locations: 2 })
+    expect(first.note).toContain('lock_character')
+
+    const listed = dataOf(
+      z.looseObject({ characters: z.array(z.looseObject({ id: z.string(), name: z.string() })) }),
+      await r.call('list_characters', {}),
+    )
+    expect(listed.characters.map((c) => c.name).sort()).toEqual(['小葉', '老鐘'])
+    for (const character of listed.characters) {
+      await r.call('lock_character', { characterId: character.id })
+    }
+    const after = dataOf(
+      Estimate,
+      await r.call('estimate_cost', { action: 'generate_first_frames' }),
+    )
+    expect(after.unconfirmed).toEqual({ characters: 0, locations: 2 })
+
+    const videos = dataOf(Estimate, await r.call('estimate_cost', { action: 'generate_videos' }))
+    expect(videos.unconfirmed).toBeUndefined()
+  })
+})
+
 describe('預告片工具：金句／觀點型（idea）', () => {
   const IDEA =
     '這本書說：越忙越沒進度，是因為優先順序錯了。先做最重要的一件事，把待辦清單砍掉一半。'
@@ -243,10 +285,12 @@ describe('預告片工具：金句／觀點型（idea）', () => {
   it('plan_trailer(kind: idea)：腳本過檢查、5 張字卡（比劇情型的 4 張多）、沒有草稿角色；update_trailer 也收 idea', async () => {
     const r = await start()
     await r.call('create_project', { name: '金句' })
-    const planned = dataOf(
-      Planned,
-      await r.call('plan_trailer', { text: IDEA, kind: 'idea', targetSec: 30, title: '深度工作' }),
-    )
+    const planned = await planAndRead(r, {
+      text: IDEA,
+      kind: 'idea',
+      targetSec: 30,
+      title: '深度工作',
+    })
     expect(planned.kind).toBe('idea')
     expect(planned.matches).toBe(true)
     expect(planned.errors).toEqual([])
@@ -273,6 +317,43 @@ describe('預告片工具：金句／觀點型（idea）', () => {
     expect(line).toContain('only the user')
     // 順序裡的「角色」那一步也說了觀點型不做
     expect(text).toMatch(/6\. Characters[^\n]*idea/)
+  })
+})
+
+describe('預告片指南：角色與場景的草稿已經帶外觀（A1）', () => {
+  it('第 3 步說草稿角色與場景卡是從文本寫出來的；第 6 步：先看外觀、缺或不對就補、鎖定才會進提示、概念圖是選做', async () => {
+    const r = await start()
+    const { text } = dataOf(
+      z.object({ text: z.string() }),
+      await r.call('load_guide', { topic: 'trailer' }),
+    )
+    const step3 = text.split('\n').find((l) => l.startsWith('3. ')) ?? ''
+    expect(step3).toContain('draft characters')
+    expect(step3).toContain('look and outfit')
+    expect(step3).toContain('place')
+    const step6 = text.split('\n').find((l) => l.startsWith('6. ')) ?? ''
+    for (const part of [
+      'list_characters',
+      'update_character',
+      'suggest_character_anchor',
+      'set_character_anchor',
+      'lock_character',
+      'optional',
+    ]) {
+      expect(step6, part).toContain(part)
+    }
+    expect(step6).toContain('only locked')
+    expect(step6).toContain('unconfirmed')
+    // 順序：先 update_character → suggest → set_anchor → lock
+    expect(step6.indexOf('update_character')).toBeLessThan(
+      step6.indexOf('suggest_character_anchor'),
+    )
+    expect(step6.indexOf('suggest_character_anchor')).toBeLessThan(
+      step6.indexOf('set_character_anchor'),
+    )
+    expect(step6.indexOf('set_character_anchor')).toBeLessThan(step6.indexOf('lock_character'))
+    // 舊的那句（草稿角色沒鎖定、外觀會跑掉）不再當成唯一的說法
+    expect(step6).not.toContain('Draft characters from the script are not locked')
   })
 })
 

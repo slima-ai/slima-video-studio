@@ -62,6 +62,12 @@ test.describe('預告片：寫腳本（示範模式，假腳本，不花錢）',
     await page.getByTestId('layout-nav').getByRole('button', { name: '角色', exact: true }).click()
     await expect(page.getByText('小葉').first()).toBeVisible()
     await expect(page.getByText('老鐘').first()).toBeVisible()
+    // 腳本寫了角色的外觀：點開草稿卡，長相、服裝、固定外觀描述都有字（示範腳本的字），還沒鎖定
+    await page.getByTestId('character-item-小葉').click()
+    await expect(page.getByTestId('character-appearance')).toHaveValue(/十七八歲的少女/)
+    await expect(page.getByTestId('character-outfit')).toHaveValue(/靛藍粗布短衫/)
+    await expect(page.getByTestId('character-anchor')).toHaveValue(/十七八歲的少女.*靛藍粗布短衫/)
+    await expect(page.getByTestId('character-item-draft-小葉')).toHaveText('草稿')
     await page.screenshot({ path: testInfo.outputPath('characters-page.png') })
     await page.getByRole('button', { name: '場景卡', exact: true }).click()
     await expect(page.getByText('斷橋').first()).toBeVisible()

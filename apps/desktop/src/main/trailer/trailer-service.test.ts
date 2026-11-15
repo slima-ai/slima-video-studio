@@ -185,7 +185,8 @@ describe('trailer.status：跟寫腳本當下用同一套節奏檢查（段落�
   const suspenseScript = () => {
     const pic = (segment: string, durationSec: number, i: number) => ({
       segment,
-      beatKind: i % 2 === 0 ? 'video' : 'still',
+      // 會動的格至少 1.5 秒（更短的是不動的畫面）
+      beatKind: i % 2 === 0 && durationSec >= 1.5 ? 'video' : 'still',
       durationSec,
       description: `畫面 ${String(i)}`,
       action: '',
@@ -208,8 +209,8 @@ describe('trailer.status：跟寫腳本當下用同一套節奏檢查（段落�
       ['escalate', 1.2],
       ['escalate', 1],
       ['escalate', 0.8],
-      ['escalate', 0.6],
-      ['suspense', 5],
+      ['escalate', 0.75],
+      ['suspense', 4.85],
     ]
     const beats: Record<string, unknown>[] = lengths.map(([segment, sec], i) =>
       pic(segment, sec, i),
@@ -463,6 +464,175 @@ describe('trailer.plan：觀點型（示範模式）', () => {
   })
 })
 
+describe('trailer.plan：腳本裡的外觀寫進草稿卡（角色與場景卡）', () => {
+  interface PeopleScript extends Script {
+    people: { name: string; look: string; outfit: string }[]
+    places: { name: string; look: string }[]
+  }
+  const withPeople = (edit: (script: PeopleScript) => void) => () => {
+    const script = good(30)() as PeopleScript
+    edit(script)
+    return script
+  }
+  const cardOf = (h: ReturnType<typeof setup>, name: string) => {
+    const card = h.characters.list().find((c) => c.name === name)
+    if (!card) throw new Error(`沒有角色 ${name}`)
+    return card
+  }
+
+  it('示範腳本：新建的草稿角色卡有長相、服裝、固定外觀描述（草稿，沒有自動鎖定）', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    for (const name of ['小葉', '老鐘']) {
+      const card = cardOf(h, name)
+      expect(card.appearance, name).not.toBe('')
+      expect(card.outfit, name).not.toBe('')
+      expect(card.anchorText, name).toBe(`${card.appearance}，${card.outfit}`)
+      expect(card.anchorStatus, name).toBe('draft')
+    }
+  })
+
+  it('people 沒寫某個角色：那張卡照舊是空的（沒有固定外觀描述）', async () => {
+    const llm = scripted(
+      withPeople((script) => {
+        script.people = script.people.filter((p) => p.name === '小葉')
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY })
+    expect(cardOf(h, '小葉').anchorText).not.toBe('')
+    const empty = cardOf(h, '老鐘')
+    expect(empty).toMatchObject({ appearance: '', outfit: '', anchorText: '' })
+  })
+
+  it('只有長相、沒有服裝：固定外觀描述只放長相；兩個都空：空草稿卡', async () => {
+    const llm = scripted(
+      withPeople((script) => {
+        script.people = [
+          { name: '小葉', look: '短髮的少女', outfit: '' },
+          { name: '老鐘', look: '', outfit: '' },
+        ]
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY })
+    expect(cardOf(h, '小葉')).toMatchObject({ appearance: '短髮的少女', anchorText: '短髮的少女' })
+    expect(cardOf(h, '老鐘').anchorText).toBe('')
+  })
+
+  it('已經有卡的角色不動（使用者可能改過）；people 裡有、但沒有任何一格用到的名字不建卡', async () => {
+    const llm = scripted(
+      withPeople((script) => {
+        script.people = [
+          ...script.people,
+          { name: '路人甲', look: '戴帽子的男人', outfit: '灰外套' },
+        ]
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    h.shots.create({})
+    const mine = h.characters.create('小葉')
+    h.characters.update(mine.id, { appearance: '我自己寫的長相' })
+    await h.trailer.plan({ text: STORY })
+    const kept = cardOf(h, '小葉')
+    expect(kept.appearance).toBe('我自己寫的長相')
+    expect(kept.outfit).toBe('')
+    expect(kept.anchorText).toBe('')
+    expect(h.characters.list().map((c) => c.name)).not.toContain('路人甲')
+  })
+
+  it('名字比對不分大小寫、去頭尾空白；長相與服裝各截到 300 字', async () => {
+    const llm = scripted(
+      withPeople((script) => {
+        script.people = [
+          { name: ' 小葉 ', look: '長'.repeat(500), outfit: '衣'.repeat(500) },
+          { name: '老鐘', look: '瘦長的老人', outfit: '褐色長袍' },
+        ]
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY })
+    const card = cardOf(h, '小葉')
+    expect(card.appearance).toHaveLength(300)
+    expect(card.outfit).toHaveLength(300)
+    expect(card.anchorStatus).toBe('draft')
+  })
+
+  it('復原一次：角色卡連同外觀、固定外觀描述一起退回，沒有殘留', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    expect(cardOf(h, '小葉').anchorText).not.toBe('')
+    h.history.undo()
+    expect(h.characters.list()).toEqual([])
+    h.history.redo()
+    expect(cardOf(h, '小葉').anchorText).not.toBe('')
+  })
+
+  it('場景卡：腳本的地點外觀也存成固定描述（草稿，不自動鎖定）；故事裡的說明照舊也有', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    const cards = h.projects.current()?.repos.locationCards.list() ?? []
+    expect(cards.map((c) => c.name).sort()).toEqual(['斷橋', '河岸'])
+    for (const card of cards) {
+      expect(card.anchorText, card.name).not.toBe('')
+      expect(card.anchorText, card.name).toBe(card.description)
+      expect(card.status, card.name).toBe('draft')
+    }
+  })
+
+  it('場景卡：已經有的卡不動（說明與固定描述都不蓋）', async () => {
+    const h = setup()
+    h.shots.create({})
+    h.outline.edit({ op: 'addLocation' })
+    const created = h.outline.get().locations[0]
+    if (!created) throw new Error('沒有建出地點')
+    h.outline.edit({
+      op: 'updateLocation',
+      locationId: created.id,
+      patch: { name: '斷橋', description: '我自己的斷橋' },
+    })
+    await h.trailer.plan({ text: STORY })
+    const mine = h.projects
+      .current()
+      ?.repos.locationCards.list()
+      .find((c) => c.name === '斷橋')
+    expect(mine?.description).toBe('我自己的斷橋')
+    expect(mine?.anchorText).toBe('')
+    const fresh = h.projects
+      .current()
+      ?.repos.locationCards.list()
+      .find((c) => c.name === '河岸')
+    expect(fresh?.anchorText).not.toBe('')
+  })
+
+  it('場景卡：外觀裡有角色名字（被當成沒寫）就兩邊都不存；沒寫外觀也是空的', async () => {
+    const llm = scripted(
+      withPeople((script) => {
+        script.places = [
+          { name: '斷橋', look: '小葉站在橋上守著燈' },
+          { name: '河岸', look: '' },
+        ]
+      }),
+    )
+    const h = setup({ mockLlm: llm.llm })
+    await h.trailer.plan({ text: STORY })
+    const cards = h.projects.current()?.repos.locationCards.list() ?? []
+    expect(cards.map((c) => [c.name, c.description, c.anchorText])).toEqual(
+      expect.arrayContaining([
+        ['斷橋', '', ''],
+        ['河岸', '', ''],
+      ]) as unknown,
+    )
+  })
+
+  it('復原：場景卡的固定描述跟著退回', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY })
+    h.history.undo()
+    expect(h.projects.current()?.repos.locationCards.list()).toEqual([])
+  })
+})
+
 describe('trailer.plan：角色與地點的草稿卡', () => {
   it('建角色與地點草稿卡，鏡頭掛上地點與角色名字；字卡與片名卡沒有地點', async () => {
     const h = setup()
@@ -672,6 +842,18 @@ describe('trailer.plan：檢查器接在寫腳本後面', () => {
       expect(h.shots.list().shots).toHaveLength(1)
     })
 
+    it('還沒有專案、沒填書名、寫成功：專案名取腳本的片名（不是「預告片」或「我的短片」）；已經開著的專案不改名', async () => {
+      const h = setup()
+      h.projects.close()
+      const result = await h.trailer.plan({ text: STORY })
+      expect(result.settings.title).not.toBe('')
+      expect(h.projects.current()?.repos.projects.get().name).toBe(result.settings.title)
+      // 同一個專案再寫一次：不是這次建的，名字不動
+      h.projects.rename('我改過的名字')
+      await h.trailer.plan({ text: STORY })
+      expect(h.projects.current()?.repos.projects.get().name).toBe('我改過的名字')
+    })
+
     it('還沒有專案、寫成功：專案留下，名字取書名', async () => {
       const h = setup()
       h.projects.close()
@@ -796,6 +978,28 @@ describe('trailer.update／status', () => {
     expect(back.scriptSec).toBeCloseTo(30, 6)
   })
 
+  it('照新長度重排之後，被壓到比 1.5 秒短的會動格自動改成不動；復原連種類一起回來', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY, targetSec: 60 })
+    // 會動的格子存的是沒有種類（空值），這裡統一寫成 video
+    const kinds = () =>
+      h.shots.list().shots.map((s) => [s.beatKind ?? 'video', s.durationSec] as const)
+    const before = kinds()
+    h.trailer.update({ patch: { targetSec: 26 }, refit: true })
+    const after = kinds()
+    // 沒有任何一格是「會動、卻短於 1.5 秒」
+    expect(after.filter(([kind, sec]) => kind === 'video' && sec < 1.5 - 1e-9)).toEqual([])
+    // 而且真的有格子被壓得很短（改成了不動），不是剛好沒碰到
+    expect(after.some(([kind, sec]) => kind === 'still' && sec < 1.5)).toBe(true)
+    // 每一格至少 0.75 秒
+    expect(after.every(([, sec]) => sec >= 0.75 - 1e-9)).toBe(true)
+    h.history.undo()
+    // 復原：回到重排之前（60 秒那一版沒有被壓短的會動格）
+    expect(kinds().filter(([, sec]) => sec < 1.5)).toEqual(before.filter(([, sec]) => sec < 1.5))
+    expect(kinds()).toEqual(before)
+    expect(h.trailer.status().targetSec).toBe(60)
+  })
+
   it('目標短到字卡與片名卡的最短秒數都放不下：白話錯誤，什麼都不改', async () => {
     const h = setup()
     await h.trailer.plan({ text: STORY })
@@ -863,12 +1067,13 @@ describe('trailer.setBeatSeconds：改一格的秒數，其他格讓時間，總
 
   it('第一格最長 4 秒；不在腳本裡的格子、還沒有腳本，都是白話錯誤', async () => {
     const h = setup()
-    h.shots.create({})
+    const blank = h.shots.create({})
     expect(() => h.trailer.setBeatSeconds({ shotId: 'x', durationSec: 2 })).toThrow(
       /還沒有預告片腳本/,
     )
     await h.trailer.plan({ text: STORY })
-    const first = shotsOf(h).find((s) => s.number === 1)
+    // 寫腳本之前手動建的那一格不在腳本裡：第一格是腳本裡的第一個鏡頭
+    const first = shotsOf(h).find((s) => s.id !== blank.id)
     if (!first) throw new Error('沒有第 1 格')
     expect(() => h.trailer.setBeatSeconds({ shotId: first.id, durationSec: 5 })).toThrow(
       /第一格最長 4 秒/,
@@ -896,5 +1101,40 @@ describe('trailer.setBeatSeconds：改一格的秒數，其他格讓時間，總
     if (!second) throw new Error('沒有第 2 格')
     expect(h.shots.update(second.id, { segment: 'turn' }).segment).toBe('turn')
     expect(h.shots.update(second.id, { segment: '' }).segment).toBeUndefined()
+  })
+})
+
+describe('懸念短版的長度：後端也擋（跟畫面的選單一致）', () => {
+  it('寫腳本：懸念短版超過 30 秒，白話錯誤，文字模型一次都沒呼叫', async () => {
+    let called = 0
+    const h = setup({
+      mockLlm: () => {
+        called++
+        return undefined
+      },
+    })
+    await expect(
+      h.trailer.plan({ text: STORY, kind: 'teaser', targetSec: 60 }),
+    ).rejects.toMatchObject({
+      userMessage: expect.stringContaining('懸念短版最長 30 秒') as unknown,
+    })
+    expect(called).toBe(0)
+    // 15、30 秒可以
+    await expect(
+      h.trailer.plan({ text: STORY, kind: 'teaser', targetSec: 15 }),
+    ).resolves.toBeDefined()
+  })
+
+  it('改設定：把懸念短版改成 60 秒、或把 60 秒的專案改成懸念短版，都擋；劇情型 60 秒不受影響；舊的 60 秒懸念短版改書名照常', async () => {
+    const h = setup()
+    await h.trailer.plan({ text: STORY, targetSec: 60 })
+    expect(() => h.trailer.update({ patch: { kind: 'teaser' } })).toThrow(/懸念短版最長 30 秒/)
+    expect(h.trailer.status().settings.kind).toBe('story')
+    h.trailer.update({ patch: { targetSec: 30 }, refit: true })
+    h.trailer.update({ patch: { kind: 'teaser' } })
+    expect(() => h.trailer.update({ patch: { targetSec: 60 } })).toThrow(/懸念短版最長 30 秒/)
+    // 直接寫進專案的舊資料（60 秒的懸念短版）：只改書名不被擋
+    h.projects.current()?.repos.trailer.update({ targetSec: 60 })
+    expect(h.trailer.update({ patch: { title: '新書名' } }).settings.title).toBe('新書名')
   })
 })

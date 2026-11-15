@@ -88,6 +88,35 @@ const invalid = (userMessage: string): AppError =>
 const toStyle = (id: string | undefined) => QUICK_STYLE_IDS.find((s) => s === id) ?? 'realistic'
 
 /** 預告片：寫腳本（文字模型一次）、改設定、照新長度重排、現在的狀態。 */
+/** 草稿角色卡的長相與服裝各最多這麼多字（角色卡的上限更高，這裡只是防模型失控）。 */
+const LOOK_MAX_CHARS = 300
+const clipLook = (text: string): string => Array.from(text.trim()).slice(0, LOOK_MAX_CHARS).join('')
+const sameName = (a: string, b: string): boolean =>
+  a.trim().toLowerCase() === b.trim().toLowerCase()
+
+/**
+ * 腳本寫了角色的外觀：這次新建的草稿角色卡填上長相、服裝，固定外觀描述存成草稿（不自動鎖定，使用者看過再鎖；
+ * 做法跟拆大綱一樣）。腳本沒寫到的角色、兩個都空的，照舊是空卡；已經有卡的角色不會出現在 `created` 裡，所以不動。
+ */
+function fillDraftLooks(
+  handle: ProjectHandle,
+  created: readonly { name: string }[],
+  people: readonly { name: string; look: string; outfit: string }[],
+): void {
+  const { characters } = handle.repos
+  for (const { name } of created) {
+    const person = people.find((p) => sameName(p.name, name))
+    if (!person) continue
+    const look = clipLook(person.look)
+    const outfit = clipLook(person.outfit)
+    if (look === '' && outfit === '') continue
+    const card = characters.list().find((c) => c.name === name)
+    if (!card) continue
+    characters.update(card.id, { appearance: look, outfit })
+    characters.setAnchor(card.id, [look, outfit].filter((part) => part !== '').join('，'))
+  }
+}
+
 export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
   const { projects, settings, settingsService, models, runtime, shots, record, broadcast, log } =
     deps
@@ -338,8 +367,13 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
         const known = placeIds.get(key)
         if (known !== undefined) return known
         const existing = outline.listLocations().find((l) => l.name.trim().toLowerCase() === key)
-        const id =
-          existing?.id ?? outline.addLocation({ name: name.trim(), description: lookOf(name) }).id
+        let id = existing?.id
+        if (id === undefined) {
+          // 新建的場景卡：地點外觀同時存成固定描述（草稿；鎖定了鏡頭才會帶入，這裡不自動鎖）
+          const look = lookOf(name)
+          id = outline.addLocation({ name: name.trim(), description: look }).id
+          if (look !== '') handle.repos.locationCards.setAnchor(id, look)
+        }
         placeIds.set(key, id)
         return id
       }
@@ -384,7 +418,7 @@ export function createTrailerService(deps: TrailerServiceDeps): TrailerService {
         sceneId,
       })
       shots.placeTrailerBeats(sceneId, beats)
-      createDraftCharacters(handle)
+      fillDraftLooks(handle, createDraftCharacters(handle), written.script.people)
     })
     log.info(
       `Wrote a ${merged.kind} trailer script: ${String(written.script.beats.length)} beats, ${String(merged.targetSec)}s`,

@@ -1,11 +1,13 @@
 import {
   CARD_MAX_CJK,
   DEMO_BAD_SCRIPT_MARK,
+  cardMinSec,
   TRAILER_NARRATION_OFF_MARK,
   TRAILER_REQUEST_MARK,
   NARRATION_MAX_CJK_PER_SEC,
   NARRATION_MAX_WORDS_PER_SEC,
   fitToTarget,
+  MIN_MOVING_BEAT_SEC,
   t,
   textUnits,
   type LlmRequest,
@@ -31,6 +33,8 @@ const CLAIMISH =
   /暢銷|銷量|萬冊|榜首|排行榜|得獎|獲獎|金獎|大獎|獎項|入圍|盛讚|好評如潮|名人推薦|best-?sell|award|prize|winner|million copies|#\s?1\b/i
 
 const MOTIONS = ['push_in', 'pull_out', 'pan'] as const
+/** 示範腳本每個畫面格最長幾秒（檢查器 6 秒才提醒，留一點空）。 */
+const DEMO_PICTURE_MAX_SEC = 5.5
 
 /** 示範的畫面描述與旁白句（互相不重複；介面語言跟著變）。 */
 const SHOT_KEYS = [
@@ -46,6 +50,18 @@ const SHOT_KEYS = [
   'mock.trailerShot10',
   'mock.trailerShot11',
   'mock.trailerShot12',
+  'mock.trailerShot13',
+  'mock.trailerShot14',
+  'mock.trailerShot15',
+  'mock.trailerShot16',
+  'mock.trailerShot17',
+  'mock.trailerShot18',
+  'mock.trailerShot19',
+  'mock.trailerShot20',
+  'mock.trailerShot21',
+  'mock.trailerShot22',
+  'mock.trailerShot23',
+  'mock.trailerShot24',
 ] as const
 const LINE_KEYS = [
   'mock.trailerLine1',
@@ -97,6 +113,18 @@ const IDEA_SHOT_KEYS = [
   'mock.ideaShot10',
   'mock.ideaShot11',
   'mock.ideaShot12',
+  'mock.ideaShot13',
+  'mock.ideaShot14',
+  'mock.ideaShot15',
+  'mock.ideaShot16',
+  'mock.ideaShot17',
+  'mock.ideaShot18',
+  'mock.ideaShot19',
+  'mock.ideaShot20',
+  'mock.ideaShot21',
+  'mock.ideaShot22',
+  'mock.ideaShot23',
+  'mock.ideaShot24',
 ] as const
 const IDEA_LINE_KEYS = [
   'mock.ideaLine1',
@@ -132,12 +160,10 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
   const cardTexts = IDEA_CARD_KEYS.map((key) => t(key))
   // 字卡的位置：0 鉤子、1 主張、2～4 三個收穫；放不下就依這個順序少放
   const priority = [2, 0, 3, 1, 4]
-  // 畫面的數目跟著長度：每 4.5 秒左右一格，至少 4 格（鉤子、主張、各收穫至少一格）、最多 14 格
-  const pictureCount = Math.max(4, Math.min(12, Math.round(targetSec / 4.5)))
-  // 鉤子 1 格、主張 1 格，其餘平分給三個收穫
-  const gainPictures = [0, 0, 0]
-  for (let i = 0; i < pictureCount - 2; i++) gainPictures[i % 3] = (gainPictures[i % 3] ?? 0) + 1
-  const build = (cardCount: number) => {
+  const build = (cardCount: number, pictureCount: number) => {
+    // 鉤子 1 格、主張 1 格，其餘平分給三個收穫
+    const gainPictures = [0, 0, 0]
+    for (let i = 0; i < pictureCount - 2; i++) gainPictures[i % 3] = (gainPictures[i % 3] ?? 0) + 1
     const has = (slot: number): boolean => priority.slice(0, cardCount).includes(slot)
     const beats: DemoBeat[] = []
     let n = 0
@@ -192,17 +218,54 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
     })
     return beats
   }
+  // 第一格固定 3 秒；片名卡與字卡也各停固定的秒數（不拖長）；其餘的畫面格分剩下的時間，每格不超過上限
   const headSec = 3
-  const arrange = (cardCount: number) => {
-    const list = build(cardCount)
-    const rest = fitToTarget(list.slice(1), targetSec - headSec, 24)
-    return { list, fit: { ok: rest.ok, durations: [headSec, ...rest.durations] } }
+  const frame = (sec: number): number => Math.round(sec * 24) / 24
+  const titleSec = frame(Math.min(5.5, Math.max(3, targetSec * 0.15)))
+  const holdOf = (beat: DemoBeat): number | undefined =>
+    beat.beatKind === 'title'
+      ? titleSec
+      : beat.beatKind === 'card'
+        ? frame(cardMinSec(beat.card ?? { text: beat.cardText }) * 1.25)
+        : undefined
+  const arrange = (cardCount: number, pictureCount: number) => {
+    const list = build(cardCount, pictureCount)
+    const fixed = list.map((beat, i) => (i === 0 ? headSec : holdOf(beat)))
+    const fixedSum = fixed.reduce<number>((sum, sec) => sum + (sec ?? 0), 0)
+    const pictures = list.filter((_, i) => fixed[i] === undefined)
+    const budget = targetSec - fixedSum
+    const filled = capWeights(
+      pictures.map((beat) => beat.durationSec),
+      budget,
+      DEMO_PICTURE_MAX_SEC,
+    )
+    const rest = fitToTarget(
+      pictures.map((beat, i) => ({ ...beat, durationSec: filled[i] ?? beat.durationSec })),
+      budget,
+      24,
+    )
+    let k = 0
+    const durations = fixed.map((sec) => sec ?? rest.durations[k++] ?? 1)
+    return { list, fit: { ok: rest.ok, durations }, longest: Math.max(0, ...rest.durations) }
   }
+  // 畫面的數目跟著長度：每 4.5 秒左右一格，至少 4 格；畫面格停太久就多排幾格（描述用完為止）；放不下就少放幾張字卡
   const maxCards = targetSec >= 25 ? 5 : targetSec >= 20 ? 3 : targetSec >= 15 ? 2 : 1
-  let { list: beats, fit } = arrange(maxCards)
-  for (let c = maxCards - 1; !fit.ok && c >= 0; c--) {
-    ;({ list: beats, fit } = arrange(c))
+  const base = Math.max(4, Math.round(targetSec / 4.5))
+  const cap = Math.max(base, shots.length)
+  let chosen: ReturnType<typeof arrange> | undefined
+  let fallback: ReturnType<typeof arrange> | undefined
+  for (let c = maxCards; c >= 0 && chosen === undefined; c--) {
+    for (let v = base; v <= cap; v++) {
+      const attempt = arrange(c, v)
+      if (!attempt.fit.ok) break
+      fallback ??= attempt
+      if (attempt.longest <= DEMO_PICTURE_MAX_SEC + 1e-9) {
+        chosen = attempt
+        break
+      }
+    }
   }
+  const { list: beats, fit } = chosen ?? fallback ?? arrange(0, 4)
   const out = beats.map((beat, i) => {
     const sec = fit.durations[i] ?? beat.durationSec
     const cjk = /\p{Script=Han}/u.test(beat.clause)
@@ -214,7 +277,9 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
       beat.clause === '' || textUnits(beat.clause) === 0 ? '' : cut(beat.clause, Math.min(max, 12))
     return {
       segment: beat.segment,
-      beatKind: beat.beatKind,
+      // 會動的格被排到比 1.5 秒短：做不出像樣的影片，示範腳本自己就寫成不動的畫面
+      beatKind:
+        beat.beatKind === 'video' && sec < MIN_MOVING_BEAT_SEC - 1e-9 ? 'still' : beat.beatKind,
       durationSec: sec,
       description: beat.description,
       action: '',
@@ -242,8 +307,36 @@ function demoIdeaScript(story: string, targetSec: number, narration: boolean): u
     title: story === '' ? t('mock.trailerTitle') : cut(clauses[0] ?? t('mock.trailerTitle'), 16),
     music: t('mock.ideaMusic'),
     places: places.map((name, i) => ({ name, look: looks[i] ?? '' })),
+    people: [],
     beats: out,
   }
+}
+
+/**
+ * 把比重換成秒數：加總等於 total、照比重分配，但每格最多 max 秒；超過的削到 max，多出來的時間分給沒到上限的格子。
+ * 全部都削到上限還排不滿時，每格都是 max（加總會比 total 小，呼叫的人再決定要不要多排幾格）。
+ */
+export function capWeights(weights: readonly number[], total: number, max: number): number[] {
+  const out = weights.map(() => 0)
+  let free = weights.map((_, i) => i)
+  let left = total
+  for (let round = 0; round < weights.length + 1 && free.length > 0; round++) {
+    const sum = free.reduce((acc, i) => acc + (weights[i] ?? 0), 0)
+    if (sum <= 0) break
+    const scale = left / sum
+    const over = free.filter((i) => (weights[i] ?? 0) * scale > max)
+    if (over.length === 0) {
+      for (const i of free) out[i] = (weights[i] ?? 0) * scale
+      return out
+    }
+    for (const i of over) {
+      out[i] = max
+      left -= max
+    }
+    free = free.filter((i) => !over.includes(i))
+  }
+  for (const i of free) out[i] = Math.max(0, left / Math.max(1, free.length))
+  return out
 }
 
 export function demoTrailerScript(request: LlmRequest): unknown {
@@ -271,8 +364,9 @@ export function demoTrailerScript(request: LlmRequest): unknown {
   ]
 
   // 排格子：每一格先給一個「大概比重」，最後交給 fitToTarget 排成剛好的秒數
-  const build = (cardCount: number): DemoBeat[] => {
+  const build = (cardCount: number, visuals: number): DemoBeat[] => {
     const beats: DemoBeat[] = []
+    talked = 0
     let n = 0
     const picture = (segment: string, weight: number, talk: boolean): void => {
       const i = n++
@@ -284,7 +378,8 @@ export function demoTrailerScript(request: LlmRequest): unknown {
         description: pick(i),
         cameraMove: still ? (MOTIONS[i % MOTIONS.length] ?? null) : null,
         cardText: '',
-        clause: talk && narration ? (lines[talked++ % lines.length] ?? '') : '',
+        // 旁白句用完了就不再配（每格的旁白不重複）
+        clause: talk && narration && talked < lines.length ? (lines[talked++] ?? '') : '',
         // 1～2 個角色、1～2 個地點：第一個角色每格都在，第二個角色隔一格才出場；前半在第一個地點、後半在第二個
         characters: i % 2 === 0 ? [heroes[0] ?? ''] : [heroes[0] ?? '', heroes[1] ?? ''],
         location: (i < 4 ? places[0] : places[1]) ?? '',
@@ -302,15 +397,16 @@ export function demoTrailerScript(request: LlmRequest): unknown {
         card: { text, subtext: '' },
       })
     }
-    const visuals = Math.max(3, Math.min(10, Math.round(targetSec / 3.5)))
     // 越到後面越短（規則 3：後面三分之一的平均要比前面三分之一短很多）：
     // 字卡放在前面，後半的畫面一格比一格短
-    const shrink = (k: number, first: number): number => Math.max(0.4, first * 0.72 ** k)
+    // 一段有很多格（長片）時，縮短得慢一點：整段從 first 縮到約 3 成，不然前面幾格會被排得很長
+    const shrink = (k: number, first: number, count: number): number =>
+      Math.max(0.4, first * (count > 8 ? 0.3 ** (1 / (count - 1)) : 0.72) ** k)
     if (kind === 'teaser') {
       picture('hook', 2, false)
       const montage = visuals - 1
       for (let k = 0; k < montage; k++) {
-        picture('montage', shrink(k, 2), false)
+        picture('montage', shrink(k, 2, montage), false)
         if (k < cardCount) card('montage', 2.2, cards[k] ?? '')
       }
     } else {
@@ -322,7 +418,7 @@ export function demoTrailerScript(request: LlmRequest): unknown {
       for (let k = 0; k < turn; k++) picture('turn', 1.8 * 0.85 ** k, true)
       if (cardCount > 1) card('turn', 2.2, cards[1] ?? '')
       const escalate = Math.max(1, visuals - 1 - world - turn)
-      for (let k = 0; k < escalate; k++) picture('escalate', shrink(k, 1.2), false)
+      for (let k = 0; k < escalate; k++) picture('escalate', shrink(k, 1.2, escalate), false)
       if (cardCount > 2) card('suspense', 2.2, cards[2] ?? '')
       else picture('suspense', 1, false)
     }
@@ -340,17 +436,55 @@ export function demoTrailerScript(request: LlmRequest): unknown {
 
   // 放得下最多的字卡數；放不下（目標很短）就少放幾張
   const maxCards = targetSec >= 25 ? 3 : targetSec >= 20 ? 2 : 1
-  // 第一格固定幾秒（規則 2：最長 4 秒），其餘的格子分剩下的時間
+  // 第一格固定幾秒（規則 2：最長 4 秒）；片名卡與字卡也各停固定的秒數（不拖長）；其餘的畫面格分剩下的時間
   const headSec = kind === 'teaser' ? 2 : 3
-  const arrange = (cardCount: number) => {
-    const list = build(cardCount)
-    const rest = fitToTarget(list.slice(1), targetSec - headSec, 24)
-    return { list, fit: { ok: rest.ok, durations: [headSec, ...rest.durations] } }
+  const frame = (sec: number): number => Math.round(sec * 24) / 24
+  const titleSec = frame(Math.min(5.5, Math.max(3, targetSec * 0.15)))
+  const holdOf = (beat: DemoBeat): number | undefined =>
+    beat.beatKind === 'title'
+      ? titleSec
+      : beat.beatKind === 'card'
+        ? frame(cardMinSec(beat.card ?? { text: beat.cardText }) * 1.25)
+        : undefined
+  // 畫面描述每格都不一樣：最多排到描述用完為止
+  const cap = Math.max(3, descriptions.length)
+  const arrange = (cardCount: number, visuals: number) => {
+    const list = build(cardCount, visuals)
+    const fixed = list.map((beat, i) => (i === 0 ? headSec : holdOf(beat)))
+    const fixedSum = fixed.reduce<number>((sum, sec) => sum + (sec ?? 0), 0)
+    const pictures = list.filter((_, i) => fixed[i] === undefined)
+    const budget = targetSec - fixedSum
+    // 比重照原本的（越後面越短），但每格不超過上限：超過的削到上限，多出來的時間分給其他格
+    const filled = capWeights(
+      pictures.map((beat) => beat.durationSec),
+      budget,
+      DEMO_PICTURE_MAX_SEC,
+    )
+    const rest = fitToTarget(
+      pictures.map((beat, i) => ({ ...beat, durationSec: filled[i] ?? beat.durationSec })),
+      budget,
+      24,
+    )
+    let k = 0
+    const durations = fixed.map((sec) => sec ?? rest.durations[k++] ?? 1)
+    return { list, fit: { ok: rest.ok, durations }, longest: Math.max(0, ...rest.durations) }
   }
-  let { list: beats, fit } = arrange(maxCards)
-  for (let c = maxCards - 1; !fit.ok && c >= 0; c--) {
-    ;({ list: beats, fit } = arrange(c))
+  // 畫面格停太久（超過 5.5 秒）就多排幾格（長片）；放不下就少放幾張字卡
+  const base = Math.max(3, Math.round(targetSec / 3.5))
+  let chosen: ReturnType<typeof arrange> | undefined
+  let fallback: ReturnType<typeof arrange> | undefined
+  for (let c = maxCards; c >= 0 && chosen === undefined; c--) {
+    for (let v = Math.min(base, cap); v <= cap; v++) {
+      const attempt = arrange(c, v)
+      if (!attempt.fit.ok) break
+      fallback ??= attempt
+      if (attempt.longest <= DEMO_PICTURE_MAX_SEC + 1e-9) {
+        chosen = attempt
+        break
+      }
+    }
   }
+  const { list: beats, fit } = chosen ?? fallback ?? arrange(0, 3)
 
   const out = beats.map((beat, i) => {
     const sec = fit.durations[i] ?? beat.durationSec
@@ -363,7 +497,9 @@ export function demoTrailerScript(request: LlmRequest): unknown {
       beat.clause === '' || textUnits(beat.clause) === 0 ? '' : cut(beat.clause, Math.min(max, 12))
     return {
       segment: beat.segment,
-      beatKind: beat.beatKind,
+      // 會動的格被排到比 1.5 秒短：做不出像樣的影片，示範腳本自己就寫成不動的畫面
+      beatKind:
+        beat.beatKind === 'video' && sec < MIN_MOVING_BEAT_SEC - 1e-9 ? 'still' : beat.beatKind,
       durationSec: sec,
       description: beat.description,
       action: '',
@@ -388,6 +524,19 @@ export function demoTrailerScript(request: LlmRequest): unknown {
       { name: places[0] ?? '', look: t('mock.trailerPlaceLook1') },
       { name: places[1] ?? '', look: t('mock.trailerPlaceLook2') },
     ],
+    // 角色的外觀：只寫有出場的角色（草稿角色卡就是從這裡填的）
+    people: [
+      {
+        name: heroes[0] ?? '',
+        look: t('mock.trailerCharLook1'),
+        outfit: t('mock.trailerCharOutfit1'),
+      },
+      {
+        name: heroes[1] ?? '',
+        look: t('mock.trailerCharLook2'),
+        outfit: t('mock.trailerCharOutfit2'),
+      },
+    ].filter((person) => out.some((beat) => beat.characters.includes(person.name))),
     beats: out,
   }
 }

@@ -37,6 +37,14 @@ export const TrailerPlaceSchema = z.object({
 })
 export type TrailerPlace = z.infer<typeof TrailerPlaceSchema>
 
+/** 腳本裡一個角色的外觀：長相（固定不變的）與這支片穿的那一套服裝，只寫看得到的。 */
+export const TrailerPersonSchema = z.object({
+  name: z.string().min(1),
+  look: z.string().default(''),
+  outfit: z.string().default(''),
+})
+export type TrailerPerson = z.infer<typeof TrailerPersonSchema>
+
 export const TrailerScriptSchema = z.object({
   /** 書名（使用者沒給時由 AI 從文本取）。 */
   title: z.string().default(''),
@@ -44,6 +52,8 @@ export const TrailerScriptSchema = z.object({
   music: z.string().default(''),
   /** 每個用到的地點的外觀描述（場景卡的說明用）；沒寫的地點，場景卡的說明留空。 */
   places: z.array(TrailerPlaceSchema).default([]),
+  /** 每個出場角色的外觀（草稿角色卡用）；沒寫的角色，角色卡留空。 */
+  people: z.array(TrailerPersonSchema).default([]),
   beats: z.array(TrailerScriptBeatSchema).min(1).max(40),
 })
 export type TrailerScript = z.infer<typeof TrailerScriptSchema>
