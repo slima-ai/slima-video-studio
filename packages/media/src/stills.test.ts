@@ -7,6 +7,7 @@ import {
   STILL_MOTIONS,
   buildConcatFilters,
   buildStillFilter,
+  buildStillOverlayGraph,
   concatVideos,
   extractFrame,
   stillToVideo,
@@ -430,5 +431,124 @@ describe('接片：每一段的淡入、淡出', () => {
     expect(await rmsDb(faded, 5.9, 0.1)).toBeLessThan((await rmsDb(plain, 5.9, 0.1)) - 10)
     // 總長不變
     expect(await frameCount(faded)).toBe(await frameCount(plain))
+  })
+})
+
+describe('buildStillOverlayGraph：不動的畫面上疊字的濾鏡', () => {
+  const options = { width: 1280, height: 720, fps: 24, frames: 72, motion: 'zoom_in' as const }
+  const graph = buildStillOverlayGraph({ ...options, delaySec: 0.2, fadeInSec: 0.3 })
+
+  it('圖照舊走 zoompan（跟沒有疊字時同一段），字的 PNG 當第三個輸入、淡入、疊在最上面', () => {
+    const base = buildStillFilter(options).replace(/,format=yuv420p$/, '')
+    expect(graph).toContain(`[0:v]${base}[bg]`)
+    expect(graph).toContain('[2:v]scale=1280:720,format=rgba,fade=t=in:st=0.2:d=0.3:alpha=1[fg]')
+    expect(graph).toContain('[bg][fg]overlay=0:0:format=auto,format=yuv420p[v]')
+  })
+
+  it('沒有疊字時的濾鏡一個字都沒變', () => {
+    expect(buildStillFilter(options)).toBe(
+      "scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,zoompan=z='1+0.12*on/71':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=72:s=1280x720:fps=24,format=yuv420p",
+    )
+  })
+})
+
+describe('stillToVideo 加疊字（真的 FFmpeg）：圖在動、字不動，字在格子開始之後才淡入', () => {
+  /** 透明底、左下角一塊不透明白方塊（寬高各 1/4）的疊字圖。 */
+  async function makeOverlayPng(name: string, width: number, height: number): Promise<string> {
+    const out = path(name)
+    const w = Math.round(width / 4)
+    const h = Math.round(height / 4)
+    await runTool(tools.ffmpegPath, [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-y',
+      '-f',
+      'lavfi',
+      '-i',
+      `color=c=black@0.0:s=${String(width)}x${String(height)},format=rgba,drawbox=x=${String(Math.round(width * 0.1))}:y=${String(Math.round(height * 0.6))}:w=${String(w)}:h=${String(h)}:color=white@1.0:t=fill:replace=1`,
+      '-frames:v',
+      '1',
+      out,
+    ])
+    return out
+  }
+  /** 黑底的圖，方便只看到疊上去的白方塊。 */
+  async function makeBlackImage(name: string): Promise<string> {
+    const out = path(name)
+    await runTool(tools.ffmpegPath, [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-y',
+      '-f',
+      'lavfi',
+      '-i',
+      'color=c=black:s=1280x720',
+      '-frames:v',
+      '1',
+      out,
+    ])
+    return out
+  }
+
+  it('剛好 round(秒數×fps) 格、有靜音音軌、解析度對；0.2 秒之前看不到字，淡入之後亮度明顯高了', async () => {
+    const image = await makeBlackImage('black.png')
+    const overlay = await makeOverlayPng('overlay.png', 640, 360)
+    const out = path('overlay-still.mp4')
+    await stillToVideo(tools, image, out, {
+      durationSec: 2,
+      fps: 24,
+      width: 640,
+      height: 360,
+      motion: 'zoom_in',
+      overlay: { path: overlay, delaySec: 0.2, fadeInSec: 0.3 },
+    })
+    expect(await frameCount(out)).toBe(48)
+    const info = await probe(tools, out)
+    expect(info).toMatchObject({ width: 640, height: 360, hasAudio: true, hasVideo: true })
+    expect(await rmsDb(out, 0, 1)).toBeLessThan(-60)
+    const before = await lumaAt(out, 0)
+    const after = await lumaAt(out, 1.5)
+    expect(before).toBeLessThan(20)
+    // 方塊是畫面面積的 1/16：亮度多出 (235-16)/16 ≈ 13 以上
+    expect(after).toBeGreaterThan(before + 8)
+  })
+
+  it('字不跟著圖動：慢推近的整段，白方塊的位置與大小都不變', async () => {
+    const image = await makeBlackImage('black2.png')
+    const overlay = await makeOverlayPng('overlay2.png', 640, 360)
+    const out = path('overlay-fixed.mp4')
+    await stillToVideo(tools, image, out, {
+      durationSec: 3,
+      fps: 24,
+      width: 640,
+      height: 360,
+      motion: 'zoom_in',
+      overlay: { path: overlay, delaySec: 0.2, fadeInSec: 0.3 },
+    })
+    const mid = await boxOf(out, 1, 'ov-mid.png')
+    const last = await boxOf(out, 3 - 1 / 24, 'ov-last.png')
+    expect(Math.abs(last.w - mid.w)).toBeLessThanOrEqual(2)
+    expect(Math.abs(last.h - mid.h)).toBeLessThanOrEqual(2)
+    expect(Math.abs(last.cx - mid.cx)).toBeLessThanOrEqual(2)
+    expect(Math.abs(last.cy - mid.cy)).toBeLessThanOrEqual(2)
+    // 方塊是 1/4 寬（640 寬 → 160）
+    expect(mid.w).toBeGreaterThanOrEqual(156)
+    expect(mid.w).toBeLessThanOrEqual(164)
+  })
+
+  it('沒給 overlay：跟以前一樣（走 -vf，圖在動、沒有多出來的東西）', async () => {
+    const image = await makeBlackImage('black3.png')
+    const out = path('no-overlay.mp4')
+    await stillToVideo(tools, image, out, {
+      durationSec: 1,
+      fps: 24,
+      width: 640,
+      height: 360,
+      motion: 'zoom_in',
+    })
+    expect(await lumaAt(out, 0.5)).toBeLessThan(20)
+    expect(await frameCount(out)).toBe(24)
   })
 })

@@ -1,11 +1,14 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 
+import { breakText } from './break-text'
+
 import {
   cardSizeFor,
   creditsHtml,
   escapeHtml,
   layoutCardText,
+  overlayHtml,
   textCardHtml,
   titleCardHtml,
 } from './card-html'
@@ -270,5 +273,129 @@ describe('titleCardHtml：片名卡', () => {
     expect(wide).not.toBe(tall)
     expect(wide).toContain('flex-direction:row')
     expect(tall).toContain('flex-direction:column')
+  })
+})
+
+describe('breakText：疊字自己斷行（不留孤字）', () => {
+  const landscape = { perLine: 12, maxLines: 2 }
+  const portrait = { perLine: 9, maxLines: 3 }
+  const cases: [string, string, typeof landscape, string[]][] = [
+    [
+      '12 個字以內：橫式一行',
+      '寵辱不驚，閒看庭前花開花落',
+      landscape,
+      ['寵辱不驚，閒看庭前花開花落'],
+    ],
+    [
+      '直式 12 個字：在離正中間 3 個字以內的標點斷，行尾標點拿掉',
+      '寵辱不驚，閒看庭前花開花落',
+      portrait,
+      ['寵辱不驚', '閒看庭前花開花落'],
+    ],
+    [
+      '橫式 19 個字：離正中間最近的標點在 9 個字後，在那裡斷',
+      '先做最重要的一件事，再把待辦清單砍掉一半',
+      landscape,
+      ['先做最重要的一件事', '再把待辦清單砍掉一半'],
+    ],
+    [
+      '沒有標點：從正中間斷（13 個字 → 7＋6）',
+      '一二三四五六七八九十甲乙丙',
+      { perLine: 9, maxLines: 2 },
+      ['一二三四五六七', '八九十甲乙丙'],
+    ],
+    [
+      '標點離正中間超過 3 個字：不在標點斷，從正中間斷',
+      '一二三四五六七八九十，甲乙',
+      { perLine: 9, maxLines: 2 },
+      ['一二三四五六', '七八九十，甲乙'],
+    ],
+    [
+      '照標點斷會留下少於 3 個字的孤字：改成平均分',
+      '一二三四五六七八九，十一',
+      portrait,
+      ['一二三四五六', '七八九，十一'],
+    ],
+    [
+      '直式 3 行：同樣的做法做兩次（25 個字 → 8＋9＋8）',
+      '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅卯辰',
+      portrait,
+      ['一二三四五六七八', '九十甲乙丙丁戊己庚', '辛壬癸子丑寅卯辰'],
+    ],
+  ]
+  for (const [name, text, opts, expected] of cases) {
+    it(name, () => {
+      expect(breakText(text, opts)).toEqual(expected)
+    })
+  }
+
+  it('任何情況：每行至少 3 個字、行數不超過上限、把標點拿掉之外的字一個都沒少', () => {
+    const samples = [
+      '先做最重要的一件事，再把待辦清單砍掉一半',
+      '真正的問題不是時間不夠，而是順序錯了',
+      '把力氣花在對的地方，剩下的交給時間',
+      '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑',
+    ]
+    for (const text of samples) {
+      for (const opts of [landscape, portrait]) {
+        const lines = breakText(text, opts)
+        expect(lines.length, text).toBeLessThanOrEqual(opts.maxLines)
+        for (const line of lines) {
+          if (lines.length > 1)
+            expect(line.replace(/[，、；：]/g, '').length, line).toBeGreaterThanOrEqual(3)
+        }
+        expect(lines.join('').replace(/[，、；：]/g, '')).toBe(text.replace(/[，、；：]/g, ''))
+      }
+    }
+  })
+
+  it('英文：照單字斷，兩行盡量平均；一行放得下就一行', () => {
+    expect(breakText('Focus beats busyness', landscape)).toEqual(['Focus beats busyness'])
+    expect(breakText('Do the one thing that matters most before anything else', landscape)).toEqual(
+      ['Do the one thing that matters', 'most before anything else'],
+    )
+  })
+})
+
+describe('overlayHtml：透明底、字壓在下方的暗帶上', () => {
+  const lands = { width: 1280, height: 720 }
+  const port = { width: 720, height: 1280 }
+
+  it('透明底（不是黑底）；字級是短邊的 7.5%（720 → 54px）；字用內建字型', () => {
+    const html = overlayHtml({ ...lands, text: '寵辱不驚', fontUrl: FONT })
+    expect(html).toContain('background:transparent')
+    expect(html).not.toContain('background:#000;')
+    expect(html).toContain('font-size:54px')
+    expect(html).toContain('@font-face')
+  })
+
+  it('橫式：字區底邊離畫面底 12%、暗帶佔底下 45%（最底 62% 不透明）；直式：字區中心在 68%、暗帶佔底下 40%', () => {
+    const wide = overlayHtml({ ...lands, text: '寵辱不驚' })
+    expect(wide).toContain('bottom:12%')
+    expect(wide).toContain('height:45%')
+    expect(wide).toContain('rgba(0,0,0,.62)')
+    const tall = overlayHtml({ ...port, text: '寵辱不驚' })
+    expect(tall).toContain('top:68%')
+    expect(tall).toContain('translateY(-50%)')
+    expect(tall).toContain('height:40%')
+  })
+
+  it('每一行各自一個元素（自己斷好，不交給瀏覽器自動換行）；小字另起一行、字級是主文字的一半', () => {
+    const html = overlayHtml({
+      ...port,
+      text: '寵辱不驚，閒看庭前花開花落',
+      subtext: '——《菜根譚》',
+    })
+    expect(html).toContain('寵辱不驚</div><div class="line">閒看庭前花開花落')
+    expect(html).toContain('class="sub"')
+    expect(html).toContain('font-size:27px')
+    expect(html).toContain('white-space:nowrap')
+  })
+
+  it('字有跳脫（來自使用者或模型）；沒有小字就沒有小字元素', () => {
+    const html = overlayHtml({ ...lands, text: '<img src=x onerror=alert(1)>' })
+    expect(html).not.toContain('<img')
+    expect(html).toContain('&#60;img')
+    expect(html).not.toContain('class="sub"')
   })
 })

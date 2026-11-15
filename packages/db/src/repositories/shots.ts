@@ -343,6 +343,7 @@ function toShotRow(shot: Shot): ShotRow {
     inCut: shot.inCut,
     beatKind: shot.beatKind,
     card: shot.card ?? null,
+    overlay: shot.overlay ?? null,
     beatSegment: shot.segment ?? null,
   }
 }

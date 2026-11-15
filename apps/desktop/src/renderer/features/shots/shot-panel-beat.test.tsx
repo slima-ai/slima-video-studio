@@ -174,3 +174,64 @@ describe('鏡頭面板：格子種類（會動／不動／字卡）', () => {
     expect(screen.queryByText(/會再花一次這個鏡頭的費用/)).toBeNull()
   })
 })
+
+describe('鏡頭面板：疊在不動畫面上的字', () => {
+  it('只有「不動」的格子有疊字欄位；會動與字卡沒有', () => {
+    installFakeSvs()
+    render(<ShotPanel shot={shot()} />)
+    expect(screen.queryByTestId('shot-overlay-text')).toBeNull()
+    choose('shot-beat', 'still')
+    expect(screen.getByTestId('shot-overlay-text')).toBeTruthy()
+    expect(screen.getByTestId('shot-overlay-subtext')).toBeTruthy()
+    choose('shot-beat', 'card')
+    expect(screen.queryByTestId('shot-overlay-text')).toBeNull()
+  })
+
+  it('填字：字數寫「用掉／上限」（中文 24 字）；存檔只送 overlay，改字不重生成', async () => {
+    const svs = installFakeSvs({ 'shots.update': () => shot() })
+    render(<ShotPanel shot={shot({ beatKind: 'still' })} />)
+    expect(screen.getByTestId('shot-overlay-count').textContent).toBe('0/24')
+    fireEvent.change(screen.getByTestId('shot-overlay-text'), { target: { value: '寵辱不驚' } })
+    fireEvent.change(screen.getByTestId('shot-overlay-subtext'), {
+      target: { value: '——《菜根譚》' },
+    })
+    expect(screen.getByTestId('shot-overlay-count').textContent).toBe('4/24')
+    fireEvent.click(screen.getByTestId('shot-save'))
+    await waitFor(() => {
+      expect(svs.payloadsOf('shots.update')).toEqual([
+        { shotId: 's2', patch: { overlay: { text: '寵辱不驚', subtext: '——《菜根譚》' } } },
+      ])
+    })
+    expect(svs.payloadsOf('shots.regenerate')).toEqual([])
+  })
+
+  it('超過上限：字數變警告色（不擋存檔）；英文數單字', () => {
+    installFakeSvs()
+    render(<ShotPanel shot={shot({ beatKind: 'still' })} />)
+    fireEvent.change(screen.getByTestId('shot-overlay-text'), {
+      target: { value: '字'.repeat(25) },
+    })
+    expect(screen.getByTestId('shot-overlay-count').className).toContain('text-warning')
+    fireEvent.change(screen.getByTestId('shot-overlay-text'), {
+      target: { value: 'Some light, and someone to keep it' },
+    })
+    expect(screen.getByTestId('shot-overlay-count').textContent).toBe('7/12')
+    expect(screen.getByTestId('shot-overlay-count').className).not.toContain('text-warning')
+  })
+
+  it('原本有字：欄位帶出來；清空存檔 → overlay 為 null', async () => {
+    const svs = installFakeSvs({ 'shots.update': () => shot() })
+    render(
+      <ShotPanel
+        shot={shot({ beatKind: 'still', overlay: { text: '寵辱不驚', subtext: '出處' } })}
+      />,
+    )
+    expect(screen.getByTestId<HTMLInputElement>('shot-overlay-text').value).toBe('寵辱不驚')
+    expect(screen.getByTestId<HTMLInputElement>('shot-overlay-subtext').value).toBe('出處')
+    fireEvent.change(screen.getByTestId('shot-overlay-text'), { target: { value: '' } })
+    fireEvent.click(screen.getByTestId('shot-save'))
+    await waitFor(() => {
+      expect(svs.payloadsOf('shots.update')).toEqual([{ shotId: 's2', patch: { overlay: null } }])
+    })
+  })
+})

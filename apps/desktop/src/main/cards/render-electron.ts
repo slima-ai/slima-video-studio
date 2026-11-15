@@ -32,8 +32,9 @@ export const renderHtmlWithElectron: HtmlRenderer = (request) => {
 const pool = new Map<string, BrowserWindow>()
 let queue: Promise<void> = Promise.resolve()
 
-function windowFor(width: number, height: number): BrowserWindow {
-  const key = `${String(width)}x${String(height)}`
+function windowFor(width: number, height: number, transparent: boolean): BrowserWindow {
+  // 透明的視窗另外留一個（視窗建好之後透明與否改不了）
+  const key = `${String(width)}x${String(height)}${transparent ? 't' : ''}`
   const existing = pool.get(key)
   if (existing && !existing.isDestroyed()) return existing
   const win = new BrowserWindow({
@@ -42,7 +43,9 @@ function windowFor(width: number, height: number): BrowserWindow {
     height,
     useContentSize: true,
     frame: false,
-    backgroundColor: '#000000',
+    ...(transparent
+      ? { transparent: true, backgroundColor: '#00000000' }
+      : { backgroundColor: '#000000' }),
     webPreferences: {
       offscreen: true,
       sandbox: true,
@@ -66,10 +69,11 @@ async function renderOne({
   html,
   width,
   height,
+  transparent,
   signal,
 }: Parameters<HtmlRenderer>[0]): Promise<Awaited<ReturnType<HtmlRenderer>>> {
   const usesFile = html.includes('@font-face')
-  const win = windowFor(width, height)
+  const win = windowFor(width, height, transparent === true)
   let broken = false
   // 被取消（等太久）就丟掉這個視窗，不留一個永遠不會畫完的離屏視窗
   const onAbort = (): void => {

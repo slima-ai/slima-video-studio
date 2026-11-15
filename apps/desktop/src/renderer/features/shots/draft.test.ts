@@ -91,3 +91,37 @@ describe('diffDraft：格子種類與字卡（預告片）', () => {
     expect(diffDraft(cardShot, draftOf(cardShot))).toEqual({})
   })
 })
+
+describe('diffDraft：疊在畫面上的字（靜態格）', () => {
+  const still: ShotView = { ...shot, beatKind: 'still' }
+
+  it('沒改 → 沒有 overlay；草稿從 shot.overlay 帶出來', () => {
+    expect(draftOf(still).overlayText).toBe('')
+    expect(diffDraft(still, draftOf(still))).toEqual({})
+    const withOverlay: ShotView = { ...still, overlay: { text: '一句話', subtext: '出處' } }
+    expect(draftOf(withOverlay)).toMatchObject({ overlayText: '一句話', overlaySubtext: '出處' })
+    expect(diffDraft(withOverlay, draftOf(withOverlay))).toEqual({})
+  })
+
+  it('填字 → overlay（前後空白去掉）；清空 → null；只清小字 → 保留主文字', () => {
+    expect(
+      diffDraft(still, { ...draftOf(still), overlayText: ' 一句話 ', overlaySubtext: ' 出處 ' }),
+    ).toEqual({ overlay: { text: '一句話', subtext: '出處' } })
+    const withOverlay: ShotView = { ...still, overlay: { text: '一句話', subtext: '出處' } }
+    expect(diffDraft(withOverlay, { ...draftOf(withOverlay), overlayText: '  ' })).toEqual({
+      overlay: null,
+    })
+    expect(diffDraft(withOverlay, { ...draftOf(withOverlay), overlaySubtext: '' })).toEqual({
+      overlay: { text: '一句話', subtext: '' },
+    })
+  })
+
+  it('只有靜態格才存疊字：改成會動或字卡，原本的疊字被清掉；會動格不送 overlay', () => {
+    const withOverlay: ShotView = { ...still, overlay: { text: '一句話', subtext: '' } }
+    expect(diffDraft(withOverlay, { ...draftOf(withOverlay), beatKind: 'video' })).toEqual({
+      beatKind: 'video',
+      overlay: null,
+    })
+    expect(diffDraft(shot, { ...draftOf(shot), overlayText: '亂填' })).toEqual({})
+  })
+})

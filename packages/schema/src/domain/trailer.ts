@@ -56,6 +56,46 @@ export const ShotCardSchema = z.object({
 })
 export type ShotCard = z.infer<typeof ShotCardSchema>
 
+/** 疊在不動的畫面上的字：主文字（金句）、小字（出處，可以沒有）。真正的字數上限由檢查器管，這裡的上限只是防呆。 */
+export const ShotOverlaySchema = z.object({
+  text: z.string().trim().min(1).max(80),
+  subtext: z.string().trim().max(60).default(''),
+})
+export type ShotOverlay = z.infer<typeof ShotOverlaySchema>
+
+/** 疊字的字數上限：主文字中文 24 個字、英文 12 個單字；小字中文 16 個字、英文 8 個單字。 */
+export const OVERLAY_MAX_CJK = 24
+export const OVERLAY_MAX_WORDS = 12
+export const OVERLAY_SUB_MAX_CJK = 16
+export const OVERLAY_SUB_MAX_WORDS = 8
+
+const CJK_RE = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uff00-\uffef]/
+
+/** 疊字用掉多少、上限多少：有中日文就數字（不含空白），否則數單字。面板的字數提示與檢查器共用。 */
+export function overlaySize(
+  text: string,
+  part: 'text' | 'sub',
+  /** 還沒有任何字的時候，用哪一種上限（面板：介面語言是中文就 true）。 */
+  emptyIsCjk = false,
+): { used: number; max: number; cjk: boolean } {
+  const trimmed = text.trim()
+  const cjk = trimmed === '' ? emptyIsCjk : CJK_RE.test(trimmed)
+  const used = cjk
+    ? Array.from(trimmed.replace(/\s+/g, '')).length
+    : trimmed === ''
+      ? 0
+      : trimmed.split(/\s+/).length
+  const max =
+    part === 'text'
+      ? cjk
+        ? OVERLAY_MAX_CJK
+        : OVERLAY_MAX_WORDS
+      : cjk
+        ? OVERLAY_SUB_MAX_CJK
+        : OVERLAY_SUB_MAX_WORDS
+  return { used, max, cjk }
+}
+
 // ---- 本機格子（靜態鏡頭、字卡、片名卡）：運鏡與要畫的卡 ----
 
 /** 靜態圖的運鏡：慢推近、慢拉遠、鏡頭左移、鏡頭右移、不動。 */
@@ -86,6 +126,12 @@ export const CardJobSchema = z.discriminatedUnion('kind', [
     coverAssetHash: z.string().optional(),
     /** 最底下一行小字（匯出時的 AI 服務標註，T9）。 */
     footnote: z.string().optional(),
+  }),
+  // 疊在不動畫面上的字（透明底的 PNG，只有字與暗帶）
+  z.object({
+    kind: z.literal('overlay'),
+    text: z.string(),
+    subtext: z.string().optional(),
   }),
 ])
 export type CardJob = z.infer<typeof CardJobSchema>

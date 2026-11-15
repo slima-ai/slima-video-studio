@@ -74,6 +74,8 @@ export const trailer = {
   'trailer.cardText': 'Card text',
   'trailer.cardSubtext': 'Small text (optional)',
   'trailer.cardTextPlaceholder': 'For example: Some light, and someone to keep it with you',
+  'trailer.overlayText': 'Text over the picture',
+  'trailer.overlaySubtext': 'Source',
   'trailer.localFree': 'On this computer · free',
   'trailer.stepStill': '{no}: still picture (on this computer, free)',
   'trailer.stepCard': '{no}: text card (on this computer, free)',

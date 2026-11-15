@@ -9,7 +9,9 @@ import {
   type TakeView,
   beatKindLabel,
   formatDate,
+  getLocale,
   isLocalModel,
+  overlaySize,
   secLabel,
   t,
   type BeatKind,
@@ -77,6 +79,8 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
   const picture = hasPicture(draft.beatKind)
   // 字卡沒有字就不能存（也不能生成）
   const emptyCard = draft.beatKind === 'card' && draft.cardText.trim() === ''
+  const textSize = overlaySize(draft.overlayText, 'text', getLocale() === 'zh-TW')
+  const subSize = overlaySize(draft.overlaySubtext, 'sub', getLocale() === 'zh-TW')
   const blocked = picture ? draft.description.trim() === '' : emptyCard
 
   return (
@@ -130,6 +134,51 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
               value={draft.cardSubtext}
               onChange={(event) => {
                 set({ cardSubtext: event.target.value })
+              }}
+              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal"
+            />
+          </label>
+        </div>
+      ) : null}
+      {draft.beatKind === 'still' ? (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">
+            <span className="flex items-baseline justify-between">
+              {t('trailer.overlayText')}
+              <span
+                data-testid="shot-overlay-count"
+                className={`text-xs font-normal ${textSize.used > textSize.max ? 'text-warning' : 'text-fg-muted'}`}
+              >
+                {textSize.used}/{textSize.max}
+              </span>
+            </span>
+            <input
+              data-testid="shot-overlay-text"
+              type="text"
+              maxLength={80}
+              value={draft.overlayText}
+              onChange={(event) => {
+                set({ overlayText: event.target.value })
+              }}
+              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal"
+            />
+          </label>
+          <label className="block text-sm font-medium">
+            <span className="flex items-baseline justify-between">
+              {t('trailer.overlaySubtext')}
+              <span
+                className={`text-xs font-normal ${subSize.used > subSize.max ? 'text-warning' : 'text-fg-muted'}`}
+              >
+                {subSize.used}/{subSize.max}
+              </span>
+            </span>
+            <input
+              data-testid="shot-overlay-subtext"
+              type="text"
+              maxLength={60}
+              value={draft.overlaySubtext}
+              onChange={(event) => {
+                set({ overlaySubtext: event.target.value })
               }}
               className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-normal"
             />
@@ -415,6 +464,7 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
     shot.autoPrompt,
     shot.beatKind,
     shot.card,
+    shot.overlay,
   ])
 
   return (

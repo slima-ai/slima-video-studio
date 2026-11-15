@@ -180,3 +180,44 @@ describe('鏡頭的段落 segment（預告片腳本屬於模板的哪一段）',
     expect(copy.repos.shots.list()[0]?.segment).toBe('suspense')
   })
 })
+
+describe('鏡頭的疊字 overlay（不動的格子用）', () => {
+  it('沒有疊字：讀出來沒有這個欄位（舊專案的鏡頭不受影響）', () => {
+    const { repos } = newProject()
+    const shot = repos.shots.create({ beatKind: 'still' })
+    expect(shot.overlay).toBeUndefined()
+    expect(repos.shots.get(shot.id)?.overlay).toBeUndefined()
+  })
+
+  it('存進去再讀出來一樣；改字、清掉（undefined）；改種類時字還留著', () => {
+    const { repos } = newProject()
+    const shot = repos.shots.create({
+      beatKind: 'still',
+      overlay: { text: '寵辱不驚', subtext: '——《菜根譚》' },
+    })
+    expect(repos.shots.get(shot.id)?.overlay).toEqual({ text: '寵辱不驚', subtext: '——《菜根譚》' })
+    repos.shots.update(shot.id, { overlay: { text: '閒看庭前花開花落', subtext: '' } })
+    expect(repos.shots.get(shot.id)?.overlay).toEqual({ text: '閒看庭前花開花落', subtext: '' })
+    // 改成會動的格子：字留著不用；改回不動時字還在
+    repos.shots.update(shot.id, { beatKind: 'video' })
+    expect(repos.shots.get(shot.id)?.overlay?.text).toBe('閒看庭前花開花落')
+    repos.shots.update(shot.id, { beatKind: 'still' })
+    expect(repos.shots.get(shot.id)?.overlay?.text).toBe('閒看庭前花開花落')
+    repos.shots.update(shot.id, { overlay: undefined })
+    expect(repos.shots.get(shot.id)?.overlay).toBeUndefined()
+  })
+
+  it('跟著復原與重做', () => {
+    const { repos, db, projectId } = newProject()
+    const history = new StructureHistory(db, projectId)
+    const shot = repos.shots.create({ beatKind: 'still' })
+    history.record('加疊字', () =>
+      repos.shots.update(shot.id, { overlay: { text: '一句話', subtext: '' } }),
+    )
+    expect(repos.shots.get(shot.id)?.overlay?.text).toBe('一句話')
+    history.undo()
+    expect(repos.shots.get(shot.id)?.overlay).toBeUndefined()
+    history.redo()
+    expect(repos.shots.get(shot.id)?.overlay?.text).toBe('一句話')
+  })
+})

@@ -186,5 +186,11 @@ export const MIGRATIONS: readonly Migration[] = [
     "statements": [
       "ALTER TABLE `shots` ADD `beat_segment` text;"
     ]
+  },
+  {
+    "tag": "0021_shot_overlay",
+    "statements": [
+      "ALTER TABLE `shots` ADD `overlay` text;"
+    ]
   }
 ]

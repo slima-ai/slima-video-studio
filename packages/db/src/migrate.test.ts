@@ -304,3 +304,44 @@ describe('0020 預告片：鏡頭多 beat_segment（只加欄位，不改舊資�
     )
   })
 })
+
+describe('0021 預告片：鏡頭多 overlay（疊字，只加欄位，不改舊資料）', () => {
+  it('舊版（0020）資料庫升上來：舊鏡頭的 overlay 是空的、其他欄位原樣；新鏡頭可以存疊字', () => {
+    const sqlite = new BetterSqlite3(':memory:')
+    const cut = MIGRATIONS.findIndex((m) => m.tag.startsWith('0021'))
+    expect(cut).toBeGreaterThan(0)
+    runMigrations(sqlite, MIGRATIONS.slice(0, cut))
+    expect(
+      sqlite
+        .prepare("select count(*) from pragma_table_info('shots') where name='overlay'")
+        .pluck()
+        .get(),
+    ).toBe(0)
+    sqlite
+      .prepare(
+        "insert into projects (id, name, schema_version, aspect_ratio, budget, created_at, updated_at) values ('p', '舊專案', 1, '16:9', '{\"perRunLimitUsd\":5}', 'x', 'x')",
+      )
+      .run()
+    sqlite
+      .prepare(
+        "insert into shots (id, project_id, number, position, size, angle, duration_sec, characters, status, beat_kind, beat_segment) values ('s1', 'p', 1, 0, 'wide', 'eye_level', 3, '[]', 'draft', 'still', 'hook')",
+      )
+      .run()
+
+    expect(runMigrations(sqlite, MIGRATIONS)).toEqual({ from: cut, to: MIGRATIONS.length })
+    expect(
+      sqlite
+        .prepare("select beat_kind, beat_segment, overlay, duration_sec from shots where id='s1'")
+        .get(),
+    ).toEqual({ beat_kind: 'still', beat_segment: 'hook', overlay: null, duration_sec: 3 })
+    sqlite
+      .prepare('update shots set overlay = ? where id=?')
+      .run(JSON.stringify({ text: '寵辱不驚', subtext: '' }), 's1')
+    expect(
+      JSON.parse(sqlite.prepare("select overlay from shots where id='s1'").pluck().get() as string),
+    ).toEqual({
+      text: '寵辱不驚',
+      subtext: '',
+    })
+  })
+})

@@ -10,6 +10,9 @@ export interface Draft {
   beatKind: BeatKind
   cardText: string
   cardSubtext: string
+  /** 疊在畫面上的字（只有靜態格用）。 */
+  overlayText: string
+  overlaySubtext: string
 }
 
 export const draftOf = (shot: ShotView): Draft => ({
@@ -20,6 +23,8 @@ export const draftOf = (shot: ShotView): Draft => ({
   beatKind: shot.beatKind ?? 'video',
   cardText: shot.card?.text ?? '',
   cardSubtext: shot.card?.subtext ?? '',
+  overlayText: shot.overlay?.text ?? '',
+  overlaySubtext: shot.overlay?.subtext ?? '',
 })
 
 /** 這一格要不要寫畫面描述、運鏡與 Prompt（字卡與片名卡不用，它們只有字）。 */
@@ -48,6 +53,19 @@ export function diffDraft(shot: ShotView, draft: Draft): ShotEdit {
     (text !== (shot.card?.text ?? '') || subtext !== (shot.card?.subtext ?? ''))
   ) {
     edit.card = { text, subtext }
+  }
+  // 疊字：只有靜態格才有；沒有字 = 清掉；離開靜態格（改成會動或字卡）也清掉
+  const had = shot.overlay ?? null
+  if (draft.beatKind !== 'still') {
+    if (had !== null) edit.overlay = null
+  } else {
+    const overlayText = draft.overlayText.trim()
+    const overlaySubtext = draft.overlaySubtext.trim()
+    if (overlayText === '') {
+      if (had !== null) edit.overlay = null
+    } else if (overlayText !== (had?.text ?? '') || overlaySubtext !== (had?.subtext ?? '')) {
+      edit.overlay = { text: overlayText, subtext: overlaySubtext }
+    }
   }
   return edit
 }

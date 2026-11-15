@@ -95,6 +95,27 @@ describe('流程形狀：三種格子各一個', () => {
     expect(flow.nodes.find((n) => n.id === 'image')?.modelId).toBe(base.models.image)
   })
 
+  it('靜態鏡頭有疊字：疊字放進本機運鏡節點的參數（改字，這個節點的快取鍵就變）；沒有疊字時節點參數沒有這個欄位', () => {
+    const plain = buildShotWorkflow({ ...base, beat: { kind: 'still', motion: 'zoom_in' } })
+    expect(plain.nodes.find((n) => n.id === 'video')?.params).not.toHaveProperty('overlay')
+    const withText = buildShotWorkflow({
+      ...base,
+      beat: {
+        kind: 'still',
+        motion: 'zoom_in',
+        overlay: { text: '寵辱不驚', subtext: '——《菜根譚》' },
+      },
+    })
+    expect(withText.nodes.find((n) => n.id === 'video')?.params).toMatchObject({
+      overlay: { text: '寵辱不驚', subtext: '——《菜根譚》' },
+    })
+    // 圖片節點不受影響：改字不會讓首幀被認成要重畫
+    expect(withText.nodes.find((n) => n.id === 'image')).toEqual(
+      plain.nodes.find((n) => n.id === 'image'),
+    )
+    expect(sha(withText)).not.toBe(sha(plain))
+  })
+
   it('靜態鏡頭接了上傳的圖：首幀是固定的圖，一樣接本機運鏡', () => {
     const flow = buildShotWorkflow({
       ...base,
@@ -161,6 +182,31 @@ describe('本機節點：不花錢、不呼叫任何供應商', () => {
     })
     expect(generate).not.toHaveBeenCalled()
     expect(costs).toEqual([])
+  })
+
+  it('video.still 有疊字：把疊字一起交給本機；沒有疊字時交過去的選項沒有 overlay', async () => {
+    const stillToVideo = vi.fn<NonNullable<StudioServices['stillToVideo']>>(() =>
+      Promise.resolve(ref('c', 'video')),
+    )
+    await run(stillVideoNode, {
+      params: {
+        durationSec: 2,
+        aspectRatio: '16:9',
+        motion: 'zoom_in',
+        overlay: { text: '寵辱不驚', subtext: '' },
+      },
+      inputs: { image: ref('a') },
+      studio: { generate, concatVideos, stillToVideo },
+    })
+    expect(stillToVideo.mock.calls[0]?.[1]).toMatchObject({
+      overlay: { text: '寵辱不驚', subtext: '' },
+    })
+    await run(stillVideoNode, {
+      params: { durationSec: 2, aspectRatio: '16:9', motion: 'zoom_in' },
+      inputs: { image: ref('a') },
+      studio: { generate, concatVideos, stillToVideo },
+    })
+    expect(stillToVideo.mock.calls[1]?.[1]).not.toHaveProperty('overlay')
   })
 
   it('video.card：交給本機字卡，回傳影片；沒有 generate 呼叫、沒有花費', async () => {

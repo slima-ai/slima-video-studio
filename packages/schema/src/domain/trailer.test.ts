@@ -11,6 +11,12 @@ import {
   DEFAULT_TRAILER_SETTINGS,
   MIN_BEAT_SEC,
   MIN_MOVING_BEAT_SEC,
+  OVERLAY_MAX_CJK,
+  OVERLAY_MAX_WORDS,
+  OVERLAY_SUB_MAX_CJK,
+  OVERLAY_SUB_MAX_WORDS,
+  overlaySize,
+  ShotOverlaySchema,
   TITLE_MIN_SEC,
   TRAILER_TEMPLATES,
   TrailerSettingsPatchSchema,
@@ -1116,5 +1122,63 @@ describe('觀點型：作者那一段（作者經歷）只能是使用者給的�
     expect(
       codes(checkTrailerScript(authorBeats('哈佛教授'), settings({ targetSec: 18 }), FPS).errors),
     ).not.toContain('unverified_author')
+  })
+})
+
+describe('ShotOverlaySchema：疊在不動畫面上的字（A：字疊圖）', () => {
+  it('主文字去頭尾空白、至少 1 個字；小字可以沒有（預設空字串）；上限只是防呆', () => {
+    expect(ShotOverlaySchema.parse({ text: '  寵辱不驚  ' })).toEqual({
+      text: '寵辱不驚',
+      subtext: '',
+    })
+    expect(ShotOverlaySchema.parse({ text: '閒看庭前花開花落', subtext: '——《菜根譚》' })).toEqual({
+      text: '閒看庭前花開花落',
+      subtext: '——《菜根譚》',
+    })
+    expect(ShotOverlaySchema.safeParse({ text: '   ' }).success).toBe(false)
+    expect(ShotOverlaySchema.safeParse({ text: 'a'.repeat(81) }).success).toBe(false)
+    expect(ShotOverlaySchema.safeParse({ text: '字', subtext: 'b'.repeat(61) }).success).toBe(false)
+  })
+
+  it('字數上限的常數：主文字中文 24／英文 12，小字中文 16／英文 8', () => {
+    expect([
+      OVERLAY_MAX_CJK,
+      OVERLAY_MAX_WORDS,
+      OVERLAY_SUB_MAX_CJK,
+      OVERLAY_SUB_MAX_WORDS,
+    ]).toEqual([24, 12, 16, 8])
+  })
+
+  it('overlaySize：中文數字（不含空白）、英文數單字；小字的上限比主文字小', () => {
+    expect(overlaySize('閒看庭前 花開花落', 'text')).toEqual({ used: 8, max: 24, cjk: true })
+    expect(overlaySize('Some light, and someone to keep it', 'text')).toEqual({
+      used: 7,
+      max: 12,
+      cjk: false,
+    })
+    expect(overlaySize('——《菜根譚》', 'sub')).toEqual({ used: 7, max: 16, cjk: true })
+    expect(overlaySize('Hong Zicheng', 'sub')).toEqual({ used: 2, max: 8, cjk: false })
+    expect(overlaySize('   ', 'text').used).toBe(0)
+    // 還沒有字：看介面語言決定上限
+    expect(overlaySize('', 'text', true).max).toBe(24)
+    expect(overlaySize('', 'text').max).toBe(12)
+  })
+
+  it('鏡頭（ShotSchema）可以帶 overlay、沒有就沒有這個欄位；ShotEdit 可以設或用 null 清掉', () => {
+    const base = {
+      id: 'a'.repeat(8),
+      projectId: 'p'.repeat(8),
+      number: 1,
+      order: 0,
+    }
+    expect(ShotSchema.parse(base).overlay).toBeUndefined()
+    const withOverlay = ShotSchema.parse({ ...base, overlay: { text: '一句話' } })
+    expect(withOverlay.overlay).toEqual({ text: '一句話', subtext: '' })
+    expect(ShotEditSchema.parse({ overlay: { text: '一句話' } }).overlay).toEqual({
+      text: '一句話',
+      subtext: '',
+    })
+    expect(ShotEditSchema.parse({ overlay: null }).overlay).toBeNull()
+    expect(ShotEditSchema.parse({}).overlay).toBeUndefined()
   })
 })

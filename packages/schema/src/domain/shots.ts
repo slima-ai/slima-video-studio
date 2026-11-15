@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { ContentHashSchema, IdSchema, IsoDateTimeSchema } from './common'
 import { ShotAngleSchema, ShotSizeSchema, ShotStatusSchema, TakeKindSchema } from './story'
-import { BeatKindSchema, MIN_BEAT_SEC, ShotCardSchema } from './trailer'
+import { BeatKindSchema, MIN_BEAT_SEC, ShotCardSchema, ShotOverlaySchema } from './trailer'
 import { TrimSchema } from './trim'
 
 /** 一個鏡頭的生成結果版本（首幀圖或影片）。 */
@@ -76,6 +76,8 @@ export const ShotViewSchema = z.object({
   card: ShotCardSchema.optional(),
   /** 預告片的段落代號（hook、world…）；沒有段落（一般鏡頭、手動加的格子）就沒有這個欄位。 */
   segment: z.string().optional(),
+  /** 疊在不動的畫面上的字；沒有就沒有這個欄位。 */
+  overlay: ShotOverlaySchema.optional(),
   /**
    * 預告片專案的影片格：格長超過現在影片模型一支影片的上限（影片只會有上限那麼長，比格長短）。
    * 其他情況沒有這個欄位。
@@ -139,6 +141,8 @@ export const ShotEditSchema = z.object({
   card: ShotCardSchema.nullable().optional(),
   /** 預告片的段落代號（hook、world…）；空字串代表清掉（這一格不屬於任何段落）。 */
   segment: z.string().max(40).optional(),
+  /** 疊在不動的畫面上的字；null 代表清掉。 */
+  overlay: ShotOverlaySchema.nullable().optional(),
 })
 export type ShotEdit = z.infer<typeof ShotEditSchema>
 
