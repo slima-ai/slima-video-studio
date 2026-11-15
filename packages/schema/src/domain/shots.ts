@@ -99,6 +99,8 @@ export const ShotViewSchema = z.object({
   endFrameSupported: z.boolean().optional(),
   /** 採用中的影片在成品裡佔幾秒（照裁切算）；還沒有影片就沒有這個欄位。 */
   filmSeconds: z.number().nonnegative().optional(),
+  /** 預告片腳本裡這一格屬於模板的哪一段（hook、world、turn、escalate、suspense、title…）；沒有就沒有這個欄位。 */
+  segment: z.string().optional(),
 })
 export type ShotView = z.infer<typeof ShotViewSchema>
 
@@ -219,8 +221,10 @@ export const ShotBatchCheckSchema = z.object({
   issue: z.string().optional(),
   /** 這次真的會生成幾個鏡頭。 */
   willGenerate: z.number().int().nonnegative(),
-  /** 因為已經生成過而略過的有幾個。 */
+  /** 因為已經生成過而略過的有幾個（含不需要畫面的字卡與片名卡）。 */
   skippedGenerated: z.number().int().nonnegative(),
+  /** skippedGenerated 裡有幾個是字卡與片名卡（只有文字、不需要生成畫面，不是「已經生成過」）。 */
+  skippedNoPicture: z.number().int().nonnegative().optional(),
   /** 因為正在生成中而略過的有幾個。 */
   skippedBusy: z.number().int().nonnegative(),
   /** 只生成影片時：因為還沒有首幀圖而略過的有幾個。 */
@@ -254,6 +258,8 @@ export const ShotBatchResultSchema = z.object({
   /** 只做影片時：首幀是用舊的描述畫的（描述之後改過）的鏡號；照用這張首幀，不重生。 */
   staleFrameShots: z.array(z.number().int().positive()).optional(),
   skippedGenerated: z.number().int().nonnegative(),
+  /** skippedGenerated 裡有幾個是字卡與片名卡（不需要生成畫面）。 */
+  skippedNoPicture: z.number().int().nonnegative().optional(),
   skippedBusy: z.number().int().nonnegative(),
   failed: z.array(
     z.object({ shotId: IdSchema, number: z.number().int().positive(), error: z.string() }),

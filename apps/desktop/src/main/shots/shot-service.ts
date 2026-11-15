@@ -13,6 +13,7 @@ import type { ModelRegistry } from '@svs/providers'
 import {
   AppError,
   AssetRefSchema,
+  MIN_MOVING_BEAT_SEC,
   QUICK_STYLE_IDS,
   isAppError,
   type AssetRef,
@@ -58,6 +59,7 @@ import {
 } from '@svs/schema'
 import {
   STUDIO_SERVICE_KEY,
+  LOCAL_BEAT_FPS,
   ShotItemSchema,
   buildEndFrameWorkflow,
   buildShotWorkflow,
@@ -87,6 +89,7 @@ import { createDraftCharacters } from '../quickstart/draft-characters'
 import { sceneKey, shotKey } from '../canvas/projection'
 import { currentFinal, cutTrimKeyOf } from './current-final'
 import { measureVideoAsset, measureVideoAssets } from './measure-videos'
+import { planSharedFrames, type SharedFrame } from './shared-frames'
 import { trimOfTake } from './trim'
 import { unconfirmedOf } from './unconfirmed'
 import { isAiCall } from '../history/ai-origin'
@@ -196,6 +199,8 @@ export interface ShotRunEntry {
   image: boolean
   video: boolean
   redo: boolean
+  /** 不動的格子跟同一個地點的別格共用首幀：不另外畫（`image` 是 false），首幀用那一格的。 */
+  shared?: SharedFrame
 }
 
 export interface ShotRunPlan {
@@ -445,6 +450,20 @@ interface Session {
   quickShotIds: string[]
   /** 影片存進來後正在自動剪到格長的工作（預告片專案）；接片、剪裁、量長度之前要等它們。 */
   trims: Set<Promise<void>>
+  /** 等別格畫好首幀再共用的不動格：領頭那一格的 id → 等它的格子。 */
+  sharedWaiters: Map<string, SharedWaiter[]>
+}
+
+/** 等著共用首幀的不動格：領頭那一格畫好就用它的首幀，畫不出來就照原本的方式自己畫。 */
+interface SharedWaiter {
+  shot: Shot
+  /** 共用到首幀之後還要做什麼：只做影片（本機），或什麼都不做（只生首幀）。 */
+  then: 'video' | 'none'
+  /** 領頭那一格沒畫出來時，自己畫用的方式。 */
+  fallback: RegenerateMode
+  quality: ModelTier | undefined
+  /** 等的時候佔著「進行中」（可以取消）。 */
+  controller: AbortController
 }
 
 /**
@@ -491,6 +510,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
           errors: new Map(),
           quickShotIds: [],
           trims: new Set(),
+          sharedWaiters: new Map(),
         }
       : undefined
   }
@@ -903,6 +923,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     if (event.nodeId === 'image' && isDone(event.nodeRun) && ctx.fixedFrame !== true) {
       const out = ImageOutputSchema.safeParse(event.nodeRun.output)
       if (out.success) {
+        const priorHash = shots.listTakes(shotId, 'first_frame').find((t) => t.adopted)?.assetHash
         const take = saveTake(s, shotId, 'first_frame', out.data.image, {
           modelId: ctx.models.image,
           seed: ctx.imageVariation,
@@ -911,6 +932,10 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         })
         shots.adoptTake(take.id)
         changed(s)
+        // 預告片：這一格的首幀換了新版本，原本共用同一張的不動格跟著換（不花錢），不會出現兩種長相
+        if (priorHash !== undefined && priorHash !== take.assetHash) {
+          followSharedFrame(s, shotId, priorHash, take)
+        }
       }
     } else if (event.nodeId === 'video' && isDone(event.nodeRun)) {
       const out = VideoOutputSchema.safeParse(event.nodeRun.output)
@@ -1458,6 +1483,25 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         if (image || video) entries.push({ shot, mode: 'apply', image, video, redo: false })
       }
     }
+    // 預告片：同一個地點的不動格共用一張首幀（這次要畫、不是使用者明確要重做的那些）。跟隨的格子不另外畫首幀，
+    // 只做自己的（本機）影片，所以計畫裡沒有它的「第一張畫面」那一步、也不算那一步的錢
+    const drawing = entries
+      .filter(
+        (entry) =>
+          entry.image &&
+          !entry.redo &&
+          entry.mode === 'apply' &&
+          wanted.get(entry.shot.id)?.exact === undefined,
+      )
+      .map((entry) => entry.shot)
+    const shares = planSharedFrames(handle, drawing)
+    for (const entry of entries) {
+      const shared = shares.get(entry.shot.id)
+      if (shared) {
+        entry.image = false
+        entry.shared = shared
+      }
+    }
     const { demoMode, budget, image, video, names } = modelInfo(quality)
     const unconfirmed = unconfirmedOf(
       handle,
@@ -1535,7 +1579,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
   const checkBatch = (
     s: Session,
     request: ShotBatchRequest,
-  ): { check: ShotBatchCheck; toRun: Shot[] } => {
+  ): { check: ShotBatchCheck; toRun: Shot[]; shares: Map<string, SharedFrame> } => {
     const { handle } = s
     const { shots } = handle.repos
     const stage = request.stage ?? 'full'
@@ -1547,18 +1591,26 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const hasVideo = (shot: Shot): boolean => shots.listTakes(shot.id, 'video').length > 0
     let skippedBusy = 0
     let skippedGenerated = 0
+    let skippedNoPicture = 0
     let skippedNoFrame = 0
     const toRun: Shot[] = []
     for (const shot of picked) {
       if (s.regens.has(shot.id)) skippedBusy++
-      else if (request.skipGenerated && (stage === 'frame' ? hasFrame(shot) : hasVideo(shot)))
+      // 字卡沒有首幀圖要生：只生首幀這一步對它沒事可做（不是「已經生成過」，另外記一個數字）
+      else if (stage === 'frame' && localKindOf(shot) === 'card') {
         skippedGenerated++
-      // 字卡沒有首幀圖要生：只生首幀這一步對它沒事可做
-      else if (stage === 'frame' && localKindOf(shot) === 'card') skippedGenerated++
+        skippedNoPicture++
+      } else if (request.skipGenerated && (stage === 'frame' ? hasFrame(shot) : hasVideo(shot)))
+        skippedGenerated++
       else if (stage === 'video' && !hasFrame(shot)) skippedNoFrame++
       else toRun.push(shot)
     }
     const quality = request.draft === true ? 'budget' : undefined
+    // 預告片：同一個地點的不動格共用一張首幀（使用者明確要新版本的 redo 不共用）；跟隨的格子不另外畫、也不算那一步的錢
+    const shares =
+      stage !== 'video' && request.skipGenerated
+        ? planSharedFrames(handle, toRun)
+        : new Map<string, SharedFrame>()
     const { demoMode, budget, image, video, names } = modelInfo(quality)
     // 要生畫面的（不是只做影片、也不是字卡）鏡頭用到的角色與場景卡，還沒鎖定的有幾個
     const unconfirmed =
@@ -1571,6 +1623,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const base = {
       willGenerate: toRun.length,
       skippedGenerated,
+      skippedNoPicture,
       skippedBusy,
       skippedNoFrame,
       demoMode,
@@ -1580,6 +1633,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     const fail = (issue: string, estimatedUsd = 0, estimateIsLowerBound = false) => ({
       check: { ...base, ok: false, issue, estimatedUsd, estimateIsLowerBound },
       toRun,
+      shares,
     })
 
     if (picked.length === 0) return fail(t('services.canTFindTheSelected'))
@@ -1611,6 +1665,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     let estimatedUsd = 0
     let lowerBound = false
     for (const shot of toRun) {
+      const sharing = shares.has(shot.id)
+      if (sharing && stage === 'frame') continue
       const mode = batchModeOf(handle, shot, stage)
       const { flow } = flowFor(handle, shot, mode, {
         image: image ?? '',
@@ -1621,7 +1677,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       })
       // 只生影片：首幀與提示會從快取拿，不重複花錢
       const steps =
-        stage === 'full' ? undefined : stage === 'frame' ? ['prompt', 'image'] : ['video']
+        stage === 'full'
+          ? sharing
+            ? ['video']
+            : undefined
+          : stage === 'frame'
+            ? ['prompt', 'image']
+            : ['video']
       estimatedUsd +=
         steps === undefined
           ? estimate.totalUsd
@@ -1640,7 +1702,140 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     return {
       check: { ...base, ok: true, estimatedUsd, estimateIsLowerBound: lowerBound },
       toRun,
+      shares,
     }
+  }
+
+  /** 共用首幀：把別格的首幀存成這一格採用中的首幀（指紋算這一格自己的，所以不會被標成「需要重跑」；沒有花錢）。 */
+  const adoptSharedFrame = (s: Session, shot: Shot, from: Take): void => {
+    const { shots } = s.handle.repos
+    const inputHash = fingerprintsOf(s.handle, shot).image
+    const existing = shots
+      .listTakes(shot.id, 'first_frame')
+      .find((t) => t.assetHash === from.assetHash)
+    if (existing && existing.inputHash !== inputHash) shots.setTakeInputHash(existing.id, inputHash)
+    const take =
+      existing ??
+      shots.addTake({
+        shotId: shot.id,
+        kind: 'first_frame',
+        assetHash: from.assetHash,
+        modelId: from.modelId,
+        ...(from.seed === undefined ? {} : { seed: from.seed }),
+        inputHash,
+      })
+    shots.adoptTake(take.id)
+    changed(s)
+  }
+
+  /**
+   * 共用首幀的領頭重畫出新版本：原本用同一張舊首幀（`oldHash`）的不動格換成新的，它們的（本機）影片用新首幀重做，不花錢。
+   * 之前自己重畫過、已經不是同一張的格子不動。
+   */
+  const followSharedFrame = (s: Session, sourceId: string, oldHash: string, frame: Take): void => {
+    const { shots } = s.handle.repos
+    if (s.handle.repos.trailer.get() === undefined) return
+    const source = shots.get(sourceId)
+    if (source?.beatKind !== 'still' || source.locationId === undefined) return
+    for (const other of shots.list()) {
+      if (other.id === sourceId || other.beatKind !== 'still') continue
+      if (other.locationId !== source.locationId || s.regens.has(other.id)) continue
+      const adopted = shots.listTakes(other.id, 'first_frame').find((t) => t.adopted)
+      if (adopted?.assetHash !== oldHash) continue
+      adoptSharedFrame(s, other, frame)
+      if (!shots.listTakes(other.id, 'video').some((t) => t.adopted)) continue
+      launch(s, other, 'video').catch((error: unknown) => {
+        s.errors.set(other.id, {
+          message: isAppError(error) ? error.userMessage : t('services.thisShotCanTStart'),
+          step: 'video',
+        })
+        changed(s)
+        if (!isAppError(error))
+          log.error(`Unexpected error following a shared frame: ${String(error)}`)
+      })
+    }
+  }
+
+  /** 領頭那一格結束了：等它的格子用它的首幀（再做影片）；它沒畫出首幀就照原本的方式自己畫。 */
+  const releaseSharedWaiters = (s: Session, leaderId: string): void => {
+    const waiters = s.sharedWaiters.get(leaderId)
+    if (!waiters) return
+    s.sharedWaiters.delete(leaderId)
+    const { shots } = s.handle.repos
+    const frame = shots.listTakes(leaderId, 'first_frame').find((t) => t.adopted)
+    for (const waiter of waiters) {
+      // 等的時候佔著的「進行中」先放掉，接著才換成真正的生成
+      s.regens.delete(waiter.shot.id)
+      s.activity.delete(waiter.shot.id)
+      if (s.handle.closed || waiter.controller.signal.aborted) continue
+      const fresh = shots.get(waiter.shot.id)
+      if (!fresh) continue
+      const start = async (): Promise<void> => {
+        if (frame) {
+          adoptSharedFrame(s, fresh, frame)
+          if (waiter.then === 'video') await launch(s, fresh, 'video', waiter.quality)
+          else changed(s)
+        } else {
+          await launch(s, fresh, waiter.fallback, waiter.quality)
+        }
+      }
+      start().catch((error: unknown) => {
+        s.errors.set(waiter.shot.id, {
+          message: isAppError(error) ? error.userMessage : t('services.thisShotCanTStart'),
+          step: 'image',
+        })
+        changed(s)
+        if (!isAppError(error))
+          log.error(`Unexpected error in a shared first frame: ${String(error)}`)
+      })
+    }
+    changed(s)
+  }
+
+  /**
+   * 開始共用首幀的格子：領頭的格子已經有首幀就直接用（再做影片）；領頭的還在畫就先佔著「進行中」等它。
+   * 先登記等著的，才開始畫領頭的（領頭的很快畫完也不會漏掉）。
+   */
+  const registerSharedWaiters = (
+    s: Session,
+    waiters: readonly {
+      shot: Shot
+      shared: SharedFrame
+      then: 'video' | 'none'
+      fallback: RegenerateMode
+    }[],
+    quality: ModelTier | undefined,
+  ): void => {
+    for (const w of waiters) {
+      if (w.shared.ready) continue
+      const controller = new AbortController()
+      s.regens.set(w.shot.id, controller)
+      s.activity.set(w.shot.id, 'image')
+      s.errors.delete(w.shot.id)
+      s.sharedWaiters.set(w.shared.leaderId, [
+        ...(s.sharedWaiters.get(w.shared.leaderId) ?? []),
+        { shot: w.shot, then: w.then, fallback: w.fallback, quality, controller },
+      ])
+    }
+    changed(s)
+  }
+
+  /** 領頭的格子已經有首幀：直接用它（再做影片）；領頭的首幀不見了就照原本的方式自己畫。 */
+  const startSharedNow = async (
+    s: Session,
+    shot: Shot,
+    leaderId: string,
+    then: 'video' | 'none',
+    fallback: RegenerateMode,
+    quality: ModelTier | undefined,
+  ): Promise<void> => {
+    const frame = s.handle.repos.shots.listTakes(leaderId, 'first_frame').find((t) => t.adopted)
+    if (!frame) {
+      await launch(s, shot, fallback, quality)
+      return
+    }
+    adoptSharedFrame(s, shot, frame)
+    if (then === 'video') await launch(s, shot, 'video', quality)
   }
 
   async function launch(
@@ -1648,6 +1843,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
     shot: Shot,
     requestedMode: RegenerateMode,
     quality?: ModelTier,
+    /** 這一鏡的生成結束之後（成功、失敗、取消都會）要做的事；領頭畫首幀的格子用它叫醒等著共用的格子。 */
+    onSettled?: () => void,
   ): Promise<void> {
     const { handle } = s
     const shotId = shot.id
@@ -1738,6 +1935,8 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         throw error
       })
       .finally(() => {
+        // 先叫醒等著共用首幀的格子（它們接手「進行中」），再放掉自己，免得中間一瞬間被當成「都做完了」
+        onSettled?.()
         s.regens.delete(shotId)
         s.activity.delete(shotId)
         changed(s)
@@ -1857,6 +2056,13 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         throw invalid(t('services.canTFindThisLocation'))
       }
       const prompt = edit.prompt?.trim()
+      // 預告片的會動格被改成比 1.5 秒短（照成品的整數格算）：做不出像樣的影片，改成不動的畫面
+      // （只在這次改了秒數、而且還是會動格的時候；使用者自己選的種類照辦）
+      const movingTooShort =
+        edit.durationSec !== undefined &&
+        (edit.beatKind ?? shot.beatKind) === 'video' &&
+        s.handle.repos.trailer.get() !== undefined &&
+        Math.round(edit.durationSec * LOCAL_BEAT_FPS) / LOCAL_BEAT_FPS < MIN_MOVING_BEAT_SEC - 1e-9
       const text = (value: string | null | undefined): string | undefined =>
         value?.trim() ? value.trim() : undefined
       const updated = shots.update(shotId, {
@@ -1888,7 +2094,11 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         ...(edit.timeOfDay === undefined ? {} : { timeOfDay: text(edit.timeOfDay) }),
         ...(edit.mood === undefined ? {} : { mood: text(edit.mood) }),
         ...(edit.inCut === undefined ? {} : { inCut: edit.inCut }),
-        ...(edit.beatKind === undefined ? {} : { beatKind: edit.beatKind }),
+        ...(movingTooShort
+          ? { beatKind: 'still' as const }
+          : edit.beatKind === undefined
+            ? {}
+            : { beatKind: edit.beatKind }),
         // null＝清掉字卡
         ...(edit.card === undefined ? {} : { card: edit.card ?? undefined }),
         ...(edit.segment === undefined ? {} : { segment: text(edit.segment) }),
@@ -2285,21 +2495,60 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
 
     async generateBatch(request) {
       const s = need()
-      const { check, toRun } = checkBatch(s, request)
+      const { check, toRun, shares } = checkBatch(s, request)
       if (!check.ok) throw invalid(check.issue ?? t('services.canTGenerateInA'))
       const failed: ShotBatchResult['failed'] = []
       let started = 0
+      const stage = request.stage ?? 'full'
+      const quality = request.draft === true ? 'budget' : undefined
+      // 共用首幀的不動格：領頭的還在畫就先登記等著（先登記、再開始畫領頭的）；領頭的已經有首幀就直接用
+      const sharing = toRun.flatMap((shot) => {
+        const shared = shares.get(shot.id)
+        return shared
+          ? [
+              {
+                shot,
+                shared,
+                then: stage === 'frame' ? ('none' as const) : ('video' as const),
+                fallback: batchModeOf(s.handle, shot, stage),
+              },
+            ]
+          : []
+      })
+      registerSharedWaiters(s, sharing, quality)
+      const leaders = new Set(sharing.filter((w) => !w.shared.ready).map((w) => w.shared.leaderId))
       // 一個一個開始（各自在背景跑，供應商的並行數由佇列控制）；開始不了的記下來，繼續下一個
       for (const shot of toRun) {
         try {
+          const shared = shares.get(shot.id)
+          if (shared) {
+            if (shared.ready) {
+              await startSharedNow(
+                s,
+                shot,
+                shared.leaderId,
+                stage === 'frame' ? 'none' : 'video',
+                batchModeOf(s.handle, shot, stage),
+                quality,
+              )
+            }
+            started++
+            continue
+          }
           await launch(
             s,
             shot,
-            batchModeOf(s.handle, shot, request.stage ?? 'full'),
-            request.draft === true ? 'budget' : undefined,
+            batchModeOf(s.handle, shot, stage),
+            quality,
+            leaders.has(shot.id)
+              ? () => {
+                  releaseSharedWaiters(s, shot.id)
+                }
+              : undefined,
           )
           started++
         } catch (error) {
+          if (leaders.has(shot.id)) releaseSharedWaiters(s, shot.id)
           failed.push({
             shotId: shot.id,
             number: shot.number,
@@ -2321,6 +2570,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         started,
         ...(staleFrameShots.length > 0 ? { staleFrameShots } : {}),
         skippedGenerated: check.skippedGenerated,
+        skippedNoPicture: check.skippedNoPicture,
         skippedBusy: check.skippedBusy,
         failed,
       }
@@ -2339,11 +2589,52 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       if (!plan.ok) throw invalid(plan.issue ?? t('services.canTRunThisRight'))
       const failed: { shotId: string; number: number; error: string }[] = []
       let started = 0
+      // 共用首幀的不動格：領頭的還在畫就先登記等著（先登記、再開始畫領頭的）；領頭的已經有首幀就直接用
+      const sharing = plan.entries.flatMap((entry) =>
+        entry.shared
+          ? [
+              {
+                shot: entry.shot,
+                shared: entry.shared,
+                then: 'video' as const,
+                fallback: entry.mode,
+              },
+            ]
+          : [],
+      )
+      registerSharedWaiters(s, sharing, quality)
+      const leaders = new Set(sharing.filter((w) => !w.shared.ready).map((w) => w.shared.leaderId))
       for (const entry of plan.entries) {
         try {
-          await launch(s, entry.shot, entry.mode, quality)
+          if (entry.shared) {
+            if (entry.shared.ready) {
+              await startSharedNow(
+                s,
+                entry.shot,
+                entry.shared.leaderId,
+                'video',
+                entry.mode,
+                quality,
+              )
+            }
+            started++
+            continue
+          }
+          await launch(
+            s,
+            entry.shot,
+            entry.mode,
+            quality,
+            leaders.has(entry.shot.id)
+              ? () => {
+                  releaseSharedWaiters(s, entry.shot.id)
+                }
+              : undefined,
+          )
           started++
         } catch (error) {
+          // 領頭的開始不了：等它的格子改成自己畫
+          if (leaders.has(entry.shot.id)) releaseSharedWaiters(s, entry.shot.id)
           failed.push({
             shotId: entry.shot.id,
             number: entry.shot.number,

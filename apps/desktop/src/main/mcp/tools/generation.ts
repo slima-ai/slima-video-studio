@@ -1,3 +1,4 @@
+import type { JobSummary } from '@svs/schema'
 import { z } from 'zod'
 
 import { McpToolError } from '../bridge'
@@ -62,6 +63,21 @@ function stuckNote(ctx: ToolContext, working: readonly WorkingShot[]): string | 
   return `Waiting a long time on ${stuck.join(', ')}. That is longer than a generation normally takes: check get_shot (it shows a problem if something failed), and if nothing is wrong, cancel_generation and redo the shot with regenerate_shot instead of waiting more.`
 }
 
+/**
+ * 現在還算失敗的任務數：同一個目標（同一鏡的同一步、同一個角色的同一種圖…）後來又有一次成功的，
+ * 那次失敗已經補好了，不再算。佇列照時間排，所以只看排在後面的。
+ */
+export function unresolvedFailures(jobs: readonly JobSummary[]): number {
+  const target = (j: JobSummary): string => `${j.kind}|${j.stepLabel ?? j.promptPreview ?? j.id}`
+  return jobs.filter(
+    (job, index) =>
+      job.status === 'failed' &&
+      !jobs
+        .slice(index + 1)
+        .some((later) => later.status === 'succeeded' && target(later) === target(job)),
+  ).length
+}
+
 /** 目前專案最近的生成任務摘要。 */
 async function status(ctx: ToolContext) {
   const { jobs } = await ctx.caller.call('queue.list', {})
@@ -83,7 +99,8 @@ async function status(ctx: ToolContext) {
     running: active.length,
     ...(working.length > 0 ? { shotsInProgress: working.map((w) => w.number) } : {}),
     ...(note === undefined ? {} : { note }),
-    failed: jobs.filter((j) => j.status === 'failed').length,
+    // 只算現在還沒補好的（重做成功之後那次失敗不再算）
+    failed: unresolvedFailures(jobs),
     recent,
   }
 }

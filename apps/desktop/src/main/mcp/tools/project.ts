@@ -1,4 +1,5 @@
 import { basename } from 'node:path'
+import { AspectRatioSchema } from '@svs/schema'
 import { z } from 'zod'
 
 import { McpToolError } from '../bridge'
@@ -52,10 +53,19 @@ export function registerProjectTools(ctx: ToolContext): void {
     title: 'Create a project',
     description:
       'Create a new empty project and open it. NOTE: this closes the project currently shown in the app window and shows the new one instead, so the user sees the window change.',
-    input: { name: z.string().trim().min(1).max(60).describe('Project name, e.g. the film title') },
+    input: {
+      name: z.string().trim().min(1).max(60).describe('Project name, e.g. the film title'),
+      aspectRatio: AspectRatioSchema.optional().describe(
+        'Frame shape from the start (e.g. 9:16 for a vertical film); same as configure_project afterwards',
+      ),
+    },
     hints: { readOnly: false },
-    run: async ({ name }) => {
+    run: async ({ name, aspectRatio }) => {
       const project = await ctx.caller.call('project.createNew', { name })
+      if (aspectRatio !== undefined) {
+        const configured = await ctx.caller.call('project.configure', { aspectRatio })
+        return { project: projectView(project), aspectRatio: configured.aspectRatio }
+      }
       return { project: projectView(project) }
     },
   })
