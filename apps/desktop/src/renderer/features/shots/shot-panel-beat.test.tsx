@@ -128,4 +128,33 @@ describe('鏡頭面板：格子種類（會動／不動／字卡）', () => {
     expect(screen.getByText(/本機・不花錢/)).toBeTruthy()
     expect(screen.queryByText(/local-card/)).toBeNull()
   })
+
+  it('字卡：沒有入點出點、影片原聲、「會再花一次費用」那句；影片格都還在', () => {
+    installFakeSvs()
+    const card = shot({
+      beatKind: 'card',
+      card: { text: '有些光', subtext: '' },
+      videos: [localTake],
+      status: 'done',
+    })
+    const first = render(<ShotPanel shot={card} />)
+    expect(screen.queryByTestId('trim-player')).toBeNull()
+    expect(screen.queryByTestId('shot-sound')).toBeNull()
+    expect(screen.queryByText(/會再花一次這個鏡頭的費用/)).toBeNull()
+    expect(screen.getByTestId('shot-preview')).toBeTruthy()
+    first.unmount()
+    // 會動的格子：照舊
+    render(
+      <ShotPanel shot={shot({ videos: [{ ...localTake, modelId: 'kling' }], status: 'done' })} />,
+    )
+    expect(screen.getByTestId('trim-player')).toBeTruthy()
+    expect(screen.getByTestId('shot-sound')).toBeTruthy()
+    expect(screen.getByText(/會再花一次這個鏡頭的費用/)).toBeTruthy()
+  })
+
+  it('不動：也不寫「會再花一次費用」（在這台電腦上做）', () => {
+    installFakeSvs()
+    render(<ShotPanel shot={shot({ beatKind: 'still' })} />)
+    expect(screen.queryByText(/會再花一次這個鏡頭的費用/)).toBeNull()
+  })
 })

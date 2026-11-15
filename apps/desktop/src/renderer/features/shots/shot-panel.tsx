@@ -268,7 +268,10 @@ function ShotEditor({ shot, busy, onRun }: EditorProps) {
           {t('shots.saveChangesOnly')}
         </Button>
       </div>
-      <p className="text-xs text-fg-muted">{t('shots.generatingAgainOnlyRedoesWhat')}</p>
+      {/* 不動與字卡在這台電腦上做，不花錢；只有會動的格子才說「會再花一次費用」 */}
+      {draft.beatKind === 'video' ? (
+        <p className="text-xs text-fg-muted">{t('shots.generatingAgainOnlyRedoesWhat')}</p>
+      ) : null}
 
       {picture ? (
         <div className="space-y-2 border-t border-border pt-3">
@@ -378,6 +381,8 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
   const [previewId, setPreviewId] = useState<string | undefined>()
   const [hint, setHint] = useState<string | undefined>()
   const generating = shot.activity !== undefined
+  // 字卡與片名卡只有字：沒有入點出點、影片原聲，也不會再花一次費用（在這台電腦上做）
+  const textBeat = shot.beatKind === 'card' || shot.beatKind === 'title'
 
   const adopted = shot.videos.find((v) => v.adopted)
   const shown = shot.videos.find((v) => v.id === previewId) ?? adopted
@@ -427,7 +432,7 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
         </div>
       ) : null}
 
-      {shown && shown.id === adopted?.id ? (
+      {shown && shown.id === adopted?.id && !textBeat ? (
         // 使用中的影片：預覽加上頭尾裁切（時間尺、入點出點、I／O、逐格、只播留下的部分）
         <TrimPlayer shot={shot} take={shown} videoTestId="shot-preview" />
       ) : (
@@ -496,7 +501,7 @@ export function ShotPanel({ shot, onClose }: ShotPanelProps) {
 
       <ShotEditor key={`${shot.id}:${signature}`} shot={shot} busy={busy} onRun={run} />
 
-      <ShotSound shotId={shot.id} />
+      {textBeat ? null : <ShotSound shotId={shot.id} />}
 
       <VersionList
         title={t('shots.videoVersions')}
