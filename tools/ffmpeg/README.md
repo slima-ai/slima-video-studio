@@ -19,7 +19,7 @@ tools/ffmpeg/build-macos.sh        # 輸出到 apps/desktop/build/ffmpeg/<arm64|
 - 版本與雜湊都寫死在腳本裡：FFmpeg 6.1.1（SHA-256 核對、有 gpg 就再驗官方簽章）、x264 stable 的固定 commit。
 - 只需要 Xcode Command Line Tools、curl、git、shasum；**arm64 不需要 nasm**。Intel（x86_64）要先裝 nasm，並在 Intel 機器上跑。
 - 平行工作數預設 8（`JOBS=4 tools/ffmpeg/build-macos.sh` 可以調低）。約 2～3 分鐘。
-- 腳本結束前會檢查：沒有 `--enable-nonfree`、有 libx264 與 aac。
+- 腳本結束前會用 `tools/ffmpeg/verify-ffmpeg.sh` 檢查：沒有 `--enable-nonfree`、有 libx264 與 aac、有 zoompan 與 fade 濾鏡。
 
 ## 散布時要做的（GPL 義務）
 
