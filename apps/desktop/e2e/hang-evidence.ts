@@ -61,6 +61,8 @@ export interface HangEvidenceInput {
   pid: number | undefined
   /** 這個測試的 userData（讀 logs/main.log） */
   userDataDir: string
+  /** false＝不取呼叫堆疊（sample 會掛上偵錯器、拖慢那個行程，每次退出只取一次）。預設 true。 */
+  sample?: boolean
 }
 
 /**
@@ -115,7 +117,7 @@ export async function saveHangEvidence(input: HangEvidenceInput): Promise<string
   if (tree.length > 0) {
     const pids = tree.map((row) => String(row.pid)).join(',')
     put('lsof.txt', await run('lsof', ['-nP', '-p', pids]))
-    if (platform() === 'darwin') {
+    if (platform() === 'darwin' && input.sample !== false) {
       // 主行程的呼叫堆疊（取樣 1 秒）：看它卡在哪一段
       put('sample-main.txt', await run('sample', [String(pid), '1']))
     }

@@ -80,21 +80,26 @@ export const test = base.extend<Fixtures>({
 /** 關 App 最多等這麼久；超過就是主行程卡住了。 */
 const CLOSE_TIMEOUT_MS = 20_000
 
+/** 超過這麼久還沒退出就先存證據（不強制結束、照常等它退）：機器不忙時偏慢的那幾次也有東西可看。 */
+const SLOW_CLOSE_MS = 5_000
+
 export interface CloseAppOptions {
   /** 測試用：縮短等待時間 */
   timeoutMs?: number
+  /** 測試用：縮短「偏慢」的門檻 */
+  slowMs?: number
   /** 證據資料夾；沒給就看環境變數 SVS_E2E_EVIDENCE_DIR（每次逾時各一個子資料夾，不被重跑蓋掉），再沒有就放在這個測試的輸出資料夾 */
   evidenceDir?: string
 }
 
 /** 設了 SVS_E2E_CLOSE_LOG 就把每次關 App 花的毫秒數記一行（量「平常多久退出」用）。 */
-function logCloseDuration(testInfo: TestInfo, ms: number, timedOut: boolean) {
+function logCloseDuration(testInfo: TestInfo, ms: number, status: 'ok' | 'slow' | 'TIMEOUT') {
   const file = process.env.SVS_E2E_CLOSE_LOG
   if (!file) return
   try {
     appendFileSync(
       file,
-      `${new Date().toISOString()}\t${String(ms)}ms\t${timedOut ? 'TIMEOUT' : 'ok'}\t${testInfo.title}\n`,
+      `${new Date().toISOString()}\t${String(ms)}ms\t${status}\t${testInfo.title}\n`,
     )
   } catch {
     // 記不了就算了，不影響測試
@@ -111,9 +116,9 @@ function evidenceDirFor(testInfo: TestInfo, options: CloseAppOptions): string {
 }
 
 /**
- * 關 App。卡住時（以前曾在全套並行時發生）不讓整個 worker 等到逾時、連帶下一個測試沒跑：
- * 先把證據存成檔（完整主行程 log、行程樹、開著的檔案與 port、macOS 的呼叫堆疊），
- * 再強制結束行程，並讓這個測試失敗（不吞掉問題）。
+ * 關 App。偏慢（超過 5 秒）時先把證據存成檔（完整主行程 log、行程樹、開著的檔案與 port、macOS 的呼叫堆疊），
+ * 不強制結束、照常等它退出；卡住（超過 20 秒，以前曾在全套並行時發生）則再存一份、強制結束行程，
+ * 並讓這個測試失敗（不吞掉問題），不讓整個 worker 等到逾時、連帶下一個測試沒跑。
  */
 export async function closeApp(
   app: ElectronApplication,
@@ -121,31 +126,53 @@ export async function closeApp(
   testInfo: TestInfo,
   options: CloseAppOptions = {},
 ) {
+  const timeoutMs = options.timeoutMs ?? CLOSE_TIMEOUT_MS
+  // SVS_E2E_SLOW_MS：只用來量「取證據讓退出慢多少」，平常不設
+  const slowMs = options.slowMs ?? Number(process.env.SVS_E2E_SLOW_MS ?? SLOW_CLOSE_MS)
+  const dir = evidenceDirFor(testInfo, options)
+  const pid = app.process().pid
+  const attachAll = async (prefix: string, files: string[]) => {
+    for (const path of files) {
+      await testInfo
+        .attach(`${prefix}-${basename(path)}`, { path, contentType: 'text/plain' })
+        .catch(() => undefined)
+    }
+  }
+
   let timer: NodeJS.Timeout | undefined
   const timedOut = new Promise<'timeout'>((resolve) => {
     timer = setTimeout(() => {
       resolve('timeout')
-    }, options.timeoutMs ?? CLOSE_TIMEOUT_MS)
+    }, timeoutMs)
   })
+  let slowEvidence: Promise<string[]> | undefined
+  const slowTimer = setTimeout(() => {
+    slowEvidence = saveHangEvidence({ dir: join(dir, 'slow'), pid, userDataDir })
+  }, slowMs)
+
   const startedAt = Date.now()
   const result = await Promise.race([app.close().catch(() => 'closed' as const), timedOut])
   clearTimeout(timer)
-  logCloseDuration(testInfo, Date.now() - startedAt, result === 'timeout')
+  clearTimeout(slowTimer)
+  const slowFiles = slowEvidence ? await slowEvidence : []
+  await attachAll('close-slow', slowFiles)
+  const status = result === 'timeout' ? 'TIMEOUT' : slowEvidence ? 'slow' : 'ok'
+  logCloseDuration(testInfo, Date.now() - startedAt, status)
   if (result !== 'timeout') return
-  const dir = evidenceDirFor(testInfo, options)
-  const files = await saveHangEvidence({
-    dir,
-    pid: app.process().pid,
-    userDataDir,
-  })
-  for (const path of files) {
-    await testInfo
-      .attach(`close-hang-${basename(path)}`, { path, contentType: 'text/plain' })
-      .catch(() => undefined)
-  }
+
+  // 5 秒那次已經取過呼叫堆疊就不再取（每次退出只取一次）；兩次的檔案放不同資料夾（slow／timeout）
+  await attachAll(
+    'close-hang',
+    await saveHangEvidence({
+      dir: join(dir, 'timeout'),
+      pid,
+      userDataDir,
+      sample: slowEvidence === undefined,
+    }),
+  )
   app.process().kill('SIGKILL')
   throw new Error(
-    `App ${String((options.timeoutMs ?? CLOSE_TIMEOUT_MS) / 1000)} 秒內關不掉（主行程 log、行程樹、lsof、sample 存在 ${dir}）`,
+    `App ${String(timeoutMs / 1000)} 秒內關不掉（主行程 log、行程樹、lsof、sample 存在 ${join(dir, 'timeout')}）`,
   )
 }
 
