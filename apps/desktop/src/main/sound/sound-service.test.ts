@@ -713,3 +713,76 @@ describe('匯出的片尾字卡', () => {
     expect((await none.quickstart.export()).credits).toBe(false)
   })
 })
+
+describe('SoundService.adding：旁白與配樂還在加（匯出據此擋）', () => {
+  const addingEvents = (h: Harness): unknown[] =>
+    h.events.filter((e) => e.name === 'canvas.soundAddingChanged').map((e) => e.payload)
+
+  /** 讓配樂卡住，直到 release()。 */
+  function holdMusic(h: Harness): () => void {
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const real = h.sound.generateMusic.bind(h.sound)
+    vi.spyOn(h.sound, 'generateMusic').mockImplementation(async (input) => {
+      await gate
+      return real(input)
+    })
+    return release
+  }
+
+  it('addAll 進行中是 true（發一次 true），加完放開（發一次 false）', async () => {
+    const h = setup()
+    await withShots(h)
+    expect(h.sound.adding()).toBe(false)
+    const release = holdMusic(h)
+    const running = h.sound.addAll({ narration: false, music: true })
+    expect(h.sound.adding()).toBe(true)
+    expect(addingEvents(h)).toEqual([{ adding: true }])
+    release()
+    await running
+    expect(h.sound.adding()).toBe(false)
+    expect(addingEvents(h)).toEqual([{ adding: true }, { adding: false }])
+  })
+
+  it('加的途中失敗：也放開，不會卡在「還在加」', async () => {
+    const h = setup()
+    await withShots(h)
+    vi.spyOn(h.sound, 'generateMusic').mockRejectedValue(new Error('配樂服務壞了'))
+    await expect(h.sound.addAll({ narration: false, music: true })).rejects.toThrow('配樂服務壞了')
+    expect(h.sound.adding()).toBe(false)
+    expect(addingEvents(h)).toEqual([{ adding: true }, { adding: false }])
+  })
+
+  it('預估不過（送出前就被拒）也放開', async () => {
+    const h = setup()
+    await expect(h.sound.addAll({ narration: true, music: true })).rejects.toThrow()
+    expect(h.sound.adding()).toBe(false)
+    expect(addingEvents(h).at(-1)).toEqual({ adding: false })
+  })
+
+  it('同時兩個 addAll：兩個都做完才放開', async () => {
+    const h = setup()
+    await withShots(h)
+    const release = holdMusic(h)
+    const first = h.sound.addAll({ narration: false, music: true })
+    const second = h.sound.addAll({ narration: false, music: true })
+    expect(h.sound.adding()).toBe(true)
+    release()
+    await Promise.allSettled([first, second])
+    expect(h.sound.adding()).toBe(false)
+    expect(addingEvents(h)).toEqual([{ adding: true }, { adding: false }])
+  })
+
+  it('單獨念一個旁白、單獨生一首配樂（手動）不算「還在加」', async () => {
+    const h = setup()
+    const [first] = await withShots(h)
+    if (!first) throw new Error('應該有鏡頭')
+    h.shots.update(first, { dialogue: '黑藤爬滿了斷橋。' })
+    await h.sound.generateNarration({ shotId: first })
+    await h.sound.generateMusic({})
+    expect(h.sound.adding()).toBe(false)
+    expect(addingEvents(h)).toEqual([])
+  })
+})

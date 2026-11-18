@@ -258,6 +258,10 @@ export function createStudioApp(options: StudioAppOptions): StudioApp {
     log,
     shots,
     beginHistory: (label) => historyRef.current?.begin(label) ?? (() => undefined),
+    // 畫面（畫布的匯出鈕）還聽舊的事件名；畫布拿掉時這行跟著拿掉
+    onAddingChange: (adding) => {
+      broadcast('canvas.soundAddingChanged', { adding })
+    },
     ...(options.pickMusic ? { pickMusic: options.pickMusic } : {}),
     ...toolsOption,
   })

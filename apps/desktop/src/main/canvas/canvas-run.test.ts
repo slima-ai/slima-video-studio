@@ -560,14 +560,16 @@ describe('預告片專案：全部生成做完打開成品', { timeout: 120_000 
     await h.trailer.plan({ text: STORY })
     expect(h.canvas.soundAdding()).toBe(false)
     // 加聲音卡住，才量得到「還在加」
+    // （「還在加」現在由聲音服務的 addAll 自己記，所以卡在 addAll 裡面的配樂，不能把 addAll 整個換掉）
     let release: (() => void) | undefined
-    const realAddAll = h.sound.addAll.bind(h.sound)
-    h.sound.addAll = (...args) =>
-      new Promise((resolve, reject) => {
-        release = () => {
-          realAddAll(...args).then(resolve, reject)
-        }
-      })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const realMusic = h.sound.generateMusic.bind(h.sound)
+    vi.spyOn(h.sound, 'generateMusic').mockImplementation(async (input) => {
+      await gate
+      return realMusic(input)
+    })
     await h.canvas.run({ keys: [], all: true })
     await vi.waitFor(
       () => {

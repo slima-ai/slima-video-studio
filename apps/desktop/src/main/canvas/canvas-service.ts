@@ -91,7 +91,7 @@ export interface CanvasService {
   /** 改便條的字、群組的名字／顏色／大小；種類不對就丟白話錯誤。 */
   updateFree: (request: CanvasUpdateFree) => void
   /** 執行前的檢查：這次會跑哪些節點、預估花費、要標亮哪一串。 */
-  /** 旁白與配樂是不是還在加（接好片之後、加好之前；這段時間成品沒有聲音）。 */
+  /** 旁白與配樂是不是還在加（轉問聲音服務；畫布的匯出鈕用。匯出本身不看畫布，看 `SoundService.adding`）。 */
   soundAdding: () => boolean
   runPlan: (request: CanvasRunRequest) => CanvasRunPlan
   /** 「全部生成」旁邊三種做法（只補空的／重跑需要重跑的／全部重新生成）各自動幾鏡、多少錢。 */
@@ -133,7 +133,7 @@ export interface CanvasServiceDeps extends Omit<CanvasAdderDeps, 'freeNodes'>, C
   log: Pick<Logger, 'info' | 'warn'>
   now?: () => Date
   /** 聲音服務（「全部生成」之後照一句話卡片的勾選自動加旁白與配樂）；沒給就不加。 */
-  sound?: () => Pick<SoundService, 'plan' | 'addAll' | 'state'> | undefined
+  sound?: () => Pick<SoundService, 'plan' | 'addAll' | 'state' | 'adding'> | undefined
   /** 「上傳」的選檔視窗：回傳選到的檔案路徑（取消就是空的）。沒給就當作取消（測試用）。 */
   pickFiles?: () => Promise<string[]>
 }
@@ -190,9 +190,6 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
     },
     openFilm: () => {
       broadcast('canvas.openFilm', {})
-    },
-    soundAdding: (adding) => {
-      broadcast('canvas.soundAddingChanged', { adding })
     },
   })
   let revision = 0
@@ -575,7 +572,7 @@ export function createCanvasService(deps: CanvasServiceDeps): CanvasService {
       broadcast('canvas.changed', { revision })
     },
 
-    soundAdding: () => runner.soundAdding(),
+    soundAdding: () => deps.sound?.()?.adding() ?? false,
     runPlan: (request) => runner.plan(request),
     runChoices: (request) => runner.choices(request),
     run: (request) => runner.run(request),

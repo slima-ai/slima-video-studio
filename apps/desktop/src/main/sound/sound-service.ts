@@ -80,6 +80,8 @@ export interface SoundServiceDeps {
   beginHistory?: (label: string) => () => void
   /** 專案已關掉時，晚到的花費記在這裡（錢不會跟著專案消失）。 */
   appLedger?: AppSpendLedger
+  /** 「旁白與配樂還在加」這個狀態開始（true）／結束（false）時叫一次，畫面據此即時更新。 */
+  onAddingChange?: (adding: boolean) => void
 }
 
 /** 念好的旁白；放不進格子而被改短重念時，多帶一份說明（台詞已經換成新句）。 */
@@ -144,6 +146,11 @@ export interface SoundService {
     /** 停止時不再往下做。 */
     signal?: AbortSignal
   }) => Promise<{ narrations: number; music: boolean }>
+  /**
+   * 旁白與配樂是不是還在加（`addAll` 進行中，不管是誰呼叫的）。加好之前成品沒有聲音，
+   * 匯出會拿到全靜音的檔，所以這段時間匯出要擋。單一旁白、單一配樂的手動生成不算。
+   */
+  adding: () => boolean
   /** 目前聲音的指紋（採用中的片段與設定）；沒有聲音要處理是 undefined。成品記著它，不一樣就是過期。 */
   soundKey: (handle: ProjectHandle) => string | undefined
   /** 把聲音混進接好的影片（接片時用）；沒有聲音要處理回傳 undefined。 */
@@ -190,6 +197,8 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
   const tools = deps.tools ?? findTools
   /** 正在生成的項目（旁白是 narration:<鏡頭>，配樂是 music），不能重複開始。 */
   const busy = new Set<string>()
+  /** 進行中的 `addAll` 個數（可能有兩個同時；歸零才算加完）。 */
+  let addingCount = 0
 
   projects.onChange(() => {
     busy.clear()
@@ -954,33 +963,43 @@ export function createSoundService(deps: SoundServiceDeps): SoundService {
     soundKey: soundKeyOf,
     mixInto,
 
+    adding: () => addingCount > 0,
+
     async addAll(input) {
-      const handle = need()
-      const items = plan({
-        ...(input.narration ? { narration: {} } : {}),
-        ...(input.music ? { music: {} } : {}),
-      })
-      if (!items.ok) throw invalid(items.issue ?? t('services.canTAddSoundRight'))
-      const stopped = (): void => {
-        if (input.signal?.aborted) {
-          throw new AppError({ code: 'cancelled', userMessage: t('services.cancelled') })
+      // 一開始就算「還在加」：連預估不過、第一個旁白還沒開始念的那一刻也算；加完（成功、失敗、停止）才放開
+      addingCount++
+      if (addingCount === 1) deps.onAddingChange?.(true)
+      try {
+        const handle = need()
+        const items = plan({
+          ...(input.narration ? { narration: {} } : {}),
+          ...(input.music ? { music: {} } : {}),
+        })
+        if (!items.ok) throw invalid(items.issue ?? t('services.canTAddSoundRight'))
+        const stopped = (): void => {
+          if (input.signal?.aborted) {
+            throw new AppError({ code: 'cancelled', userMessage: t('services.cancelled') })
+          }
         }
-      }
-      let narrations = 0
-      for (const item of items.items) {
-        if (item.kind !== 'narration' || item.shotId === undefined) continue
+        let narrations = 0
+        for (const item of items.items) {
+          if (item.kind !== 'narration' || item.shotId === undefined) continue
+          stopped()
+          await service.generateNarration({ shotId: item.shotId })
+          narrations++
+        }
+        const wantMusic = items.items.some((i) => i.kind === 'music')
         stopped()
-        await service.generateNarration({ shotId: item.shotId })
-        narrations++
+        if (wantMusic) await service.generateMusic({})
+        stopped()
+        if (narrations > 0 || wantMusic) {
+          if (currentFinal(handle, () => soundKeyOf(handle))) await service.mix()
+        }
+        return { narrations, music: wantMusic }
+      } finally {
+        addingCount--
+        if (addingCount === 0) deps.onAddingChange?.(false)
       }
-      const wantMusic = items.items.some((i) => i.kind === 'music')
-      stopped()
-      if (wantMusic) await service.generateMusic({})
-      stopped()
-      if (narrations > 0 || wantMusic) {
-        if (currentFinal(handle, () => soundKeyOf(handle))) await service.mix()
-      }
-      return { narrations, music: wantMusic }
     },
 
     async analyze() {
