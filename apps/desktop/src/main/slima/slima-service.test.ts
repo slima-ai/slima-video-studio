@@ -139,10 +139,16 @@ describe('SlimaConnection', () => {
     const poll = setInterval(() => states.push(conn.status().state), 2)
 
     process.kill(first ?? 0, 'SIGKILL')
-    await vi.waitFor(() => {
-      expect(conn.status().state).toBe('ready')
-      expect(conn.pid()).not.toBe(first)
-    })
+    // 重連要起新子行程、握手、再探測一次：量到 kill → ready 約 469～914 毫秒（負載 50～56，6 次），
+    // 預設的 1 秒等待只剩一點餘裕，整套並行、負載 80～90 時就會在「連線中」被斷言（main 與 #267 都紅過）。
+    // 這條測的是「最後會重新連上」，所以放寬到 5 秒；產品自己的連線逾時是 20 秒。
+    await vi.waitFor(
+      () => {
+        expect(conn.status().state).toBe('ready')
+        expect(conn.pid()).not.toBe(first)
+      },
+      { timeout: 5_000 },
+    )
     clearInterval(poll)
 
     expect(states).toContain('error')
