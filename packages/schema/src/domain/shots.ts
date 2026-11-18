@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { ContentHashSchema, IdSchema, IsoDateTimeSchema } from './common'
+import { EconomyFallbackSchema } from './models'
 import { ShotAngleSchema, ShotSizeSchema, ShotStatusSchema, TakeKindSchema } from './story'
 import { BeatKindSchema, MIN_BEAT_SEC, ShotCardSchema, ShotOverlaySchema } from './trailer'
 import { TrimSchema } from './trim'
@@ -237,6 +238,8 @@ export const ShotBatchCheckSchema = z.object({
   demoMode: z.boolean(),
   /** 這次會用的圖片、影片模型名稱。 */
   models: z.object({ image: z.string().optional(), video: z.string().optional() }),
+  /** 「經濟」（先做草稿）這一組現在沒有能用的模型時，選經濟檔會退回用哪個；不管這次有沒有勾草稿都會算，畫面才能在勾之前就寫實際的模型名稱。 */
+  economyFallback: EconomyFallbackSchema.optional(),
   unconfirmed: UnconfirmedLooksSchema.optional(),
 })
 export type ShotBatchCheck = z.infer<typeof ShotBatchCheckSchema>

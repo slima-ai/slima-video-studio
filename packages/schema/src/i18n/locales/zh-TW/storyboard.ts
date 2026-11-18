@@ -15,6 +15,8 @@ export const storyboard = {
   'storyboard.useTheEconomyModelsFor': '整批用經濟組的模型：便宜、快，滿意的鏡頭再用高品質重做',
   'storyboard.makeDraftsFirst': '先出草稿',
   'storyboard.usesEconomyModelsCheapAnd': '（用經濟級的模型：便宜、快）',
+  'storyboard.draftUsesModel': '（{models}）',
+  'storyboard.noEconomyModelUsing': '目前沒有經濟模型，這次用 {models}。',
   'storyboard.starting': '開始中…',
   'storyboard.startGenerating': '開始生成',
   'storyboard.notNow': '先不要',

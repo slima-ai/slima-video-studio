@@ -1245,6 +1245,67 @@ describe('shots.batchCheck 先出草稿', { timeout: 30_000 }, () => {
   })
 })
 
+describe(
+  '「經濟」那一組沒有能用的模型：batchCheck 與畫布的執行預估都帶 economyFallback',
+  { timeout: 30_000 },
+  () => {
+    /** 日期固定：fal 上的 Veo 3.1 Lite 2026-11-17 移除，測試不能跟著真實日期變。 */
+    const BEFORE_SUNSET = new Date('2026-11-01T00:00:00Z')
+    const AFTER_SUNSET = new Date('2026-11-18T00:00:00Z')
+
+    async function realMode(now: Date, keys: string[]) {
+      const h = setup({ modelsNow: () => now })
+      await h.runQuickStart()
+      h.settings.update({ demoMode: false })
+      for (const provider of keys) h.keys.set(provider, `${provider}-test-key-1234567890`)
+      const ids = h.shots.list().shots.map((s) => s.id)
+      return { h, ids }
+    }
+
+    it('只有 fal 的 Key、Veo 3.1 Lite 在 fal 下架之後：影片沒有經濟模型，帶出實際會用的 Kling 3.0 Standard；圖片還有經濟模型（Seedream）所以不列。不管有沒有勾草稿都帶', async () => {
+      const { h, ids } = await realMode(AFTER_SUNSET, ['fal'])
+      const normal = h.shots.batchCheck({ shotIds: ids, skipGenerated: false })
+      const draft = h.shots.batchCheck({ shotIds: ids, skipGenerated: false, draft: true })
+      expect(normal.economyFallback).toEqual({ video: 'Kling 3.0 Standard' })
+      expect(draft.economyFallback).toEqual({ video: 'Kling 3.0 Standard' })
+      // 勾了草稿，影片實際用的就是這個（不是便宜的）
+      expect(draft.models.video).toBe('Kling 3.0 Standard')
+    })
+
+    it('畫布的執行預估（canvas.runPlan）也帶同一份：確認視窗的品質切換用它', async () => {
+      const { h } = await realMode(AFTER_SUNSET, ['fal'])
+      const plan = h.canvas.runPlan({ keys: [], all: true, batch: 'regenerate', quality: 'budget' })
+      expect(plan.economyFallback).toEqual({ video: 'Kling 3.0 Standard' })
+    })
+
+    it('下架之前（fal 的 Veo 3.1 Lite 還能用）：有經濟模型，沒有這個欄位', async () => {
+      const { h, ids } = await realMode(BEFORE_SUNSET, ['fal'])
+      const draft = h.shots.batchCheck({ shotIds: ids, skipGenerated: false, draft: true })
+      expect(draft).not.toHaveProperty('economyFallback')
+      expect(draft.models.video).toBe('Veo 3.1 Lite')
+      expect(h.canvas.runPlan({ keys: [], all: true, quality: 'budget' })).not.toHaveProperty(
+        'economyFallback',
+      )
+    })
+
+    it('fal 下架之後但也填了 OpenRouter 的 Key：OpenRouter 上還有經濟模型，沒有這個欄位', async () => {
+      const { h, ids } = await realMode(AFTER_SUNSET, ['fal', 'openrouter'])
+      expect(
+        h.shots.batchCheck({ shotIds: ids, skipGenerated: false, draft: true }),
+      ).not.toHaveProperty('economyFallback')
+    })
+
+    it('示範模式：示範模型不分檔，沒有這個欄位', async () => {
+      const h = setup({ modelsNow: () => AFTER_SUNSET })
+      await h.runQuickStart()
+      const ids = h.shots.list().shots.map((s) => s.id)
+      expect(
+        h.shots.batchCheck({ shotIds: ids, skipGenerated: false, draft: true }),
+      ).not.toHaveProperty('economyFallback')
+    })
+  },
+)
+
 describe('批次生成的階段：只生首幀圖／只生影片', { timeout: 60_000 }, () => {
   /** 快速開始做出 3 個鏡頭（都有首幀與影片），再加 2 個還沒生成的新鏡頭。 */
   async function withFiveShots() {

@@ -179,6 +179,69 @@ describe('StoryboardPage', () => {
     })
   })
 
+  describe('先做草稿：經濟那一組沒有能用的模型（只有 fal 的 Key、Veo 3.1 Lite 下架）', () => {
+    const batchCheck = (economyFallback?: ShotBatchCheck['economyFallback']): ShotBatchCheck => ({
+      ok: true,
+      willGenerate: 2,
+      skippedGenerated: 0,
+      skippedBusy: 0,
+      skippedNoFrame: 0,
+      estimatedUsd: 1,
+      estimateIsLowerBound: false,
+      demoMode: false,
+      models: { image: '圖片模型', video: 'Kling 3.0 Standard' },
+      ...(economyFallback ? { economyFallback } : {}),
+    })
+    async function openConfirm(check: ShotBatchCheck) {
+      installFakeSvs({
+        'outline.get': () => outline,
+        'shots.list': () => snapshot(shot('s1', 1), shot('s2', 2)),
+        'shots.batchCheck': () => check,
+      })
+      render(<StoryboardPage />)
+      const boxes = await screen.findAllByTestId('row-select')
+      for (const box of boxes) fireEvent.click(box)
+      fireEvent.click(screen.getByTestId('storyboard-generate'))
+      await screen.findByTestId('storyboard-batch-draft')
+      await waitFor(() => {
+        expect(screen.getByTestId('storyboard-batch-info').textContent).toContain('會生成 2 個鏡頭')
+      })
+    }
+
+    it('草稿旁邊的標籤改寫實際用的模型名稱，不再寫「經濟」', async () => {
+      await openConfirm(batchCheck({ video: 'Kling 3.0 Standard' }))
+      const hint = screen.getByTestId('storyboard-batch-draft-hint')
+      expect(hint.textContent).toBe('（Kling 3.0 Standard）')
+      expect(hint.textContent).not.toContain('經濟')
+    })
+
+    it('勾了草稿：確認那一行有「目前沒有經濟模型，這次用 …」；沒勾就沒有', async () => {
+      await openConfirm(batchCheck({ video: 'Kling 3.0 Standard' }))
+      const info = screen.getByTestId('storyboard-batch-info')
+      expect(info.textContent).not.toContain('目前沒有經濟模型')
+      fireEvent.click(screen.getByTestId('storyboard-batch-draft'))
+      await waitFor(() => {
+        expect(screen.getByTestId('storyboard-batch-info').textContent).toContain(
+          '目前沒有經濟模型，這次用 Kling 3.0 Standard。',
+        )
+      })
+    })
+
+    it('有經濟模型（沒有 economyFallback）：畫面跟以前一樣，寫經濟級的模型、勾了草稿也沒有那一句', async () => {
+      await openConfirm(batchCheck())
+      expect(screen.getByTestId('storyboard-batch-draft-hint').textContent).toBe(
+        '（用經濟級的模型：便宜、快）',
+      )
+      fireEvent.click(screen.getByTestId('storyboard-batch-draft'))
+      await waitFor(() => {
+        expect(screen.getByTestId('storyboard-batch-draft')).toHaveProperty('checked', true)
+      })
+      expect(screen.getByTestId('storyboard-batch-info').textContent).not.toContain(
+        '目前沒有經濟模型',
+      )
+    })
+  })
+
   it('選取多列：生成前先看預估與略過幾個，勾選「略過已生成」會重新檢查；刪除也要先確認', async () => {
     const check = (skipGenerated: boolean): ShotBatchCheck => ({
       ok: true,

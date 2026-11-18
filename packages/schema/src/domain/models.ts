@@ -22,6 +22,16 @@ export type Capability = z.infer<typeof CapabilitySchema>
 export const ModelTierSchema = z.enum(['premium', 'balanced', 'budget'])
 export type ModelTier = z.infer<typeof ModelTierSchema>
 
+/**
+ * 「經濟」那一組目前沒有能用的模型（例如只填了 fal 的 Key、經濟組唯一的 Veo 3.1 Lite 在 fal 已下架）時，
+ * 選了經濟檔實際會退回用哪個模型（顯示名稱）。圖片、影片各自判斷，沒退回的那種不列；兩種都有經濟模型就沒有這個欄位。
+ */
+export const EconomyFallbackSchema = z.object({
+  image: z.string().optional(),
+  video: z.string().optional(),
+})
+export type EconomyFallback = z.infer<typeof EconomyFallbackSchema>
+
 /** active 才會出現在選單；deprecated 仍可用但不再推薦；sunset 已下架。 */
 export const ModelStatusSchema = z.enum(['active', 'deprecated', 'sunset'])
 export type ModelStatus = z.infer<typeof ModelStatusSchema>

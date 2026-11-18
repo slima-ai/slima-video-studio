@@ -1,4 +1,4 @@
-import type { CanvasRunPlan, ModelTier } from '@svs/schema'
+import type { CanvasRunPlan, EconomyFallback, ModelTier } from '@svs/schema'
 
 import { Button } from '../../components/button'
 import { useAppNavigation } from '../../lib/app-navigation'
@@ -22,14 +22,31 @@ export const QUALITY_CHOICES: readonly {
   { value: 'budget', label: msg('canvas.economy'), hint: msg('canvas.forDraftsCheapAndFast') },
 ]
 
-/** 三選一（加上「預設」）的小切換；換了之後確認面板重新算步驟與花費。 */
+/** 退回的模型名稱（圖片、影片各自判斷，沒退回的那種不列）。 */
+const fallbackNames = (fallback: EconomyFallback): string =>
+  [fallback.image, fallback.video].filter(Boolean).join(t('list.comma'))
+
+/**
+ * 三選一（加上「預設」）的小切換；換了之後確認面板重新算步驟與花費。
+ * `economyFallback`：「經濟」那一組現在沒有能用的模型時，經濟檔實際會用哪個——標籤改寫實際的模型名稱、說明改寫那一句，
+ * 不再寫「經濟」「便宜、快」（那是假的）。
+ */
 export function QualitySwitch({
   value,
   onChange,
+  economyFallback,
 }: {
   value: ModelTier | undefined
   onChange: (next: ModelTier | undefined) => void
+  economyFallback?: EconomyFallback | undefined
 }) {
+  const fallback = economyFallback ? fallbackNames(economyFallback) : ''
+  const labelOf = (choice: (typeof QUALITY_CHOICES)[number]): string =>
+    choice.value === 'budget' && fallback !== '' ? fallback : t(choice.label)
+  const hintOf = (choice: (typeof QUALITY_CHOICES)[number]): string =>
+    choice.value === 'budget' && fallback !== ''
+      ? t('canvas.noEconomyModelUsing', { models: fallback })
+      : t(choice.hint)
   const chosen = QUALITY_CHOICES.find((choice) => choice.value === value)
   return (
     <div className="flex flex-col gap-1">
@@ -47,7 +64,7 @@ export function QualitySwitch({
               type="button"
               role="radio"
               aria-checked={on}
-              title={t(choice.hint)}
+              title={hintOf(choice)}
               data-testid={`quality-${choice.value ?? 'default'}`}
               className={cn(
                 'flex-1 rounded-md px-2 py-1 transition-colors',
@@ -57,14 +74,16 @@ export function QualitySwitch({
                 onChange(choice.value)
               }}
             >
-              {t(choice.label)}
+              {labelOf(choice)}
             </button>
           )
         })}
       </div>
       {chosen ? (
         <p data-testid="quality-hint" className="text-xs leading-snug text-fg-muted">
-          {t('canvas.labelAndHint', { label: t(chosen.label), hint: t(chosen.hint) })}
+          {chosen.value === 'budget' && fallback !== ''
+            ? hintOf(chosen)
+            : t('canvas.labelAndHint', { label: t(chosen.label), hint: t(chosen.hint) })}
         </p>
       ) : null}
     </div>
@@ -269,7 +288,9 @@ export function RunPlanConfirm({
     </ul>
   ) : null
   const qualitySwitch =
-    onQuality && plan.shotCount > 0 ? <QualitySwitch value={quality} onChange={onQuality} /> : null
+    onQuality && plan.shotCount > 0 ? (
+      <QualitySwitch value={quality} onChange={onQuality} economyFallback={plan.economyFallback} />
+    ) : null
   const unconfirmedNote = plan.unconfirmed ? (
     <UnconfirmedNote unconfirmed={plan.unconfirmed} onCancel={onCancel} />
   ) : null

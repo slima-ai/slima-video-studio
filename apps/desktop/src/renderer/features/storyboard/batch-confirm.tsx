@@ -12,7 +12,13 @@ export interface BatchConfirmProps {
   onError: (message: string) => void
 }
 
-function describe(check: ShotBatchCheck): string {
+/** 「經濟」那一組沒有能用的模型時，草稿實際會用的模型名稱（圖片、影片各自判斷，沒退回的那種不列）；有經濟模型時是空字串。 */
+function fallbackModels(check: ShotBatchCheck | undefined): string {
+  const fallback = check?.economyFallback
+  return fallback ? [fallback.image, fallback.video].filter(Boolean).join(t('list.comma')) : ''
+}
+
+function describe(check: ShotBatchCheck, draft: boolean): string {
   const skipped: string[] = []
   if (check.skippedGenerated > 0)
     skipped.push(t('storyboard.alreadyGenerated', { value: String(check.skippedGenerated) }))
@@ -26,14 +32,19 @@ function describe(check: ShotBatchCheck): string {
   const models = [check.models.image, check.models.video].filter(Boolean).join(t('list.comma'))
   const count = String(check.willGenerate)
   const skippedText = skipped.join(t('list.comma'))
-  if (skipped.length > 0) {
-    return models
-      ? t('storyboard.willGenerateShotsSkipping', { count, skippedText, cost, models })
-      : t('storyboard.willGenerateShotsSkipping2', { count, skippedText, cost })
-  }
-  return models
-    ? t('storyboard.willGenerateShots', { count, cost, models })
-    : t('storyboard.willGenerateShots2', { count, cost })
+  const main =
+    skipped.length > 0
+      ? models
+        ? t('storyboard.willGenerateShotsSkipping', { count, skippedText, cost, models })
+        : t('storyboard.willGenerateShotsSkipping2', { count, skippedText, cost })
+      : models
+        ? t('storyboard.willGenerateShots', { count, cost, models })
+        : t('storyboard.willGenerateShots2', { count, cost })
+  // 勾了草稿、經濟那一組又沒有能用的模型：明說這次實際用哪個，不讓人以為在用便宜的
+  const fallback = fallbackModels(check)
+  return draft && fallback !== ''
+    ? `${main}${t('storyboard.noEconomyModelUsing', { models: fallback })}`
+    : main
 }
 
 /** 批次生成前的確認：先告訴你會做幾個、略過幾個、大概花多少錢，確認後才開始。 */
@@ -68,12 +79,14 @@ export function BatchConfirm({ shotIds, onCancel, onStarted, onError }: BatchCon
     }
   }
 
+  const noEconomy = fallbackModels(check)
+
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="storyboard-batch">
       <span className="text-sm" data-testid="storyboard-batch-info" role="status">
         {check
           ? check.ok
-            ? describe(check)
+            ? describe(check, draft)
             : (check.issue ?? t('storyboard.canTGenerateRightNow'))
           : t('storyboard.checking')}
       </span>
@@ -90,7 +103,11 @@ export function BatchConfirm({ shotIds, onCancel, onStarted, onError }: BatchCon
       </label>
       <label
         className="flex items-center gap-1 text-sm"
-        title={t('storyboard.useTheEconomyModelsFor')}
+        title={
+          noEconomy
+            ? t('storyboard.noEconomyModelUsing', { models: noEconomy })
+            : t('storyboard.useTheEconomyModelsFor')
+        }
       >
         <input
           type="checkbox"
@@ -101,7 +118,11 @@ export function BatchConfirm({ shotIds, onCancel, onStarted, onError }: BatchCon
           }}
         />
         {t('storyboard.makeDraftsFirst')}
-        <span className="text-xs text-fg-muted">{t('storyboard.usesEconomyModelsCheapAnd')}</span>
+        <span className="text-xs text-fg-muted" data-testid="storyboard-batch-draft-hint">
+          {noEconomy
+            ? t('storyboard.draftUsesModel', { models: noEconomy })
+            : t('storyboard.usesEconomyModelsCheapAnd')}
+        </span>
       </label>
       {check?.ok ? (
         <Button
