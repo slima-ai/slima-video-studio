@@ -5,10 +5,11 @@ import {
   type Page,
   type TestInfo,
 } from '@playwright/test'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 
+import { saveHangEvidence } from './hang-evidence'
 import { launchApp } from './launch'
 
 interface Fixtures {
@@ -79,35 +80,72 @@ export const test = base.extend<Fixtures>({
 /** 關 App 最多等這麼久；超過就是主行程卡住了。 */
 const CLOSE_TIMEOUT_MS = 20_000
 
+export interface CloseAppOptions {
+  /** 測試用：縮短等待時間 */
+  timeoutMs?: number
+  /** 證據資料夾；沒給就看環境變數 SVS_E2E_EVIDENCE_DIR（每次逾時各一個子資料夾，不被重跑蓋掉），再沒有就放在這個測試的輸出資料夾 */
+  evidenceDir?: string
+}
+
+/** 設了 SVS_E2E_CLOSE_LOG 就把每次關 App 花的毫秒數記一行（量「平常多久退出」用）。 */
+function logCloseDuration(testInfo: TestInfo, ms: number, timedOut: boolean) {
+  const file = process.env.SVS_E2E_CLOSE_LOG
+  if (!file) return
+  try {
+    appendFileSync(
+      file,
+      `${new Date().toISOString()}\t${String(ms)}ms\t${timedOut ? 'TIMEOUT' : 'ok'}\t${testInfo.title}\n`,
+    )
+  } catch {
+    // 記不了就算了，不影響測試
+  }
+}
+
+function evidenceDirFor(testInfo: TestInfo, options: CloseAppOptions): string {
+  if (options.evidenceDir) return options.evidenceDir
+  const root = process.env.SVS_E2E_EVIDENCE_DIR
+  if (!root) return testInfo.outputPath('close-hang')
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const slug = testInfo.title.replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 40)
+  return join(root, `${stamp}-${slug}`)
+}
+
 /**
  * 關 App。卡住時（以前曾在全套並行時發生）不讓整個 worker 等到逾時、連帶下一個測試沒跑：
- * 把主行程 log 附在報告上、強制結束行程，並讓這個測試失敗（不吞掉問題）。
+ * 先把證據存成檔（完整主行程 log、行程樹、開著的檔案與 port、macOS 的呼叫堆疊），
+ * 再強制結束行程，並讓這個測試失敗（不吞掉問題）。
  */
-export async function closeApp(app: ElectronApplication, userDataDir: string, testInfo: TestInfo) {
+export async function closeApp(
+  app: ElectronApplication,
+  userDataDir: string,
+  testInfo: TestInfo,
+  options: CloseAppOptions = {},
+) {
   let timer: NodeJS.Timeout | undefined
   const timedOut = new Promise<'timeout'>((resolve) => {
     timer = setTimeout(() => {
       resolve('timeout')
-    }, CLOSE_TIMEOUT_MS)
+    }, options.timeoutMs ?? CLOSE_TIMEOUT_MS)
   })
+  const startedAt = Date.now()
   const result = await Promise.race([app.close().catch(() => 'closed' as const), timedOut])
   clearTimeout(timer)
+  logCloseDuration(testInfo, Date.now() - startedAt, result === 'timeout')
   if (result !== 'timeout') return
-  let log = ''
-  try {
-    log = readFileSync(join(userDataDir, 'logs', 'main.log'), 'utf8')
-  } catch {
-    // 沒有 log 就只附說明
+  const dir = evidenceDirFor(testInfo, options)
+  const files = await saveHangEvidence({
+    dir,
+    pid: app.process().pid,
+    userDataDir,
+  })
+  for (const path of files) {
+    await testInfo
+      .attach(`close-hang-${basename(path)}`, { path, contentType: 'text/plain' })
+      .catch(() => undefined)
   }
-  await testInfo
-    .attach('main-log-when-close-hung', {
-      body: log || '（沒有主行程 log）',
-      contentType: 'text/plain',
-    })
-    .catch(() => undefined)
   app.process().kill('SIGKILL')
   throw new Error(
-    `App ${String(CLOSE_TIMEOUT_MS / 1000)} 秒內關不掉（主行程 log 附在報告的 main-log-when-close-hung）`,
+    `App ${String((options.timeoutMs ?? CLOSE_TIMEOUT_MS) / 1000)} 秒內關不掉（主行程 log、行程樹、lsof、sample 存在 ${dir}）`,
   )
 }
 
