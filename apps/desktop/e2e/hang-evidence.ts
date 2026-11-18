@@ -61,7 +61,7 @@ export interface HangEvidenceInput {
   pid: number | undefined
   /** 這個測試的 userData（讀 logs/main.log） */
   userDataDir: string
-  /** false＝不取呼叫堆疊（sample 會掛上偵錯器、拖慢那個行程，每次退出只取一次）。預設 true。 */
+  /** false＝不取呼叫堆疊。sample 會掛上偵錯器、干擾那個行程（實測：偏慢時就取，退出平均多 2.5 秒、40 次裡 1 次逾時），所以只在逾時、行程反正要被結束時取。預設 true。 */
   sample?: boolean
 }
 
@@ -101,7 +101,7 @@ export async function saveHangEvidence(input: HangEvidenceInput): Promise<string
     ].join('\n'),
   )
 
-  const table = await run('ps', ['-axo', 'pid=,ppid=,pgid=,stat=,etime=,%cpu=,%mem=,command='])
+  const table = await run('ps', ['-axo', 'pid=,ppid=,pgid=,ni=,stat=,etime=,%cpu=,%mem=,command='])
   if (pid === undefined) {
     put('processes.txt', '（沒有 pid）\n')
     return saved
@@ -110,7 +110,7 @@ export async function saveHangEvidence(input: HangEvidenceInput): Promise<string
   put(
     'processes.txt',
     tree.length > 0
-      ? `pid ppid pgid stat etime %cpu %mem command\n${tree.map((row) => row.line).join('\n')}\n`
+      ? `pid ppid pgid ni stat etime %cpu %mem command\n${tree.map((row) => row.line).join('\n')}\n`
       : `（ps 找不到 pid ${String(pid)}：行程在取證據前就結束了）\n`,
   )
 

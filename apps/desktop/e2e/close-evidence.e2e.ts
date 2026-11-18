@@ -66,6 +66,8 @@ test.describe('關 App 逾時：先存證據再結束', () => {
       expect(readFileSync(join(slowDir, 'main.log'), 'utf8')).toContain('SLOW-LINE')
       expect(readFileSync(join(slowDir, 'processes.txt'), 'utf8')).toContain('sleep 300')
       expect(readFileSync(join(slowDir, 'lsof.txt'), 'utf8').length).toBeGreaterThan(0)
+      // 偏慢時不取 sample（會干擾還在退出的行程）
+      expect(existsSync(join(slowDir, 'sample-main.txt'))).toBe(false)
       expect(main.exitCode === null && main.signalCode === null).toBe(true)
     } finally {
       main.kill('SIGKILL')
@@ -88,7 +90,7 @@ test.describe('關 App 逾時：先存證據再結束', () => {
     }
   })
 
-  test('偏慢之後又逾時：兩份證據放不同資料夾，呼叫堆疊只取一次（5 秒那次）', async ({}, testInfo) => {
+  test('偏慢之後又逾時：兩份證據放不同資料夾，呼叫堆疊只在逾時那次取', async ({}, testInfo) => {
     const userDataDir = mkdtempSync(join(tmpdir(), 'svs-e2e-close-both-'))
     const main = spawn('/bin/sh', ['-c', 'sleep 300 & wait'], { stdio: 'ignore' })
     const evidenceDir = join(userDataDir, 'evidence')
@@ -104,10 +106,12 @@ test.describe('關 App 逾時：先存證據再結束', () => {
 
       expect(existsSync(join(evidenceDir, 'slow', 'lsof.txt'))).toBe(true)
       expect(existsSync(join(evidenceDir, 'timeout', 'lsof.txt'))).toBe(true)
-      expect(existsSync(join(evidenceDir, 'timeout', 'sample-main.txt'))).toBe(false)
+      expect(existsSync(join(evidenceDir, 'slow', 'sample-main.txt'))).toBe(false)
       if (process.platform === 'darwin') {
-        expect(existsSync(join(evidenceDir, 'slow', 'sample-main.txt'))).toBe(true)
+        expect(existsSync(join(evidenceDir, 'timeout', 'sample-main.txt'))).toBe(true)
       }
+      // 行程表要有 nice 值（這次要查的就是測試行程是不是被降了優先權）
+      expect(readFileSync(join(evidenceDir, 'timeout', 'processes.txt'), 'utf8')).toContain(' ni ')
     } finally {
       main.kill('SIGKILL')
       rmSync(userDataDir, { recursive: true, force: true })

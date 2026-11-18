@@ -116,8 +116,9 @@ function evidenceDirFor(testInfo: TestInfo, options: CloseAppOptions): string {
 }
 
 /**
- * 關 App。偏慢（超過 5 秒）時先把證據存成檔（完整主行程 log、行程樹、開著的檔案與 port、macOS 的呼叫堆疊），
- * 不強制結束、照常等它退出；卡住（超過 20 秒，以前曾在全套並行時發生）則再存一份、強制結束行程，
+ * 關 App。偏慢（超過 5 秒）時先把證據存成檔（完整主行程 log、行程樹、開著的檔案與 port；不取 sample，
+ * 它會干擾退出中的行程），不強制結束、照常等它退出；卡住（超過 20 秒，以前曾在全套並行時發生）則再存一份
+ * （這次加上 macOS 的呼叫堆疊 sample）、強制結束行程，
  * 並讓這個測試失敗（不吞掉問題），不讓整個 worker 等到逾時、連帶下一個測試沒跑。
  */
 export async function closeApp(
@@ -147,7 +148,8 @@ export async function closeApp(
   })
   let slowEvidence: Promise<string[]> | undefined
   const slowTimer = setTimeout(() => {
-    slowEvidence = saveHangEvidence({ dir: join(dir, 'slow'), pid, userDataDir })
+    // 偏慢時不取 sample：它會干擾還在退出的行程
+    slowEvidence = saveHangEvidence({ dir: join(dir, 'slow'), pid, userDataDir, sample: false })
   }, slowMs)
 
   const startedAt = Date.now()
@@ -160,15 +162,10 @@ export async function closeApp(
   logCloseDuration(testInfo, Date.now() - startedAt, status)
   if (result !== 'timeout') return
 
-  // 5 秒那次已經取過呼叫堆疊就不再取（每次退出只取一次）；兩次的檔案放不同資料夾（slow／timeout）
+  // 逾時才取呼叫堆疊（行程反正要被結束）；兩次的檔案放不同資料夾（slow／timeout）
   await attachAll(
     'close-hang',
-    await saveHangEvidence({
-      dir: join(dir, 'timeout'),
-      pid,
-      userDataDir,
-      sample: slowEvidence === undefined,
-    }),
+    await saveHangEvidence({ dir: join(dir, 'timeout'), pid, userDataDir }),
   )
   app.process().kill('SIGKILL')
   throw new Error(
