@@ -443,7 +443,8 @@ export function registerAllHandlers(raw: IpcRegistry, deps: HandlerDeps): void {
   })
   registry.registerHandler('quickstart.export', ({ credits }) => {
     // 旁白與配樂還在加的那段時間，成品是沒有聲音的：不讓匯出（畫面的匯出鈕也停用，這裡擋 AI 工具與其他入口）
-    if (canvas.soundAdding()) {
+    // 看的是聲音服務自己的狀態（不管是畫布的「全部生成」還是一句話生成在加），不看畫布
+    if (sound?.adding()) {
       throw new AppError({
         code: 'invalid_request',
         userMessage: t('services.narrationAndMusicAreStillBeing'),
