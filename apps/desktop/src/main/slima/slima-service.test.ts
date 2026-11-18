@@ -102,9 +102,14 @@ describe('SlimaService', () => {
     const { service, keys } = setup()
     keys.set(SLIMA_KEY_ID, FAKE_SLIMA_TOKEN)
     service.start()
-    await vi.waitFor(() => {
-      expect(service.status().state).toBe('ready')
-    })
+    // 起子行程、握手、探測到 ready 量到約 310～434 毫秒（負載 45～53，6 次）；預設的 1 秒餘裕不多，
+    // 負載高時會在「連線中」被斷言。這條測的是「最後會自動連上」，所以給 5 秒（理由同下面的重連那條）。
+    await vi.waitFor(
+      () => {
+        expect(service.status().state).toBe('ready')
+      },
+      { timeout: 5_000 },
+    )
   })
 })
 
