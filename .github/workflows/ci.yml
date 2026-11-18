@@ -123,12 +123,12 @@ jobs:
             apps/desktop/test-results
           if-no-files-found: ignore
 
-  # 只在打 tag（v*）或手動勾了「也打安裝檔」才打包（未簽章安裝檔）；main 的 push 不打。
-  # 公開 repo 的 workflow artifact 登入的人都能下載，等於把安裝檔放給外面的人拿，所以沒說可以出就不自動打
+  # main、tag 與手動勾了「也打安裝檔」都會編 FFmpeg、跑媒體測試、打包（未簽章安裝檔），但**只有打 tag（v*）或手動觸發才上傳 dmg**。
+  # main 的 push 不上傳：公開 repo 的 workflow artifact 登入的人都能下載，等於把安裝檔放給外面的人拿，還沒決定可以出
   # 目前只打 Apple Silicon：Intel 版的 FFmpeg 還沒有（見 tools/ffmpeg/README.md），做得出來再把 x64 加回來
   build-mac:
     name: build-mac（arm64）
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.installers)
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.installers)
     needs: [lint, typecheck, unit, e2e-linux]
     runs-on: macos-latest
     timeout-minutes: 45
@@ -146,7 +146,7 @@ jobs:
         run: tools/ffmpeg/build-macos.sh
       # 防再犯：媒體（接片、混音、量測）的測試要對「App 實際帶的 FFmpeg」跑，不能只有開發機的系統版或 ffmpeg-static。
       # 用剛編好的版本、而且跟打包版一樣沒有 ffprobe（SVS_FFPROBE=none，由 ffmpeg 自己讀影片資訊）。
-      # 這個 job 只在打 tag／手動打包時跑（main 的 push 不跑）；其他 PR 與 main 的 CI 用 ffmpeg-static 6.0，兩邊的差異要在打包前才抓得到
+      # 這個 job 只在 main／tag／手動打包時跑；其他 PR 的 CI 用 ffmpeg-static 6.0，兩邊的差異才抓得到
       - name: 用剛編好的 FFmpeg 跑媒體測試
         run: pnpm exec vitest run packages/media
         env:
@@ -156,7 +156,9 @@ jobs:
       - run: pnpm --filter @svs/desktop dist --mac --arm64
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      # 只有打 tag（release job 要用）或手動觸發才上傳；main 的 push 打包完就丟掉，不留 dmg
       - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         with:
           name: slima-video-studio-mac-arm64
           path: apps/desktop/release/*.dmg
