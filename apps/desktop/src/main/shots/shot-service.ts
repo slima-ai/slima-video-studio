@@ -216,6 +216,8 @@ export interface ShotRunPlan {
   estimateIsLowerBound: boolean
   demoMode: boolean
   models: { image?: string; video?: string }
+  /** 「經濟」這一組現在沒有能用的模型時，選經濟檔會退回用哪個（顯示名稱）；沒有退回就沒有這個欄位。 */
+  economyFallback?: { image?: string; video?: string }
   /** 預告片專案：這次要生畫面的鏡頭裡還沒鎖定的角色與場景卡數。 */
   unconfirmed?: UnconfirmedLooks
 }
@@ -1368,6 +1370,17 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       id ? displayNameOf(models.get(id), id) : undefined
     const imageName = nameOf(image)
     const videoName = nameOf(video)
+    // 經濟那一組沒有能用的模型時，選經濟檔實際退回用哪個：不管這次選了哪一檔都算，畫面在選之前就能寫實際的模型名稱
+    const fallbackIds = settingsService.economyFallback()
+    const fallbackImage = nameOf(fallbackIds?.image)
+    const fallbackVideo = nameOf(fallbackIds?.video)
+    const economyFallback =
+      fallbackImage || fallbackVideo
+        ? {
+            ...(fallbackImage ? { image: fallbackImage } : {}),
+            ...(fallbackVideo ? { video: fallbackVideo } : {}),
+          }
+        : undefined
     return {
       demoMode,
       budget,
@@ -1377,6 +1390,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         ...(imageName ? { image: imageName } : {}),
         ...(videoName ? { video: videoName } : {}),
       },
+      economyFallback,
     }
   }
 
@@ -1519,7 +1533,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
         entry.shared = shared
       }
     }
-    const { demoMode, budget, image, video, names } = modelInfo(quality)
+    const { demoMode, budget, image, video, names, economyFallback } = modelInfo(quality)
     const unconfirmed = unconfirmedOf(
       handle,
       entries.filter((entry) => entry.image).map((entry) => entry.shot),
@@ -1529,6 +1543,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       skippedBusy,
       demoMode,
       models: names,
+      ...(economyFallback ? { economyFallback } : {}),
       ...(unconfirmed ? { unconfirmed } : {}),
     }
     const fail = (issue: string, estimatedUsd = 0, estimateIsLowerBound = false): ShotRunPlan => ({
@@ -1628,7 +1643,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       stage !== 'video' && request.skipGenerated
         ? planSharedFrames(handle, toRun)
         : new Map<string, SharedFrame>()
-    const { demoMode, budget, image, video, names } = modelInfo(quality)
+    const { demoMode, budget, image, video, names, economyFallback } = modelInfo(quality)
     // 要生畫面的（不是只做影片、也不是字卡）鏡頭用到的角色與場景卡，還沒鎖定的有幾個
     const unconfirmed =
       stage === 'video'
@@ -1645,6 +1660,7 @@ export function createShotService(deps: ShotServiceDeps): ShotService {
       skippedNoFrame,
       demoMode,
       models: names,
+      ...(economyFallback ? { economyFallback } : {}),
       ...(unconfirmed ? { unconfirmed } : {}),
     }
     const fail = (issue: string, estimatedUsd = 0, estimateIsLowerBound = false) => ({

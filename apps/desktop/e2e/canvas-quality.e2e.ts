@@ -38,7 +38,10 @@ test.describe('生成鈕旁的品質：高品質／平衡／經濟', () => {
     await expect(page.getByTestId('quality-hint')).toContainText('比較貴、比較慢')
     await expect.poll(() => costOf(page)).toBeGreaterThan(balanced)
     await page.getByTestId('quality-budget').click()
-    await expect(page.getByTestId('quality-hint')).toContainText('便宜、快')
+    // 只有 fal.ai 的 Key：fal 上沒有經濟檔的影片模型，選「經濟」實際退回設定裡選的，說明要寫出實際用哪個
+    await expect(page.getByTestId('quality-hint')).toContainText(
+      '目前沒有經濟模型，這次用 Kling 3.0 Standard。',
+    )
     await page.getByTestId('quality-premium').click()
 
     await page.getByTestId('quality-balanced').click()
@@ -71,5 +74,29 @@ test.describe('生成鈕旁的品質：高品質／平衡／經濟', () => {
     await page.getByTestId('quality-default').click()
     await expect(page.getByTestId('trial-steps')).toContainText('Kling 3.0 Standard')
     await expect(page.getByTestId('trial-cost')).toContainText(`US$${balanced.toFixed(2)}`)
+  })
+
+  test('再填 OpenRouter 的 Key：經濟有自己的模型，說明還是「便宜、快」，不出現退回的那句', async ({
+    page,
+  }) => {
+    await generateAndOpenCanvas(page)
+    await page.evaluate(async () => {
+      await window.svs.invoke('keys.set', { provider: 'fal', key: 'fal-e2e-quality-0123456789' })
+      await window.svs.invoke('keys.set', {
+        provider: 'openrouter',
+        key: 'sk-or-e2e-quality-0123456789',
+      })
+      await window.svs.invoke('settings.update', { demoMode: false })
+    })
+    const added = await page.evaluate(() => window.svs.invoke('canvas.add', { kind: 'shot' }))
+    if (!added.ok) throw new Error(added.error.userMessage)
+    await expect.poll(() => kindCount(page, 'shot')).toBe(4)
+    const video = `${added.data.key}:video`
+    await centerOn(page, video)
+    await page.getByTestId(`run-${video}`).click()
+    await expect(page.getByTestId('run-confirm')).toBeVisible()
+    await page.getByTestId('quality-budget').click()
+    await expect(page.getByTestId('quality-hint')).toContainText('便宜、快')
+    await expect(page.getByTestId('quality-hint')).not.toContainText('目前沒有經濟模型')
   })
 })

@@ -305,6 +305,58 @@ describe('RunPlanConfirm', () => {
     expect(onQuality).toHaveBeenLastCalledWith(undefined)
   })
 
+  describe('經濟那一組沒有能用的模型（只有 fal 的 Key、Veo 3.1 Lite 下架）', () => {
+    const fallback = { economyFallback: { video: 'Kling 3.0 Standard' } }
+    const view = (quality: 'budget' | undefined, patch: Partial<CanvasRunPlan>) =>
+      render(
+        <RunPlanConfirm
+          plan={plan(patch)}
+          anchor={anchor}
+          quality={quality}
+          onQuality={vi.fn()}
+          onOk={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      )
+
+    it('「經濟」那一顆改寫實際用的模型名稱，不再寫經濟；其他三顆不變', () => {
+      view(undefined, fallback)
+      expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual([
+        '預設',
+        '高品質',
+        '平衡',
+        'Kling 3.0 Standard',
+      ])
+    })
+
+    it('確認視窗有那一句；選了這一顆時說明也是那一句（不再寫「先出草稿：便宜、快」）', () => {
+      view(undefined, fallback)
+      expect(screen.getByTestId('quality-budget').title).toBe(
+        '目前沒有經濟模型，這次用 Kling 3.0 Standard。',
+      )
+      cleanup()
+      view('budget', fallback)
+      expect(screen.getByTestId('quality-hint').textContent).toBe(
+        '目前沒有經濟模型，這次用 Kling 3.0 Standard。',
+      )
+    })
+
+    it('圖片、影片都退回：兩個名稱都列', () => {
+      view('budget', { economyFallback: { image: '生圖模型 X', video: 'Kling 3.0 Standard' } })
+      expect(screen.getByTestId('quality-budget').textContent).toBe(
+        '生圖模型 X、Kling 3.0 Standard',
+      )
+    })
+
+    it('有經濟模型（沒有 economyFallback）：畫面跟以前一樣，寫經濟、說明是先出草稿', () => {
+      view('budget', {})
+      expect(screen.getByTestId('quality-budget').textContent).toBe('經濟')
+      expect(screen.getByTestId('quality-budget').title).toContain('先出草稿')
+      expect(screen.getByTestId('quality-hint').textContent).toContain('經濟：先出草稿')
+      expect(screen.getByTestId('quality-switch').textContent).not.toContain('目前沒有經濟模型')
+    })
+  })
+
   it('只剩接成品（不用模型）或沒給 onQuality：不顯示品質切換', () => {
     render(
       <RunPlanConfirm

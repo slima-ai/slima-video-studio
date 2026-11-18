@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { ContentHashSchema } from './common'
-import { ModelTierSchema } from './models'
+import { EconomyFallbackSchema, ModelTierSchema } from './models'
 import { UnconfirmedLooksSchema } from './shots'
 import { BeatKindSchema } from './trailer'
 import { QUICK_START_LIMITS, QuickStartSoundSchema, QuickStyleIdSchema } from './quickstart'
@@ -555,6 +555,8 @@ export const CanvasRunPlanSchema = z.object({
   estimateIsLowerBound: z.boolean(),
   demoMode: z.boolean(),
   models: z.object({ image: z.string().optional(), video: z.string().optional() }),
+  /** 「經濟」這一組現在沒有能用的模型時，選經濟檔會退回用哪個（跟 `shots.batchCheck` 同一份資料）。 */
+  economyFallback: EconomyFallbackSchema.optional(),
   /** 這次執行要提醒的事（例如某一鏡的格長超過影片模型的上限）；沒有就沒有這個欄位。 */
   warnings: z.array(z.string()).optional(),
   /** 預告片專案：這次要生畫面的鏡頭裡還沒確認（鎖定）的角色與場景卡數；確認視窗用它放一行提醒與〔先確認〕。 */

@@ -304,3 +304,41 @@ describe('SettingsService：旁白與配樂', () => {
     expect(service.resolveModel('tts')).toBe('openrouter/eleven-v3')
   })
 })
+
+describe('SettingsService.economyFallback：「經濟」那一組沒有能用的模型時退回用哪個', () => {
+  it('只有 fal 的 Key、Veo 3.1 Lite 在 fal 下架之後：影片沒有經濟模型，退回平常的 Kling 3.0 Standard；圖片還有經濟模型（Seedream）所以不列', () => {
+    const { service } = setup({ keys: ['fal'], now: AFTER_SUNSET })
+    expect(service.economyFallback()).toEqual({ video: 'fal/kling-3.0-standard' })
+  })
+
+  it('下架之前（fal 的 Veo 3.1 Lite 還能用）：有經濟模型，沒有退回', () => {
+    const { service } = setup({ keys: ['fal'], now: BEFORE_SUNSET })
+    expect(service.economyFallback()).toBeUndefined()
+  })
+
+  it('fal 下架之後但也填了 OpenRouter 的 Key：OpenRouter 的 Veo 3.1 Lite 與 Gemini Omni 還在，有經濟模型', () => {
+    const { service } = setup({ keys: ['fal', 'openrouter'], now: AFTER_SUNSET })
+    expect(service.economyFallback()).toBeUndefined()
+  })
+
+  it('只有 OpenRouter 的 Key：圖片、影片都有經濟模型', () => {
+    const { service } = setup({ keys: ['openrouter'], now: AFTER_SUNSET })
+    expect(service.economyFallback()).toBeUndefined()
+  })
+
+  it('示範模式：示範模型不分檔，不提', () => {
+    const { service } = setup({ demoMode: true, now: AFTER_SUNSET })
+    expect(service.economyFallback()).toBeUndefined()
+  })
+
+  it('沒有任何 Key：平常也沒有模型可用，沒有東西可以「退回」', () => {
+    const { service } = setup({ now: AFTER_SUNSET })
+    expect(service.economyFallback()).toBeUndefined()
+  })
+
+  it('專案自己指定的影片模型也算：退回的是這個專案實際會用的', () => {
+    const { service, project } = setup({ keys: ['fal'], now: AFTER_SUNSET, project: true })
+    project.models = { i2v: 'fal/kling-3.0-pro' }
+    expect(service.economyFallback()).toEqual({ video: 'fal/kling-3.0-pro' })
+  })
+})

@@ -469,6 +469,7 @@ export const canvas = {
   'canvas.balanced': '平衡',
   'canvas.middleOnPicturePriceAnd': '畫面、價錢、速度都中等',
   'canvas.economy': '經濟',
+  'canvas.noEconomyModelUsing': '目前沒有經濟模型，這次用 {models}。',
   'canvas.forDraftsCheapAndFast': '先出草稿：便宜、快，滿意的鏡頭再用高品質重做',
   'canvas.quality': '品質',
   'canvas.redoMakesVKeepsV': '重做（產生 v{value}，保留 v{value2}）',

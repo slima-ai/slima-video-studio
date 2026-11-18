@@ -17,6 +17,8 @@ export const storyboard = {
     'Use the Economy models for the whole batch: cheap and fast. Redo the shots you like in High quality.',
   'storyboard.makeDraftsFirst': 'Make drafts first',
   'storyboard.usesEconomyModelsCheapAnd': '(uses Economy models: cheap and fast)',
+  'storyboard.draftUsesModel': '({models})',
+  'storyboard.noEconomyModelUsing': 'There is no Economy model right now; this run uses {models}.',
   'storyboard.starting': 'Starting…',
   'storyboard.startGenerating': 'Start generating',
   'storyboard.notNow': 'Not now',

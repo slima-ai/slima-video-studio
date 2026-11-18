@@ -362,7 +362,11 @@ function TrialTab({
   return (
     <section className="space-y-3 p-4" data-testid="trial-tab">
       {onQuality && plan.shotCount > 0 ? (
-        <QualitySwitch value={quality} onChange={onQuality} />
+        <QualitySwitch
+          value={quality}
+          onChange={onQuality}
+          economyFallback={plan.economyFallback}
+        />
       ) : null}
       <p className="text-sm font-medium">
         {t('canvas.thisWillDoSteps', { value: String(plan.steps.length) })}

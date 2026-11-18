@@ -515,6 +515,7 @@ export const canvas = {
   'canvas.balanced': 'Balanced',
   'canvas.middleOnPicturePriceAnd': 'Middle on picture, price and speed',
   'canvas.economy': 'Economy',
+  'canvas.noEconomyModelUsing': 'There is no Economy model right now; this run uses {models}.',
   'canvas.forDraftsCheapAndFast':
     'For drafts: cheap and fast. Redo the shots you like in High quality.',
   'canvas.quality': 'Quality',

@@ -52,6 +52,11 @@ export interface SettingsService {
    * 指定 quality 時用那一組（高品質／平衡／經濟）推薦的，那一組沒有能用的才照平常。
    */
   resolveModel: (capability: PickableCapability, quality?: ModelTier) => string | undefined
+  /**
+   * 「經濟」這一組現在沒有能用的模型時（圖片、影片各自判斷），選經濟檔實際會退回用的模型（管道 id）；
+   * 兩種都有經濟模型、示範模式（示範模型不分檔）、或根本沒有可用的模型時是 undefined。
+   */
+  economyFallback: () => { image?: string; video?: string } | undefined
   /** 這個旁白模型用哪個聲音：設定裡選的（還在卡的 voices 裡才算），否則卡上的第一個；沒有聲音清單回傳 undefined。 */
   resolveVoice: (modelId: string) => string | undefined
   /** 取走還沒說過的模型通知（取完就清掉，只說一次）。 */
@@ -189,6 +194,20 @@ export function createSettingsService(deps: {
     return projectModel(capability) ?? appModel(capability)
   }
 
+  const economyFallback = (): { image?: string; video?: string } | undefined => {
+    if (store.get().demoMode) return undefined
+    const fallback: { image?: string; video?: string } = {}
+    for (const [key, capability] of [
+      ['image', 't2i'],
+      ['video', 'i2v'],
+    ] as const) {
+      if (availableFor(capability).some((card) => card.tier === 'budget')) continue
+      const id = projectModel(capability) ?? appModel(capability)
+      if (id) fallback[key] = id
+    }
+    return Object.keys(fallback).length > 0 ? fallback : undefined
+  }
+
   const resolveVoice = (modelId: string): string | undefined => {
     const voices = registry.get(modelId)?.voices ?? []
     const chosen = store.get().audio.voices[modelId]
@@ -210,6 +229,7 @@ export function createSettingsService(deps: {
 
   return {
     resolveModel,
+    economyFallback,
     resolveVoice,
     takeNotices: () => {
       const notices = store.get().modelNotices
