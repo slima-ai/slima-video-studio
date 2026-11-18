@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { createStudioHarness } from '../shots/test-harness'
+import { createStudioHarness, type HarnessOptions } from '../shots/test-harness'
 
 const harnesses: ReturnType<typeof createStudioHarness>[] = []
 afterEach(() => {
   for (const h of harnesses.splice(0)) h.cleanup()
 })
 
-function setup() {
-  const h = createStudioHarness()
+function setup(options: HarnessOptions = {}) {
+  const h = createStudioHarness(options)
   harnesses.push(h)
   return h
 }
@@ -104,7 +104,8 @@ describe('畫布：執行前的確認（本機的格子寫明不花錢）', () =
   })
 
   it('預告片專案：影片格的格長超過模型上限（Veo 最多 8 秒）：面板與確認視窗都提醒；沒超過、本機格子、一般專案都沒有', () => {
-    const h = setup()
+    // 固定「今天」在 fal 的 Veo 3.1 Lite 下架日（2026-11-17）之前：過了那天它會被當成下架、自動換成別的模型，這條就不是在測超過上限了
+    const h = setup({ modelsNow: () => new Date('2026-11-01T00:00:00Z') })
     // 關掉示範模式、填 fal.ai 的金鑰、影片用 Veo 3.1 Lite（一支 4～8 秒）
     h.settings.update({ demoMode: false })
     h.keys.set('fal', 'fal-test-key-1234567890')

@@ -35,6 +35,11 @@ export interface HarnessOptions {
   mockVideoNegativePrompt?: string
   /** 讓示範影片模型接受尾幀（模型卡 endFrame），用來驗證尾幀真的跟著請求送出。 */
   mockVideoEndFrame?: boolean
+  /**
+   * 模型註冊表認的「今天」。模型卡有下架日（`sunsetDate`），過了就當下架、選單不列、選了會被自動換掉；
+   * 測試如果要選會下架的真模型（例如 fal 的 Veo 3.1 Lite），一定要固定這個日期，不然哪天過了下架日測試就紅。
+   */
+  modelsNow?: () => Date
 }
 
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -67,6 +72,7 @@ export function createStudioHarness(options: HarnessOptions = {}) {
           }
         : card,
     ),
+    options.modelsNow,
   )
   const keys = new MemoryVault()
   const settings = createMemorySettingsStore({
